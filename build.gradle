@@ -1,0 +1,12 @@
+allprojects {
+    version = '0.0.3'
+}
+
+
+gradle.projectsEvaluated {
+    // ensure that all clean tasks are performed before all other tasks
+    def allTasks = allprojects*.tasks.flatten()
+    def cleantasks = allprojects*.tasks*.withType(Delete).flatten()
+
+    (allTasks - cleantasks)*.mustRunAfter cleantasks
+}
