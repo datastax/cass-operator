@@ -12,6 +12,7 @@ import (
 
 	"github.com/riptano/dse-operator/pkg/apis"
 	"github.com/riptano/dse-operator/pkg/controller"
+	"github.com/riptano/dse-operator/pkg/reconciliation"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
@@ -60,6 +61,9 @@ func main() {
 	logf.SetLogger(zap.Logger())
 
 	printVersion()
+
+	// Setup the event bus and handlers
+	reconciliation.SubscribeToEventBus()
 
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {
