@@ -10,7 +10,7 @@ import (
 	"fmt"
 
 	logr "github.com/go-logr/logr"
-	datastaxv1alpha1 "github.com/riptano/dse-operator/pkg/apis/datastax/v1alpha1"
+	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 
 	evbus "github.com/asaskevich/EventBus"
 

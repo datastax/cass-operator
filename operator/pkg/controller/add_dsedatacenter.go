@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/riptano/dse-operator/pkg/controller/dsedatacenter"
+	"github.com/riptano/dse-operator/operator/pkg/controller/dsedatacenter"
 )
 
 func init() {

@@ -9,7 +9,7 @@ ext {
 }
 
 golang {
-    packagePath = 'github.com/riptano/dse-operator'
+    packagePath = 'github.com/riptano/dse-operator/operator'
     goVersion = '1.12.5'
     goExecutable = 'IGNORE_LOCAL'
 }

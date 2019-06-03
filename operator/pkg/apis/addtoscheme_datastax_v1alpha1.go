@@ -1,7 +1,7 @@
 package apis
 
 import (
-	"github.com/riptano/dse-operator/pkg/apis/datastax/v1alpha1"
+	"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 )
 
 func init() {

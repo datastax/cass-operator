@@ -6,7 +6,7 @@ package reconciliation
 
 import (
 	logr "github.com/go-logr/logr"
-	datastaxv1alpha1 "github.com/riptano/dse-operator/pkg/apis/datastax/v1alpha1"
+	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"

@@ -13,9 +13,9 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/riptano/dse-operator/pkg/apis/datastax/v1alpha1.DseDatacenter":       schema_pkg_apis_datastax_v1alpha1_DseDatacenter(ref),
-		"github.com/riptano/dse-operator/pkg/apis/datastax/v1alpha1.DseDatacenterSpec":   schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref),
-		"github.com/riptano/dse-operator/pkg/apis/datastax/v1alpha1.DseDatacenterStatus": schema_pkg_apis_datastax_v1alpha1_DseDatacenterStatus(ref),
+		"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseDatacenter":       schema_pkg_apis_datastax_v1alpha1_DseDatacenter(ref),
+		"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseDatacenterSpec":   schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref),
+		"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseDatacenterStatus": schema_pkg_apis_datastax_v1alpha1_DseDatacenterStatus(ref),
 	}
 }
 
@@ -46,19 +46,19 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenter(ref common.ReferenceCallbac
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/riptano/dse-operator/pkg/apis/datastax/v1alpha1.DseDatacenterSpec"),
+							Ref: ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseDatacenterSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/riptano/dse-operator/pkg/apis/datastax/v1alpha1.DseDatacenterStatus"),
+							Ref: ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseDatacenterStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/riptano/dse-operator/pkg/apis/datastax/v1alpha1.DseDatacenterSpec", "github.com/riptano/dse-operator/pkg/apis/datastax/v1alpha1.DseDatacenterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseDatacenterSpec", "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseDatacenterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 

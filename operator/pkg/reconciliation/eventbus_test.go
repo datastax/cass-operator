@@ -22,7 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	//"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
-	datastaxv1alpha1 "github.com/riptano/dse-operator/pkg/apis/datastax/v1alpha1"
+	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"

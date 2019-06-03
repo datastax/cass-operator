@@ -10,9 +10,9 @@ import (
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"github.com/riptano/dse-operator/pkg/apis"
-	"github.com/riptano/dse-operator/pkg/controller"
-	"github.com/riptano/dse-operator/pkg/reconciliation"
+	"github.com/riptano/dse-operator/operator/pkg/apis"
+	"github.com/riptano/dse-operator/operator/pkg/controller"
+	"github.com/riptano/dse-operator/operator/pkg/reconciliation"
 
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
