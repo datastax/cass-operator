@@ -5,7 +5,7 @@ ENV OPERATOR=/usr/local/bin/dse-operator \
     USER_NAME=dse-operator
 
 # install operator binary
-COPY bin/dse-operator ${OPERATOR}
+COPY bin/dse-operator-linux-amd64 ${OPERATOR}
 
 COPY bin /usr/local/bin
 RUN  /usr/local/bin/user_setup

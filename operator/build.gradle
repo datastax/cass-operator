@@ -1,11 +1,11 @@
 plugins {
     id 'base'
-    id 'com.github.blindpirate.gogradle' version '0.11.3'
+    id 'com.github.blindpirate.gogradle' version '0.11.4'
     id 'com.bmuschko.docker-remote-api' version '4.8.1'
 }
 
 ext {
-    binaryFullPath = "$buildDir/bin/dse-${project.name}"
+    binaryFullPath = "$buildDir/bin/dse-\${PROJECT_NAME}-\${GOOS}-\${GOARCH}"
 }
 
 golang {
@@ -101,9 +101,13 @@ dependencies {
     }
 }
 
+import com.github.blindpirate.gogradle.crossplatform.Arch
+import com.github.blindpirate.gogradle.crossplatform.Os
+
 goBuild {
-    go "build -o ${binaryFullPath} ${golang.packagePath}/cmd/manager"
-    outputs.file binaryFullPath
+    targetPlatform = [ "${Os.hostOs}-${Arch.hostArch}", 'linux-amd64']*.toString()
+    go (["build", '-o', binaryFullPath, "${golang.packagePath}/cmd/manager"]*.toString())
+    outputLocation = binaryFullPath
 }
 
 import com.bmuschko.gradle.docker.tasks.image.*
@@ -114,22 +118,28 @@ task copyDockerFiles(type: Copy) {
 }
 
 task dockerImage(type: DockerBuildImage, group: 'Docker', description: 'Build operator Docker image') {
-    dependsOn goBuild, copyDockerFiles
+    dependsOn 'buildLinuxAmd64', copyDockerFiles
     inputDir = buildDir
     tags.add("datastax/dse-${project.name}:$version")
 }
 
 assemble.dependsOn goBuild, dockerImage
 
-task upLocal(type: LocalOperatorStart, group: 'Run', description: 'Run the operator locally against the configured k8s cluster') {
-    dependsOn goBuild
+task upLocal(type: LocalOperatorStart, group: 'Run', description: 'Run the operator locally against the configured k8s cluster')
+
+gradle.projectsEvaluated {
+    tasks.matching { it.name == "build${Os.hostOs.toString().capitalize()}${Arch.hostArch.toString().capitalize()}"}.all { t ->
+        upLocal {
+            dependsOn t
+            commandLine t.outputs.files.singleFile
+        }
+    }
 }
 
 class LocalOperatorStart extends Exec {
 
     LocalOperatorStart() {
         environment.WATCH_NAMESPACE = 'default'
-        commandLine project.binaryFullPath
     }
 
     @Option(option="namespace", description="k8s namespace to watch for events, default to 'default'")
