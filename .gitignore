@@ -94,3 +94,5 @@ gradle-app.setting
 .gogradle
 
 operator/vendor
+
+.idea

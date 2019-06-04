@@ -106,7 +106,7 @@ import com.github.blindpirate.gogradle.crossplatform.Os
 
 goBuild {
     targetPlatform = [ "${Os.hostOs}-${Arch.hostArch}", 'linux-amd64']*.toString()
-    go (["build", '-o', binaryFullPath, "${golang.packagePath}/cmd/manager"]*.toString())
+    go (["build", '-o', binaryFullPath, "-ldflags", "-X main.version=$version", "${golang.packagePath}/cmd/manager"]*.toString())
     outputLocation = binaryFullPath
 }
 
@@ -120,7 +120,7 @@ task copyDockerFiles(type: Copy) {
 task dockerImage(type: DockerBuildImage, group: 'Docker', description: 'Build operator Docker image') {
     dependsOn 'buildLinuxAmd64', copyDockerFiles
     inputDir = buildDir
-    tags.add("datastax/dse-${project.name}:$version")
+    tags.add("datastax/dse-${project.name}:${version.toString().replaceAll('[^a-zA-Z0-9\\.\\-_]', '_')}")
 }
 
 assemble.dependsOn goBuild, dockerImage
