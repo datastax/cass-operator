@@ -20,8 +20,9 @@ goBuild {
     targetPlatform = [ "${Os.hostOs}-${Arch.hostArch}", 'linux-amd64']*.toString()
     go (["build", '-o', binaryFullPath, "-ldflags", "-X main.version=$version", "${golang.packagePath}/cmd/manager"]*.toString())
     outputLocation = binaryFullPath
-    environment 'GO111MODULES': 'on'
 }
+
+check.dependsOn goTest
 
 import com.bmuschko.gradle.docker.tasks.image.*
 
@@ -42,9 +43,12 @@ assemble.dependsOn goBuild, dockerImage
 
 import com.github.blindpirate.gogradle.Go
 
-tasks.matching { it.name.startsWith('build') && it instanceof Go }.all {
+tasks.matching { (it.name.startsWith('build') && it instanceof Go ) || it.name == 'goTest' }.all {
+    environment 'GO111MODULES': 'on', 'CGO_ENABLED': '0'
     inputs.file 'go.mod'
 }
+
+[resolveBuildDependencies, installDependencies, resolveTestDependencies]*.enabled = false
 
 task upLocal(type: LocalOperatorStart, group: 'Run', description: 'Run the operator locally against the configured k8s cluster')
 
