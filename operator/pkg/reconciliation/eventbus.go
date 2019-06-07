@@ -9,17 +9,16 @@ import (
 	"context"
 	"fmt"
 
-	logr "github.com/go-logr/logr"
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
-
 	evbus "github.com/asaskevich/EventBus"
-
+	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+
+	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 )
 
 //
@@ -154,7 +153,7 @@ func CreateReconciliationContext(
 			return nil, fmt.Errorf("DseDatacenter object not found")
 		}
 		// Error reading the object - requeue the request.
-		return nil, fmt.Errorf("Error reading DseDatacenter object")
+		return nil, fmt.Errorf("error reading DseDatacenter object")
 	}
 
 	rc.dseDatacenter = dseDatacenter

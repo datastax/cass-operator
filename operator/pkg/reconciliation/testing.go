@@ -5,8 +5,7 @@ package reconciliation
 //
 
 import (
-	logr "github.com/go-logr/logr"
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -15,9 +14,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 )
 
-// Returns a method that will automatically reverse the mock
+// MockSetControllerReference returns a method that will automatically reverse the mock
 func MockSetControllerReference() func() {
 	oldSetControllerReference := setControllerReference
 	setControllerReference = func(
@@ -64,10 +65,10 @@ func CreateMockReconciliationContext(
 	s := scheme.Scheme
 	s.AddKnownTypes(datastaxv1alpha1.SchemeGroupVersion, dseDatacenter)
 
-	client := fake.NewFakeClient(trackObjects...)
+	fakeClient := fake.NewFakeClient(trackObjects...)
 
 	reconciler := &ReconcileDseDatacenter{
-		client: client,
+		client: fakeClient,
 		scheme: s,
 	}
 
@@ -100,7 +101,7 @@ func fakeClientWithService(
 		service,
 	}
 
-	client := fake.NewFakeClient(trackObjects...)
+	fakeClient := fake.NewFakeClient(trackObjects...)
 
-	return &client, service
+	return &fakeClient, service
 }

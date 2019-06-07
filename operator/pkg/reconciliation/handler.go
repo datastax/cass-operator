@@ -152,7 +152,7 @@ func calculateRackInformation(
 		for rackIndex, dseRack := range rc.dseDatacenter.Spec.Racks {
 			nodesForThisRack := nodesPerRack
 			if rackIndex < extraNodes {
-				nodesForThisRack += 1
+				nodesForThisRack++
 			}
 			nextRack := &RackInformation{}
 			nextRack.RackName = dseRack.Name
@@ -190,7 +190,6 @@ func reconcileRacks(
 			rc,
 			service,
 			rackInfo)
-
 		if err != nil {
 			rc.reqLogger.Error(
 				err,
@@ -209,7 +208,6 @@ func reconcileRacks(
 			EventBus.Publish(
 				"ReconcileNextRack",
 				rc,
-				service,
 				statefulSet)
 
 			return nil
@@ -273,7 +271,6 @@ func getStatefulSetForRack(
 		rc.dseDatacenter,
 		desiredStatefulSet,
 		rc.reconciler.scheme)
-
 	if err != nil {
 		return nil, false, err
 	}
@@ -286,9 +283,10 @@ func getStatefulSetForRack(
 			Name:      desiredStatefulSet.Name,
 			Namespace: desiredStatefulSet.Namespace},
 		currentStatefulSet)
-
 	if err != nil && errors.IsNotFound(err) {
 		return desiredStatefulSet, false, nil
+	} else if err != nil {
+		return nil, false, err
 	}
 
 	return currentStatefulSet, true, nil
@@ -298,10 +296,7 @@ func getStatefulSetForRack(
 //
 // Note that each statefulset is using OrderedReadyPodManagent,
 // so it will bring up one node at a time.
-func reconcileNextRack(
-	rc *ReconciliationContext,
-	service *corev1.Service,
-	statefulSet *appsv1.StatefulSet) error {
+func reconcileNextRack(rc *ReconciliationContext, statefulSet *appsv1.StatefulSet) error {
 
 	rc.reqLogger.Info("handler::reconcileNextRack")
 
@@ -325,8 +320,7 @@ func reconcileNextRack(
 
 	desiredBudget := newPodDisruptionBudgetForStatefulSet(
 		rc.dseDatacenter,
-		statefulSet,
-		service)
+		statefulSet)
 
 	// Set DseDatacenter dseDatacenter as the owner and controller
 	err = setControllerReference(

@@ -150,8 +150,7 @@ func newStatefulSetForDseDatacenter(
 // Create a statefulset object for the DSE Datacenter.
 func newPodDisruptionBudgetForStatefulSet(
 	dseDatacenter *datastaxv1alpha1.DseDatacenter,
-	statefulSet *appsv1.StatefulSet,
-	service *corev1.Service) *policyv1beta1.PodDisruptionBudget {
+	statefulSet *appsv1.StatefulSet) *policyv1beta1.PodDisruptionBudget {
 	// Right now, we will just have maxUnavailable at 1
 	maxUnavailable := intstr.FromInt(1)
 	labels := map[string]string{
