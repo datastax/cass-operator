@@ -96,9 +96,8 @@ func newStatefulSetForDseDatacenter(
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						// TODO FIXME
-						Name: "dse",
-						// TODO make this dynamic
-						Image: "datastax/dse-server:6.0.2",
+						Name:  "dse",
+						Image: dseDatacenter.GetServerImage(),
 						Env: []corev1.EnvVar{
 							{
 								Name:  "DS_LICENSE",
@@ -138,6 +137,10 @@ func newStatefulSetForDseDatacenter(
 							},
 						},
 					}},
+					// TODO We can document that the user installing the operator put the imagePullSecret
+					// into the service account, and the process for that is documented here:
+					// https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account
+					// ImagePullSecrets: []corev1.LocalObjectReference{{}},
 				},
 			},
 		},
