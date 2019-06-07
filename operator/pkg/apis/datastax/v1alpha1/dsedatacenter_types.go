@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"fmt"
+
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -31,10 +33,21 @@ type DseDatacenterSpec struct {
 	Config string `json:"config,omitempty"`
 	// Resource requirements
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
-	// Racks
+	// Racks is an exported field, BUT it is highly recommended that GetRacks() be used for accessing in order to handle
+	// the case where no rack is defined
 	Racks []DseRack `json:"racks,omitempty"`
 	// StorageClaim
 	StorageClaim []DseStorageClaim `json:"storageclaim,omitempty"`
+}
+
+func (s *DseDatacenterSpec) GetRacks() []DseRack {
+	if len(s.Racks) >= 1 {
+		return s.Racks
+	}
+
+	return []DseRack{{
+		Name: "default",
+	}}
 }
 
 type DseRack struct {
@@ -69,6 +82,35 @@ type DseDatacenter struct {
 
 	Spec   DseDatacenterSpec   `json:"spec,omitempty"`
 	Status DseDatacenterStatus `json:"status,omitempty"`
+}
+
+// GetSeedList will create a list of seed nodes to satisfy the conditions of
+// 1. Assign one seed for each datacenter / rack combination
+// 2. Then ensure that each Datacenter has at least 2 seeds
+//
+// In the event that no seeds are found, an empty list will be returned.
+func (in *DseDatacenter) GetSeedList() []string {
+	var seeds []string
+	nodeServicePattern := "%s-%s-stateful-set-%d.%s-service.%s.svc.cluster.local" // e.g. "example-dsedatacenter-default-stateful-set-0.example-dsedatacenter-service.default.svc.cluster.local"
+
+	if in.Spec.Size == 0 {
+		return []string{}
+	}
+
+	for _, dseRack := range in.Spec.GetRacks() {
+		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, in.Name, dseRack.Name, 0, in.Name, in.Namespace))
+	}
+
+	// ensure that each Datacenter has at least 2 seeds
+	if len(in.Spec.GetRacks()) == 1 && in.Spec.Size > 1 {
+		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, in.Name, in.Spec.GetRacks()[0].Name, 1, in.Name, in.Namespace))
+	}
+
+	if seeds == nil {
+		return []string{}
+	}
+
+	return seeds
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

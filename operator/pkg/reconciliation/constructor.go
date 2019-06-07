@@ -5,6 +5,8 @@ package reconciliation
 //
 
 import (
+	"strings"
+
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -75,6 +77,9 @@ func newStatefulSetForDseDatacenter(
 		"app":  dseDatacenter.Name,
 		"rack": rackName,
 	}
+
+	seeds := dseDatacenter.GetSeedList()
+
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dseDatacenter.Name + "-" + rackName + "-stateful-set",
@@ -103,10 +108,9 @@ func newStatefulSetForDseDatacenter(
 								Name:  "DS_LICENSE",
 								Value: "accept",
 							},
-							// TODO FIXME - use custom seed handling
 							{
 								Name:  "SEEDS",
-								Value: "example-dsedatacenter-default-stateful-set-0.example-dsedatacenter-service.default.svc.cluster.local",
+								Value: strings.Join(seeds, ","),
 							},
 							{
 								Name:  "NUM_TOKENS",

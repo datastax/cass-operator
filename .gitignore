@@ -96,3 +96,5 @@ gradle-app.setting
 operator/vendor
 
 .idea
+.project
+.settings/
