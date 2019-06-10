@@ -80,6 +80,7 @@ func newStatefulSetForDseDatacenter(
 
 	seeds := dseDatacenter.GetSeedList()
 
+	var userID int64 = 999
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dseDatacenter.Name + "-" + rackName + "-stateful-set",
@@ -99,6 +100,10 @@ func newStatefulSetForDseDatacenter(
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
+					// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
+					SecurityContext: &corev1.PodSecurityContext{
+						RunAsUser: &userID,
+					},
 					Containers: []corev1.Container{{
 						// TODO FIXME
 						Name:  "dse",
