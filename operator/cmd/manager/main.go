@@ -30,7 +30,7 @@ import (
 var (
 	metricsHost       = "0.0.0.0"
 	metricsPort int32 = 8383
-	version = "DEV"
+	version           = "DEV"
 )
 var log = logf.Log.WithName("cmd")
 
@@ -80,7 +80,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx := context.TODO()
+	ctx := context.Background()
 
 	// Become the leader before proceeding
 	err = leader.Become(ctx, "dse-operator-lock")

@@ -5,8 +5,6 @@ package reconciliation
 //
 
 import (
-	"context"
-
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
@@ -50,7 +48,7 @@ func calculateReconciliationActions(
 	currentService := &corev1.Service{}
 
 	err = rc.reconciler.client.Get(
-		context.TODO(),
+		rc.ctx,
 		types.NamespacedName{
 			Name:      desiredService.Name,
 			Namespace: desiredService.Namespace},
@@ -93,7 +91,7 @@ func createHeadlessService(
 		service.Name)
 
 	err := rc.reconciler.client.Create(
-		context.TODO(),
+		rc.ctx,
 		service)
 	if err != nil {
 		rc.reqLogger.Error(
@@ -278,7 +276,7 @@ func getStatefulSetForRack(
 	// Check if the desiredStatefulSet already exists
 	currentStatefulSet := &appsv1.StatefulSet{}
 	err = rc.reconciler.client.Get(
-		context.TODO(),
+		rc.ctx,
 		types.NamespacedName{
 			Name:      desiredStatefulSet.Name,
 			Namespace: desiredStatefulSet.Namespace},
@@ -308,7 +306,7 @@ func reconcileNextRack(rc *ReconciliationContext, statefulSet *appsv1.StatefulSe
 		"StatefulSet.Name: ",
 		statefulSet.Name)
 	err := rc.reconciler.client.Create(
-		context.TODO(),
+		rc.ctx,
 		statefulSet)
 	if err != nil {
 		return err
@@ -334,7 +332,7 @@ func reconcileNextRack(rc *ReconciliationContext, statefulSet *appsv1.StatefulSe
 	// Check if the budget already exists
 	currentBudget := &policyv1beta1.PodDisruptionBudget{}
 	err = rc.reconciler.client.Get(
-		context.TODO(),
+		rc.ctx,
 		types.NamespacedName{
 			Name:      desiredBudget.Name,
 			Namespace: desiredBudget.Namespace},
@@ -349,7 +347,7 @@ func reconcileNextRack(rc *ReconciliationContext, statefulSet *appsv1.StatefulSe
 			"PodDisruptionBudget.Name: ",
 			desiredBudget.Name)
 		err = rc.reconciler.client.Create(
-			context.TODO(),
+			rc.ctx,
 			desiredBudget)
 		if err != nil {
 			return err

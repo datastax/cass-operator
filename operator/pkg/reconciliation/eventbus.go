@@ -93,6 +93,10 @@ type ReconciliationContext struct {
 	// so we do not want to store a pointer to it
 	// see: https://stackoverflow.com/a/44372954
 	reqLogger logr.Logger
+	// According to golang recommendations the context should not be stored in a struct but given that
+	// this is passed around as a parameter we feel that its a fair compromise. For further discussion
+	// see: golang/go#22602
+	ctx       context.Context
 }
 
 //
@@ -130,13 +134,14 @@ func CreateReconciliationContext(
 	rc.request = request
 	rc.reconciler = reconciler
 	rc.reqLogger = reqLogger
+	rc.ctx = context.Background()
 
 	rc.reqLogger.Info("handler::CreateReconciliationContext")
 
 	// Fetch the DseDatacenter dseDatacenter
 	dseDatacenter := &datastaxv1alpha1.DseDatacenter{}
 	err := rc.reconciler.client.Get(
-		context.TODO(),
+		rc.ctx,
 		request.NamespacedName,
 		dseDatacenter)
 	if err != nil {
