@@ -30,7 +30,7 @@ require (
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/spf13/pflag v1.0.3
-	github.com/stretchr/testify v1.3.0 // indirect
+	github.com/stretchr/testify v1.3.0
 	go.opencensus.io v0.19.2 // indirect
 	go.uber.org/atomic v1.3.2 // indirect
 	go.uber.org/multierr v1.1.0 // indirect

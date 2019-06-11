@@ -100,6 +100,37 @@ func newStatefulSetForDseDatacenter(
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
+					// Keep the pods of a statefulset within the same zone but off the same node. We don't want multiple pods
+					// on the same node just in case something goes wrong but we do want to contain all pods within a statefulset
+					// to the same zone to limit the need for cross zone communication.
+					Affinity: &corev1.Affinity{
+						PodAffinity: &corev1.PodAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
+								Weight: 100,
+								PodAffinityTerm: corev1.PodAffinityTerm{
+									LabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"rack": rackName,
+										},
+									},
+									TopologyKey: "failure-domain.beta.kubernetes.io/zone",
+								},
+							}},
+						},
+						PodAntiAffinity: &corev1.PodAntiAffinity{
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
+								Weight: 90,
+								PodAffinityTerm: corev1.PodAffinityTerm{
+									LabelSelector: &metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											"app": dseDatacenter.Name,
+										},
+									},
+									TopologyKey: "kubernetes.io/hostname",
+								},
+							}},
+						},
+					},
 					// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
 					SecurityContext: &corev1.PodSecurityContext{
 						RunAsUser: &userID,
