@@ -10,6 +10,7 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -46,8 +47,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Here we list all the types that we create
 	// that are owned by the primary resource.
 	//
-	// Watch for changes to secondary resource Pods
-	// and StatefulSets and requeue the DseDatacenter that owns them.
+	// Watch for changes to secondary resources StatefulSets, PodDisruptionBudgets, and Services and requeue the
+	// DseDatacenter that owns them.
 
 	err = c.Watch(
 		&source.Kind{Type: &appsv1.StatefulSet{}},
@@ -60,7 +61,17 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	err = c.Watch(
-		&source.Kind{Type: &corev1.Pod{}},
+		&source.Kind{Type: &policyv1beta1.PodDisruptionBudget{}},
+		&handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &datastaxv1alpha1.DseDatacenter{},
+		})
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(
+		&source.Kind{Type: &corev1.Service{}},
 		&handler.EnqueueRequestForOwner{
 			IsController: true,
 			OwnerType:    &datastaxv1alpha1.DseDatacenter{},
