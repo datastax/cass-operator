@@ -133,7 +133,9 @@ func newStatefulSetForDseDatacenter(
 					},
 					// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
 					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser: &userID,
+						RunAsUser:  &userID,
+						RunAsGroup: &userID,
+						FSGroup:    &userID,
 					},
 					Containers: []corev1.Container{{
 						// TODO FIXME
