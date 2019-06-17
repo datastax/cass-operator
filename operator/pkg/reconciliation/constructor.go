@@ -112,6 +112,34 @@ func newStatefulSetForDseDatacenter(
 	seeds := dseDatacenter.GetSeedList()
 
 	var userID int64 = 999
+	var volumeCaimTemplates []corev1.PersistentVolumeClaim
+	var volumeMounts []corev1.VolumeMount
+
+	// Add storage if storage claim defined
+	if nil != dseDatacenter.Spec.StorageClaim {
+		pvName := "dse-data"
+		storageClaim := dseDatacenter.Spec.StorageClaim
+		volumeMounts = []corev1.VolumeMount {
+			{
+				Name: pvName,
+				MountPath: "/var/lib/cassandra",
+			},
+		}
+		volumeCaimTemplates = []corev1.PersistentVolumeClaim {{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels: labels,
+				Name: pvName,
+			},
+			Spec: corev1.PersistentVolumeClaimSpec {
+				AccessModes: []corev1.PersistentVolumeAccessMode {
+					corev1.ReadWriteOnce,
+				},
+				Resources: storageClaim.Resources,
+				StorageClassName: &(storageClaim.StorageClassName),
+			},
+		}}
+	}
+
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dseDatacenter.Name + "-" + rackName + "-stateful-set",
@@ -209,6 +237,7 @@ func newStatefulSetForDseDatacenter(
 								ContainerPort: 7199,
 							},
 						},
+						VolumeMounts: volumeMounts,
 					}},
 					// TODO We can document that the user installing the operator put the imagePullSecret
 					// into the service account, and the process for that is documented here:
@@ -216,6 +245,7 @@ func newStatefulSetForDseDatacenter(
 					// ImagePullSecrets: []corev1.LocalObjectReference{{}},
 				},
 			},
+			VolumeClaimTemplates: volumeCaimTemplates,
 		},
 	}
 }

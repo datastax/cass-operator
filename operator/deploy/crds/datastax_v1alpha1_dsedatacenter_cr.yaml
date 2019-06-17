@@ -4,3 +4,8 @@ metadata:
   name: example-dsedatacenter
 spec:
   size: 1
+  storageclaim:
+    storageclassname: standard
+    resources:
+      requests:
+        storage: 1Gi

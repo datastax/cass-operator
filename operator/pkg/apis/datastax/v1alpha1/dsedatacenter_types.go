@@ -42,7 +42,7 @@ type DseDatacenterSpec struct {
 	// the case where no rack is defined
 	Racks []DseRack `json:"racks,omitempty"`
 	// StorageClaim
-	StorageClaim []DseStorageClaim `json:"storageclaim,omitempty"`
+	StorageClaim *DseStorageClaim `json:"storageclaim,omitempty"`
 }
 
 func (s *DseDatacenterSpec) GetRacks() []DseRack {
