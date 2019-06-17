@@ -71,7 +71,7 @@ func (r *ReconcileDseDatacenter) Reconcile(
 	}
 
 	EventBus.Publish(
-		"ReconciliationRequest",
+		RECONCILIATION_REQUEST_TOPIC,
 		rc)
 
 	return reconcile.Result{}, nil
@@ -96,7 +96,7 @@ type ReconciliationContext struct {
 	// According to golang recommendations the context should not be stored in a struct but given that
 	// this is passed around as a parameter we feel that its a fair compromise. For further discussion
 	// see: golang/go#22602
-	ctx       context.Context
+	ctx context.Context
 }
 
 //
@@ -112,14 +112,18 @@ var EventBus = evbus.New()
 // Attach the event handlers
 //
 func SubscribeToEventBus() {
-	EventBus.SubscribeAsync("ReconciliationRequest", calculateReconciliationActions, true)
+	// The below subscriptions are intentionally set to transactional=false because if we try to run them in a transactional
+	// manner we get into a deadlock situation.
+	EventBus.SubscribeAsync(RECONCILIATION_REQUEST_TOPIC, calculateReconciliationActions, false)
 
 	// Operations that need to be performed
 
-	EventBus.SubscribeAsync("CreateHeadlessService", createHeadlessService, true)
-	EventBus.SubscribeAsync("CalculateRackInformation", calculateRackInformation, true)
-	EventBus.SubscribeAsync("ReconcileRacks", reconcileRacks, true)
-	EventBus.SubscribeAsync("ReconcileNextRack", reconcileNextRack, true)
+	EventBus.SubscribeAsync(CREATE_HEADLESS_SERVICE_TOPIC, createHeadlessService, false)
+	EventBus.SubscribeAsync(CREATE_HEADLESS_SEED_SERVICE_TOPIC, createHeadlessSeedService, false)
+	EventBus.SubscribeAsync(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, reconcileHeadlessSeedService, false)
+	EventBus.SubscribeAsync(CALCULATE_RACK_INFORMATION_TOPIC, calculateRackInformation, false)
+	EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, false)
+	EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, reconcileNextRack, false)
 }
 
 //

@@ -21,7 +21,7 @@ func newServiceForDseDatacenter(
 	dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
 	// TODO adjust labels
 	labels := map[string]string{
-		"app": dseDatacenter.Name,
+		datastaxv1alpha1.DATACENTER_LABEL: dseDatacenter.Name,
 	}
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -66,6 +66,37 @@ func newServiceForDseDatacenter(
 	}
 }
 
+// newSeedServiceForDseDatacenter creates a headless service owned by the DseDatacenter which will attach to all seed
+// nodes in the cluster
+func newSeedServiceForDseDatacenter(
+	dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
+	// TODO adjust labels
+	labels := map[string]string{
+		datastaxv1alpha1.CLUSTER_LABEL: dseDatacenter.Name, // FIXME: this will need to be adjusted once we start to extract cluster name from dc name
+	}
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dseDatacenter.Name + "-seed-service",
+			Namespace: dseDatacenter.Namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: nil,
+			// This MUST match a template pod label in the statefulset
+			Selector:  labels,
+			ClusterIP: "None",
+			Type:      "ClusterIP",
+			// Make sure addresses are provided from the beginning so that we don't have to go back and reload seeds
+			PublishNotReadyAddresses: true,
+			SessionAffinityConfig: &corev1.SessionAffinityConfig{
+				ClientIP: &corev1.ClientIPConfig{
+					TimeoutSeconds: nil,
+				},
+			},
+		},
+	}
+}
+
 // Create a statefulset object for the DSE Datacenter.
 func newStatefulSetForDseDatacenter(
 	rackName string,
@@ -74,8 +105,8 @@ func newStatefulSetForDseDatacenter(
 	replicaCount int) *appsv1.StatefulSet {
 	replicaCountInt32 := int32(replicaCount)
 	labels := map[string]string{
-		"app":  dseDatacenter.Name,
-		"rack": rackName,
+		datastaxv1alpha1.DATACENTER_LABEL: dseDatacenter.Name,
+		datastaxv1alpha1.RACK_LABEL:       rackName,
 	}
 
 	seeds := dseDatacenter.GetSeedList()
@@ -110,7 +141,7 @@ func newStatefulSetForDseDatacenter(
 								PodAffinityTerm: corev1.PodAffinityTerm{
 									LabelSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
-											"rack": rackName,
+											datastaxv1alpha1.RACK_LABEL: rackName,
 										},
 									},
 									TopologyKey: "failure-domain.beta.kubernetes.io/zone",
@@ -123,7 +154,7 @@ func newStatefulSetForDseDatacenter(
 								PodAffinityTerm: corev1.PodAffinityTerm{
 									LabelSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
-											"app": dseDatacenter.Name,
+											datastaxv1alpha1.DATACENTER_LABEL: dseDatacenter.Name,
 										},
 									},
 									TopologyKey: "kubernetes.io/hostname",
@@ -196,7 +227,7 @@ func newPodDisruptionBudgetForStatefulSet(
 	// Right now, we will just have maxUnavailable at 1
 	maxUnavailable := intstr.FromInt(1)
 	labels := map[string]string{
-		"app": dseDatacenter.Name,
+		datastaxv1alpha1.DATACENTER_LABEL: dseDatacenter.Name,
 	}
 	return &policyv1beta1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{

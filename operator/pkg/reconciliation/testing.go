@@ -108,3 +108,20 @@ func fakeClientWithService(
 
 	return &fakeClient, service
 }
+
+func fakeClientWithSeedService(
+	dseDatacenter *datastaxv1alpha1.DseDatacenter) (*client.Client, *corev1.Service) {
+
+	service := newSeedServiceForDseDatacenter(dseDatacenter)
+
+	// Objects to keep track of
+
+	trackObjects := []runtime.Object{
+		dseDatacenter,
+		service,
+	}
+
+	fakeClient := fake.NewFakeClient(trackObjects...)
+
+	return &fakeClient, service
+}

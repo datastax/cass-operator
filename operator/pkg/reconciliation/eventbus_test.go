@@ -76,7 +76,7 @@ func TestReconcile(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync("ReconciliationRequest", testHandleReconciliationRequest, true)
+	err := EventBus.SubscribeAsync(RECONCILIATION_REQUEST_TOPIC, testHandleReconciliationRequest, true)
 	if err != nil {
 		t.Errorf("error occurred subscribing to eventbus: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestReconcile(t *testing.T) {
 	// wait for events to be handled
 	EventBus.WaitAsync()
 
-	err = EventBus.Unsubscribe("ReconciliationRequest", testHandleReconciliationRequest)
+	err = EventBus.Unsubscribe(RECONCILIATION_REQUEST_TOPIC, testHandleReconciliationRequest)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
 	assert.True(t, handlerCalled, "Reconcile should have called the handler.")
@@ -147,7 +147,7 @@ func TestReconcile_NotFound(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync("ReconciliationRequest", testHandleReconciliationRequest, true)
+	err := EventBus.SubscribeAsync(RECONCILIATION_REQUEST_TOPIC, testHandleReconciliationRequest, true)
 	if err != nil {
 		t.Errorf("error occurred subscribing to eventbus: %v", err)
 	}
@@ -166,7 +166,7 @@ func TestReconcile_NotFound(t *testing.T) {
 	// wait for events to be handled
 	EventBus.WaitAsync()
 
-	err = EventBus.Unsubscribe("ReconciliationRequest", testHandleReconciliationRequest)
+	err = EventBus.Unsubscribe(RECONCILIATION_REQUEST_TOPIC, testHandleReconciliationRequest)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
 	assert.False(t, handlerCalled, "Reconcile should not have called the handler.")
@@ -233,7 +233,7 @@ func TestReconcile_Error(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync("ReconciliationRequest", testHandleReconciliationRequest, true)
+	err := EventBus.SubscribeAsync(RECONCILIATION_REQUEST_TOPIC, testHandleReconciliationRequest, true)
 	if err != nil {
 		t.Errorf("error occurred subscribing to eventbus: %v", err)
 	}
@@ -252,7 +252,7 @@ func TestReconcile_Error(t *testing.T) {
 	// wait for events to be handled
 	EventBus.WaitAsync()
 
-	err = EventBus.Unsubscribe("ReconciliationRequest", testHandleReconciliationRequest)
+	err = EventBus.Unsubscribe(RECONCILIATION_REQUEST_TOPIC, testHandleReconciliationRequest)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
 	assert.False(t, handlerCalled, "Reconcile should not have called the handler.")

@@ -27,12 +27,245 @@ func TestCalculateReconciliationActions(t *testing.T) {
 	defer cleanupMockScr()
 
 	var (
-		calledCreate    = false
-		calledCalculate = false
+		calledCreate               = false
+		calledReconcileSeedService = false
 	)
 
 	testCreateHeadlessService := func(
 		rc *ReconciliationContext,
+		service *corev1.Service) error {
+		calledCreate = true
+		return nil
+	}
+
+	testReconcileHeadlessSeedService := func(
+		rc *ReconciliationContext,
+		service *corev1.Service) error {
+		calledReconcileSeedService = true
+		return nil
+	}
+
+	err := EventBus.SubscribeAsync(RECONCILIATION_REQUEST_TOPIC, calculateReconciliationActions, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(CREATE_HEADLESS_SERVICE_TOPIC, testCreateHeadlessService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	EventBus.Publish(
+		RECONCILIATION_REQUEST_TOPIC,
+		rc)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.False(t, calledReconcileSeedService, "Should call correct handler.")
+	assert.True(t, calledCreate, "Should call correct handler.")
+
+	// Add a service and check the logic
+
+	fakeClient, _ := fakeClientWithService(rc.dseDatacenter)
+	rc.reconciler.client = *fakeClient
+
+	calledCreate = false
+	calledReconcileSeedService = false
+
+	EventBus.Publish(
+		RECONCILIATION_REQUEST_TOPIC,
+		rc)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.False(t, calledCreate, "Should call correct handler.")
+	assert.True(t, calledReconcileSeedService, "Should call correct handler.")
+
+	err = EventBus.Unsubscribe(RECONCILIATION_REQUEST_TOPIC, calculateReconciliationActions)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(CREATE_HEADLESS_SERVICE_TOPIC, testCreateHeadlessService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+}
+
+func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	var (
+		calledCreate               = false
+		calledReconcileSeedService = false
+	)
+
+	testCreateHeadlessService := func(
+		rc *ReconciliationContext,
+		service *corev1.Service) error {
+		calledCreate = true
+		return nil
+	}
+
+	testReconcileHeadlessSeedService := func(
+		rc *ReconciliationContext,
+		service *corev1.Service) error {
+		calledReconcileSeedService = true
+		return nil
+	}
+
+	mockClient := mocks.Client{}
+	rc.reconciler.client = &mockClient
+
+	mockClient.On("Get",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(key client.ObjectKey) bool {
+				return key != client.ObjectKey{}
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).Return(fmt.Errorf("")).Once()
+
+	err := EventBus.SubscribeAsync(RECONCILIATION_REQUEST_TOPIC, calculateReconciliationActions, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(CREATE_HEADLESS_SERVICE_TOPIC, testCreateHeadlessService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	EventBus.Publish(
+		RECONCILIATION_REQUEST_TOPIC,
+		rc)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.False(t, calledReconcileSeedService, "Should call correct handler.")
+	assert.False(t, calledCreate, "Should call correct handler.")
+
+	err = EventBus.Unsubscribe(RECONCILIATION_REQUEST_TOPIC, calculateReconciliationActions)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(CREATE_HEADLESS_SERVICE_TOPIC, testCreateHeadlessService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestCreateHeadlessService(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	var (
+		calledReconcileSeedService = false
+	)
+
+	testReconcileHeadlessSeedService := func(
+		rc *ReconciliationContext,
+		service *corev1.Service) error {
+		calledReconcileSeedService = true
+		return nil
+	}
+
+	err := EventBus.SubscribeAsync(CREATE_HEADLESS_SERVICE_TOPIC, createHeadlessService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	EventBus.Publish(
+		CREATE_HEADLESS_SERVICE_TOPIC,
+		rc,
+		service)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.True(t, calledReconcileSeedService, "Should call correct handler.")
+
+	err = EventBus.Unsubscribe(CREATE_HEADLESS_SERVICE_TOPIC, createHeadlessService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+}
+
+func TestCreateHeadlessService_ClientReturnsError(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	var (
+		calledReconcileSeedService = false
+	)
+
+	mockClient := mocks.Client{}
+	rc.reconciler.client = &mockClient
+
+	mockClient.On("Create",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).Return(fmt.Errorf("")).Once()
+
+	testReconcileHeadlessSeedService := func(
+		rc *ReconciliationContext,
+		service *corev1.Service) error {
+		calledReconcileSeedService = true
+		return nil
+	}
+
+	err := EventBus.SubscribeAsync(CREATE_HEADLESS_SERVICE_TOPIC, createHeadlessService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	EventBus.Publish(
+		CREATE_HEADLESS_SERVICE_TOPIC,
+		rc,
+		service)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.False(t, calledReconcileSeedService, "Should call correct handler.")
+
+	err = EventBus.Unsubscribe(CREATE_HEADLESS_SERVICE_TOPIC, createHeadlessService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestReconcileHeadlessSeedService(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	var (
+		calledCreate    = false
+		calledCalculate = false
+	)
+
+	testCreateHeadlessSeedService := func(
+		rc *ReconciliationContext,
+		seedService *corev1.Service,
 		service *corev1.Service) error {
 		calledCreate = true
 		return nil
@@ -45,18 +278,19 @@ func TestCalculateReconciliationActions(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync("ReconciliationRequest", calculateReconciliationActions, true)
+	err := EventBus.SubscribeAsync(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, reconcileHeadlessSeedService, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("CreateHeadlessService", testCreateHeadlessService, true)
+	err = EventBus.SubscribeAsync(CREATE_HEADLESS_SEED_SERVICE_TOPIC, testCreateHeadlessSeedService, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("CalculateRackInformation", testCalculateRackInformation, true)
+	err = EventBus.SubscribeAsync(CALCULATE_RACK_INFORMATION_TOPIC, testCalculateRackInformation, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	EventBus.Publish(
-		"ReconciliationRequest",
-		rc)
+		RECONCILE_HEADLESS_SEED_SERVICE_TOPIC,
+		rc,
+		service)
 
 	// wait for events to be handled
 	EventBus.WaitAsync()
@@ -66,15 +300,16 @@ func TestCalculateReconciliationActions(t *testing.T) {
 
 	// Add a service and check the logic
 
-	fakeClient, _ := fakeClientWithService(rc.dseDatacenter)
+	fakeClient, _ := fakeClientWithSeedService(rc.dseDatacenter)
 	rc.reconciler.client = *fakeClient
 
 	calledCreate = false
 	calledCalculate = false
 
 	EventBus.Publish(
-		"ReconciliationRequest",
-		rc)
+		RECONCILE_HEADLESS_SEED_SERVICE_TOPIC,
+		rc,
+		service)
 
 	// wait for events to be handled
 	EventBus.WaitAsync()
@@ -82,18 +317,18 @@ func TestCalculateReconciliationActions(t *testing.T) {
 	assert.False(t, calledCreate, "Should call correct handler.")
 	assert.True(t, calledCalculate, "Should call correct handler.")
 
-	err = EventBus.Unsubscribe("ReconciliationRequest", calculateReconciliationActions)
+	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, reconcileHeadlessSeedService)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
-	err = EventBus.Unsubscribe("CreateHeadlessService", testCreateHeadlessService)
+	err = EventBus.Unsubscribe(CREATE_HEADLESS_SEED_SERVICE_TOPIC, testCreateHeadlessSeedService)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
-	err = EventBus.Unsubscribe("CalculateRackInformation", testCalculateRackInformation)
+	err = EventBus.Unsubscribe(CALCULATE_RACK_INFORMATION_TOPIC, testCalculateRackInformation)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 }
 
-func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
-	rc, _, cleanupMockScr := setupTest()
+func TestReconcileHeadlessSeedService_GetServiceError(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
 	var (
@@ -101,8 +336,9 @@ func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
 		calledCalculate = false
 	)
 
-	testCreateHeadlessService := func(
+	testCreateHeadlessSeedService := func(
 		rc *ReconciliationContext,
+		seedService *corev1.Service,
 		service *corev1.Service) error {
 		calledCreate = true
 		return nil
@@ -132,18 +368,19 @@ func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
 				return obj != nil
 			})).Return(fmt.Errorf("")).Once()
 
-	err := EventBus.SubscribeAsync("ReconciliationRequest", calculateReconciliationActions, true)
+	err := EventBus.SubscribeAsync(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, reconcileHeadlessSeedService, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("CreateHeadlessService", testCreateHeadlessService, true)
+	err = EventBus.SubscribeAsync(CREATE_HEADLESS_SEED_SERVICE_TOPIC, testCreateHeadlessSeedService, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("CalculateRackInformation", testCalculateRackInformation, true)
+	err = EventBus.SubscribeAsync(CALCULATE_RACK_INFORMATION_TOPIC, testCalculateRackInformation, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	EventBus.Publish(
-		"ReconciliationRequest",
-		rc)
+		RECONCILE_HEADLESS_SEED_SERVICE_TOPIC,
+		rc,
+		service)
 
 	// wait for events to be handled
 	EventBus.WaitAsync()
@@ -151,19 +388,19 @@ func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
 	assert.False(t, calledCalculate, "Should call correct handler.")
 	assert.False(t, calledCreate, "Should call correct handler.")
 
-	err = EventBus.Unsubscribe("ReconciliationRequest", calculateReconciliationActions)
+	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, reconcileHeadlessSeedService)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
-	err = EventBus.Unsubscribe("CreateHeadlessService", testCreateHeadlessService)
+	err = EventBus.Unsubscribe(CREATE_HEADLESS_SEED_SERVICE_TOPIC, testCreateHeadlessSeedService)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
-	err = EventBus.Unsubscribe("CalculateRackInformation", testCalculateRackInformation)
+	err = EventBus.Unsubscribe(CALCULATE_RACK_INFORMATION_TOPIC, testCalculateRackInformation)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
 	mockClient.AssertExpectations(t)
 }
 
-func TestCreateHeadlessService(t *testing.T) {
+func TestCreateHeadlessSeedService(t *testing.T) {
 	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
@@ -178,30 +415,31 @@ func TestCreateHeadlessService(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync("CreateHeadlessService", createHeadlessService, true)
+	err := EventBus.SubscribeAsync(CREATE_HEADLESS_SEED_SERVICE_TOPIC, createHeadlessSeedService, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("CalculateRackInformation", testCalculateRackInformation, true)
+	err = EventBus.SubscribeAsync(CALCULATE_RACK_INFORMATION_TOPIC, testCalculateRackInformation, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	EventBus.Publish(
-		"CreateHeadlessService",
+		CREATE_HEADLESS_SEED_SERVICE_TOPIC,
 		rc,
-		service)
+		service,
+		newServiceForDseDatacenter(rc.dseDatacenter))
 
 	// wait for events to be handled
 	EventBus.WaitAsync()
 
 	assert.True(t, calledCalculate, "Should call correct handler.")
 
-	err = EventBus.Unsubscribe("CreateHeadlessService", createHeadlessService)
+	err = EventBus.Unsubscribe(CREATE_HEADLESS_SEED_SERVICE_TOPIC, createHeadlessSeedService)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
-	err = EventBus.Unsubscribe("CalculateRackInformation", testCalculateRackInformation)
+	err = EventBus.Unsubscribe(CALCULATE_RACK_INFORMATION_TOPIC, testCalculateRackInformation)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 }
 
-func TestCreateHeadlessService_ClientReturnsError(t *testing.T) {
+func TestCreateHeadlessSeedService_ClientReturnsError(t *testing.T) {
 	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
@@ -229,26 +467,27 @@ func TestCreateHeadlessService_ClientReturnsError(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync("CreateHeadlessService", createHeadlessService, true)
+	err := EventBus.SubscribeAsync(CREATE_HEADLESS_SEED_SERVICE_TOPIC, createHeadlessSeedService, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("CalculateRackInformation", testCalculateRackInformation, true)
+	err = EventBus.SubscribeAsync(CALCULATE_RACK_INFORMATION_TOPIC, testCalculateRackInformation, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	EventBus.Publish(
-		"CreateHeadlessService",
+		CREATE_HEADLESS_SEED_SERVICE_TOPIC,
 		rc,
-		service)
+		service,
+		newServiceForDseDatacenter(rc.dseDatacenter))
 
 	// wait for events to be handled
 	EventBus.WaitAsync()
 
 	assert.False(t, calledCalculate, "Should call correct handler.")
 
-	err = EventBus.Unsubscribe("CreateHeadlessService", createHeadlessService)
+	err = EventBus.Unsubscribe(CREATE_HEADLESS_SEED_SERVICE_TOPIC, createHeadlessSeedService)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
-	err = EventBus.Unsubscribe("CalculateRackInformation", testCalculateRackInformation)
+	err = EventBus.Unsubscribe(CALCULATE_RACK_INFORMATION_TOPIC, testCalculateRackInformation)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
 	mockClient.AssertExpectations(t)
@@ -273,14 +512,14 @@ func TestCalculateRackInformation(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync("CalculateRackInformation", calculateRackInformation, true)
+	err := EventBus.SubscribeAsync(CALCULATE_RACK_INFORMATION_TOPIC, calculateRackInformation, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("ReconcileRacks", testReconcileRacks, true)
+	err = EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, testReconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	EventBus.Publish(
-		"CalculateRackInformation",
+		CALCULATE_RACK_INFORMATION_TOPIC,
 		rc,
 		service)
 
@@ -302,10 +541,10 @@ func TestCalculateRackInformation(t *testing.T) {
 
 	// TODO add more RackInformation validation
 
-	err = EventBus.SubscribeAsync("CalculateRackInformation", calculateRackInformation, true)
+	err = EventBus.SubscribeAsync(CALCULATE_RACK_INFORMATION_TOPIC, calculateRackInformation, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("ReconcileRacks", testReconcileRacks, true)
+	err = EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, testReconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 }
 
@@ -347,14 +586,14 @@ func TestCalculateRackInformation_MultiRack(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync("CalculateRackInformation", calculateRackInformation, true)
+	err := EventBus.SubscribeAsync(CALCULATE_RACK_INFORMATION_TOPIC, calculateRackInformation, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("ReconcileRacks", testReconcileRacks, true)
+	err = EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, testReconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	EventBus.Publish(
-		"CalculateRackInformation",
+		CALCULATE_RACK_INFORMATION_TOPIC,
 		rc,
 		service)
 
@@ -376,10 +615,10 @@ func TestCalculateRackInformation_MultiRack(t *testing.T) {
 
 	// TODO add more RackInformation validation
 
-	err = EventBus.SubscribeAsync("CalculateRackInformation", calculateRackInformation, true)
+	err = EventBus.SubscribeAsync(CALCULATE_RACK_INFORMATION_TOPIC, calculateRackInformation, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("ReconcileRacks", testReconcileRacks, true)
+	err = EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, testReconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 }
 
@@ -398,10 +637,10 @@ func TestReconcileRacks(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync("ReconcileRacks", reconcileRacks, true)
+	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("ReconcileNextRack", testReconcileNextRack, true)
+	err = EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, testReconcileNextRack, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	var rackInfo []*RackInformation
@@ -413,7 +652,7 @@ func TestReconcileRacks(t *testing.T) {
 	rackInfo = append(rackInfo, nextRack)
 
 	EventBus.Publish(
-		"ReconcileRacks",
+		RECONCILE_RACKS_TOPIC,
 		rc,
 		service,
 		rackInfo)
@@ -423,10 +662,10 @@ func TestReconcileRacks(t *testing.T) {
 
 	assert.True(t, calledReconcileNextRack, "Should call correct handler.")
 
-	err = EventBus.Unsubscribe("ReconcileRacks", reconcileRacks)
+	err = EventBus.Unsubscribe(RECONCILE_RACKS_TOPIC, reconcileRacks)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
-	err = EventBus.Unsubscribe("ReconcileNextRack", testReconcileNextRack)
+	err = EventBus.Unsubscribe(RECONCILE_NEXT_RACK_TOPIC, testReconcileNextRack)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 }
 
@@ -463,10 +702,10 @@ func TestReconcileRacks_GetStatefulsetError(t *testing.T) {
 				return obj != nil
 			})).Return(fmt.Errorf("")).Once()
 
-	err := EventBus.SubscribeAsync("ReconcileRacks", reconcileRacks, true)
+	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("ReconcileNextRack", testReconcileNextRack, true)
+	err = EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, testReconcileNextRack, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	var rackInfo []*RackInformation
@@ -478,7 +717,7 @@ func TestReconcileRacks_GetStatefulsetError(t *testing.T) {
 	rackInfo = append(rackInfo, nextRack)
 
 	EventBus.Publish(
-		"ReconcileRacks",
+		RECONCILE_RACKS_TOPIC,
 		rc,
 		service,
 		rackInfo)
@@ -488,10 +727,10 @@ func TestReconcileRacks_GetStatefulsetError(t *testing.T) {
 
 	assert.False(t, calledReconcileNextRack, "Should call correct handler.")
 
-	err = EventBus.Unsubscribe("ReconcileRacks", reconcileRacks)
+	err = EventBus.Unsubscribe(RECONCILE_RACKS_TOPIC, reconcileRacks)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
-	err = EventBus.Unsubscribe("ReconcileNextRack", testReconcileNextRack)
+	err = EventBus.Unsubscribe(RECONCILE_NEXT_RACK_TOPIC, testReconcileNextRack)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
 	mockClient.AssertExpectations(t)
@@ -525,10 +764,10 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync("ReconcileRacks", reconcileRacks, true)
+	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("ReconcileNextRack", testReconcileNextRack, true)
+	err = EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, testReconcileNextRack, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	var rackInfo []*RackInformation
@@ -540,7 +779,7 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 	rackInfo = append(rackInfo, nextRack)
 
 	EventBus.Publish(
-		"ReconcileRacks",
+		RECONCILE_RACKS_TOPIC,
 		rc,
 		service,
 		rackInfo)
@@ -550,10 +789,10 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 
 	assert.False(t, calledReconcileNextRack, "Should call correct handler.")
 
-	err = EventBus.Unsubscribe("ReconcileRacks", reconcileRacks)
+	err = EventBus.Unsubscribe(RECONCILE_RACKS_TOPIC, reconcileRacks)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
-	err = EventBus.Unsubscribe("ReconcileNextRack", testReconcileNextRack)
+	err = EventBus.Unsubscribe(RECONCILE_NEXT_RACK_TOPIC, testReconcileNextRack)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 }
 
@@ -587,10 +826,10 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync("ReconcileRacks", reconcileRacks, true)
+	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync("ReconcileNextRack", testReconcileNextRack, true)
+	err = EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, testReconcileNextRack, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	var rackInfo []*RackInformation
@@ -602,7 +841,7 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 	rackInfo = append(rackInfo, nextRack)
 
 	EventBus.Publish(
-		"ReconcileRacks",
+		RECONCILE_RACKS_TOPIC,
 		rc,
 		service,
 		rackInfo)
@@ -612,10 +851,10 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 
 	assert.False(t, calledReconcileNextRack, "Should call correct handler.")
 
-	err = EventBus.Unsubscribe("ReconcileRacks", reconcileRacks)
+	err = EventBus.Unsubscribe(RECONCILE_RACKS_TOPIC, reconcileRacks)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
-	err = EventBus.Unsubscribe("ReconcileNextRack", testReconcileNextRack)
+	err = EventBus.Unsubscribe(RECONCILE_NEXT_RACK_TOPIC, testReconcileNextRack)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 }
 
@@ -639,11 +878,11 @@ func TestReconcileNextRack(t *testing.T) {
 		service,
 		nextRack)
 
-	err := EventBus.SubscribeAsync("ReconcileNextRack", reconcileNextRack, true)
+	err := EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, reconcileNextRack, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	EventBus.Publish(
-		"ReconcileNextRack",
+		RECONCILE_NEXT_RACK_TOPIC,
 		rc,
 		statefulSet)
 
@@ -657,7 +896,7 @@ func TestReconcileNextRack(t *testing.T) {
 	//
 	// TODO: check if Create() has been called on the fake client
 
-	err = EventBus.Unsubscribe("ReconcileNextRack", reconcileNextRack)
+	err = EventBus.Unsubscribe(RECONCILE_NEXT_RACK_TOPIC, reconcileNextRack)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 }
 
@@ -690,18 +929,18 @@ func TestReconcileNextRack_CreateError(t *testing.T) {
 				return obj != nil
 			})).Return(fmt.Errorf("")).Once()
 
-	err := EventBus.SubscribeAsync("ReconcileNextRack", reconcileNextRack, true)
+	err := EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, reconcileNextRack, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	EventBus.Publish(
-		"ReconcileNextRack",
+		RECONCILE_NEXT_RACK_TOPIC,
 		rc,
 		statefulSet)
 
 	// wait for events to be handled
 	EventBus.WaitAsync()
 
-	err = EventBus.Unsubscribe("ReconcileNextRack", reconcileNextRack)
+	err = EventBus.Unsubscribe(RECONCILE_NEXT_RACK_TOPIC, reconcileNextRack)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
 	mockClient.AssertExpectations(t)

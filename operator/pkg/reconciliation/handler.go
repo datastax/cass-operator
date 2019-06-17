@@ -5,12 +5,17 @@ package reconciliation
 //
 
 import (
+	"strings"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+
+	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 )
 
 // Use a var so we can mock this function
@@ -20,7 +25,7 @@ var setControllerReference = controllerutil.SetControllerReference
 // Determine which actions need to be performed first.
 //
 // It either recommends a service be created,
-// or that racks should be reconciled.
+// or that a seed service be reconciled.
 //
 func calculateReconciliationActions(
 	rc *ReconciliationContext) error {
@@ -56,7 +61,7 @@ func calculateReconciliationActions(
 
 	if err != nil && errors.IsNotFound(err) {
 		EventBus.Publish(
-			"CreateHeadlessService",
+			CREATE_HEADLESS_SERVICE_TOPIC,
 			rc,
 			desiredService)
 	} else if err != nil {
@@ -67,7 +72,7 @@ func calculateReconciliationActions(
 		return err
 	} else {
 		EventBus.Publish(
-			"CalculateRackInformation",
+			RECONCILE_HEADLESS_SEED_SERVICE_TOPIC,
 			rc,
 			currentService)
 	}
@@ -102,7 +107,93 @@ func createHeadlessService(
 	}
 
 	EventBus.Publish(
-		"CalculateRackInformation",
+		RECONCILE_HEADLESS_SEED_SERVICE_TOPIC,
+		rc,
+		service)
+
+	return nil
+}
+
+func reconcileHeadlessSeedService(
+	rc *ReconciliationContext,
+	service *corev1.Service) error {
+
+	rc.reqLogger.Info("handler::reconcileHeadlessSeedService")
+
+	//
+	// Check if there is a headless seed service for the cluster
+	//
+
+	desiredService := newSeedServiceForDseDatacenter(rc.dseDatacenter)
+
+	// Set DseDatacenter dseDatacenter as the owner and controller
+	err := setControllerReference(
+		rc.dseDatacenter,
+		desiredService,
+		rc.reconciler.scheme)
+	if err != nil {
+		rc.reqLogger.Error(
+			err,
+			"Could not set controller reference for headless seed service")
+		return err
+	}
+
+	currentService := &corev1.Service{}
+
+	err = rc.reconciler.client.Get(
+		rc.ctx,
+		types.NamespacedName{
+			Name:      desiredService.Name,
+			Namespace: desiredService.Namespace},
+		currentService)
+
+	if err != nil && errors.IsNotFound(err) {
+		EventBus.Publish(
+			CREATE_HEADLESS_SEED_SERVICE_TOPIC,
+			rc,
+			desiredService,
+			service)
+	} else if err != nil {
+		rc.reqLogger.Error(
+			err,
+			"Could not get headless seed service")
+
+		return err
+	} else {
+		EventBus.Publish(
+			CALCULATE_RACK_INFORMATION_TOPIC,
+			rc,
+			service)
+	}
+
+	return nil
+}
+
+func createHeadlessSeedService(
+	rc *ReconciliationContext,
+	seedService *corev1.Service,
+	service *corev1.Service) error {
+
+	rc.reqLogger.Info(
+		"Creating a new headless seed service",
+		"Service.Namespace",
+		seedService.Namespace,
+		"Service.Name",
+		seedService.Name)
+
+	err := rc.reconciler.client.Create(
+		rc.ctx,
+		seedService)
+	if err != nil {
+		rc.reqLogger.Error(
+			err,
+			"Could not create headless service")
+
+		return err
+	}
+
+	EventBus.Publish(
+		CALCULATE_RACK_INFORMATION_TOPIC,
 		rc,
 		service)
 
@@ -161,7 +252,7 @@ func calculateRackInformation(
 	}
 
 	EventBus.Publish(
-		"ReconcileRacks",
+		RECONCILE_RACKS_TOPIC,
 		rc,
 		service,
 		desiredRackInformation)
@@ -204,7 +295,7 @@ func reconcileRacks(
 				rackInfo.RackName)
 
 			EventBus.Publish(
-				"ReconcileNextRack",
+				RECONCILE_NEXT_RACK_TOPIC,
 				rc,
 				statefulSet)
 
@@ -220,14 +311,16 @@ func reconcileRacks(
 			"ResourceVersion: ",
 			statefulSet.ResourceVersion)
 
+		labelSeedPods(rc, statefulSet)
+
 		if statefulSet.Status.ReadyReplicas < int32(rackInfo.NodeCount) {
 			// We should do nothing but wait until all replicas are ready
 
 			rc.reqLogger.Info(
-				"Not all replicas for StatefulSet are ready. ",
-				"Desired: ",
+				"Not all replicas for StatefulSet are ready.",
+				"Desired:",
 				rackInfo.NodeCount,
-				" Ready: ",
+				"Ready:",
 				statefulSet.Status.ReadyReplicas)
 
 			return nil
@@ -235,7 +328,7 @@ func reconcileRacks(
 
 		rc.reqLogger.Info(
 			"All replicas are ready for StatefulSet for ",
-			"Rack: ",
+			"Rack:",
 			rackInfo.RackName)
 	}
 
@@ -246,6 +339,50 @@ func reconcileRacks(
 	rc.reqLogger.Info("All StatefulSets should now be reconciled.")
 
 	return nil
+}
+
+// labelSeedsPods will iterate over all seed node pods for a datacenter and if the pod exists and is not already labeled will
+// add the dse-seed=true label to the pod so that its picked up by the headless seed service
+func labelSeedPods(rc *ReconciliationContext, statefulSet *appsv1.StatefulSet) {
+	seeds := rc.dseDatacenter.GetSeedList()
+	for _, seed := range seeds {
+		podName := strings.Split(seed, ".")[0]
+		pod := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: statefulSet.Namespace,
+			},
+		}
+		err := rc.reconciler.client.Get(
+			rc.ctx,
+			types.NamespacedName{
+				Name:      podName,
+				Namespace: statefulSet.Namespace},
+			pod)
+		if err != nil {
+			rc.reqLogger.Info("Unable to get seed pod",
+				"Pod:",
+				podName)
+			return
+		}
+
+		labels := pod.GetLabels()
+
+		if _, ok := labels[datastaxv1alpha1.SEED_NODE_LABEL]; !ok {
+			labels[datastaxv1alpha1.SEED_NODE_LABEL] = "true"
+			pod.SetLabels(labels)
+
+			if err := rc.reconciler.client.Update(rc.ctx, pod); err != nil {
+				rc.reqLogger.Info("Unable to update pod with seed label",
+					"Pod:",
+					podName)
+			}
+		}
+	}
 }
 
 // Returns the statefulset for the rack
@@ -292,7 +429,7 @@ func getStatefulSetForRack(
 
 // Ensure that the resources for a dse rack have been properly created
 //
-// Note that each statefulset is using OrderedReadyPodManagent,
+// Note that each statefulset is using OrderedReadyPodManagement,
 // so it will bring up one node at a time.
 func reconcileNextRack(rc *ReconciliationContext, statefulSet *appsv1.StatefulSet) error {
 
@@ -301,9 +438,9 @@ func reconcileNextRack(rc *ReconciliationContext, statefulSet *appsv1.StatefulSe
 	// Create the StatefulSet
 	rc.reqLogger.Info(
 		"Creating a new StatefulSet.",
-		"StatefulSet.Namespace: ",
+		"StatefulSet.Namespace:",
 		statefulSet.Namespace,
-		"StatefulSet.Name: ",
+		"StatefulSet.Name:",
 		statefulSet.Name)
 	err := rc.reconciler.client.Create(
 		rc.ctx,
@@ -341,10 +478,10 @@ func reconcileNextRack(rc *ReconciliationContext, statefulSet *appsv1.StatefulSe
 	if err != nil && errors.IsNotFound(err) {
 		// Create the Budget
 		rc.reqLogger.Info(
-			"Creating a new PodDisruptionBudget. ",
-			"PodDisruptionBudget.Namespace: ",
+			"Creating a new PodDisruptionBudget.",
+			"PodDisruptionBudget.Namespace:",
 			desiredBudget.Namespace,
-			"PodDisruptionBudget.Name: ",
+			"PodDisruptionBudget.Name:",
 			desiredBudget.Name)
 		err = rc.reconciler.client.Create(
 			rc.ctx,

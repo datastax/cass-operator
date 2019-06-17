@@ -8,22 +8,21 @@ import (
 	"runtime"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
-
-	"github.com/riptano/dse-operator/operator/pkg/apis"
-	"github.com/riptano/dse-operator/operator/pkg/controller"
-	"github.com/riptano/dse-operator/operator/pkg/reconciliation"
-
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	"github.com/operator-framework/operator-sdk/pkg/log/zap"
 	"github.com/operator-framework/operator-sdk/pkg/metrics"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
+	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
+
+	"github.com/riptano/dse-operator/operator/pkg/apis"
+	"github.com/riptano/dse-operator/operator/pkg/controller"
+	"github.com/riptano/dse-operator/operator/pkg/reconciliation"
 )
 
 // Change below variables to serve metrics on different host or port.

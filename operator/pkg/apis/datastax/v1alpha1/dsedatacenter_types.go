@@ -11,6 +11,11 @@ const (
 	defaultRepository = "datastax/dse-server"
 	// TODO discuss this before release to a non-CaaS customer
 	defaultVersion = "6.7.3"
+
+	CLUSTER_LABEL    = "com.datastax.dse.cluster"
+	DATACENTER_LABEL = "com.datastax.dse.datacenter"
+	SEED_NODE_LABEL  = "com.datastax.dse.seednode"
+	RACK_LABEL       = "com.datastax.dse.rack"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
