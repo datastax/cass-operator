@@ -124,6 +124,7 @@ func SubscribeToEventBus() {
 	EventBus.SubscribeAsync(CALCULATE_RACK_INFORMATION_TOPIC, calculateRackInformation, false)
 	EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, false)
 	EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, reconcileNextRack, false)
+	EventBus.SubscribeAsync(UPDATE_RACK_TOPIC, updateRackNodeCount, false)
 }
 
 //

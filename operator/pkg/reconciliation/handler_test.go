@@ -1,14 +1,12 @@
 package reconciliation
 
-//
-// This file defines tests for the handlers for events on the EventBus
-//
-
 import (
 	"context"
 	"fmt"
 	"testing"
 
+	"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	"github.com/riptano/dse-operator/operator/pkg/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	appsv1 "k8s.io/api/apps/v1"
@@ -17,9 +15,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
-
-	"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
-	"github.com/riptano/dse-operator/operator/pkg/mocks"
 )
 
 func TestCalculateReconciliationActions(t *testing.T) {
@@ -796,6 +791,66 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 }
 
+func TestReconcileRacks_NeedMoreReplicas(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	desiredStatefulSet := newStatefulSetForDseDatacenter(
+		"default",
+		rc.dseDatacenter,
+		service,
+		2)
+
+	trackObjects := []runtime.Object{
+		desiredStatefulSet,
+	}
+
+	rc.reconciler.client = fake.NewFakeClient(trackObjects...)
+
+	var (
+		calledUpdateRackNodeCount = false
+	)
+
+	testUpdateRackNodeCount := func(
+		rc *ReconciliationContext,
+		statefulSet *appsv1.StatefulSet,
+		newNodeCount int32) error {
+		calledUpdateRackNodeCount = true
+		return nil
+	}
+
+	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(UPDATE_RACK_TOPIC, testUpdateRackNodeCount, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	var rackInfo []*RackInformation
+
+	nextRack := &RackInformation{}
+	nextRack.RackName = "default"
+	nextRack.NodeCount = 3
+
+	rackInfo = append(rackInfo, nextRack)
+
+	EventBus.Publish(
+		RECONCILE_RACKS_TOPIC,
+		rc,
+		service,
+		rackInfo)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.True(t, calledUpdateRackNodeCount, "Should add more replicas to the statefulset")
+
+	err = EventBus.Unsubscribe(RECONCILE_RACKS_TOPIC, reconcileRacks)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(UPDATE_RACK_TOPIC, testUpdateRackNodeCount)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+}
+
 func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
@@ -956,4 +1011,58 @@ func setupTest() (*ReconciliationContext, *corev1.Service, func()) {
 	service := newServiceForDseDatacenter(rc.dseDatacenter)
 
 	return rc, service, cleanupMockScr
+}
+
+func Test_updateRackNodeCount(t *testing.T) {
+	type args struct {
+		rc           *ReconciliationContext
+		statefulSet  *appsv1.StatefulSet
+		newNodeCount int32
+	}
+
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	var (
+		nextRack = &RackInformation{}
+	)
+
+	nextRack.RackName = "default"
+	nextRack.NodeCount = 2
+
+	statefulSet, _, _ := getStatefulSetForRack(
+		rc,
+		service,
+		nextRack)
+
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "check that replicas get increased",
+			args: args{
+				rc:           rc,
+				statefulSet:  statefulSet,
+				newNodeCount: 3,
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			trackObjects := []runtime.Object{
+				tt.args.statefulSet,
+			}
+
+			rc.reconciler.client = fake.NewFakeClient(trackObjects...)
+			if err := updateRackNodeCount(tt.args.rc, tt.args.statefulSet, tt.args.newNodeCount); (err != nil) != tt.wantErr {
+				t.Errorf("updateRackNodeCount() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if tt.args.newNodeCount != *tt.args.statefulSet.Spec.Replicas {
+				t.Errorf("StatefulSet spec should have different replica count, has = %v, want %v", *tt.args.statefulSet.Spec.Replicas, tt.args.newNodeCount)
+			}
+		})
+	}
 }

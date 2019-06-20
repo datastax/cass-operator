@@ -8,4 +8,5 @@ const (
 	CALCULATE_RACK_INFORMATION_TOPIC      string = "CalculateRackInformation"
 	RECONCILE_RACKS_TOPIC                 string = "ReconcileRacks"
 	RECONCILE_NEXT_RACK_TOPIC             string = "ReconcileNextRack"
+	UPDATE_RACK_TOPIC                     string = "UpdateRack"
 )

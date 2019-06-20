@@ -302,6 +302,25 @@ func reconcileRacks(
 			return nil
 		}
 
+		desiredNodeCount := int32(rackInfo.NodeCount)
+
+		if *statefulSet.Spec.Replicas < desiredNodeCount {
+			// update it
+			rc.reqLogger.Info(
+				"Need to update the rack's node count",
+				"Rack", rackInfo.RackName,
+				"currentSize", *statefulSet.Spec.Replicas,
+				"desiredSize", desiredNodeCount)
+
+			EventBus.Publish(
+				UPDATE_RACK_TOPIC,
+				rc,
+				statefulSet,
+				desiredNodeCount)
+
+			return nil
+		}
+
 		//
 		// Has this statefulset been reconciled?
 		//
@@ -313,16 +332,25 @@ func reconcileRacks(
 
 		labelSeedPods(rc, statefulSet)
 
-		if statefulSet.Status.ReadyReplicas < int32(rackInfo.NodeCount) {
+		readyReplicas := statefulSet.Status.ReadyReplicas
+
+		if readyReplicas < desiredNodeCount {
 			// We should do nothing but wait until all replicas are ready
 
 			rc.reqLogger.Info(
 				"Not all replicas for StatefulSet are ready.",
-				"Desired:",
-				rackInfo.NodeCount,
-				"Ready:",
-				statefulSet.Status.ReadyReplicas)
+				"desiredCount", desiredNodeCount,
+				"readyCount", readyReplicas)
 
+			return nil
+		}
+
+		if statefulSet.Status.ReadyReplicas > desiredNodeCount {
+			// too many ready replicas, how did this happen?
+			rc.reqLogger.Info(
+				"Too many replicas for StatefulSet are ready",
+				"desiredCount", desiredNodeCount,
+				"readyCount", readyReplicas)
 			return nil
 		}
 
@@ -492,4 +520,24 @@ func reconcileNextRack(rc *ReconciliationContext, statefulSet *appsv1.StatefulSe
 	}
 
 	return nil
+}
+
+func updateRackNodeCount(rc *ReconciliationContext, statefulSet *appsv1.StatefulSet, newNodeCount int32) error {
+
+	rc.reqLogger.Info("handler::updateRack")
+
+	rc.reqLogger.Info(
+		"updating StatefulSet node count",
+		"StatefulSetNamespace", statefulSet.Namespace,
+		"StatefulSetName", statefulSet.Name,
+		"newNodeCount", newNodeCount,
+	)
+
+	statefulSet.Spec.Replicas = &newNodeCount
+
+	err := rc.reconciler.client.Update(
+		rc.ctx,
+		statefulSet)
+
+	return err
 }
