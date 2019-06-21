@@ -11,6 +11,7 @@ import (
 
 	evbus "github.com/asaskevich/EventBus"
 	"github.com/go-logr/logr"
+	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -53,11 +54,11 @@ type ReconcileDseDatacenter struct {
 func (r *ReconcileDseDatacenter) Reconcile(
 	request reconcile.Request) (reconcile.Result, error) {
 
-	reqLogger := log.WithValues(
-		"Request.Namespace",
-		request.Namespace,
-		"Request.Name",
-		request.Name)
+	reqLogger := log.
+		WithValues("Request.Namespace", request.Namespace).
+		WithValues("Request.Name", request.Name).
+		// loopID is used to tie all events together that are spawned by the same reconciliation loop
+		WithValues("loopID", uuid.New().String())
 
 	reqLogger.Info("======== handler::Reconcile has been called")
 
@@ -141,6 +142,9 @@ func CreateReconciliationContext(
 	rc.reqLogger = reqLogger
 	rc.ctx = context.Background()
 
+	rc.reqLogger = rc.reqLogger.
+		WithValues("namespace", request.Namespace)
+
 	rc.reqLogger.Info("handler::CreateReconciliationContext")
 
 	// Fetch the DseDatacenter dseDatacenter
@@ -167,6 +171,10 @@ func CreateReconciliationContext(
 	}
 
 	rc.dseDatacenter = dseDatacenter
+
+	rc.reqLogger = rc.reqLogger.
+		WithValues("dseDatacenterName", dseDatacenter.Name).
+		WithValues("dseDatacenterClusterName", dseDatacenter.ClusterName)
 
 	return rc, nil
 }

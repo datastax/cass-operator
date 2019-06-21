@@ -16,7 +16,7 @@ require (
 	github.com/golang/mock v1.2.0 // indirect
 	github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c // indirect
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
-	github.com/google/uuid v1.0.0 // indirect
+	github.com/google/uuid v1.0.0
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/gophercloud/gophercloud v0.0.0-20190318015731-ff9851476e98 // indirect
 	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
