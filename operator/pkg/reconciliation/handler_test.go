@@ -9,7 +9,11 @@ import (
 	"github.com/stretchr/testify/mock"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -128,6 +132,18 @@ func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
 				return obj != nil
 			})).Return(fmt.Errorf("")).Once()
 
+	mockClient.On("Update",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Return(nil).
+		Once()
+
 	err := EventBus.SubscribeAsync(RECONCILIATION_REQUEST_TOPIC, calculateReconciliationActions, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
@@ -154,6 +170,134 @@ func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
 	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestCalculateReconciliationActions_FailedUpdate(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	var (
+		calledCreate               = false
+		calledReconcileSeedService = false
+	)
+
+	testCreateHeadlessService := func(
+		rc *ReconciliationContext,
+		service *corev1.Service) error {
+		calledCreate = true
+		return nil
+	}
+
+	testReconcileHeadlessSeedService := func(
+		rc *ReconciliationContext,
+		service *corev1.Service) error {
+		calledReconcileSeedService = true
+		return nil
+	}
+
+	mockClient := mocks.Client{}
+	rc.reconciler.client = &mockClient
+
+	mockClient.On("Update",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Return(fmt.Errorf("failed to update DseDatacenter with removed finalizers")).
+		Once()
+
+	err := EventBus.SubscribeAsync(RECONCILIATION_REQUEST_TOPIC, calculateReconciliationActions, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(CREATE_HEADLESS_SERVICE_TOPIC, testCreateHeadlessService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	EventBus.Publish(
+		RECONCILIATION_REQUEST_TOPIC,
+		rc)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.False(t, calledReconcileSeedService, "Should call correct handler.")
+	assert.False(t, calledCreate, "Should call correct handler.")
+
+	err = EventBus.Unsubscribe(RECONCILIATION_REQUEST_TOPIC, calculateReconciliationActions)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(CREATE_HEADLESS_SERVICE_TOPIC, testCreateHeadlessService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestProcessDeletion_FailedDelete(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	mockClient := mocks.Client{}
+	rc.reconciler.client = &mockClient
+
+	mockClient.On("List",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(opts *client.ListOptions) bool {
+				return opts != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Run(func(args mock.Arguments) {
+			arg := args.Get(2).(*v1.PersistentVolumeClaimList)
+			arg.Items = []v1.PersistentVolumeClaim{{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pvc-1",
+				},
+			}}
+		}).
+		Return(nil).
+		Once()
+
+	mockClient.On("Delete",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Return(fmt.Errorf("")).
+		Once()
+
+	err := EventBus.SubscribeAsync(PROCESS_DELETION_TOPIC, processDeletion, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	EventBus.Publish(
+		PROCESS_DELETION_TOPIC,
+		rc)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	err = EventBus.Unsubscribe(PROCESS_DELETION_TOPIC, processDeletion)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
 	mockClient.AssertExpectations(t)
@@ -1000,6 +1144,193 @@ func TestReconcileNextRack_CreateError(t *testing.T) {
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
 	mockClient.AssertExpectations(t)
+}
+
+func TestDeletePVCs(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	mockClient := mocks.Client{}
+	rc.reconciler.client = &mockClient
+
+	mockClient.On("List",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(opts *client.ListOptions) bool {
+				return opts != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Run(func(args mock.Arguments) {
+			arg := args.Get(2).(*v1.PersistentVolumeClaimList)
+			arg.Items = []v1.PersistentVolumeClaim{{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pvc-1",
+				},
+			}}
+		}).
+		Return(nil).
+		Once()
+
+	mockClient.On("Delete",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Return(nil).
+		Once()
+
+	if err := deletePVCs(rc); err != nil {
+		t.Errorf("error occurred deleting PVC: %v", err)
+	}
+}
+
+func TestDeletePVCs_FailedToList(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	mockClient := mocks.Client{}
+	rc.reconciler.client = &mockClient
+
+	mockClient.On("List",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(opts *client.ListOptions) bool {
+				return opts != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Run(func(args mock.Arguments) {
+			arg := args.Get(2).(*v1.PersistentVolumeClaimList)
+			arg.Items = []v1.PersistentVolumeClaim{{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pvc-1",
+				},
+			}}
+		}).
+		Return(fmt.Errorf("failed to list PVCs for DseDatacenter")).
+		Once()
+
+	mockClient.On("Delete",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Return(nil).
+		Once()
+
+	err := deletePVCs(rc)
+	if err == nil {
+		t.Fatalf("deletePVCs should have failed")
+	}
+
+	assert.EqualError(t, err, "failed to list PVCs for DseDatacenter")
+}
+
+func TestDeletePVCs_PVCsNotFound(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	mockClient := mocks.Client{}
+	rc.reconciler.client = &mockClient
+
+	mockClient.On("List",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(opts *client.ListOptions) bool {
+				return opts != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Run(func(args mock.Arguments) {
+			arg := args.Get(2).(*v1.PersistentVolumeClaimList)
+			arg.Items = []v1.PersistentVolumeClaim{{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pvc-1",
+				},
+			}}
+		}).
+		Return(errors.NewNotFound(schema.GroupResource{}, "name")).
+		Once()
+
+	err := deletePVCs(rc)
+	if err != nil {
+		t.Fatalf("deletePVCs should not have failed")
+	}
+}
+
+func TestDeletePVCs_FailedToDelete(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	mockClient := mocks.Client{}
+	rc.reconciler.client = &mockClient
+
+	mockClient.On("List",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(opts *client.ListOptions) bool {
+				return opts != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Run(func(args mock.Arguments) {
+			arg := args.Get(2).(*v1.PersistentVolumeClaimList)
+			arg.Items = []v1.PersistentVolumeClaim{{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pvc-1",
+				},
+			}}
+		}).
+		Return(nil).
+		Once()
+
+	mockClient.On("Delete",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Return(fmt.Errorf("failed to delete")).
+		Once()
+
+	err := deletePVCs(rc)
+	if err == nil {
+		t.Fatalf("deletePVCs should have failed")
+	}
+
+	assert.EqualError(t, err, "failed to delete")
 }
 
 func setupTest() (*ReconciliationContext, *corev1.Service, func()) {

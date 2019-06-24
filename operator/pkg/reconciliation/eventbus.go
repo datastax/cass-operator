@@ -7,7 +7,6 @@ package reconciliation
 
 import (
 	"context"
-	"fmt"
 
 	evbus "github.com/asaskevich/EventBus"
 	"github.com/go-logr/logr"
@@ -66,8 +65,16 @@ func (r *ReconcileDseDatacenter) Reconcile(
 		&request,
 		r,
 		reqLogger)
-
 	if err != nil {
+		if errors.IsNotFound(err) {
+			// Request object not found, could have been deleted after reconcile request.
+			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Return and don't requeue
+			reqLogger.Info("DseDatacenter resource not found. Ignoring since object must be deleted.")
+			return reconcile.Result{}, nil
+		}
+		// Error reading the object - requeue the request.
+		reqLogger.Error(err, "Failed to get DseDatacenter.")
 		return reconcile.Result{}, err
 	}
 
@@ -76,6 +83,21 @@ func (r *ReconcileDseDatacenter) Reconcile(
 		rc)
 
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileDseDatacenter) addFinalizer(rc *ReconciliationContext) error {
+	if len(rc.dseDatacenter.GetFinalizers()) < 1 && rc.dseDatacenter.GetDeletionTimestamp() == nil {
+		rc.reqLogger.Info("Adding Finalizer for the DseDatacenter")
+		rc.dseDatacenter.SetFinalizers([]string{"com.datastax.dse.finalizer"})
+
+		// Update CR
+		err := r.client.Update(rc.ctx, rc.dseDatacenter)
+		if err != nil {
+			rc.reqLogger.Error(err, "Failed to update DseDatacenter with finalizer")
+			return err
+		}
+	}
+	return nil
 }
 
 // newReconciler returns a new reconcile.Reconciler
@@ -126,6 +148,7 @@ func SubscribeToEventBus() {
 	EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, false)
 	EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, reconcileNextRack, false)
 	EventBus.SubscribeAsync(UPDATE_RACK_TOPIC, updateRackNodeCount, false)
+	EventBus.SubscribeAsync(PROCESS_DELETION_TOPIC, processDeletion, false)
 }
 
 //
@@ -154,20 +177,7 @@ func CreateReconciliationContext(
 		request.NamespacedName,
 		dseDatacenter)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			// TODO this situation might be ok
-			// is there any well to tell?
-
-			// Request object not found,
-			// could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected.
-			// For additional cleanup logic use finalizers.
-			// Return and don't requeue
-			// TODO LOG THIS - and update error
-			return nil, fmt.Errorf("DseDatacenter object not found")
-		}
-		// Error reading the object - requeue the request.
-		return nil, fmt.Errorf("error reading DseDatacenter object")
+		return nil, err
 	}
 
 	rc.dseDatacenter = dseDatacenter

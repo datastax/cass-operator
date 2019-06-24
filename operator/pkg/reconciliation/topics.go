@@ -9,4 +9,5 @@ const (
 	RECONCILE_RACKS_TOPIC                 string = "ReconcileRacks"
 	RECONCILE_NEXT_RACK_TOPIC             string = "ReconcileNextRack"
 	UPDATE_RACK_TOPIC                     string = "UpdateRack"
+	PROCESS_DELETION_TOPIC                string = "ProcessDeletion"
 )

@@ -5,14 +5,18 @@ package reconciliation
 //
 
 import (
+	"fmt"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
@@ -31,6 +35,20 @@ func calculateReconciliationActions(
 	rc *ReconciliationContext) error {
 
 	rc.reqLogger.Info("handler::calculateReconciliationActions")
+
+	// Check if the DseDatacenter was marked to be deleted
+	isMarkedToBeDeleted := rc.dseDatacenter.GetDeletionTimestamp() != nil
+	if isMarkedToBeDeleted {
+		EventBus.Publish(
+			PROCESS_DELETION_TOPIC,
+			rc)
+
+		return nil
+	}
+
+	if err := rc.reconciler.addFinalizer(rc); err != nil {
+		return err
+	}
 
 	//
 	// Check if there is a headless service for the cluster
@@ -75,6 +93,24 @@ func calculateReconciliationActions(
 			RECONCILE_HEADLESS_SEED_SERVICE_TOPIC,
 			rc,
 			currentService)
+	}
+
+	return nil
+}
+
+func processDeletion(rc *ReconciliationContext) error {
+	if err := deletePVCs(rc); err != nil {
+		rc.reqLogger.Error(err, "Failed to delete PVCs for DseDatacenter")
+		return err
+	}
+
+	// Update finalizer to allow delete of DseDatacenter
+	rc.dseDatacenter.SetFinalizers(nil)
+
+	// Update DseDatacenter
+	if err := rc.reconciler.client.Update(rc.ctx, rc.dseDatacenter); err != nil {
+		rc.reqLogger.Error(err, "Failed to update DseDatacenter with removed finalizers")
+		return err
 	}
 
 	return nil
@@ -540,4 +576,78 @@ func updateRackNodeCount(rc *ReconciliationContext, statefulSet *appsv1.Stateful
 		statefulSet)
 
 	return err
+}
+
+func deletePVCs(rc *ReconciliationContext) error {
+	rc.reqLogger.Info("handler::deletePVCs")
+
+	persistentVolumeClaimList, err := listPVCs(rc)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			rc.reqLogger.Info(
+				"No PVCs found for DseDatacenter",
+				"DseDatacenter.Namespace",
+				rc.dseDatacenter.Namespace,
+				"DseDatacenter.Name",
+				rc.dseDatacenter.Name)
+			return nil
+		}
+		rc.reqLogger.Error(err,
+			"Failed to list PVCs for DseDatacenter",
+			"DseDatacenter.Namespace",
+			rc.dseDatacenter.Namespace,
+			"DseDatacenter.Name",
+			rc.dseDatacenter.Name)
+		return err
+	}
+
+	rc.reqLogger.Info(
+		fmt.Sprintf("Found %d PVCs for DseDatacenter", len(persistentVolumeClaimList.Items)),
+		"DseDatacenter.Namespace",
+		rc.dseDatacenter.Namespace,
+		"DseDatacenter.Name",
+		rc.dseDatacenter.Name)
+
+	for _, pvc := range persistentVolumeClaimList.Items {
+		if err := rc.reconciler.client.Delete(rc.ctx, &pvc); err != nil {
+			rc.reqLogger.Error(err,
+				"Failed to delete PVCs for DseDatacenter",
+				"DseDatacenter.Namespace",
+				rc.dseDatacenter.Namespace,
+				"DseDatacenter.Name",
+				rc.dseDatacenter.Name)
+			return err
+		} else {
+			rc.reqLogger.Info(
+				"Deleted PVC",
+				"PVC.Namespace",
+				pvc.Namespace,
+				"PVC.Name",
+				pvc.Name)
+		}
+	}
+
+	return nil
+}
+
+func listPVCs(rc *ReconciliationContext) (*v1.PersistentVolumeClaimList, error) {
+	rc.reqLogger.Info("handler::listPVCs")
+
+	selector := map[string]string{
+		datastaxv1alpha1.DATACENTER_LABEL: rc.dseDatacenter.Name,
+	}
+
+	listOptions := &client.ListOptions{
+		Namespace:     rc.dseDatacenter.Namespace,
+		LabelSelector: labels.SelectorFromSet(selector),
+	}
+
+	persistentVolumeClaimList := &v1.PersistentVolumeClaimList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PersistentVolumeClaim",
+			APIVersion: "v1",
+		},
+	}
+
+	return persistentVolumeClaimList, rc.reconciler.client.List(rc.ctx, listOptions, persistentVolumeClaimList)
 }

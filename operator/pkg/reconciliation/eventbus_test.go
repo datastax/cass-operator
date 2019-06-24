@@ -153,11 +153,9 @@ func TestReconcile_NotFound(t *testing.T) {
 	}
 
 	result, err := r.Reconcile(request)
-	if err == nil {
-		t.Fatalf("Reconciliation should have failed")
+	if err != nil {
+		t.Fatalf("Reconciliation Failure: (%v)", err)
 	}
-
-	assert.EqualError(t, err, "DseDatacenter object not found")
 
 	if result != (reconcile.Result{}) {
 		t.Error("Reconcile did not return an empty result.")
@@ -243,8 +241,6 @@ func TestReconcile_Error(t *testing.T) {
 		t.Fatalf("Reconciliation should have failed")
 	}
 
-	assert.EqualError(t, err, "error reading DseDatacenter object")
-
 	if result != (reconcile.Result{}) {
 		t.Error("Reconcile did not return an empty result.")
 	}
@@ -256,4 +252,89 @@ func TestReconcile_Error(t *testing.T) {
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
 	assert.False(t, handlerCalled, "Reconcile should not have called the handler.")
+}
+
+func TestReconcile_DseDatacenterToBeDeleted(t *testing.T) {
+	// Set up verbose logging
+	logger := logf.ZapLogger(true)
+	logf.SetLogger(logger)
+
+	var (
+		name                = "dsedatacenter-example"
+		namespace           = "default"
+		size          int32 = 2
+		handlerCalled       = false
+	)
+
+	// Instance a dseDatacenter
+	now := metav1.Now()
+	dseDatacenter := &datastaxv1alpha1.DseDatacenter{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              name,
+			Namespace:         namespace,
+			DeletionTimestamp: &now,
+			Finalizers:        nil,
+		},
+		Spec: datastaxv1alpha1.DseDatacenterSpec{
+			Size: size,
+		},
+	}
+
+	// Objects to keep track of
+
+	trackObjects := []runtime.Object{
+		dseDatacenter,
+	}
+
+	s := scheme.Scheme
+	s.AddKnownTypes(datastaxv1alpha1.SchemeGroupVersion, dseDatacenter)
+
+	fakeClient := fake.NewFakeClient(trackObjects...)
+
+	r := &ReconcileDseDatacenter{
+		client: fakeClient,
+		scheme: s,
+	}
+
+	request := reconcile.Request{
+		NamespacedName: types.NamespacedName{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+
+	testHandleProcessDeletion := func(rc *ReconciliationContext) error {
+		handlerCalled = true
+		return nil
+	}
+
+	err := EventBus.SubscribeAsync(RECONCILIATION_REQUEST_TOPIC, calculateReconciliationActions, true)
+	if err != nil {
+		t.Errorf("error occurred subscribing to eventbus: %v", err)
+	}
+
+	err = EventBus.SubscribeAsync(PROCESS_DELETION_TOPIC, testHandleProcessDeletion, true)
+	if err != nil {
+		t.Errorf("error occurred subscribing to eventbus: %v", err)
+	}
+
+	result, err := r.Reconcile(request)
+	if err != nil {
+		t.Fatalf("Reconciliation Failure: (%v)", err)
+	}
+
+	if result != (reconcile.Result{}) {
+		t.Error("Reconcile did not return an empty result.")
+	}
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	err = EventBus.Unsubscribe(RECONCILIATION_REQUEST_TOPIC, calculateReconciliationActions)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(PROCESS_DELETION_TOPIC, testHandleProcessDeletion)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	assert.True(t, handlerCalled, "Reconcile should have called the handler.")
 }
