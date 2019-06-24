@@ -3,6 +3,7 @@ kind: DseDatacenter
 metadata:
   name: my-dse-dc
 spec:
+  clusterName: my-dse-cluster
   size: 3
   storageclaim:
     storageclassname: gce-ssd

@@ -43,6 +43,8 @@ type DseDatacenterSpec struct {
 	Racks []DseRack `json:"racks,omitempty"`
 	// StorageClaim
 	StorageClaim *DseStorageClaim `json:"storageclaim,omitempty"`
+	// DSE ClusterName
+	ClusterName string `json:"clusterName"`
 }
 
 func (s *DseDatacenterSpec) GetRacks() []DseRack {
@@ -96,19 +98,19 @@ type DseDatacenter struct {
 // In the event that no seeds are found, an empty list will be returned.
 func (in *DseDatacenter) GetSeedList() []string {
 	var seeds []string
-	nodeServicePattern := "%s-%s-stateful-set-%d.%s-service.%s.svc.cluster.local" // e.g. "example-dsedatacenter-default-stateful-set-0.example-dsedatacenter-service.default.svc.cluster.local"
+	nodeServicePattern := "%s-%s-%s-sts-%d.%s-%s-service.%s.svc.cluster.local" // e.g. "example-cluster-example-dsedatacenter-default-sts-0.example-cluster-example-dsedatacenter-service.default.svc.cluster.local"
 
 	if in.Spec.Size == 0 {
 		return []string{}
 	}
 
 	for _, dseRack := range in.Spec.GetRacks() {
-		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, in.Name, dseRack.Name, 0, in.Name, in.Namespace))
+		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, in.Spec.ClusterName, in.Name, dseRack.Name, 0, in.Spec.ClusterName, in.Name, in.Namespace))
 	}
 
 	// ensure that each Datacenter has at least 2 seeds
 	if len(in.Spec.GetRacks()) == 1 && in.Spec.Size > 1 {
-		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, in.Name, in.Spec.GetRacks()[0].Name, 1, in.Name, in.Namespace))
+		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, in.Spec.ClusterName, in.Name, in.Spec.GetRacks()[0].Name, 1, in.Spec.ClusterName, in.Name, in.Namespace))
 	}
 
 	if seeds == nil {

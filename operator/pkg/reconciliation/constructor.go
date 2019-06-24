@@ -21,11 +21,12 @@ func newServiceForDseDatacenter(
 	dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
 	// TODO adjust labels
 	labels := map[string]string{
+		datastaxv1alpha1.CLUSTER_LABEL:    dseDatacenter.Spec.ClusterName,
 		datastaxv1alpha1.DATACENTER_LABEL: dseDatacenter.Name,
 	}
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dseDatacenter.Name + "-service",
+			Name:      dseDatacenter.Spec.ClusterName + "-" + dseDatacenter.Name + "-service",
 			Namespace: dseDatacenter.Namespace,
 			Labels:    labels,
 		},
@@ -72,11 +73,11 @@ func newSeedServiceForDseDatacenter(
 	dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
 	// TODO adjust labels
 	labels := map[string]string{
-		datastaxv1alpha1.CLUSTER_LABEL: dseDatacenter.Name, // FIXME: this will need to be adjusted once we start to extract cluster name from dc name
+		datastaxv1alpha1.CLUSTER_LABEL: dseDatacenter.Spec.ClusterName,
 	}
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dseDatacenter.Name + "-seed-service",
+			Name:      dseDatacenter.Spec.ClusterName + "-seed-service",
 			Namespace: dseDatacenter.Namespace,
 			Labels:    labels,
 		},
@@ -105,6 +106,7 @@ func newStatefulSetForDseDatacenter(
 	replicaCount int) *appsv1.StatefulSet {
 	replicaCountInt32 := int32(replicaCount)
 	labels := map[string]string{
+		datastaxv1alpha1.CLUSTER_LABEL:    dseDatacenter.Spec.ClusterName,
 		datastaxv1alpha1.DATACENTER_LABEL: dseDatacenter.Name,
 		datastaxv1alpha1.RACK_LABEL:       rackName,
 	}
@@ -119,22 +121,22 @@ func newStatefulSetForDseDatacenter(
 	if nil != dseDatacenter.Spec.StorageClaim {
 		pvName := "dse-data"
 		storageClaim := dseDatacenter.Spec.StorageClaim
-		volumeMounts = []corev1.VolumeMount {
+		volumeMounts = []corev1.VolumeMount{
 			{
-				Name: pvName,
+				Name:      pvName,
 				MountPath: "/var/lib/cassandra",
 			},
 		}
-		volumeCaimTemplates = []corev1.PersistentVolumeClaim {{
+		volumeCaimTemplates = []corev1.PersistentVolumeClaim{{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: labels,
-				Name: pvName,
+				Name:   pvName,
 			},
-			Spec: corev1.PersistentVolumeClaimSpec {
-				AccessModes: []corev1.PersistentVolumeAccessMode {
+			Spec: corev1.PersistentVolumeClaimSpec{
+				AccessModes: []corev1.PersistentVolumeAccessMode{
 					corev1.ReadWriteOnce,
 				},
-				Resources: storageClaim.Resources,
+				Resources:        storageClaim.Resources,
 				StorageClassName: &(storageClaim.StorageClassName),
 			},
 		}}
@@ -142,7 +144,7 @@ func newStatefulSetForDseDatacenter(
 
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dseDatacenter.Name + "-" + rackName + "-stateful-set",
+			Name:      dseDatacenter.Spec.ClusterName + "-" + dseDatacenter.Name + "-" + rackName + "-sts",
 			Namespace: dseDatacenter.Namespace,
 			Labels:    labels,
 		},
@@ -257,6 +259,7 @@ func newPodDisruptionBudgetForStatefulSet(
 	// Right now, we will just have maxUnavailable at 1
 	maxUnavailable := intstr.FromInt(1)
 	labels := map[string]string{
+		datastaxv1alpha1.CLUSTER_LABEL:    dseDatacenter.Spec.ClusterName,
 		datastaxv1alpha1.DATACENTER_LABEL: dseDatacenter.Name,
 	}
 	return &policyv1beta1.PodDisruptionBudget{

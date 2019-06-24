@@ -30,7 +30,7 @@ func TestReconcile(t *testing.T) {
 	logf.SetLogger(logger)
 
 	var (
-		name                = "dsedatacenter-example"
+		name                = "cluster-example-cluster.dc-example-dsedatacenter"
 		namespace           = "default"
 		size          int32 = 2
 		handlerCalled       = false

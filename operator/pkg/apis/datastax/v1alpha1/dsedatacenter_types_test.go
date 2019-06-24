@@ -122,9 +122,10 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					Racks: []DseRack{{
 						Name: "rack0",
 					}},
+					ClusterName: "example-cluster",
 				},
 			},
-			want: []string{"example-dsedatacenter-rack0-stateful-set-0.example-dsedatacenter-service.default_ns.svc.cluster.local"},
+			want: []string{"example-cluster-example-dsedatacenter-rack0-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local"},
 		}, {
 			name: "1 DC, 2 Rack, 2 Node",
 			fields: fields{
@@ -139,10 +140,11 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					}, {
 						Name: "rack1",
 					}},
+					ClusterName: "example-cluster",
 				},
 			},
-			want: []string{"example-dsedatacenter-rack0-stateful-set-0.example-dsedatacenter-service.default_ns.svc.cluster.local",
-				"example-dsedatacenter-rack1-stateful-set-0.example-dsedatacenter-service.default_ns.svc.cluster.local"},
+			want: []string{"example-cluster-example-dsedatacenter-rack0-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local",
+				"example-cluster-example-dsedatacenter-rack1-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local"},
 		}, {
 			name: "1 DC, 1 Rack, 2 Node",
 			fields: fields{
@@ -155,10 +157,11 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					Racks: []DseRack{{
 						Name: "rack0",
 					}},
+					ClusterName: "example-cluster",
 				},
 			},
-			want: []string{"example-dsedatacenter-rack0-stateful-set-0.example-dsedatacenter-service.default_ns.svc.cluster.local",
-				"example-dsedatacenter-rack0-stateful-set-1.example-dsedatacenter-service.default_ns.svc.cluster.local"},
+			want: []string{"example-cluster-example-dsedatacenter-rack0-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local",
+				"example-cluster-example-dsedatacenter-rack0-sts-1.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local"},
 		}, {
 			name: "1 DC, 3 Rack, 6 Node",
 			fields: fields{
@@ -175,11 +178,12 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					}, {
 						Name: "rack2",
 					}},
+					ClusterName: "example-cluster",
 				},
 			},
-			want: []string{"example-dsedatacenter-rack0-stateful-set-0.example-dsedatacenter-service.default_ns.svc.cluster.local",
-				"example-dsedatacenter-rack1-stateful-set-0.example-dsedatacenter-service.default_ns.svc.cluster.local",
-				"example-dsedatacenter-rack2-stateful-set-0.example-dsedatacenter-service.default_ns.svc.cluster.local"},
+			want: []string{"example-cluster-example-dsedatacenter-rack0-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local",
+				"example-cluster-example-dsedatacenter-rack1-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local",
+				"example-cluster-example-dsedatacenter-rack2-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local"},
 		}, {
 			name: "1 DC, 0 Rack, 0 Node",
 			fields: fields{
@@ -188,8 +192,9 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					Namespace: "default_ns",
 				},
 				Spec: DseDatacenterSpec{
-					Size:  0,
-					Racks: []DseRack{},
+					Size:        0,
+					Racks:       []DseRack{},
+					ClusterName: "example-cluster",
 				},
 			},
 			want: []string{},
@@ -209,11 +214,12 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					}, {
 						Name: "rack2",
 					}},
+					ClusterName: "example-cluster",
 				},
 			},
-			want: []string{"example-dsedatacenter-rack0-stateful-set-0.example-dsedatacenter-service.default_ns.svc.cluster.local",
-				"example-dsedatacenter-rack1-stateful-set-0.example-dsedatacenter-service.default_ns.svc.cluster.local",
-				"example-dsedatacenter-rack2-stateful-set-0.example-dsedatacenter-service.default_ns.svc.cluster.local"},
+			want: []string{"example-cluster-example-dsedatacenter-rack0-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local",
+				"example-cluster-example-dsedatacenter-rack1-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local",
+				"example-cluster-example-dsedatacenter-rack2-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local"},
 		}, {
 			name: "1 DC, 0 Rack, 1 Node",
 			fields: fields{
@@ -222,10 +228,11 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					Namespace: "default_ns",
 				},
 				Spec: DseDatacenterSpec{
-					Size: 1,
+					Size:        1,
+					ClusterName: "example-cluster",
 				},
 			},
-			want: []string{"example-dsedatacenter-default-stateful-set-0.example-dsedatacenter-service.default_ns.svc.cluster.local"},
+			want: []string{"example-cluster-example-dsedatacenter-default-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local"},
 		},
 	}
 	for _, tt := range tests {

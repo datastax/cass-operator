@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
-	"github.com/riptano/dse-operator/operator/pkg/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	appsv1 "k8s.io/api/apps/v1"
@@ -15,6 +13,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
+
+	"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	"github.com/riptano/dse-operator/operator/pkg/mocks"
 )
 
 func TestCalculateReconciliationActions(t *testing.T) {
