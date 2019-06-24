@@ -1,10 +1,10 @@
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  name: gce-standard
+  name: gce-ssd
 provisioner: kubernetes.io/gce-pd
 parameters:
-  type: pd-standard
+  type: pd-ssd
   replication-type: none
 volumeBindingMode: WaitForFirstConsumer
 allowedTopologies:

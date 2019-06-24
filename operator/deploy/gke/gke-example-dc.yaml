@@ -5,10 +5,10 @@ metadata:
 spec:
   size: 3
   storageclaim:
-  - storageclassname: gce-standard
+    storageclassname: gce-ssd
     resources:
       requests:
-        storage: 100Gi  
+        storage: 100Gi
   racks:
     - name: rack1
     - name: rack2
