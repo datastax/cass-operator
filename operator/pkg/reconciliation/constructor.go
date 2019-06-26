@@ -198,6 +198,7 @@ func newStatefulSetForDseDatacenter(
 						RunAsGroup: &userID,
 						FSGroup:    &userID,
 					},
+					ServiceAccountName: "dse-operator",
 					Containers: []corev1.Container{{
 						// TODO FIXME
 						Name:  "dse",
