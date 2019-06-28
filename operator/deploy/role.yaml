@@ -52,3 +52,11 @@ rules:
   - '*'
   verbs:
   - '*'
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - get
+  - list
+  - watch
