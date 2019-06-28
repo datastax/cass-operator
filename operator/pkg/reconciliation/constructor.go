@@ -20,10 +20,7 @@ import (
 func newServiceForDseDatacenter(
 	dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
 	// TODO adjust labels
-	labels := map[string]string{
-		datastaxv1alpha1.CLUSTER_LABEL:    dseDatacenter.Spec.ClusterName,
-		datastaxv1alpha1.DATACENTER_LABEL: dseDatacenter.Name,
-	}
+	labels := dseDatacenter.GetDatacenterLabels()
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dseDatacenter.Spec.ClusterName + "-" + dseDatacenter.Name + "-service",
@@ -68,9 +65,7 @@ func newServiceForDseDatacenter(
 func newSeedServiceForDseDatacenter(
 	dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
 	// TODO adjust labels
-	labels := map[string]string{
-		datastaxv1alpha1.CLUSTER_LABEL: dseDatacenter.Spec.ClusterName,
-	}
+	labels := dseDatacenter.GetClusterLabels()
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dseDatacenter.Spec.ClusterName + "-seed-service",
@@ -101,11 +96,7 @@ func newStatefulSetForDseDatacenter(
 	service *corev1.Service,
 	replicaCount int) *appsv1.StatefulSet {
 	replicaCountInt32 := int32(replicaCount)
-	labels := map[string]string{
-		datastaxv1alpha1.CLUSTER_LABEL:    dseDatacenter.Spec.ClusterName,
-		datastaxv1alpha1.DATACENTER_LABEL: dseDatacenter.Name,
-		datastaxv1alpha1.RACK_LABEL:       rackName,
-	}
+	labels := dseDatacenter.GetRackLabels(rackName)
 	seeds := dseDatacenter.GetSeedList()
 	var userID int64 = 999
 	var volumeCaimTemplates []corev1.PersistentVolumeClaim
@@ -277,10 +268,7 @@ func newPodDisruptionBudgetForStatefulSet(
 	statefulSet *appsv1.StatefulSet) *policyv1beta1.PodDisruptionBudget {
 	// Right now, we will just have maxUnavailable at 1
 	maxUnavailable := intstr.FromInt(1)
-	labels := map[string]string{
-		datastaxv1alpha1.CLUSTER_LABEL:    dseDatacenter.Spec.ClusterName,
-		datastaxv1alpha1.DATACENTER_LABEL: dseDatacenter.Name,
-	}
+	labels := dseDatacenter.GetDatacenterLabels()
 	return &policyv1beta1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      statefulSet.Name + "-pdb",

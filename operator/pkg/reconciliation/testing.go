@@ -41,9 +41,10 @@ func CreateMockReconciliationContext(
 	// These defaults may need to be settable via arguments
 
 	var (
-		name            = "dsedatacenter-example"
-		namespace       = "default"
-		size      int32 = 2
+		name              = "dsedatacenter-example"
+		clusterName       = "dsedatacenter-example-cluster"
+		namespace         = "default"
+		size        int32 = 2
 	)
 
 	// Instance a dseDatacenter
@@ -54,7 +55,8 @@ func CreateMockReconciliationContext(
 			Namespace: namespace,
 		},
 		Spec: datastaxv1alpha1.DseDatacenterSpec{
-			Size: size,
+			Size:        size,
+			ClusterName: clusterName,
 		},
 	}
 

@@ -149,6 +149,8 @@ func SubscribeToEventBus() {
 	EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, reconcileNextRack, false)
 	EventBus.SubscribeAsync(UPDATE_RACK_TOPIC, updateRackNodeCount, false)
 	EventBus.SubscribeAsync(PROCESS_DELETION_TOPIC, processDeletion, false)
+	EventBus.SubscribeAsync(RECONCILE_HEADLESS_SERVICE_TOPIC, reconcileHeadlessService, false)
+	EventBus.SubscribeAsync(RECONCILE_PODS_TOPIC, reconcilePods, false)
 }
 
 //

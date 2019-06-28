@@ -3,6 +3,7 @@ kind: DseDatacenter
 metadata:
   name: example-dsedatacenter
 spec:
+  clusterName: example-cluster
   size: 3
   storageclaim:
     storageclassname: gp2

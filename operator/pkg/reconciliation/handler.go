@@ -20,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
 
 // Use a var so we can mock this function
@@ -90,7 +91,7 @@ func calculateReconciliationActions(
 		return err
 	} else {
 		EventBus.Publish(
-			RECONCILE_HEADLESS_SEED_SERVICE_TOPIC,
+			RECONCILE_HEADLESS_SERVICE_TOPIC,
 			rc,
 			currentService)
 	}
@@ -99,6 +100,8 @@ func calculateReconciliationActions(
 }
 
 func processDeletion(rc *ReconciliationContext) error {
+	rc.reqLogger.Info("handler::processDeletion")
+
 	if err := deletePVCs(rc); err != nil {
 		rc.reqLogger.Error(err, "Failed to delete PVCs for DseDatacenter")
 		return err
@@ -116,6 +119,34 @@ func processDeletion(rc *ReconciliationContext) error {
 	return nil
 }
 
+func reconcileHeadlessService(rc *ReconciliationContext, service *corev1.Service) error {
+	rc.reqLogger.Info("handler::reconcileHeadlessService")
+
+	svcLabels := service.GetLabels()
+	shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForDatacenterResource(svcLabels, rc.dseDatacenter)
+
+	if shouldUpdateLabels {
+		rc.reqLogger.Info("Updating labels",
+			"service", service,
+			"current", svcLabels,
+			"desired", updatedLabels)
+		service.SetLabels(updatedLabels)
+
+		if err := rc.reconciler.client.Update(rc.ctx, service); err != nil {
+			rc.reqLogger.Info("Unable to update service with labels",
+				"service",
+				service)
+		}
+	}
+
+	EventBus.Publish(
+		RECONCILE_HEADLESS_SEED_SERVICE_TOPIC,
+		rc,
+		service)
+
+	return nil
+}
+
 //
 // Create a headless service for this datacenter.
 //
@@ -126,9 +157,9 @@ func createHeadlessService(
 
 	rc.reqLogger.Info(
 		"Creating a new headless service",
-		"Service.Namespace",
+		"ServiceNamespace",
 		service.Namespace,
-		"Service.Name",
+		"ServiceName",
 		service.Name)
 
 	err := rc.reconciler.client.Create(
@@ -196,6 +227,23 @@ func reconcileHeadlessSeedService(
 
 		return err
 	} else {
+		svcLabels := currentService.GetLabels()
+		shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForClusterResource(svcLabels, rc.dseDatacenter)
+
+		if shouldUpdateLabels {
+			rc.reqLogger.Info("Updating labels",
+				"service", currentService,
+				"current", svcLabels,
+				"desired", updatedLabels)
+			currentService.SetLabels(updatedLabels)
+
+			if err := rc.reconciler.client.Update(rc.ctx, currentService); err != nil {
+				rc.reqLogger.Info("Unable to update service with labels",
+					"service",
+					currentService)
+			}
+		}
+
 		EventBus.Publish(
 			CALCULATE_RACK_INFORMATION_TOPIC,
 			rc,
@@ -212,9 +260,9 @@ func createHeadlessSeedService(
 
 	rc.reqLogger.Info(
 		"Creating a new headless seed service",
-		"Service.Namespace",
+		"ServiceNamespace",
 		seedService.Namespace,
-		"Service.Name",
+		"ServiceName",
 		seedService.Name)
 
 	err := rc.reconciler.client.Create(
@@ -318,16 +366,16 @@ func reconcileRacks(
 		if err != nil {
 			rc.reqLogger.Error(
 				err,
-				"Could not locate statefulSet for ",
-				"Rack: ",
+				"Could not locate statefulSet for",
+				"Rack",
 				rackInfo.RackName)
 			return err
 		}
 
 		if statefulSetFound == false {
 			rc.reqLogger.Info(
-				"Need to create new StatefulSet for ",
-				"Rack: ",
+				"Need to create new StatefulSet for",
+				"Rack",
 				rackInfo.RackName)
 
 			EventBus.Publish(
@@ -336,6 +384,23 @@ func reconcileRacks(
 				statefulSet)
 
 			return nil
+		}
+
+		stsLabels := statefulSet.GetLabels()
+		shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForRackResource(stsLabels, rc.dseDatacenter, rackInfo.RackName)
+
+		if shouldUpdateLabels {
+			rc.reqLogger.Info("Updating labels",
+				"statefulSet", statefulSet,
+				"current", stsLabels,
+				"desired", updatedLabels)
+			statefulSet.SetLabels(updatedLabels)
+
+			if err := rc.reconciler.client.Update(rc.ctx, statefulSet); err != nil {
+				rc.reqLogger.Info("Unable to update statefulSet with labels",
+					"statefulSet",
+					statefulSet)
+			}
 		}
 
 		desiredNodeCount := int32(rackInfo.NodeCount)
@@ -362,8 +427,8 @@ func reconcileRacks(
 		//
 
 		rc.reqLogger.Info(
-			"StatefulSet found: ",
-			"ResourceVersion: ",
+			"StatefulSet found",
+			"ResourceVersion",
 			statefulSet.ResourceVersion)
 
 		labelSeedPods(rc, statefulSet)
@@ -391,9 +456,14 @@ func reconcileRacks(
 		}
 
 		rc.reqLogger.Info(
-			"All replicas are ready for StatefulSet for ",
-			"Rack:",
+			"All replicas are ready for StatefulSet for",
+			"Rack",
 			rackInfo.RackName)
+
+		EventBus.Publish(
+			RECONCILE_PODS_TOPIC,
+			rc,
+			statefulSet)
 	}
 
 	//
@@ -429,24 +499,118 @@ func labelSeedPods(rc *ReconciliationContext, statefulSet *appsv1.StatefulSet) {
 			pod)
 		if err != nil {
 			rc.reqLogger.Info("Unable to get seed pod",
-				"Pod:",
+				"Pod",
 				podName)
 			return
 		}
 
-		labels := pod.GetLabels()
+		podLabels := pod.GetLabels()
 
-		if _, ok := labels[datastaxv1alpha1.SEED_NODE_LABEL]; !ok {
-			labels[datastaxv1alpha1.SEED_NODE_LABEL] = "true"
-			pod.SetLabels(labels)
+		if _, ok := podLabels[datastaxv1alpha1.SEED_NODE_LABEL]; !ok {
+			podLabels[datastaxv1alpha1.SEED_NODE_LABEL] = "true"
+			pod.SetLabels(podLabels)
 
 			if err := rc.reconciler.client.Update(rc.ctx, pod); err != nil {
 				rc.reqLogger.Info("Unable to update pod with seed label",
-					"Pod:",
+					"Pod",
 					podName)
 			}
 		}
 	}
+}
+
+func reconcilePods(rc *ReconciliationContext, statefulSet *appsv1.StatefulSet) error {
+	rc.reqLogger.Info("handler::reconcilePods")
+
+	for i := int32(0); i < statefulSet.Status.Replicas; i++ {
+		podName := fmt.Sprintf("%s-%v", statefulSet.Name, i)
+
+		pod := &corev1.Pod{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "Pod",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      podName,
+				Namespace: statefulSet.Namespace,
+			},
+		}
+		err := rc.reconciler.client.Get(
+			rc.ctx,
+			types.NamespacedName{
+				Name:      podName,
+				Namespace: statefulSet.Namespace},
+			pod)
+		if err != nil {
+			rc.reqLogger.Info("Unable to get pod",
+				"Pod",
+				podName)
+			return err
+		}
+
+		podLabels := pod.GetLabels()
+		shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForRackResource(podLabels, rc.dseDatacenter, statefulSet.Name)
+		if shouldUpdateLabels {
+			rc.reqLogger.Info("Updating labels",
+				"Pod", podName,
+				"current", podLabels,
+				"desired", updatedLabels)
+			pod.SetLabels(updatedLabels)
+
+			if err := rc.reconciler.client.Update(rc.ctx, pod); err != nil {
+				rc.reqLogger.Info("Unable to update pod with label",
+					"Pod",
+					podName)
+			}
+		}
+
+		if pod.Spec.Volumes == nil || len(pod.Spec.Volumes) == 0 || pod.Spec.Volumes[0].PersistentVolumeClaim == nil {
+			continue
+		}
+
+		pvcName := pod.Spec.Volumes[0].PersistentVolumeClaim.ClaimName
+		pvc := &corev1.PersistentVolumeClaim{
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "PersistentVolumeClaim",
+				APIVersion: "v1",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      pvcName,
+				Namespace: statefulSet.Namespace,
+			},
+		}
+		err = rc.reconciler.client.Get(
+			rc.ctx,
+			types.NamespacedName{
+				Name:      pvcName,
+				Namespace: statefulSet.Namespace},
+			pvc)
+		if err != nil {
+			rc.reqLogger.Info("Unable to get pvc",
+				"PVC",
+				pvcName)
+			return err
+		}
+
+		pvcLabels := pvc.GetLabels()
+		shouldUpdateLabels, updatedLabels = shouldUpdateLabelsForRackResource(pvcLabels, rc.dseDatacenter, statefulSet.Name)
+		if shouldUpdateLabels {
+			rc.reqLogger.Info("Updating labels",
+				"PVC", pvc,
+				"current", pvcLabels,
+				"desired", updatedLabels)
+
+			pvc.SetLabels(updatedLabels)
+
+			if err := rc.reconciler.client.Update(rc.ctx, pvc); err != nil {
+				rc.reqLogger.Info("Unable to update pvc with labels",
+					"PVC",
+					pvc)
+			}
+		}
+	}
+
+	return nil
 }
 
 // Returns the statefulset for the rack
@@ -502,9 +666,9 @@ func reconcileNextRack(rc *ReconciliationContext, statefulSet *appsv1.StatefulSe
 	// Create the StatefulSet
 	rc.reqLogger.Info(
 		"Creating a new StatefulSet.",
-		"StatefulSet.Namespace:",
+		"StatefulSetNamespace",
 		statefulSet.Namespace,
-		"StatefulSet.Name:",
+		"StatefulSetName",
 		statefulSet.Name)
 	err := rc.reconciler.client.Create(
 		rc.ctx,
@@ -543,9 +707,9 @@ func reconcileNextRack(rc *ReconciliationContext, statefulSet *appsv1.StatefulSe
 		// Create the Budget
 		rc.reqLogger.Info(
 			"Creating a new PodDisruptionBudget.",
-			"PodDisruptionBudget.Namespace:",
+			"PodDisruptionBudgetNamespace",
 			desiredBudget.Namespace,
-			"PodDisruptionBudget.Name:",
+			"PodDisruptionBudgetName",
 			desiredBudget.Name)
 		err = rc.reconciler.client.Create(
 			rc.ctx,
@@ -650,4 +814,62 @@ func listPVCs(rc *ReconciliationContext) (*v1.PersistentVolumeClaimList, error) 
 	}
 
 	return persistentVolumeClaimList, rc.reconciler.client.List(rc.ctx, listOptions, persistentVolumeClaimList)
+}
+
+// shouldUpdateLabelsForRackResource will compare the labels passed in with what the labels should be for a rack level
+// resource. It will return the updated map and a boolean denoting whether the resource needs to be updated with the new labels.
+func shouldUpdateLabelsForRackResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter, rackName string) (bool, map[string]string) {
+	labelsUpdated, resourceLabels := shouldUpdateLabelsForDatacenterResource(resourceLabels, dseDatacenter)
+
+	if _, ok := resourceLabels[datastaxv1alpha1.RACK_LABEL]; !ok {
+		labelsUpdated = true
+	} else if resourceLabels[datastaxv1alpha1.RACK_LABEL] != rackName {
+		labelsUpdated = true
+	}
+
+	if labelsUpdated {
+		utils.MergeMap(&resourceLabels, dseDatacenter.GetRackLabels(rackName))
+	}
+
+	return labelsUpdated, resourceLabels
+}
+
+// shouldUpdateLabelsForDatacenterResource will compare the labels passed in with what the labels should be for a datacenter level
+// resource. It will return the updated map and a boolean denoting whether the resource needs to be updated with the new labels.
+func shouldUpdateLabelsForDatacenterResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter) (bool, map[string]string) {
+	labelsUpdated, resourceLabels := shouldUpdateLabelsForClusterResource(resourceLabels, dseDatacenter)
+
+	if _, ok := resourceLabels[datastaxv1alpha1.DATACENTER_LABEL]; !ok {
+		labelsUpdated = true
+	} else if resourceLabels[datastaxv1alpha1.DATACENTER_LABEL] != dseDatacenter.Name {
+		labelsUpdated = true
+	}
+
+	if labelsUpdated {
+		utils.MergeMap(&resourceLabels, dseDatacenter.GetDatacenterLabels())
+	}
+
+	return labelsUpdated, resourceLabels
+}
+
+// shouldUpdateLabelsForClusterResource will compare the labels passed in with what the labels should be for a cluster level
+// resource. It will return the updated map and a boolean denoting whether the resource needs to be updated with the new labels.
+func shouldUpdateLabelsForClusterResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter) (bool, map[string]string) {
+	labelsUpdated := false
+
+	if resourceLabels == nil {
+		resourceLabels = make(map[string]string)
+	}
+
+	if _, ok := resourceLabels[datastaxv1alpha1.CLUSTER_LABEL]; !ok {
+		labelsUpdated = true
+	} else if resourceLabels[datastaxv1alpha1.CLUSTER_LABEL] != dseDatacenter.Spec.ClusterName {
+		labelsUpdated = true
+	}
+
+	if labelsUpdated {
+		utils.MergeMap(&resourceLabels, dseDatacenter.GetClusterLabels())
+	}
+
+	return labelsUpdated, resourceLabels
 }

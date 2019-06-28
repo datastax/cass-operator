@@ -5,6 +5,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
 
 const (
@@ -152,4 +154,30 @@ func makeImage(repo, version string) string {
 		version = defaultVersion
 	}
 	return repo + ":" + version
+}
+
+func (dc *DseDatacenter) GetRackLabels(rackName string) map[string]string {
+	labels := map[string]string{
+		RACK_LABEL: rackName,
+	}
+
+	utils.MergeMap(&labels, dc.GetDatacenterLabels())
+
+	return labels
+}
+
+func (dc *DseDatacenter) GetDatacenterLabels() map[string]string {
+	labels := map[string]string{
+		DATACENTER_LABEL: dc.Name,
+	}
+
+	utils.MergeMap(&labels, dc.GetClusterLabels())
+
+	return labels
+}
+
+func (dc *DseDatacenter) GetClusterLabels() map[string]string {
+	return map[string]string{
+		CLUSTER_LABEL: dc.Spec.ClusterName,
+	}
 }

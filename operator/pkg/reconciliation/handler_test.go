@@ -3,6 +3,7 @@ package reconciliation
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -19,6 +20,7 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
 )
 
@@ -27,8 +29,8 @@ func TestCalculateReconciliationActions(t *testing.T) {
 	defer cleanupMockScr()
 
 	var (
-		calledCreate               = false
-		calledReconcileSeedService = false
+		calledCreate           = false
+		calledReconcileService = false
 	)
 
 	testCreateHeadlessService := func(
@@ -38,10 +40,10 @@ func TestCalculateReconciliationActions(t *testing.T) {
 		return nil
 	}
 
-	testReconcileHeadlessSeedService := func(
+	testReconcileHeadlessService := func(
 		rc *ReconciliationContext,
 		service *corev1.Service) error {
-		calledReconcileSeedService = true
+		calledReconcileService = true
 		return nil
 	}
 
@@ -51,7 +53,7 @@ func TestCalculateReconciliationActions(t *testing.T) {
 	err = EventBus.SubscribeAsync(CREATE_HEADLESS_SERVICE_TOPIC, testCreateHeadlessService, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
-	err = EventBus.SubscribeAsync(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService, true)
+	err = EventBus.SubscribeAsync(RECONCILE_HEADLESS_SERVICE_TOPIC, testReconcileHeadlessService, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	EventBus.Publish(
@@ -61,7 +63,7 @@ func TestCalculateReconciliationActions(t *testing.T) {
 	// wait for events to be handled
 	EventBus.WaitAsync()
 
-	assert.False(t, calledReconcileSeedService, "Should call correct handler.")
+	assert.False(t, calledReconcileService, "Should call correct handler.")
 	assert.True(t, calledCreate, "Should call correct handler.")
 
 	// Add a service and check the logic
@@ -70,7 +72,7 @@ func TestCalculateReconciliationActions(t *testing.T) {
 	rc.reconciler.client = *fakeClient
 
 	calledCreate = false
-	calledReconcileSeedService = false
+	calledReconcileService = false
 
 	EventBus.Publish(
 		RECONCILIATION_REQUEST_TOPIC,
@@ -80,7 +82,7 @@ func TestCalculateReconciliationActions(t *testing.T) {
 	EventBus.WaitAsync()
 
 	assert.False(t, calledCreate, "Should call correct handler.")
-	assert.True(t, calledReconcileSeedService, "Should call correct handler.")
+	assert.True(t, calledReconcileService, "Should call correct handler.")
 
 	err = EventBus.Unsubscribe(RECONCILIATION_REQUEST_TOPIC, calculateReconciliationActions)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
@@ -88,7 +90,7 @@ func TestCalculateReconciliationActions(t *testing.T) {
 	err = EventBus.Unsubscribe(CREATE_HEADLESS_SERVICE_TOPIC, testCreateHeadlessService)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
-	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService)
+	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SERVICE_TOPIC, testReconcileHeadlessService)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 }
 
@@ -301,6 +303,99 @@ func TestProcessDeletion_FailedDelete(t *testing.T) {
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 
 	mockClient.AssertExpectations(t)
+}
+
+func TestReconcileHeadlessService(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	var (
+		calledReconcileService = false
+	)
+
+	testReconcileHeadlessSeedService := func(
+		rc *ReconciliationContext,
+		service *corev1.Service) error {
+		calledReconcileService = true
+		return nil
+	}
+
+	err := EventBus.SubscribeAsync(RECONCILE_HEADLESS_SERVICE_TOPIC, reconcileHeadlessService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	EventBus.Publish(
+		RECONCILE_HEADLESS_SERVICE_TOPIC,
+		rc,
+		service)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.True(t, calledReconcileService, "Should call correct handler.")
+
+	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SERVICE_TOPIC, calculateReconciliationActions)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+}
+
+func TestReconcileHeadlessService_UpdateLabels(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	var (
+		calledReconcileService = false
+	)
+
+	mockClient := mocks.Client{}
+	rc.reconciler.client = &mockClient
+
+	mockClient.On("Update",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Return(nil).
+		Once()
+
+	testReconcileHeadlessSeedService := func(
+		rc *ReconciliationContext,
+		service *corev1.Service) error {
+		calledReconcileService = true
+		return nil
+	}
+
+	service.SetLabels(make(map[string]string))
+
+	err := EventBus.SubscribeAsync(RECONCILE_HEADLESS_SERVICE_TOPIC, reconcileHeadlessService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	EventBus.Publish(
+		RECONCILE_HEADLESS_SERVICE_TOPIC,
+		rc,
+		service)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.True(t, calledReconcileService, "Should call correct handler.")
+
+	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SERVICE_TOPIC, calculateReconciliationActions)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, testReconcileHeadlessSeedService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 }
 
 func TestCreateHeadlessService(t *testing.T) {
@@ -526,6 +621,93 @@ func TestReconcileHeadlessSeedService_GetServiceError(t *testing.T) {
 	EventBus.WaitAsync()
 
 	assert.False(t, calledCalculate, "Should call correct handler.")
+	assert.False(t, calledCreate, "Should call correct handler.")
+
+	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, reconcileHeadlessSeedService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(CREATE_HEADLESS_SEED_SERVICE_TOPIC, testCreateHeadlessSeedService)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(CALCULATE_RACK_INFORMATION_TOPIC, testCalculateRackInformation)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestReconcileHeadlessSeedService_UpdateLabels(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	var (
+		calledCreate    = false
+		calledCalculate = false
+	)
+
+	testCreateHeadlessSeedService := func(
+		rc *ReconciliationContext,
+		seedService *corev1.Service,
+		service *corev1.Service) error {
+		calledCreate = true
+		return nil
+	}
+
+	testCalculateRackInformation := func(
+		rc *ReconciliationContext,
+		service *corev1.Service) error {
+		calledCalculate = true
+		return nil
+	}
+
+	mockClient := mocks.Client{}
+	rc.reconciler.client = &mockClient
+
+	mockClient.On("Get",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(key client.ObjectKey) bool {
+				return key != client.ObjectKey{}
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Run(func(args mock.Arguments) {
+			arg := args.Get(2).(*corev1.Service)
+			arg.SetLabels(make(map[string]string))
+		}).Return(nil).Once()
+
+	mockClient.On("Update",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).Return(nil).Once()
+
+	err := EventBus.SubscribeAsync(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, reconcileHeadlessSeedService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(CREATE_HEADLESS_SEED_SERVICE_TOPIC, testCreateHeadlessSeedService, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(CALCULATE_RACK_INFORMATION_TOPIC, testCalculateRackInformation, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	EventBus.Publish(
+		RECONCILE_HEADLESS_SEED_SERVICE_TOPIC,
+		rc,
+		service)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.True(t, calledCalculate, "Should call correct handler.")
 	assert.False(t, calledCreate, "Should call correct handler.")
 
 	err = EventBus.Unsubscribe(RECONCILE_HEADLESS_SEED_SERVICE_TOPIC, reconcileHeadlessSeedService)
@@ -1058,6 +1240,240 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
 }
 
+func TestReconcileRacks_UpdateLabels(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	desiredStatefulSet := newStatefulSetForDseDatacenter(
+		"default",
+		rc.dseDatacenter,
+		service,
+		2)
+
+	desiredStatefulSet.Status.ReadyReplicas = 2
+	desiredStatefulSet.SetLabels(make(map[string]string))
+
+	trackObjects := []runtime.Object{
+		desiredStatefulSet,
+	}
+
+	rc.reconciler.client = fake.NewFakeClient(trackObjects...)
+
+	var (
+		calledReconcileNextRack = false
+	)
+
+	testReconcileNextRack := func(
+		rc *ReconciliationContext,
+		service *corev1.Service,
+		statefulSet *appsv1.StatefulSet) error {
+		calledReconcileNextRack = true
+		return nil
+	}
+
+	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, testReconcileNextRack, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	var rackInfo []*RackInformation
+
+	nextRack := &RackInformation{}
+	nextRack.RackName = "default"
+	nextRack.NodeCount = 1
+
+	rackInfo = append(rackInfo, nextRack)
+
+	EventBus.Publish(
+		RECONCILE_RACKS_TOPIC,
+		rc,
+		service,
+		rackInfo)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.False(t, calledReconcileNextRack, "Should call correct handler.")
+
+	err = EventBus.Unsubscribe(RECONCILE_RACKS_TOPIC, reconcileRacks)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(RECONCILE_NEXT_RACK_TOPIC, testReconcileNextRack)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+}
+
+func TestReconcileRacks_ReconcilePods(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	var (
+		calledReconcilePods = false
+		one                 = int32(1)
+	)
+
+	desiredStatefulSet := newStatefulSetForDseDatacenter(
+		"default",
+		rc.dseDatacenter,
+		service,
+		2)
+
+	desiredStatefulSet.Spec.Replicas = &one
+	desiredStatefulSet.Status.ReadyReplicas = one
+
+	trackObjects := []runtime.Object{
+		desiredStatefulSet,
+	}
+
+	rc.reconciler.client = fake.NewFakeClient(trackObjects...)
+
+	testReconcilePods := func(
+		rc *ReconciliationContext,
+		statefulSet *appsv1.StatefulSet) error {
+		calledReconcilePods = true
+		return nil
+	}
+
+	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(RECONCILE_PODS_TOPIC, testReconcilePods, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	var rackInfo []*RackInformation
+
+	nextRack := &RackInformation{}
+	nextRack.RackName = "default"
+	nextRack.NodeCount = 1
+
+	rackInfo = append(rackInfo, nextRack)
+
+	EventBus.Publish(
+		RECONCILE_RACKS_TOPIC,
+		rc,
+		service,
+		rackInfo)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.True(t, calledReconcilePods, "Should call correct handler.")
+
+	err = EventBus.Unsubscribe(RECONCILE_RACKS_TOPIC, reconcileRacks)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(RECONCILE_PODS_TOPIC, testReconcilePods)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+}
+
+func TestReconcilePods(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	statefulSet := newStatefulSetForDseDatacenter(
+		"default",
+		rc.dseDatacenter,
+		service,
+		2)
+	statefulSet.Status.ReadyReplicas = int32(1)
+
+	pod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dsedatacenter-example-cluster-dsedatacenter-example-default-sts-0",
+			Namespace: statefulSet.Namespace,
+		},
+	}
+
+	trackObjects := []runtime.Object{
+		pod,
+	}
+
+	rc.reconciler.client = fake.NewFakeClient(trackObjects...)
+
+	err := EventBus.SubscribeAsync(RECONCILE_PODS_TOPIC, reconcilePods, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	EventBus.Publish(
+		RECONCILE_PODS_TOPIC,
+		rc,
+		statefulSet)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	err = EventBus.Unsubscribe(RECONCILE_PODS_TOPIC, reconcilePods)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+}
+
+func TestReconcilePods_WithVolumes(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	statefulSet := newStatefulSetForDseDatacenter(
+		"default",
+		rc.dseDatacenter,
+		service,
+		2)
+	statefulSet.Status.ReadyReplicas = int32(1)
+
+	pod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dsedatacenter-example-cluster-dsedatacenter-example-default-sts-0",
+			Namespace: statefulSet.Namespace,
+		},
+		Spec: v1.PodSpec{
+			Volumes: []v1.Volume{{
+				Name: "dse-data",
+				VolumeSource: v1.VolumeSource{
+					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
+						ClaimName: "dse-data-example-cluster1-example-dsedatacenter1-rack0-sts-0",
+					},
+				},
+			}},
+		},
+	}
+
+	pvc := &corev1.PersistentVolumeClaim{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PersistentVolumeClaim",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "dse-data",
+			Namespace: statefulSet.Namespace,
+		},
+	}
+
+	trackObjects := []runtime.Object{
+		pod,
+		pvc,
+	}
+
+	rc.reconciler.client = fake.NewFakeClient(trackObjects...)
+
+	err := EventBus.SubscribeAsync(RECONCILE_PODS_TOPIC, reconcilePods, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	EventBus.Publish(
+		RECONCILE_PODS_TOPIC,
+		rc,
+		statefulSet)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	err = EventBus.Unsubscribe(RECONCILE_PODS_TOPIC, reconcilePods)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+}
+
 // Note: getStatefulSetForRack is currently just a query,
 // and there is really no logic to test.
 // We can add a unit test later, if needed.
@@ -1394,6 +1810,114 @@ func Test_updateRackNodeCount(t *testing.T) {
 			}
 			if tt.args.newNodeCount != *tt.args.statefulSet.Spec.Replicas {
 				t.Errorf("StatefulSet spec should have different replica count, has = %v, want %v", *tt.args.statefulSet.Spec.Replicas, tt.args.newNodeCount)
+			}
+		})
+	}
+}
+
+func Test_validateLabelsForCluster(t *testing.T) {
+	type args struct {
+		resourceLabels map[string]string
+		rc             *ReconciliationContext
+	}
+	tests := []struct {
+		name       string
+		args       args
+		want       bool
+		wantLabels map[string]string
+	}{
+		{
+			name: "No labels",
+			args: args{
+				resourceLabels: make(map[string]string),
+				rc: &ReconciliationContext{
+					dseDatacenter: &v1alpha1.DseDatacenter{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "dseDC",
+						},
+						Spec: v1alpha1.DseDatacenterSpec{
+							ClusterName: "dseCluster",
+						},
+					},
+				},
+			},
+			want: true,
+			wantLabels: map[string]string{
+				datastaxv1alpha1.CLUSTER_LABEL: "dseCluster",
+			},
+		}, {
+			name: "Nil labels",
+			args: args{
+				resourceLabels: nil,
+				rc: &ReconciliationContext{
+					dseDatacenter: &v1alpha1.DseDatacenter{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "dseDC",
+						},
+						Spec: v1alpha1.DseDatacenterSpec{
+							ClusterName: "dseCluster",
+						},
+					},
+				},
+			},
+			want: true,
+			wantLabels: map[string]string{
+				datastaxv1alpha1.CLUSTER_LABEL: "dseCluster",
+			},
+		},
+		{
+			name: "Has Label",
+			args: args{
+				resourceLabels: map[string]string{
+					datastaxv1alpha1.CLUSTER_LABEL: "dseCluster",
+				},
+				rc: &ReconciliationContext{
+					dseDatacenter: &v1alpha1.DseDatacenter{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "dseDC",
+						},
+						Spec: v1alpha1.DseDatacenterSpec{
+							ClusterName: "dseCluster",
+						},
+					},
+				},
+			},
+			want: false,
+			wantLabels: map[string]string{
+				datastaxv1alpha1.CLUSTER_LABEL: "dseCluster",
+			},
+		}, {
+			name: "DC Label, No Cluster Label",
+			args: args{
+				resourceLabels: map[string]string{
+					datastaxv1alpha1.DATACENTER_LABEL: "dseDC",
+				},
+				rc: &ReconciliationContext{
+					dseDatacenter: &v1alpha1.DseDatacenter{
+						ObjectMeta: metav1.ObjectMeta{
+							Name: "dseDC",
+						},
+						Spec: v1alpha1.DseDatacenterSpec{
+							ClusterName: "dseCluster",
+						},
+					},
+				},
+			},
+			want: true,
+			wantLabels: map[string]string{
+				datastaxv1alpha1.DATACENTER_LABEL: "dseDC",
+				datastaxv1alpha1.CLUSTER_LABEL:    "dseCluster",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, got1 := shouldUpdateLabelsForClusterResource(tt.args.resourceLabels, tt.args.rc.dseDatacenter)
+			if got != tt.want {
+				t.Errorf("shouldUpdateLabelsForClusterResource() got = %v, want %v", got, tt.want)
+			}
+			if !reflect.DeepEqual(got1, tt.wantLabels) {
+				t.Errorf("shouldUpdateLabelsForClusterResource() got1 = %v, want %v", got1, tt.wantLabels)
 			}
 		})
 	}
