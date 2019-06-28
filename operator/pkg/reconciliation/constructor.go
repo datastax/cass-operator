@@ -57,11 +57,7 @@ func newServiceForDseDatacenter(
 					Port:       7001,
 					TargetPort: intstr.FromInt(7001),
 				},
-				{
-					Name:       "jmx",
-					Port:       7199,
-					TargetPort: intstr.FromInt(7199),
-				},
+				// jmx port 7199 was here, seems like we no longer need to expose it
 			},
 		},
 	}
@@ -110,9 +106,7 @@ func newStatefulSetForDseDatacenter(
 		datastaxv1alpha1.DATACENTER_LABEL: dseDatacenter.Name,
 		datastaxv1alpha1.RACK_LABEL:       rackName,
 	}
-
 	seeds := dseDatacenter.GetSeedList()
-
 	var userID int64 = 999
 	var volumeCaimTemplates []corev1.PersistentVolumeClaim
 	var volumeMounts []corev1.VolumeMount
@@ -236,9 +230,33 @@ func newStatefulSetForDseDatacenter(
 								ContainerPort: 7001,
 							},
 							{
-								Name:          "jmx",
-								ContainerPort: 7199,
+								Name:          "mgmt-api-http",
+								ContainerPort: 8080,
 							},
+							// jmx port 7199 was here, seems like we no longer need to expose it
+
+						},
+						LivenessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Port: intstr.FromInt(8080),
+									Path: "/api/v0/probes/liveness",
+								},
+							},
+							// TODO expose config for these?
+							InitialDelaySeconds: 15,
+							PeriodSeconds:       15,
+						},
+						ReadinessProbe: &corev1.Probe{
+							Handler: corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Port: intstr.FromInt(8080),
+									Path: "/api/v0/probes/readiness",
+								},
+							},
+							// TODO expose config for these?
+							InitialDelaySeconds: 20,
+							PeriodSeconds:       10,
 						},
 						VolumeMounts: volumeMounts,
 					}},
