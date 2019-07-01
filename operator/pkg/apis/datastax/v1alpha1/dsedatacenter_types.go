@@ -81,6 +81,7 @@ type DseDatacenterStatus struct {
 	Nodes int32 `json:"nodes"`
 }
 
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // DseDatacenter is the Schema for the dsedatacenters API
@@ -181,3 +182,8 @@ func (dc *DseDatacenter) GetClusterLabels() map[string]string {
 		CLUSTER_LABEL: dc.Spec.ClusterName,
 	}
 }
+
+// FIXME workaround!
+// putting this here for the generated client to latch onto
+// not sure why Operator SDK didn't leave this in register.go or a similar file
+var AddToScheme = SchemeBuilder.AddToScheme
