@@ -26,7 +26,7 @@ const (
 // DseDatacenterSpec defines the desired state of DseDatacenter
 // +k8s:openapi-gen=true
 type DseDatacenterSpec struct {
-	// The number of the DSE server nodes
+	// The desired number of DSE server pods
 	Size int32 `json:"size"`
 	// DSE Version
 	Version string `json:"version"`
@@ -47,6 +47,8 @@ type DseDatacenterSpec struct {
 	StorageClaim *DseStorageClaim `json:"storageclaim,omitempty"`
 	// DSE ClusterName
 	ClusterName string `json:"clusterName"`
+	// Parked state means we do not want any DSE processes running
+	Parked bool `json:"parked"`
 }
 
 func (s *DseDatacenterSpec) GetRacks() []DseRack {
@@ -57,6 +59,15 @@ func (s *DseDatacenterSpec) GetRacks() []DseRack {
 	return []DseRack{{
 		Name: "default",
 	}}
+}
+
+// GetDesiredNodeCount returns the desired number of active pods for this DseDatacenter,
+// taking parked state into account.
+func (s *DseDatacenterSpec) GetDesiredNodeCount() int32 {
+	if s.Parked {
+		return 0
+	}
+	return s.Size
 }
 
 type DseRack struct {

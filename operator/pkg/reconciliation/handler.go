@@ -302,7 +302,7 @@ func calculateRackInformation(
 	// Create RackInformation
 	//
 
-	nodeCount := int(rc.dseDatacenter.Spec.Size)
+	nodeCount := int(rc.dseDatacenter.Spec.GetDesiredNodeCount())
 	rackCount := len(rc.dseDatacenter.Spec.Racks)
 
 	var desiredRackInformation []*RackInformation
@@ -344,9 +344,7 @@ func calculateRackInformation(
 	return nil
 }
 
-//
-// Determine if a rack needs to be reconciled.
-//
+// reconcileRacks determines if a rack needs to be reconciled.
 func reconcileRacks(
 	rc *ReconciliationContext,
 	service *corev1.Service,
@@ -355,9 +353,7 @@ func reconcileRacks(
 	rc.reqLogger.Info("handler::reconcileRacks")
 
 	for _, rackInfo := range desiredRackInformation {
-		//
 		// Does this rack have a statefulset?
-		//
 
 		statefulSet, statefulSetFound, err := getStatefulSetForRack(
 			rc,
@@ -386,6 +382,8 @@ func reconcileRacks(
 			return nil
 		}
 
+		// Has this statefulset been reconciled?
+
 		stsLabels := statefulSet.GetLabels()
 		shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForRackResource(stsLabels, rc.dseDatacenter, rackInfo.RackName)
 
@@ -404,14 +402,16 @@ func reconcileRacks(
 		}
 
 		desiredNodeCount := int32(rackInfo.NodeCount)
+		currentPodCount := *statefulSet.Spec.Replicas
 
-		if *statefulSet.Spec.Replicas < desiredNodeCount {
+		if currentPodCount < desiredNodeCount {
 			// update it
 			rc.reqLogger.Info(
 				"Need to update the rack's node count",
 				"Rack", rackInfo.RackName,
-				"currentSize", *statefulSet.Spec.Replicas,
-				"desiredSize", desiredNodeCount)
+				"currentSize", currentPodCount,
+				"desiredSize", desiredNodeCount,
+			)
 
 			EventBus.Publish(
 				UPDATE_RACK_TOPIC,
@@ -422,9 +422,22 @@ func reconcileRacks(
 			return nil
 		}
 
-		//
-		// Has this statefulset been reconciled?
-		//
+		parked := rc.dseDatacenter.Spec.Parked
+
+		if parked && currentPodCount > 0 {
+			rc.reqLogger.Info(
+				"DseDatacenter is parked, setting rack to zero replicas",
+				"Rack", rackInfo.RackName,
+				"currentSize", currentPodCount,
+				"desiredSize", desiredNodeCount,
+			)
+			EventBus.Publish(
+				UPDATE_RACK_TOPIC,
+				rc,
+				statefulSet,
+				desiredNodeCount)
+			return nil
+		}
 
 		rc.reqLogger.Info(
 			"StatefulSet found",
@@ -446,7 +459,7 @@ func reconcileRacks(
 			return nil
 		}
 
-		if statefulSet.Status.ReadyReplicas > desiredNodeCount {
+		if readyReplicas > desiredNodeCount {
 			// too many ready replicas, how did this happen?
 			rc.reqLogger.Info(
 				"Too many replicas for StatefulSet are ready",
@@ -465,10 +478,6 @@ func reconcileRacks(
 			rc,
 			statefulSet)
 	}
-
-	//
-	// All statefulSets should be reconciled
-	//
 
 	rc.reqLogger.Info("All StatefulSets should now be reconciled.")
 

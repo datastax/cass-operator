@@ -1122,14 +1122,14 @@ func TestReconcileRacks_NeedMoreReplicas(t *testing.T) {
 	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	desiredStatefulSet := newStatefulSetForDseDatacenter(
+	preExistingStatefulSet := newStatefulSetForDseDatacenter(
 		"default",
 		rc.dseDatacenter,
 		service,
 		2)
 
 	trackObjects := []runtime.Object{
-		desiredStatefulSet,
+		preExistingStatefulSet,
 	}
 
 	rc.reconciler.client = fake.NewFakeClient(trackObjects...)
@@ -1170,6 +1170,128 @@ func TestReconcileRacks_NeedMoreReplicas(t *testing.T) {
 	EventBus.WaitAsync()
 
 	assert.True(t, calledUpdateRackNodeCount, "Should add more replicas to the statefulset")
+
+	err = EventBus.Unsubscribe(RECONCILE_RACKS_TOPIC, reconcileRacks)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(UPDATE_RACK_TOPIC, testUpdateRackNodeCount)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+}
+
+func TestReconcileRacks_DoesntScaleDown(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	preExistingStatefulSet := newStatefulSetForDseDatacenter(
+		"default",
+		rc.dseDatacenter,
+		service,
+		2)
+
+	trackObjects := []runtime.Object{
+		preExistingStatefulSet,
+	}
+
+	rc.reconciler.client = fake.NewFakeClient(trackObjects...)
+
+	var (
+		calledUpdateRackNodeCount = false
+	)
+
+	testUpdateRackNodeCount := func(
+		rc *ReconciliationContext,
+		statefulSet *appsv1.StatefulSet,
+		newNodeCount int32) error {
+		calledUpdateRackNodeCount = true
+		return nil
+	}
+
+	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(UPDATE_RACK_TOPIC, testUpdateRackNodeCount, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	var rackInfo []*RackInformation
+
+	nextRack := &RackInformation{}
+	nextRack.RackName = "default"
+	nextRack.NodeCount = 1
+
+	rackInfo = append(rackInfo, nextRack)
+
+	EventBus.Publish(
+		RECONCILE_RACKS_TOPIC,
+		rc,
+		service,
+		rackInfo)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.False(t, calledUpdateRackNodeCount, "Should not scale down the node count, outside of parking")
+
+	err = EventBus.Unsubscribe(RECONCILE_RACKS_TOPIC, reconcileRacks)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+
+	err = EventBus.Unsubscribe(UPDATE_RACK_TOPIC, testUpdateRackNodeCount)
+	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
+}
+
+func TestReconcileRacks_NeedToPark(t *testing.T) {
+	rc, service, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	preExistingStatefulSet := newStatefulSetForDseDatacenter(
+		"default",
+		rc.dseDatacenter,
+		service,
+		3)
+
+	trackObjects := []runtime.Object{
+		preExistingStatefulSet,
+	}
+
+	rc.reconciler.client = fake.NewFakeClient(trackObjects...)
+
+	var (
+		calledUpdateRackNodeCount = false
+	)
+
+	testUpdateRackNodeCount := func(
+		rc *ReconciliationContext,
+		statefulSet *appsv1.StatefulSet,
+		newNodeCount int32) error {
+		calledUpdateRackNodeCount = true
+		return nil
+	}
+
+	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	err = EventBus.SubscribeAsync(UPDATE_RACK_TOPIC, testUpdateRackNodeCount, true)
+	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
+
+	var rackInfo []*RackInformation
+
+	nextRack := &RackInformation{}
+	nextRack.RackName = "default"
+	nextRack.NodeCount = 0
+
+	rc.dseDatacenter.Spec.Parked = true
+
+	rackInfo = append(rackInfo, nextRack)
+
+	EventBus.Publish(
+		RECONCILE_RACKS_TOPIC,
+		rc,
+		service,
+		rackInfo)
+
+	// wait for events to be handled
+	EventBus.WaitAsync()
+
+	assert.True(t, calledUpdateRackNodeCount, "Should set statefulset replica count to zero")
 
 	err = EventBus.Unsubscribe(RECONCILE_RACKS_TOPIC, reconcileRacks)
 	assert.NoErrorf(t, err, "error occurred unsubscribing to eventbus")
