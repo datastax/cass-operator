@@ -490,16 +490,7 @@ func labelSeedPods(rc *ReconciliationContext, statefulSet *appsv1.StatefulSet) {
 	seeds := rc.dseDatacenter.GetSeedList()
 	for _, seed := range seeds {
 		podName := strings.Split(seed, ".")[0]
-		pod := &corev1.Pod{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Pod",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      podName,
-				Namespace: statefulSet.Namespace,
-			},
-		}
+		pod := &corev1.Pod{}
 		err := rc.reconciler.client.Get(
 			rc.ctx,
 			types.NamespacedName{
@@ -534,16 +525,7 @@ func reconcilePods(rc *ReconciliationContext, statefulSet *appsv1.StatefulSet) e
 	for i := int32(0); i < statefulSet.Status.Replicas; i++ {
 		podName := fmt.Sprintf("%s-%v", statefulSet.Name, i)
 
-		pod := &corev1.Pod{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Pod",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      podName,
-				Namespace: statefulSet.Namespace,
-			},
-		}
+		pod := &corev1.Pod{}
 		err := rc.reconciler.client.Get(
 			rc.ctx,
 			types.NamespacedName{
@@ -558,7 +540,7 @@ func reconcilePods(rc *ReconciliationContext, statefulSet *appsv1.StatefulSet) e
 		}
 
 		podLabels := pod.GetLabels()
-		shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForRackResource(podLabels, rc.dseDatacenter, statefulSet.Name)
+		shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForRackResource(podLabels, rc.dseDatacenter, statefulSet.GetLabels()[datastaxv1alpha1.RACK_LABEL])
 		if shouldUpdateLabels {
 			rc.reqLogger.Info("Updating labels",
 				"Pod", podName,
@@ -602,7 +584,7 @@ func reconcilePods(rc *ReconciliationContext, statefulSet *appsv1.StatefulSet) e
 		}
 
 		pvcLabels := pvc.GetLabels()
-		shouldUpdateLabels, updatedLabels = shouldUpdateLabelsForRackResource(pvcLabels, rc.dseDatacenter, statefulSet.Name)
+		shouldUpdateLabels, updatedLabels = shouldUpdateLabelsForRackResource(pvcLabels, rc.dseDatacenter, statefulSet.GetLabels()[datastaxv1alpha1.RACK_LABEL])
 		if shouldUpdateLabels {
 			rc.reqLogger.Info("Updating labels",
 				"PVC", pvc,

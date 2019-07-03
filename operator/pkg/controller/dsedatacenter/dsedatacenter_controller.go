@@ -5,6 +5,9 @@ package dsedatacenter
 //
 
 import (
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/reconciliation"
 
@@ -80,7 +83,39 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	err = c.Watch(
+		&source.Kind{Type: &corev1.Pod{}},
+		&handler.EnqueueRequestForObject{},
+		predicate.Funcs{
+			GenericFunc: func(e event.GenericEvent) bool {
+				return isPodOwnedByDseDatacenter(e.Meta.GetLabels())
+			},
+			CreateFunc: func(e event.CreateEvent) bool {
+				return isPodOwnedByDseDatacenter(e.Meta.GetLabels())
+			},
+			UpdateFunc: func(e event.UpdateEvent) bool {
+				return isPodOwnedByDseDatacenter(e.MetaNew.GetLabels()) || isPodOwnedByDseDatacenter(e.MetaOld.GetLabels())
+			},
+			DeleteFunc: func(e event.DeleteEvent) bool {
+				return isPodOwnedByDseDatacenter(e.Meta.GetLabels())
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func isPodOwnedByDseDatacenter(podLabels map[string]string) bool {
+	// if the pod has one of those three labels then it's probably owned by a DseDatacenter
+
+	_, hasDCLabel := podLabels[datastaxv1alpha1.DATACENTER_LABEL]
+	_, hasClusterLabel := podLabels[datastaxv1alpha1.CLUSTER_LABEL]
+	_, hasRackLabel := podLabels[datastaxv1alpha1.RACK_LABEL]
+
+	return hasDCLabel || hasClusterLabel || hasRackLabel
 }
 
 var _ reconcile.Reconciler = &reconciliation.ReconcileDseDatacenter{}

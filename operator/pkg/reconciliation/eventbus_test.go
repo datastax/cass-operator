@@ -241,7 +241,7 @@ func TestReconcile_Error(t *testing.T) {
 		t.Fatalf("Reconciliation should have failed")
 	}
 
-	if result != (reconcile.Result{}) {
+	if result != (reconcile.Result{Requeue: true}) {
 		t.Error("Reconcile did not return an empty result.")
 	}
 

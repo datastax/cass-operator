@@ -7,12 +7,16 @@ package reconciliation
 
 import (
 	"context"
+	"fmt"
 
 	evbus "github.com/asaskevich/EventBus"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -75,7 +79,7 @@ func (r *ReconcileDseDatacenter) Reconcile(
 		}
 		// Error reading the object - requeue the request.
 		reqLogger.Error(err, "Failed to get DseDatacenter.")
-		return reconcile.Result{}, err
+		return reconcile.Result{Requeue: true}, err
 	}
 
 	EventBus.Publish(
@@ -174,14 +178,9 @@ func CreateReconciliationContext(
 
 	// Fetch the DseDatacenter dseDatacenter
 	dseDatacenter := &datastaxv1alpha1.DseDatacenter{}
-	err := rc.reconciler.client.Get(
-		rc.ctx,
-		request.NamespacedName,
-		dseDatacenter)
-	if err != nil {
+	if err := retrieveDseDatacenter(rc, request, dseDatacenter); err != nil {
 		return nil, err
 	}
-
 	rc.dseDatacenter = dseDatacenter
 
 	rc.reqLogger = rc.reqLogger.
@@ -189,4 +188,72 @@ func CreateReconciliationContext(
 		WithValues("dseDatacenterClusterName", dseDatacenter.ClusterName)
 
 	return rc, nil
+}
+
+func retrieveDseDatacenter(rc *ReconciliationContext, request *reconcile.Request, dseDatacenter *datastaxv1alpha1.DseDatacenter) error {
+	err := rc.reconciler.client.Get(
+		rc.ctx,
+		request.NamespacedName,
+		dseDatacenter)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Chance this was a pod event so get the DseDatacenter via the pod
+			if innerErr := retrieveDseDatacenterByPod(rc, request, dseDatacenter); innerErr != nil {
+				return err
+			}
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func retrieveDseDatacenterByPod(rc *ReconciliationContext, request *reconcile.Request, dseDatacenter *datastaxv1alpha1.DseDatacenter) error {
+	pod := &corev1.Pod{}
+	err := rc.reconciler.client.Get(
+		rc.ctx,
+		request.NamespacedName,
+		pod)
+	if err != nil {
+		rc.reqLogger.Info("Unable to get pod",
+			"podName", request.Name)
+		return err
+	}
+
+	// Its entirely possible that a pod could be missing OwnerReferences even though it should be owned by a
+	// statefulset. The most likely scenario for this would be if a pod label was modified, causing the selector on
+	// the statefulset to no longer find the pod. Once the pod has been reconciled and we've fixed the label its OwnerReferences
+	// should show back up and everything will be fine.
+	if len(pod.OwnerReferences) == 0 {
+		rc.reqLogger.Info("OwnerReferences missing for pod",
+			"podName",
+			pod.Name)
+		return fmt.Errorf("pod=%s missing OwnerReferences", pod.Name)
+	}
+
+	statefulSet := &appsv1.StatefulSet{}
+	err = rc.reconciler.client.Get(
+		rc.ctx,
+		types.NamespacedName{
+			Name:      pod.OwnerReferences[0].Name,
+			Namespace: pod.Namespace},
+		statefulSet)
+	if err != nil {
+		rc.reqLogger.Info("Unable to get statefulset",
+			"statefulsetName", pod.OwnerReferences[0].Name)
+		return err
+	}
+
+	err = rc.reconciler.client.Get(
+		rc.ctx,
+		types.NamespacedName{
+			Name:      statefulSet.OwnerReferences[0].Name,
+			Namespace: pod.Namespace},
+		dseDatacenter)
+	if err != nil {
+		rc.reqLogger.Info("Unable to get DseDatacenter",
+			"dseDatacenterName", statefulSet.OwnerReferences[0].Name)
+		return err
+	}
+	return nil
 }

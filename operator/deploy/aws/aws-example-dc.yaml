@@ -14,3 +14,5 @@ spec:
     - name: rack0
     - name: rack1
     - name: rack2
+  repository: datastax-docker.jfrog.io/datastax/dse-server
+  version: 6.8.0-DSP-18785-management-api-20190624102615-180cc39
