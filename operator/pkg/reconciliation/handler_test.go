@@ -1062,11 +1062,12 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	desiredStatefulSet := newStatefulSetForDseDatacenter(
+	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
 		rc.dseDatacenter,
 		service,
 		2)
+	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
 	trackObjects := []runtime.Object{
 		desiredStatefulSet,
@@ -1086,7 +1087,7 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
+	err = EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	err = EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, testReconcileNextRack, true)
@@ -1122,11 +1123,12 @@ func TestReconcileRacks_NeedMoreReplicas(t *testing.T) {
 	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	preExistingStatefulSet := newStatefulSetForDseDatacenter(
+	preExistingStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
 		rc.dseDatacenter,
 		service,
 		2)
+	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
 	trackObjects := []runtime.Object{
 		preExistingStatefulSet,
@@ -1146,7 +1148,7 @@ func TestReconcileRacks_NeedMoreReplicas(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
+	err = EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	err = EventBus.SubscribeAsync(UPDATE_RACK_TOPIC, testUpdateRackNodeCount, true)
@@ -1182,11 +1184,13 @@ func TestReconcileRacks_DoesntScaleDown(t *testing.T) {
 	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	preExistingStatefulSet := newStatefulSetForDseDatacenter(
+	preExistingStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
 		rc.dseDatacenter,
 		service,
 		2)
+
+	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
 	trackObjects := []runtime.Object{
 		preExistingStatefulSet,
@@ -1206,7 +1210,7 @@ func TestReconcileRacks_DoesntScaleDown(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
+	err = EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	err = EventBus.SubscribeAsync(UPDATE_RACK_TOPIC, testUpdateRackNodeCount, true)
@@ -1242,11 +1246,13 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	preExistingStatefulSet := newStatefulSetForDseDatacenter(
+	preExistingStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
 		rc.dseDatacenter,
 		service,
 		3)
+
+	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
 	trackObjects := []runtime.Object{
 		preExistingStatefulSet,
@@ -1266,7 +1272,7 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
+	err = EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	err = EventBus.SubscribeAsync(UPDATE_RACK_TOPIC, testUpdateRackNodeCount, true)
@@ -1304,11 +1310,13 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	desiredStatefulSet := newStatefulSetForDseDatacenter(
+	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
 		rc.dseDatacenter,
 		service,
 		2)
+
+	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
 	desiredStatefulSet.Status.ReadyReplicas = 2
 
@@ -1330,7 +1338,7 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
+	err = EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	err = EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, testReconcileNextRack, true)
@@ -1366,11 +1374,13 @@ func TestReconcileRacks_UpdateLabels(t *testing.T) {
 	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	desiredStatefulSet := newStatefulSetForDseDatacenter(
+	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
 		rc.dseDatacenter,
 		service,
 		2)
+
+	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
 	desiredStatefulSet.Status.ReadyReplicas = 2
 	desiredStatefulSet.SetLabels(make(map[string]string))
@@ -1393,7 +1403,7 @@ func TestReconcileRacks_UpdateLabels(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
+	err = EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	err = EventBus.SubscribeAsync(RECONCILE_NEXT_RACK_TOPIC, testReconcileNextRack, true)
@@ -1434,11 +1444,13 @@ func TestReconcileRacks_ReconcilePods(t *testing.T) {
 		one                 = int32(1)
 	)
 
-	desiredStatefulSet := newStatefulSetForDseDatacenter(
+	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
 		rc.dseDatacenter,
 		service,
 		2)
+
+	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
 	desiredStatefulSet.Spec.Replicas = &one
 	desiredStatefulSet.Status.ReadyReplicas = one
@@ -1456,7 +1468,7 @@ func TestReconcileRacks_ReconcilePods(t *testing.T) {
 		return nil
 	}
 
-	err := EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
+	err = EventBus.SubscribeAsync(RECONCILE_RACKS_TOPIC, reconcileRacks, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	err = EventBus.SubscribeAsync(RECONCILE_PODS_TOPIC, testReconcilePods, true)
@@ -1492,11 +1504,14 @@ func TestReconcilePods(t *testing.T) {
 	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	statefulSet := newStatefulSetForDseDatacenter(
+	statefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
 		rc.dseDatacenter,
 		service,
 		2)
+
+	assert.NoErrorf(t, err, "error occurred creating statefulset")
+
 	statefulSet.Status.ReadyReplicas = int32(1)
 
 	pod := &corev1.Pod{
@@ -1516,7 +1531,7 @@ func TestReconcilePods(t *testing.T) {
 
 	rc.reconciler.client = fake.NewFakeClient(trackObjects...)
 
-	err := EventBus.SubscribeAsync(RECONCILE_PODS_TOPIC, reconcilePods, true)
+	err = EventBus.SubscribeAsync(RECONCILE_PODS_TOPIC, reconcilePods, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	EventBus.Publish(
@@ -1535,11 +1550,14 @@ func TestReconcilePods_WithVolumes(t *testing.T) {
 	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	statefulSet := newStatefulSetForDseDatacenter(
+	statefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
 		rc.dseDatacenter,
 		service,
 		2)
+
+	assert.NoErrorf(t, err, "error occurred creating statefulset")
+
 	statefulSet.Status.ReadyReplicas = int32(1)
 
 	pod := &corev1.Pod{
@@ -1581,7 +1599,7 @@ func TestReconcilePods_WithVolumes(t *testing.T) {
 
 	rc.reconciler.client = fake.NewFakeClient(trackObjects...)
 
-	err := EventBus.SubscribeAsync(RECONCILE_PODS_TOPIC, reconcilePods, true)
+	err = EventBus.SubscribeAsync(RECONCILE_PODS_TOPIC, reconcilePods, true)
 	assert.NoErrorf(t, err, "error occurred subscribing to eventbus")
 
 	EventBus.Publish(

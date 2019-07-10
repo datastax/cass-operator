@@ -5,8 +5,7 @@ package reconciliation
 //
 
 import (
-	"strings"
-
+	"fmt"
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -94,24 +93,34 @@ func newStatefulSetForDseDatacenter(
 	rackName string,
 	dseDatacenter *datastaxv1alpha1.DseDatacenter,
 	service *corev1.Service,
-	replicaCount int) *appsv1.StatefulSet {
+	replicaCount int) (*appsv1.StatefulSet, error) {
 	replicaCountInt32 := int32(replicaCount)
 	labels := dseDatacenter.GetRackLabels(rackName)
-	seeds := dseDatacenter.GetSeedList()
+	dseVersion := dseDatacenter.GetDseVersion()
 	var userID int64 = 999
 	var volumeCaimTemplates []corev1.PersistentVolumeClaim
-	var volumeMounts []corev1.VolumeMount
+	var dseVolumeMounts []corev1.VolumeMount
+
+	dseConfigVolumeMount := corev1.VolumeMount{
+		Name:      "dse-config",
+		MountPath: "/config",
+	}
+
+	dseVolumeMounts = append(dseVolumeMounts, dseConfigVolumeMount)
+
+	configData, err := GenerateBaseConfigString(dseDatacenter)
+	if err != nil {
+		return nil, err
+	}
 
 	// Add storage if storage claim defined
 	if nil != dseDatacenter.Spec.StorageClaim {
 		pvName := "dse-data"
 		storageClaim := dseDatacenter.Spec.StorageClaim
-		volumeMounts = []corev1.VolumeMount{
-			{
-				Name:      pvName,
-				MountPath: "/var/lib/cassandra",
-			},
-		}
+		dseVolumeMounts = append(dseVolumeMounts, corev1.VolumeMount{
+			Name:      pvName,
+			MountPath: "/var/lib/cassandra",
+		})
 		volumeCaimTemplates = []corev1.PersistentVolumeClaim{{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: labels,
@@ -127,7 +136,7 @@ func newStatefulSetForDseDatacenter(
 		}}
 	}
 
-	return &appsv1.StatefulSet{
+	result := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dseDatacenter.Spec.ClusterName + "-" + dseDatacenter.Name + "-" + rackName + "-sts",
 			Namespace: dseDatacenter.Namespace,
@@ -183,6 +192,47 @@ func newStatefulSetForDseDatacenter(
 						RunAsGroup: &userID,
 						FSGroup:    &userID,
 					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "dse-config",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+					InitContainers: []corev1.Container{{
+						Name: "dse-config-init",
+						Image: "datastax-docker.jfrog.io/datastax/dse-server-config-builder:7.0.0-3e8847c",
+						VolumeMounts: []corev1.VolumeMount{
+							dseConfigVolumeMount,
+						},
+						Env: []corev1.EnvVar{
+							{
+								Name:  "CONFIG_FILE_DATA",
+								Value: configData,
+							},
+							{
+								Name: "POD_IP",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: "status.podIP",
+									},
+								},
+							},
+							{
+								Name: "RACK_NAME",
+								ValueFrom: &corev1.EnvVarSource{
+									FieldRef: &corev1.ObjectFieldSelector{
+										FieldPath: fmt.Sprintf("metadata.labels['%s']", datastaxv1alpha1.RACK_LABEL),
+									},
+								},
+							},
+							{
+								Name:  "DSE_VERSION",
+								Value: dseVersion,
+							},
+						},
+					}},
 					ServiceAccountName: "dse-operator",
 					Containers: []corev1.Container{{
 						// TODO FIXME
@@ -194,16 +244,14 @@ func newStatefulSetForDseDatacenter(
 								Value: "accept",
 							},
 							{
-								Name:  "SEEDS",
-								Value: strings.Join(seeds, ","),
-							},
-							{
-								Name:  "NUM_TOKENS",
-								Value: "32",
+								Name: "DSE_AUTO_CONF_OFF",
+								Value: "all",
 							},
 						},
 						Ports: []corev1.ContainerPort{
 							// Note: Port Names cannot be more than 15 characters
+							// TODO: Use specified config to determine which
+							//       ports we need.
 							{
 								Name:          "native",
 								ContainerPort: 9042,
@@ -249,7 +297,7 @@ func newStatefulSetForDseDatacenter(
 							InitialDelaySeconds: 20,
 							PeriodSeconds:       10,
 						},
-						VolumeMounts: volumeMounts,
+						VolumeMounts: dseVolumeMounts,
 					}},
 					// TODO We can document that the user installing the operator put the imagePullSecret
 					// into the service account, and the process for that is documented here:
@@ -260,6 +308,8 @@ func newStatefulSetForDseDatacenter(
 			VolumeClaimTemplates: volumeCaimTemplates,
 		},
 	}
+
+	return result, nil
 }
 
 // Create a statefulset object for the DSE Datacenter.

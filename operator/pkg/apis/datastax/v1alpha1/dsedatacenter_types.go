@@ -2,9 +2,9 @@ package v1alpha1
 
 import (
 	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"regexp"
 
 	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
@@ -151,6 +151,21 @@ func init() {
 // If they aren't specified the default is datastax/dse-server:6.7.3 from docker hub
 func (dc *DseDatacenter) GetServerImage() string {
 	return makeImage(dc.Spec.Repository, dc.Spec.Version)
+}
+
+// GetDseVersion returns a simple string version of the DSE version.
+// Example:
+//   If the Spec.Version is:    6.8.0-DSP-18785-management-api-20190624102615-180cc39
+//   GetDseVersion will return: 6.8.0
+func (dc *DseDatacenter) GetDseVersion() string {
+	// Match from the start of the string until the first dash
+	re := regexp.MustCompile(`^([^-]+)`)
+
+	version := dc.Spec.Version
+	if version == "" {
+		version = defaultVersion
+	}
+	return re.FindString(version)
 }
 
 // makeImage takes the repository and version information from the spec, and returns DSE docker image

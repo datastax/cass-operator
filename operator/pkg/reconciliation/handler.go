@@ -190,7 +190,6 @@ func reconcileHeadlessSeedService(
 	//
 	// Check if there is a headless seed service for the cluster
 	//
-
 	desiredService := newSeedServiceForDseDatacenter(rc.dseDatacenter)
 
 	// Set DseDatacenter dseDatacenter as the owner and controller
@@ -614,14 +613,17 @@ func getStatefulSetForRack(
 
 	rc.reqLogger.Info("handler::getStatefulSetForRack")
 
-	desiredStatefulSet := newStatefulSetForDseDatacenter(
+	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		nextRack.RackName,
 		rc.dseDatacenter,
 		service,
 		nextRack.NodeCount)
+	if err != nil {
+		return nil, false, err
+	}
 
 	// Set DseDatacenter dseDatacenter as the owner and controller
-	err := setControllerReference(
+	err = setControllerReference(
 		rc.dseDatacenter,
 		desiredStatefulSet,
 		rc.reconciler.scheme)

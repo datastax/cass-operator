@@ -6,7 +6,6 @@ allprojects {
     apply plugin: "nebula.release"
 }
 
-
 gradle.projectsEvaluated {
     // ensure that all clean tasks are performed before all other tasks
     def allTasks = allprojects*.tasks.flatten()

@@ -289,3 +289,39 @@ func TestDseDatacenterSpec_GetDesiredNodeCount(t *testing.T) {
 		})
 	}
 }
+
+func TestDseDatacenterSpec_GetDseVersion(t *testing.T) {
+	tests := []struct {
+		name        string
+		fullVersion string
+		want        string
+	}{
+		{
+			name:        "A development version",
+			fullVersion: "6.8.0-DSP-18785-management-api-20190624102615-180cc39",
+			want:        "6.8.0",
+		},
+		{
+			name:        "A normal version",
+			fullVersion: "6.8.0-1",
+			want:        "6.8.0",
+		},
+		{
+			name:        "A version without a dash suffix",
+			fullVersion: "4.8.0",
+			want:        "4.8.0",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &DseDatacenter{
+				Spec: DseDatacenterSpec{
+					Version: tt.fullVersion,
+				},
+			}
+			if got := s.GetDseVersion(); got != tt.want {
+				t.Errorf("DseDatacenterSpec.GetDesiredNodeCount() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
