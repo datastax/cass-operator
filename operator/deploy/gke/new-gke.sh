@@ -1,7 +1,7 @@
 gcloud beta container --project "gcp-dmc" clusters create "standard-cluster-1" \
     --region "us-west2" \
     --no-enable-basic-auth \
-    --cluster-version "1.13.6-gke.6" \
+    --cluster-version "1.13.6-gke.13" \
     --machine-type "n1-standard-1" \
     --image-type "COS" \
     --disk-type "pd-ssd" \

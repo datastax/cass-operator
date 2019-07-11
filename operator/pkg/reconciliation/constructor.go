@@ -92,7 +92,6 @@ func newSeedServiceForDseDatacenter(
 func newStatefulSetForDseDatacenter(
 	rackName string,
 	dseDatacenter *datastaxv1alpha1.DseDatacenter,
-	service *corev1.Service,
 	replicaCount int) (*appsv1.StatefulSet, error) {
 	replicaCountInt32 := int32(replicaCount)
 	labels := dseDatacenter.GetRackLabels(rackName)
@@ -148,7 +147,7 @@ func newStatefulSetForDseDatacenter(
 				MatchLabels: labels,
 			},
 			Replicas:            &replicaCountInt32,
-			ServiceName:         service.Name,
+			ServiceName:         dseDatacenter.Spec.ClusterName + "-" + dseDatacenter.Name + "-service",
 			PodManagementPolicy: appsv1.OrderedReadyPodManagement,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{

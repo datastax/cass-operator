@@ -22,7 +22,6 @@ import (
 
 	"github.com/riptano/dse-operator/operator/pkg/apis"
 	"github.com/riptano/dse-operator/operator/pkg/controller"
-	"github.com/riptano/dse-operator/operator/pkg/reconciliation"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -62,9 +61,6 @@ func main() {
 	logf.SetLogger(zap.Logger())
 
 	printVersion()
-
-	// Setup the event bus and handlers
-	reconciliation.SubscribeToEventBus()
 
 	namespace, err := k8sutil.GetWatchNamespace()
 	if err != nil {

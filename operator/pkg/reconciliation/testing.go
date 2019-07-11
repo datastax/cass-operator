@@ -16,8 +16,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	log2 "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
 )
 
 // MockSetControllerReference returns a method that will automatically reverse the mock
@@ -36,7 +38,7 @@ func MockSetControllerReference() func() {
 }
 
 func CreateMockReconciliationContext(
-	reqLogger logr.Logger) *ReconciliationContext {
+	reqLogger logr.Logger) *dsereconciliation.ReconciliationContext {
 
 	// These defaults may need to be settable via arguments
 
@@ -71,11 +73,6 @@ func CreateMockReconciliationContext(
 
 	fakeClient := fake.NewFakeClient(trackObjects...)
 
-	reconciler := &ReconcileDseDatacenter{
-		client: fakeClient,
-		scheme: s,
-	}
-
 	request := &reconcile.Request{
 		NamespacedName: types.NamespacedName{
 			Name:      name,
@@ -83,12 +80,13 @@ func CreateMockReconciliationContext(
 		},
 	}
 
-	rc := &ReconciliationContext{}
-	rc.request = request
-	rc.reconciler = reconciler
-	rc.reqLogger = reqLogger
-	rc.dseDatacenter = dseDatacenter
-	rc.ctx = context.Background()
+	rc := &dsereconciliation.ReconciliationContext{}
+	rc.Request = request
+	rc.Client = fakeClient
+	rc.Scheme = s
+	rc.ReqLogger = reqLogger
+	rc.DseDatacenter = dseDatacenter
+	rc.Ctx = context.Background()
 
 	return rc
 }
@@ -126,4 +124,36 @@ func fakeClientWithSeedService(
 	fakeClient := fake.NewFakeClient(trackObjects...)
 
 	return &fakeClient, service
+}
+
+func setupTest() (*dsereconciliation.ReconciliationContext, *corev1.Service, func()) {
+	// Set up verbose logging
+	logger := log2.ZapLogger(true)
+	log2.SetLogger(logger)
+	cleanupMockScr := MockSetControllerReference()
+
+	rc := CreateMockReconciliationContext(logger)
+	service := newServiceForDseDatacenter(rc.DseDatacenter)
+
+	return rc, service, cleanupMockScr
+}
+
+func getReconcilers(rc *dsereconciliation.ReconciliationContext) (ReconcileDatacenter, ReconcileRacks, ReconcileServices, ReconcileSeedServices) {
+	reconcileDatacenter := ReconcileDatacenter{
+		ReconcileContext: rc,
+	}
+
+	reconcileRacks := ReconcileRacks{
+		ReconcileContext: rc,
+	}
+
+	reconcileServices := ReconcileServices{
+		ReconcileContext: rc,
+	}
+
+	reconcileSeedServices := ReconcileSeedServices{
+		ReconcileContext: rc,
+	}
+
+	return reconcileDatacenter, reconcileRacks, reconcileServices, reconcileSeedServices
 }
