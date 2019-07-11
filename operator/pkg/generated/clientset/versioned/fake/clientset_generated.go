@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/riptano/dse-operator/operator/pkg/client/clientset/versioned"
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/client/clientset/versioned/typed/datastax/v1alpha1"
-	fakedatastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/client/clientset/versioned/typed/datastax/v1alpha1/fake"
+	clientset "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned"
+	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/typed/datastax/v1alpha1"
+	fakedatastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/typed/datastax/v1alpha1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

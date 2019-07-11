@@ -19,7 +19,7 @@ limitations under the License.
 package versioned
 
 import (
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/client/clientset/versioned/typed/datastax/v1alpha1"
+	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/typed/datastax/v1alpha1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
