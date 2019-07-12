@@ -67,10 +67,108 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "DseDatacenterSpec defines the desired state of DseDatacenter",
-				Properties:  map[string]spec.Schema{},
+				Properties: map[string]spec.Schema{
+					"size": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The desired number of DSE server pods",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"version": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DSE Version",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"repository": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Repository to grab the DSE image from",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"annotations": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Annotations",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"labels": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Labels",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"config": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Definition file config",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Resource requirements",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+					"racks": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Racks is an exported field, BUT it is highly recommended that GetRacks() be used for accessing in order to handle the case where no rack is defined",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseRack"),
+									},
+								},
+							},
+						},
+					},
+					"storageClaim": {
+						SchemaProps: spec.SchemaProps{
+							Description: "StorageClaim",
+							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseStorageClaim"),
+						},
+					},
+					"clusterName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "DSE ClusterName",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"parked": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Parked state means we do not want any DSE processes running",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"size", "version", "clusterName", "parked"},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseRack", "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseStorageClaim", "k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 
@@ -79,7 +177,16 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterStatus(ref common.ReferenceC
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
 				Description: "DseDatacenterStatus defines the observed state of DseDatacenter",
-				Properties:  map[string]spec.Schema{},
+				Properties: map[string]spec.Schema{
+					"nodes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The number of the DSE server nodes",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+				},
+				Required: []string{"nodes"},
 			},
 		},
 		Dependencies: []string{},

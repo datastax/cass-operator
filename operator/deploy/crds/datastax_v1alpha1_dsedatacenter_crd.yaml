@@ -10,8 +10,6 @@ spec:
     plural: dsedatacenters
     singular: dsedatacenter
   scope: Namespaced
-  subresources:
-    status: {}
   validation:
     openAPIV3Schema:
       properties:
@@ -28,8 +26,87 @@ spec:
         metadata:
           type: object
         spec:
+          properties:
+            annotations:
+              additionalProperties:
+                type: string
+              description: Annotations
+              type: object
+            clusterName:
+              description: DSE ClusterName
+              type: string
+            config:
+              description: Definition file config
+              type: string
+            labels:
+              additionalProperties:
+                type: string
+              description: Labels
+              type: object
+            parked:
+              description: Parked state means we do not want any DSE processes running
+              type: boolean
+            racks:
+              description: Racks is an exported field, BUT it is highly recommended
+                that GetRacks() be used for accessing in order to handle the case
+                where no rack is defined
+              items:
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations
+                    type: object
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels
+                    type: object
+                  name:
+                    description: The rack name
+                    type: string
+                required:
+                - name
+                type: object
+              type: array
+            repository:
+              description: Repository to grab the DSE image from
+              type: string
+            resources:
+              description: Resource requirements
+              type: object
+            size:
+              description: The desired number of DSE server pods
+              format: int32
+              type: integer
+            storageClaim:
+              description: StorageClaim
+              properties:
+                resources:
+                  description: Resource requirements
+                  type: object
+                storageclassname:
+                  type: string
+              required:
+              - storageclassname
+              type: object
+            version:
+              description: DSE Version
+              type: string
+          required:
+          - size
+          - version
+          - clusterName
+          - parked
           type: object
         status:
+          properties:
+            nodes:
+              description: The number of the DSE server nodes
+              format: int32
+              type: integer
+          required:
+          - nodes
           type: object
   version: v1alpha1
   versions:

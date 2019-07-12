@@ -44,7 +44,7 @@ type DseDatacenterSpec struct {
 	// the case where no rack is defined
 	Racks []DseRack `json:"racks,omitempty"`
 	// StorageClaim
-	StorageClaim *DseStorageClaim `json:"storageclaim,omitempty"`
+	StorageClaim *DseStorageClaim `json:"storageClaim,omitempty"`
 	// DSE ClusterName
 	ClusterName string `json:"clusterName"`
 	// Parked state means we do not want any DSE processes running
