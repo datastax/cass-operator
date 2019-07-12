@@ -3,6 +3,7 @@ module github.com/riptano/dse-operator/operator
 require (
 	contrib.go.opencensus.io/exporter/ocagent v0.4.9 // indirect
 	github.com/Azure/go-autorest v11.5.2+incompatible // indirect
+	github.com/Jeffail/gabs v1.4.0
 	github.com/appscode/jsonpatch v0.0.0-20190108182946-7c0e3b262f30 // indirect
 	github.com/asaskevich/EventBus v0.0.0-20190606000000-d46933a94f05c6657d7b923fcf5ac563ee37ec79
 	github.com/coreos/prometheus-operator v0.26.0 // indirect

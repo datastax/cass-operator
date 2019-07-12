@@ -1,12 +1,15 @@
 package v1alpha1
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/Jeffail/gabs"
+	"github.com/pkg/errors"
+	"github.com/riptano/dse-operator/operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"regexp"
-
-	"github.com/riptano/dse-operator/operator/pkg/utils"
+	"strings"
 )
 
 const (
@@ -19,6 +22,8 @@ const (
 	SEED_NODE_LABEL  = "com.datastax.dse.seednode"
 	RACK_LABEL       = "com.datastax.dse.rack"
 )
+
+type DseConfigMap map[string]interface{}
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -37,7 +42,11 @@ type DseDatacenterSpec struct {
 	// Labels
 	Labels map[string]string `json:"labels,omitempty"`
 	// Definition file config
-	Config string `json:"config,omitempty"`
+	// Note that k8s will populate Spec.Config with a json version of the contents
+	// of this field.  Somehow k8s converts the yaml fragment to json, which is bizarre
+	// but useful for us.  We can use []byte(dseDatacenter.Spec.Config) to make
+	// the data accessible for parsing.
+	Config json.RawMessage `json:"config,omitempty"`
 	// Resource requirements
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// Racks is an exported field, BUT it is highly recommended that GetRacks() be used for accessing in order to handle
@@ -207,6 +216,56 @@ func (dc *DseDatacenter) GetClusterLabels() map[string]string {
 	return map[string]string{
 		CLUSTER_LABEL: dc.Spec.ClusterName,
 	}
+}
+
+// Gather the cluster model values for cluster and datacenter
+func (dseDatacenter *DseDatacenter) getModelValues() DseConfigMap {
+
+	seeds := dseDatacenter.GetSeedList()
+	seedsString := strings.Join(seeds, ",")
+
+	// Note: the operator does not currently support graph, solr, and spark
+	modelValues := DseConfigMap{
+		"cluster-info": DseConfigMap{
+			"name":  dseDatacenter.Spec.ClusterName,
+			"seeds": seedsString,
+		},
+		"datacenter-info": DseConfigMap{
+			"name": dseDatacenter.Name,
+		}}
+
+	return modelValues
+}
+
+// Get a JSON-encoded string suitable for passing to configBuilder
+func (dseDatacenter *DseDatacenter) GetConfigAsJSON() (string, error) {
+
+	modelValues := dseDatacenter.getModelValues()
+
+	var modelBytes []byte
+
+	modelBytes, err := json.Marshal(modelValues)
+	if err != nil {
+		return "", err
+	}
+
+	// Combine the model values with the user-specified values
+
+	modelParsed, err := gabs.ParseJSON([]byte(modelBytes))
+	if err != nil {
+		return "", errors.Wrap(err, "Model information for DseDatacenter resource was not properly configured")
+	}
+
+	if dseDatacenter.Spec.Config != nil {
+		configParsed, err := gabs.ParseJSON([]byte(dseDatacenter.Spec.Config))
+		if err != nil {
+			return "", errors.Wrap(err, "Error parsing Spec.Config for DseDatacenter resource")
+		}
+
+		modelParsed.Merge(configParsed)
+	}
+
+	return modelParsed.String(), nil
 }
 
 // FIXME workaround!

@@ -325,3 +325,72 @@ func TestDseDatacenterSpec_GetDseVersion(t *testing.T) {
 		})
 	}
 }
+
+func Test_getModelValues(t *testing.T) {
+	dseDatacenter := &DseDatacenter{
+		Spec: DseDatacenterSpec{
+			ClusterName: "bobs-cluster",
+			Config:      []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
+		},
+	}
+	result := dseDatacenter.getModelValues()
+	if name := result["cluster-info"].(DseConfigMap)["name"]; name != dseDatacenter.Spec.ClusterName {
+		t.Errorf("Found cluster name of %v, want %v", name, dseDatacenter.Spec.ClusterName)
+	}
+}
+
+func Test_GenerateBaseConfigString(t *testing.T) {
+	tests := []struct {
+		name          string
+		dseDatacenter *DseDatacenter
+		want          string
+		errString     string
+	}{
+		{
+			name: "Simple Test",
+			dseDatacenter: &DseDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dseDC",
+				},
+				Spec: DseDatacenterSpec{
+					ClusterName: "dseCluster",
+					Config:      []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
+				},
+			},
+			want:      `{"cassandra-yaml":{"authenticator":"AllowAllAuthenticator","batch_size_fail_threshold_in_kb":1280},"cluster-info":{"name":"dseCluster","seeds":""},"datacenter-info":{"name":"dseDC"}}`,
+			errString: "",
+		},
+		{
+			name: "Simple Test for error",
+			dseDatacenter: &DseDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "dseDC",
+				},
+				Spec: DseDatacenterSpec{
+					ClusterName: "dseCluster",
+					Config:      []byte("\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
+				},
+			},
+			want:      "",
+			errString: "Error parsing Spec.Config for DseDatacenter resource: invalid character ':' after top-level value",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.dseDatacenter.GetConfigAsJSON()
+			if got != tt.want {
+				t.Errorf("GenerateBaseConfigString() got = %v, want %v", got, tt.want)
+			}
+			if err == nil {
+				if tt.errString != "" {
+					t.Errorf("GenerateBaseConfigString() err = %v, want %v", err, tt.errString)
+				}
+			} else {
+				if err.Error() != tt.errString {
+					t.Errorf("GenerateBaseConfigString() err = %v, want %v", err, tt.errString)
+				}
+			}
+		})
+	}
+}

@@ -107,7 +107,7 @@ func newStatefulSetForDseDatacenter(
 
 	dseVolumeMounts = append(dseVolumeMounts, dseConfigVolumeMount)
 
-	configData, err := GenerateBaseConfigString(dseDatacenter)
+	configData, err := dseDatacenter.GetConfigAsJSON()
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func newStatefulSetForDseDatacenter(
 						},
 					},
 					InitContainers: []corev1.Container{{
-						Name: "dse-config-init",
+						Name:  "dse-config-init",
 						Image: "datastax-docker.jfrog.io/datastax/dse-server-config-builder:7.0.0-3e8847c",
 						VolumeMounts: []corev1.VolumeMount{
 							dseConfigVolumeMount,
@@ -243,7 +243,7 @@ func newStatefulSetForDseDatacenter(
 								Value: "accept",
 							},
 							{
-								Name: "DSE_AUTO_CONF_OFF",
+								Name:  "DSE_AUTO_CONF_OFF",
 								Value: "all",
 							},
 						},
