@@ -78,6 +78,7 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::reconcileRacks")
 
+	var statefulSets []*appsv1.StatefulSet
 	for _, rackInfo := range r.desiredRackInformation {
 		// Does this rack have a statefulset?
 
@@ -119,19 +120,12 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 			}
 		}
 
-		desiredNodeCount := int32(rackInfo.NodeCount)
+		desiredNodeCount := int32(1)
+
 		currentPodCount := *statefulSet.Spec.Replicas
-
-		if currentPodCount < desiredNodeCount {
-			// update it
-			r.ReconcileContext.ReqLogger.Info(
-				"Need to update the rack's node count",
-				"Rack", rackInfo.RackName,
-				"currentSize", currentPodCount,
-				"desiredSize", desiredNodeCount,
-			)
-
-			return r.UpdateRackNodeCount(statefulSet, desiredNodeCount)
+		// already gone through the first round of scaling seed nodes, now lets add the rest of the nodes
+		if currentPodCount > 1 {
+			desiredNodeCount = int32(rackInfo.NodeCount)
 		}
 
 		parked := r.ReconcileContext.DseDatacenter.Spec.Parked
@@ -182,6 +176,24 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 
 		if err := r.ReconcilePods(statefulSet); err != nil {
 			return reconcile.Result{Requeue: true}, err
+		}
+
+		statefulSets = append(statefulSets, statefulSet)
+	}
+
+	// By the time we get here we know all the racks are ready for that particular size
+	for index, rackInfo := range r.desiredRackInformation {
+
+		if statefulSets[index].Status.ReadyReplicas < int32(rackInfo.NodeCount) {
+			// update it
+			r.ReconcileContext.ReqLogger.Info(
+				"Need to update the rack's remaining node count",
+				"Rack", rackInfo.RackName,
+				"currentSize", statefulSets[index].Status.ReadyReplicas,
+				"desiredSize", rackInfo.NodeCount,
+			)
+
+			return r.UpdateRackNodeCount(statefulSets[index], int32(rackInfo.NodeCount))
 		}
 	}
 
@@ -236,7 +248,7 @@ func (r *ReconcileRacks) GetStatefulSetForRack(
 	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		nextRack.RackName,
 		r.ReconcileContext.DseDatacenter,
-		nextRack.NodeCount)
+		1)
 	if err != nil {
 		return nil, false, err
 	}
@@ -351,7 +363,7 @@ func (r *ReconcileRacks) UpdateRackNodeCount(statefulSet *appsv1.StatefulSet, ne
 		r.ReconcileContext.Ctx,
 		statefulSet)
 
-	return reconcile.Result{Requeue: true}, err
+	return reconcile.Result{}, err
 }
 
 func (r *ReconcileRacks) ReconcilePods(statefulSet *appsv1.StatefulSet) error {

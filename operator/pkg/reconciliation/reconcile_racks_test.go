@@ -612,7 +612,7 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 
 	result, err := reconcileRacks.Apply()
 	assert.NoErrorf(t, err, "Should not have returned an error")
-	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
+	assert.Equal(t, reconcile.Result{}, result, "Should not requeue request")
 }
 
 func TestReconcileRacks_AlreadyReconciled(t *testing.T) {

@@ -3,18 +3,19 @@ package v1alpha1
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
+
 	"github.com/Jeffail/gabs"
 	"github.com/pkg/errors"
 	"github.com/riptano/dse-operator/operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"regexp"
-	"strings"
 )
 
 const (
 	defaultRepository = "datastax/dse-server"
-	// TODO discuss this before release to a non-CaaS customer
+	// TODO discuss this before release to a non-CaaS customer https://datastax.jira.com/browse/KO-60
 	defaultVersion = "6.7.3"
 
 	CLUSTER_LABEL    = "com.datastax.dse.cluster"
@@ -262,7 +263,9 @@ func (dseDatacenter *DseDatacenter) GetConfigAsJSON() (string, error) {
 			return "", errors.Wrap(err, "Error parsing Spec.Config for DseDatacenter resource")
 		}
 
-		modelParsed.Merge(configParsed)
+		if err := modelParsed.Merge(configParsed); err != nil {
+			return "", errors.Wrap(err, "Error merging Spec.Config for DseDatacenter resource")
+		}
 	}
 
 	return modelParsed.String(), nil
