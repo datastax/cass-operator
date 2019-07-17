@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -20,6 +21,7 @@ import (
 
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
+	"github.com/riptano/dse-operator/operator/pkg/mocks"
 )
 
 // MockSetControllerReference returns a method that will automatically reverse the mock
@@ -109,23 +111,6 @@ func fakeClientWithService(
 	return &fakeClient, service
 }
 
-func fakeClientWithSeedService(
-	dseDatacenter *datastaxv1alpha1.DseDatacenter) (*client.Client, *corev1.Service) {
-
-	service := newSeedServiceForDseDatacenter(dseDatacenter)
-
-	// Objects to keep track of
-
-	trackObjects := []runtime.Object{
-		dseDatacenter,
-		service,
-	}
-
-	fakeClient := fake.NewFakeClient(trackObjects...)
-
-	return &fakeClient, service
-}
-
 func setupTest() (*dsereconciliation.ReconciliationContext, *corev1.Service, func()) {
 	// Set up verbose logging
 	logger := log2.ZapLogger(true)
@@ -156,4 +141,82 @@ func getReconcilers(rc *dsereconciliation.ReconciliationContext) (ReconcileDatac
 	}
 
 	return reconcileDatacenter, reconcileRacks, reconcileServices, reconcileSeedServices
+}
+
+func k8sMockClientGet(mockClient *mocks.Client, returnArg interface{}) *mock.Call {
+	return mockClient.On("Get",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(key client.ObjectKey) bool {
+				return key != client.ObjectKey{}
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Return(returnArg).
+		Once()
+}
+
+func k8sMockClientUpdate(mockClient *mocks.Client, returnArg interface{}) *mock.Call {
+	return mockClient.On("Update",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Return(returnArg).
+		Once()
+}
+
+func k8sMockClientCreate(mockClient *mocks.Client, returnArg interface{}) *mock.Call {
+	return mockClient.On("Create",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Return(returnArg).
+		Once()
+}
+
+func k8sMockClientDelete(mockClient *mocks.Client, returnArg interface{}) *mock.Call {
+	return mockClient.On("Delete",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Return(returnArg).
+		Once()
+}
+
+func k8sMockClientList(mockClient *mocks.Client, returnArg interface{}) *mock.Call {
+	return mockClient.On("List",
+		mock.MatchedBy(
+			func(ctx context.Context) bool {
+				return ctx != nil
+			}),
+		mock.MatchedBy(
+			func(opts *client.ListOptions) bool {
+				return opts != nil
+			}),
+		mock.MatchedBy(
+			func(obj runtime.Object) bool {
+				return obj != nil
+			})).
+		Return(returnArg).
+		Once()
 }

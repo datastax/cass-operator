@@ -5,16 +5,13 @@ package reconciliation
 //
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/mock"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -157,23 +154,11 @@ func TestReconcile_Error(t *testing.T) {
 	s := scheme.Scheme
 	s.AddKnownTypes(datastaxv1alpha1.SchemeGroupVersion, dseDatacenter)
 
-	mockClient := mocks.Client{}
-	mockClient.On("Get",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(key client.ObjectKey) bool {
-				return key != client.ObjectKey{}
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).Return(fmt.Errorf("")).Once()
+	mockClient := &mocks.Client{}
+	k8sMockClientGet(mockClient, fmt.Errorf(""))
 
 	r := &ReconcileDseDatacenter{
-		client: &mockClient,
+		client: mockClient,
 		scheme: s,
 	}
 

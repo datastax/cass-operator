@@ -1,15 +1,12 @@
 package reconciliation
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
@@ -31,36 +28,11 @@ func TestReconcileHeadlessService_UpdateLabels(t *testing.T) {
 	rc, service, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	mockClient := mocks.Client{}
-	rc.Client = &mockClient
+	mockClient := &mocks.Client{}
+	rc.Client = mockClient
 
-	mockClient.On("Get",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(key client.ObjectKey) bool {
-				return key != client.ObjectKey{}
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).
-		Return(nil).
-		Once()
-
-	mockClient.On("Update",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).
-		Return(nil).
-		Once()
+	k8sMockClientGet(mockClient, nil)
+	k8sMockClientUpdate(mockClient, nil)
 
 	service.SetLabels(make(map[string]string))
 
@@ -89,18 +61,10 @@ func TestCreateHeadlessService_ClientReturnsError(t *testing.T) {
 	rc, svc, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	mockClient := mocks.Client{}
-	rc.Client = &mockClient
+	mockClient := &mocks.Client{}
+	rc.Client = mockClient
 
-	mockClient.On("Create",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).Return(fmt.Errorf("")).Once()
+	k8sMockClientCreate(mockClient, fmt.Errorf(""))
 
 	reconcileServices := ReconcileServices{
 		ReconcileContext: rc,
@@ -117,22 +81,10 @@ func TestReconcileHeadlessSeedService_GetServiceError(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	mockClient := mocks.Client{}
-	rc.Client = &mockClient
+	mockClient := &mocks.Client{}
+	rc.Client = mockClient
 
-	mockClient.On("Get",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(key client.ObjectKey) bool {
-				return key != client.ObjectKey{}
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).Return(fmt.Errorf("")).Once()
+	k8sMockClientGet(mockClient, fmt.Errorf(""))
 
 	reconcileSeedServices := ReconcileSeedServices{
 		ReconcileContext: rc,
@@ -148,36 +100,18 @@ func TestReconcileHeadlessSeedService_UpdateLabels(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	mockClient := mocks.Client{}
-	rc.Client = &mockClient
+	mockClient := &mocks.Client{}
+	rc.Client = mockClient
 
-	mockClient.On("Get",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(key client.ObjectKey) bool {
-				return key != client.ObjectKey{}
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).
+	k8sMockClientGet(mockClient, nil).
 		Run(func(args mock.Arguments) {
 			arg := args.Get(2).(*corev1.Service)
 			arg.SetLabels(make(map[string]string))
-		}).Return(nil).Once()
+		}).
+		Return(nil).
+		Once()
 
-	mockClient.On("Update",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).Return(nil).Once()
+	k8sMockClientUpdate(mockClient, nil)
 
 	reconcileSeedServices := ReconcileSeedServices{
 		ReconcileContext: rc,
@@ -206,18 +140,10 @@ func TestCreateHeadlessSeedService_ClientReturnsError(t *testing.T) {
 	rc, svc, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	mockClient := mocks.Client{}
-	rc.Client = &mockClient
+	mockClient := &mocks.Client{}
+	rc.Client = mockClient
 
-	mockClient.On("Create",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).Return(fmt.Errorf("")).Once()
+	k8sMockClientCreate(mockClient, fmt.Errorf(""))
 
 	reconcileSeedServices := ReconcileSeedServices{
 		ReconcileContext: rc,

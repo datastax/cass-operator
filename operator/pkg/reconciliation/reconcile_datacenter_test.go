@@ -1,7 +1,6 @@
 package reconciliation
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -10,9 +9,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
 )
@@ -21,22 +18,10 @@ func TestDeletePVCs(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	mockClient := mocks.Client{}
-	rc.Client = &mockClient
+	mockClient := &mocks.Client{}
+	rc.Client = mockClient
 
-	mockClient.On("List",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(opts *client.ListOptions) bool {
-				return opts != nil
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).
+	k8sMockClientList(mockClient, nil).
 		Run(func(args mock.Arguments) {
 			arg := args.Get(2).(*v1.PersistentVolumeClaimList)
 			arg.Items = []v1.PersistentVolumeClaim{{
@@ -44,21 +29,9 @@ func TestDeletePVCs(t *testing.T) {
 					Name: "pvc-1",
 				},
 			}}
-		}).
-		Return(nil).
-		Once()
+		})
 
-	mockClient.On("Delete",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).
-		Return(nil).
-		Once()
+	k8sMockClientDelete(mockClient, nil)
 
 	reconcileDatacenter := ReconcileDatacenter{
 		ReconcileContext: rc,
@@ -74,22 +47,10 @@ func TestDeletePVCs_FailedToList(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	mockClient := mocks.Client{}
-	rc.Client = &mockClient
+	mockClient := &mocks.Client{}
+	rc.Client = mockClient
 
-	mockClient.On("List",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(opts *client.ListOptions) bool {
-				return opts != nil
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).
+	k8sMockClientList(mockClient, fmt.Errorf("failed to list PVCs for dseDatacenter")).
 		Run(func(args mock.Arguments) {
 			arg := args.Get(2).(*v1.PersistentVolumeClaimList)
 			arg.Items = []v1.PersistentVolumeClaim{{
@@ -97,21 +58,9 @@ func TestDeletePVCs_FailedToList(t *testing.T) {
 					Name: "pvc-1",
 				},
 			}}
-		}).
-		Return(fmt.Errorf("failed to list PVCs for dseDatacenter")).
-		Once()
+		})
 
-	mockClient.On("Delete",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).
-		Return(nil).
-		Once()
+	k8sMockClientDelete(mockClient, nil)
 
 	reconcileDatacenter := ReconcileDatacenter{
 		ReconcileContext: rc,
@@ -128,22 +77,10 @@ func TestDeletePVCs_PVCsNotFound(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	mockClient := mocks.Client{}
-	rc.Client = &mockClient
+	mockClient := &mocks.Client{}
+	rc.Client = mockClient
 
-	mockClient.On("List",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(opts *client.ListOptions) bool {
-				return opts != nil
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).
+	k8sMockClientList(mockClient, errors.NewNotFound(schema.GroupResource{}, "name")).
 		Run(func(args mock.Arguments) {
 			arg := args.Get(2).(*v1.PersistentVolumeClaimList)
 			arg.Items = []v1.PersistentVolumeClaim{{
@@ -151,9 +88,7 @@ func TestDeletePVCs_PVCsNotFound(t *testing.T) {
 					Name: "pvc-1",
 				},
 			}}
-		}).
-		Return(errors.NewNotFound(schema.GroupResource{}, "name")).
-		Once()
+		})
 
 	reconcileDatacenter := ReconcileDatacenter{
 		ReconcileContext: rc,
@@ -169,22 +104,10 @@ func TestDeletePVCs_FailedToDelete(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	mockClient := mocks.Client{}
-	rc.Client = &mockClient
+	mockClient := &mocks.Client{}
+	rc.Client = mockClient
 
-	mockClient.On("List",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(opts *client.ListOptions) bool {
-				return opts != nil
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).
+	k8sMockClientList(mockClient, nil).
 		Run(func(args mock.Arguments) {
 			arg := args.Get(2).(*v1.PersistentVolumeClaimList)
 			arg.Items = []v1.PersistentVolumeClaim{{
@@ -192,21 +115,9 @@ func TestDeletePVCs_FailedToDelete(t *testing.T) {
 					Name: "pvc-1",
 				},
 			}}
-		}).
-		Return(nil).
-		Once()
+		})
 
-	mockClient.On("Delete",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).
-		Return(fmt.Errorf("failed to delete")).
-		Once()
+	k8sMockClientDelete(mockClient, fmt.Errorf("failed to delete"))
 
 	reconcileDatacenter := ReconcileDatacenter{
 		ReconcileContext: rc,

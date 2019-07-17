@@ -20,7 +20,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -177,22 +176,10 @@ func TestReconcilePods(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	mockClient := mocks.Client{}
-	rc.Client = &mockClient
+	mockClient := &mocks.Client{}
+	rc.Client = mockClient
 
-	mockClient.On("Get",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(key client.ObjectKey) bool {
-				return key != client.ObjectKey{}
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).Return(nil).Once()
+	k8sMockClientGet(mockClient, nil)
 
 	// this mock will only pass if the pod is updated with the correct labels
 	mockClient.On("Update",
@@ -330,18 +317,10 @@ func TestReconcileNextRack_CreateError(t *testing.T) {
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
-	mockClient := mocks.Client{}
-	rc.Client = &mockClient
+	mockClient := &mocks.Client{}
+	rc.Client = mockClient
 
-	mockClient.On("Create",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).Return(fmt.Errorf("")).Once()
+	k8sMockClientCreate(mockClient, fmt.Errorf(""))
 
 	reconcileRacks := ReconcileRacks{
 		ReconcileContext: rc,
@@ -440,22 +419,10 @@ func TestReconcileRacks_GetStatefulsetError(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	mockClient := mocks.Client{}
-	rc.Client = &mockClient
+	mockClient := &mocks.Client{}
+	rc.Client = mockClient
 
-	mockClient.On("Get",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(key client.ObjectKey) bool {
-				return key != client.ObjectKey{}
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).Return(fmt.Errorf("")).Once()
+	k8sMockClientGet(mockClient, fmt.Errorf(""))
 
 	var rackInfo []*dsereconciliation.RackInformation
 
