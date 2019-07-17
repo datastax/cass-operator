@@ -14,9 +14,8 @@ import (
 )
 
 const (
-	defaultRepository = "datastax/dse-server"
-	// TODO discuss this before release to a non-CaaS customer https://datastax.jira.com/browse/KO-60
-	defaultVersion = "6.7.3"
+	defaultRepository = ""
+	defaultVersion    = ""
 
 	CLUSTER_LABEL    = "com.datastax.dse.cluster"
 	DATACENTER_LABEL = "com.datastax.dse.datacenter"
