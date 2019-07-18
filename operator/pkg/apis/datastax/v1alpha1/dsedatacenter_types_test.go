@@ -326,19 +326,6 @@ func TestDseDatacenterSpec_GetDseVersion(t *testing.T) {
 	}
 }
 
-func Test_getModelValues(t *testing.T) {
-	dseDatacenter := &DseDatacenter{
-		Spec: DseDatacenterSpec{
-			ClusterName: "bobs-cluster",
-			Config:      []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
-		},
-	}
-	result := dseDatacenter.getModelValues()
-	if name := result["cluster-info"].(dseConfigMap)["name"]; name != dseDatacenter.Spec.ClusterName {
-		t.Errorf("Found cluster name of %v, want %v", name, dseDatacenter.Spec.ClusterName)
-	}
-}
-
 func Test_GenerateBaseConfigString(t *testing.T) {
 	tests := []struct {
 		name          string

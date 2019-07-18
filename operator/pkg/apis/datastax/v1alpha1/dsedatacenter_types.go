@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"regexp"
-	"strings"
 
 	"github.com/Jeffail/gabs"
 	"github.com/pkg/errors"
-	"github.com/riptano/dse-operator/operator/pkg/utils"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"github.com/riptano/dse-operator/operator/pkg/dseconfig"
+	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
 
 const (
@@ -38,8 +39,6 @@ const (
 	RackLabel = RACK_LABEL
 )
 
-type dseConfigMap map[string]interface{}
-
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
@@ -51,7 +50,7 @@ type DseDatacenterSpec struct {
 	// DSE Version
 	Version string `json:"version"`
 	// Repository to grab the DSE image from
-	Repository string `json:"repository,omitempty"`
+	Repository string `json:"repository"`
 	// Annotations
 	Annotations map[string]string `json:"annotations,omitempty"`
 	// Labels
@@ -72,7 +71,7 @@ type DseDatacenterSpec struct {
 	// DSE ClusterName
 	ClusterName string `json:"clusterName"`
 	// Parked state means we do not want any DSE processes running
-	Parked bool `json:"parked"`
+	Parked bool `json:"parked,omitempty"`
 }
 
 // GetRacks is a getter for the DseRack slice in the spec
@@ -240,29 +239,10 @@ func (dc *DseDatacenter) GetClusterLabels() map[string]string {
 	}
 }
 
-// Gather the cluster model values for cluster and datacenter
-func (dc *DseDatacenter) getModelValues() dseConfigMap {
-
-	seeds := dc.GetSeedList()
-	seedsString := strings.Join(seeds, ",")
-
-	// Note: the operator does not currently support graph, solr, and spark
-	modelValues := dseConfigMap{
-		"cluster-info": dseConfigMap{
-			"name":  dc.Spec.ClusterName,
-			"seeds": seedsString,
-		},
-		"datacenter-info": dseConfigMap{
-			"name": dc.Name,
-		}}
-
-	return modelValues
-}
-
 // GetConfigAsJSON gets a JSON-encoded string suitable for passing to configBuilder
 func (dc *DseDatacenter) GetConfigAsJSON() (string, error) {
 
-	modelValues := dc.getModelValues()
+	modelValues := dseconfig.GetModelValues(dc.GetSeedList(), dc.Spec.ClusterName, dc.Name)
 
 	var modelBytes []byte
 

@@ -5,6 +5,8 @@
 package v1alpha1
 
 import (
+	json "encoding/json"
+
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -85,6 +87,11 @@ func (in *DseDatacenterSpec) DeepCopyInto(out *DseDatacenterSpec) {
 		for key, val := range *in {
 			(*out)[key] = val
 		}
+	}
+	if in.Config != nil {
+		in, out := &in.Config, &out.Config
+		*out = make(json.RawMessage, len(*in))
+		copy(*out, *in)
 	}
 	in.Resources.DeepCopyInto(&out.Resources)
 	if in.Racks != nil {
