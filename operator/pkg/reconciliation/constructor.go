@@ -53,6 +53,12 @@ func newServiceForDseDatacenter(
 					Port:       7001,
 					TargetPort: intstr.FromInt(7001),
 				},
+				// TODO Lococo suggests we can parse the config and see if this needs to be open
+				{
+					Name:       "prometheus",
+					Port:       9103,
+					TargetPort: intstr.FromInt(9103),
+				},
 				// jmx port 7199 was here, seems like we no longer need to expose it
 			},
 		},
