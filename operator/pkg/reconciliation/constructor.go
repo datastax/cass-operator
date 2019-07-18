@@ -53,6 +53,11 @@ func newServiceForDseDatacenter(
 					Port:       7001,
 					TargetPort: intstr.FromInt(7001),
 				},
+				{
+					Name:       "mgmt-api",
+					Port:       8080,
+					TargetPort: intstr.FromInt(8080),
+				},
 				// TODO Lococo suggests we can parse the config and see if this needs to be open
 				{
 					Name:       "prometheus",

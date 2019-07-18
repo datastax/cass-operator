@@ -6,23 +6,16 @@ package reconciliation
 //
 
 import (
-	"context"
-	"fmt"
 	"time"
 
-	"github.com/go-logr/logr"
 	"github.com/google/uuid"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
 )
 
@@ -73,9 +66,10 @@ func (r *ReconcileDseDatacenter) Reconcile(
 
 	ReqLogger.Info("======== handler::Reconcile has been called")
 
-	rc, err := CreateReconciliationContext(
+	rc, err := dsereconciliation.CreateReconciliationContext(
 		&request,
-		r,
+		r.client,
+		r.scheme,
 		ReqLogger)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -129,101 +123,4 @@ func NewReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileDseDatacenter{
 		client: mgr.GetClient(),
 		scheme: mgr.GetScheme()}
-}
-
-// CreateReconciliationContext gathers all information needed for computeReconciliationActions into a struct
-func CreateReconciliationContext(
-	request *reconcile.Request,
-	reconciler *ReconcileDseDatacenter,
-	ReqLogger logr.Logger) (*dsereconciliation.ReconciliationContext, error) {
-
-	rc := &dsereconciliation.ReconciliationContext{}
-	rc.Request = request
-	rc.Client = reconciler.client
-	rc.Scheme = reconciler.scheme
-	rc.ReqLogger = ReqLogger
-	rc.Ctx = context.Background()
-
-	rc.ReqLogger.Info("handler::CreateReconciliationContext")
-
-	// Fetch the DseDatacenter dseDatacenter
-	dseDatacenter := &datastaxv1alpha1.DseDatacenter{}
-	if err := retrieveDseDatacenter(rc, request, dseDatacenter); err != nil {
-		return nil, err
-	}
-	rc.DseDatacenter = dseDatacenter
-
-	rc.ReqLogger = rc.ReqLogger.
-		WithValues("dseDatacenterName", dseDatacenter.Name).
-		WithValues("dseDatacenterClusterName", dseDatacenter.ClusterName)
-
-	return rc, nil
-}
-
-func retrieveDseDatacenter(rc *dsereconciliation.ReconciliationContext, request *reconcile.Request, dseDatacenter *datastaxv1alpha1.DseDatacenter) error {
-	err := rc.Client.Get(
-		rc.Ctx,
-		request.NamespacedName,
-		dseDatacenter)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			// Chance this was a pod event so get the DseDatacenter via the pod
-			if innerErr := retrieveDseDatacenterByPod(rc, request, dseDatacenter); innerErr != nil {
-				return err
-			}
-			return nil
-		}
-		return err
-	}
-	return nil
-}
-
-func retrieveDseDatacenterByPod(rc *dsereconciliation.ReconciliationContext, request *reconcile.Request, dseDatacenter *datastaxv1alpha1.DseDatacenter) error {
-	pod := &corev1.Pod{}
-	err := rc.Client.Get(
-		rc.Ctx,
-		request.NamespacedName,
-		pod)
-	if err != nil {
-		rc.ReqLogger.Info("Unable to get pod",
-			"podName", request.Name)
-		return err
-	}
-
-	// Its entirely possible that a pod could be missing OwnerReferences even though it should be owned by a
-	// statefulset. The most likely scenario for this would be if a pod label was modified, causing the selector on
-	// the statefulset to no longer find the pod. Once the pod has been reconciled and we've fixed the label its OwnerReferences
-	// should show back up and everything will be fine.
-	if len(pod.OwnerReferences) == 0 {
-		rc.ReqLogger.Info("OwnerReferences missing for pod",
-			"podName",
-			pod.Name)
-		return fmt.Errorf("pod=%s missing OwnerReferences", pod.Name)
-	}
-
-	statefulSet := &appsv1.StatefulSet{}
-	err = rc.Client.Get(
-		rc.Ctx,
-		types.NamespacedName{
-			Name:      pod.OwnerReferences[0].Name,
-			Namespace: pod.Namespace},
-		statefulSet)
-	if err != nil {
-		rc.ReqLogger.Info("Unable to get statefulset",
-			"statefulsetName", pod.OwnerReferences[0].Name)
-		return err
-	}
-
-	err = rc.Client.Get(
-		rc.Ctx,
-		types.NamespacedName{
-			Name:      statefulSet.OwnerReferences[0].Name,
-			Namespace: pod.Namespace},
-		dseDatacenter)
-	if err != nil {
-		rc.ReqLogger.Info("Unable to get DseDatacenter",
-			"dseDatacenterName", statefulSet.OwnerReferences[0].Name)
-		return err
-	}
-	return nil
 }
