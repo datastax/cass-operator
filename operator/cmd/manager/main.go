@@ -33,10 +33,18 @@ var (
 var log = logf.Log.WithName("cmd")
 
 func printVersion() {
-	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
-	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
-	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
-	log.Info(fmt.Sprintf("Operator version: %s", version))
+	log.Info("Go Version",
+		"goVersion", runtime.Version())
+
+	log.Info("Go OS/Arch",
+		"os", runtime.GOOS,
+		"arch", runtime.GOARCH)
+
+	log.Info("Version of operator-sdk",
+		"operatorSdkVersion", sdkVersion.Version)
+
+	log.Info("Operator version",
+		"operatorVersion", version)
 }
 
 func main() {
@@ -71,7 +79,7 @@ func main() {
 	// Get a config to talk to the apiserver
 	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Error(err, "")
+		log.Error(err, "could not get k8s config")
 		os.Exit(1)
 	}
 
@@ -80,7 +88,7 @@ func main() {
 	// Become the leader before proceeding
 	err = leader.Become(ctx, "dse-operator-lock")
 	if err != nil {
-		log.Error(err, "")
+		log.Error(err, "could not become leader")
 		os.Exit(1)
 	}
 
@@ -90,7 +98,7 @@ func main() {
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 	})
 	if err != nil {
-		log.Error(err, "")
+		log.Error(err, "could not make manager")
 		os.Exit(1)
 	}
 
@@ -98,20 +106,20 @@ func main() {
 
 	// Setup Scheme for all resources
 	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
+		log.Error(err, "could not add to scheme")
 		os.Exit(1)
 	}
 
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
-		log.Error(err, "")
+		log.Error(err, "could not add to manager")
 		os.Exit(1)
 	}
 
 	// Create Service object to expose the metrics port.
 	_, err = metrics.ExposeMetricsPort(ctx, metricsPort)
 	if err != nil {
-		log.Info(err.Error())
+		log.Error(err, "could not expose metrics port, continuing anyway")
 	}
 
 	log.Info("Starting the Cmd.")

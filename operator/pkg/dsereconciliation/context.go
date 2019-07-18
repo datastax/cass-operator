@@ -11,7 +11,7 @@ import (
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 )
 
-// All of the input necessary to calculate a list of ReconciliationActions
+// ReconciliationContext contains all of the input necessary to calculate a list of ReconciliationActions
 type ReconciliationContext struct {
 	Request       *reconcile.Request
 	Client        client.Client

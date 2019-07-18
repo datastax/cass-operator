@@ -39,6 +39,7 @@ func MockSetControllerReference() func() {
 	}
 }
 
+// CreateMockReconciliationContext ...
 func CreateMockReconciliationContext(
 	reqLogger logr.Logger) *dsereconciliation.ReconciliationContext {
 

@@ -15,10 +15,12 @@ import (
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation/reconcileriface"
 )
 
+// ReconcileDatacenter ...
 type ReconcileDatacenter struct {
 	ReconcileContext *dsereconciliation.ReconciliationContext
 }
 
+// Apply ...
 func (r *ReconcileDatacenter) Apply() (reconcile.Result, error) {
 	if err := r.deletePVCs(); err != nil {
 		r.ReconcileContext.ReqLogger.Error(err, "Failed to delete PVCs for DseDatacenter")
@@ -37,6 +39,7 @@ func (r *ReconcileDatacenter) Apply() (reconcile.Result, error) {
 	return reconcile.Result{}, nil
 }
 
+// ProcessDeletion ...
 func (r *ReconcileDatacenter) ProcessDeletion() (reconcileriface.Reconciler, error) {
 	if r.ReconcileContext.DseDatacenter.GetDeletionTimestamp() != nil {
 		return &ReconcileDatacenter{
@@ -55,44 +58,34 @@ func (r *ReconcileDatacenter) deletePVCs() error {
 		if errors.IsNotFound(err) {
 			r.ReconcileContext.ReqLogger.Info(
 				"No PVCs found for DseDatacenter",
-				"dseDatacenterNamespace",
-				r.ReconcileContext.DseDatacenter.Namespace,
-				"dseDatacenterName",
-				r.ReconcileContext.DseDatacenter.Name)
+				"dseDatacenterNamespace", r.ReconcileContext.DseDatacenter.Namespace,
+				"dseDatacenterName", r.ReconcileContext.DseDatacenter.Name)
 			return nil
 		}
 		r.ReconcileContext.ReqLogger.Error(err,
 			"Failed to list PVCs for dseDatacenter",
-			"dseDatacenterNamespace",
-			r.ReconcileContext.DseDatacenter.Namespace,
-			"dseDatacenterName",
-			r.ReconcileContext.DseDatacenter.Name)
+			"dseDatacenterNamespace", r.ReconcileContext.DseDatacenter.Namespace,
+			"dseDatacenterName", r.ReconcileContext.DseDatacenter.Name)
 		return err
 	}
 
 	r.ReconcileContext.ReqLogger.Info(
 		fmt.Sprintf("Found %d PVCs for dseDatacenter", len(persistentVolumeClaimList.Items)),
-		"dseDatacenterNamespace",
-		r.ReconcileContext.DseDatacenter.Namespace,
-		"dseDatacenterName",
-		r.ReconcileContext.DseDatacenter.Name)
+		"dseDatacenterNamespace", r.ReconcileContext.DseDatacenter.Namespace,
+		"dseDatacenterName", r.ReconcileContext.DseDatacenter.Name)
 
 	for _, pvc := range persistentVolumeClaimList.Items {
 		if err := r.ReconcileContext.Client.Delete(r.ReconcileContext.Ctx, &pvc); err != nil {
 			r.ReconcileContext.ReqLogger.Error(err,
 				"Failed to delete PVCs for dseDatacenter",
-				"dseDatacenter.Namespace",
-				r.ReconcileContext.DseDatacenter.Namespace,
-				"dseDatacenter.Name",
-				r.ReconcileContext.DseDatacenter.Name)
+				"dseDatacenterNamespace", r.ReconcileContext.DseDatacenter.Namespace,
+				"dseDatacenterName", r.ReconcileContext.DseDatacenter.Name)
 			return err
 		}
 		r.ReconcileContext.ReqLogger.Info(
 			"Deleted PVC",
-			"pvcNamespace",
-			pvc.Namespace,
-			"pvcName",
-			pvc.Name)
+			"pvcNamespace", pvc.Namespace,
+			"pvcName", pvc.Name)
 	}
 
 	return nil

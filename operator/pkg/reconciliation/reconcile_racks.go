@@ -18,14 +18,13 @@ import (
 	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
 
+// ReconcileRacks ...
 type ReconcileRacks struct {
 	ReconcileContext       *dsereconciliation.ReconciliationContext
 	desiredRackInformation []*dsereconciliation.RackInformation
 }
 
-//
-// Determine how many nodes per rack are needed
-//
+// CalculateRackInformation determine how many nodes per rack are needed
 func (r *ReconcileRacks) CalculateRackInformation() (reconcileriface.Reconciler, error) {
 
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::calculateRackInformation")
@@ -73,7 +72,7 @@ func (r *ReconcileRacks) CalculateRackInformation() (reconcileriface.Reconciler,
 	}, nil
 }
 
-// reconcileRacks determines if a rack needs to be reconciled.
+// Apply reconcileRacks determines if a rack needs to be reconciled.
 func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::reconcileRacks")
@@ -202,8 +201,9 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 	return reconcile.Result{}, nil
 }
 
-// labelSeedsPods will iterate over all seed node pods for a datacenter and if the pod exists and is not already labeled will
-// add the dse-seed=true label to the pod so that its picked up by the headless seed service
+// LabelSeedPods will iterate over all seed node pods for a datacenter and if the pod exists
+// and is not already labeled will add the dse-seed=true label to the pod so that its picked
+// up by the headless seed service
 func (r *ReconcileRacks) LabelSeedPods(statefulSet *appsv1.StatefulSet) {
 	seeds := r.ReconcileContext.DseDatacenter.GetSeedList()
 	for _, seed := range seeds {
@@ -237,9 +237,8 @@ func (r *ReconcileRacks) LabelSeedPods(statefulSet *appsv1.StatefulSet) {
 	}
 }
 
-// Returns the statefulset for the rack
-// and whether it currently exists
-// and whether an error occured
+// GetStatefulSetForRack returns the statefulset for the rack
+// and whether it currently exists and whether an error occured
 func (r *ReconcileRacks) GetStatefulSetForRack(
 	nextRack *dsereconciliation.RackInformation) (*appsv1.StatefulSet, bool, error) {
 
@@ -279,8 +278,7 @@ func (r *ReconcileRacks) GetStatefulSetForRack(
 	return currentStatefulSet, true, nil
 }
 
-// Ensure that the resources for a dse rack have been properly created
-//
+// ReconcileNextRack ensures that the resources for a dse rack have been properly created
 // Note that each statefulset is using OrderedReadyPodManagement,
 // so it will bring up one node at a time.
 func (r *ReconcileRacks) ReconcileNextRack(statefulSet *appsv1.StatefulSet) (reconcile.Result, error) {
@@ -346,6 +344,7 @@ func (r *ReconcileRacks) ReconcileNextRack(statefulSet *appsv1.StatefulSet) (rec
 	return reconcile.Result{}, nil
 }
 
+// UpdateRackNodeCount ...
 func (r *ReconcileRacks) UpdateRackNodeCount(statefulSet *appsv1.StatefulSet, newNodeCount int32) (reconcile.Result, error) {
 
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::updateRack")
@@ -366,6 +365,7 @@ func (r *ReconcileRacks) UpdateRackNodeCount(statefulSet *appsv1.StatefulSet, ne
 	return reconcile.Result{}, err
 }
 
+// ReconcilePods ...
 func (r *ReconcileRacks) ReconcilePods(statefulSet *appsv1.StatefulSet) error {
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::ReconcilePods")
 

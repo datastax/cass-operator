@@ -46,7 +46,6 @@ type ReconcileDseDatacenter struct {
 	scheme *runtime.Scheme
 }
 
-// We must define this method here.
 // Reconcile reads that state of the cluster for a dseDatacenter object
 // and makes changes based on the state read
 // and what is in the dseDatacenter.Spec
@@ -61,8 +60,8 @@ func (r *ReconcileDseDatacenter) Reconcile(
 	startReconcile := time.Now()
 
 	ReqLogger := log.
-		WithValues("Request.Namespace", request.Namespace).
-		WithValues("Request.Name", request.Name).
+		WithValues("requestNamespace", request.Namespace).
+		WithValues("requestName", request.Name).
 		// loopID is used to tie all events together that are spawned by the same reconciliation loop
 		WithValues("loopID", uuid.New().String())
 
@@ -125,16 +124,14 @@ func (r *ReconcileDseDatacenter) addFinalizer(rc *dsereconciliation.Reconciliati
 	return nil
 }
 
-// newReconciler returns a new reconcile.reconciler
+// NewReconciler returns a new reconcile.Reconciler
 func NewReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileDseDatacenter{
 		client: mgr.GetClient(),
 		scheme: mgr.GetScheme()}
 }
 
-//
-// Gather all information needed for computeReconciliationActions into a struct.
-//
+// CreateReconciliationContext gathers all information needed for computeReconciliationActions into a struct
 func CreateReconciliationContext(
 	request *reconcile.Request,
 	reconciler *ReconcileDseDatacenter,
@@ -146,9 +143,6 @@ func CreateReconciliationContext(
 	rc.Scheme = reconciler.scheme
 	rc.ReqLogger = ReqLogger
 	rc.Ctx = context.Background()
-
-	rc.ReqLogger = rc.ReqLogger.
-		WithValues("namespace", request.Namespace)
 
 	rc.ReqLogger.Info("handler::CreateReconciliationContext")
 

@@ -21,9 +21,24 @@ const (
 	DATACENTER_LABEL = "com.datastax.dse.datacenter"
 	SEED_NODE_LABEL  = "com.datastax.dse.seednode"
 	RACK_LABEL       = "com.datastax.dse.rack"
+
+	// FIXME switch over to using these constants below, then get rid of the above ones
+	// golint says ALL_CAPS is a no-no
+
+	// ClusterLabel is the DSE operator's label for the DSE cluster name
+	ClusterLabel = CLUSTER_LABEL
+
+	// DatacenterLabel is the DSE operator's label for the DSE datacenter name
+	DatacenterLabel = DATACENTER_LABEL
+
+	// SeedNodeLabel is the DSE operator's label for the DSE seed node state
+	SeedNodeLabel = SEED_NODE_LABEL
+
+	// RackLabel is the DSE operator's label for the DSE rack name
+	RackLabel = RACK_LABEL
 )
 
-type DseConfigMap map[string]interface{}
+type dseConfigMap map[string]interface{}
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -60,6 +75,8 @@ type DseDatacenterSpec struct {
 	Parked bool `json:"parked"`
 }
 
+// GetRacks is a getter for the DseRack slice in the spec
+// It ensures there is always at least one rack
 func (s *DseDatacenterSpec) GetRacks() []DseRack {
 	if len(s.Racks) >= 1 {
 		return s.Racks
@@ -79,6 +96,7 @@ func (s *DseDatacenterSpec) GetDesiredNodeCount() int32 {
 	return s.Size
 }
 
+// DseRack ...
 type DseRack struct {
 	// The rack name
 	Name string `json:"name"`
@@ -88,6 +106,7 @@ type DseRack struct {
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
+// DseStorageClaim ...
 type DseStorageClaim struct {
 	StorageClassName string `json:"storageclassname"`
 	// Resource requirements
@@ -119,21 +138,21 @@ type DseDatacenter struct {
 // 2. Then ensure that each Datacenter has at least 2 seeds
 //
 // In the event that no seeds are found, an empty list will be returned.
-func (in *DseDatacenter) GetSeedList() []string {
+func (dc *DseDatacenter) GetSeedList() []string {
 	var seeds []string
 	nodeServicePattern := "%s-%s-%s-sts-%d.%s-%s-service.%s.svc.cluster.local" // e.g. "example-cluster-example-dsedatacenter-default-sts-0.example-cluster-example-dsedatacenter-service.default.svc.cluster.local"
 
-	if in.Spec.Size == 0 {
+	if dc.Spec.Size == 0 {
 		return []string{}
 	}
 
-	for _, dseRack := range in.Spec.GetRacks() {
-		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, in.Spec.ClusterName, in.Name, dseRack.Name, 0, in.Spec.ClusterName, in.Name, in.Namespace))
+	for _, dseRack := range dc.Spec.GetRacks() {
+		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, dc.Spec.ClusterName, dc.Name, dseRack.Name, 0, dc.Spec.ClusterName, dc.Name, dc.Namespace))
 	}
 
 	// ensure that each Datacenter has at least 2 seeds
-	if len(in.Spec.GetRacks()) == 1 && in.Spec.Size > 1 {
-		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, in.Spec.ClusterName, in.Name, in.Spec.GetRacks()[0].Name, 1, in.Spec.ClusterName, in.Name, in.Namespace))
+	if len(dc.Spec.GetRacks()) == 1 && dc.Spec.Size > 1 {
+		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, dc.Spec.ClusterName, dc.Name, dc.Spec.GetRacks()[0].Name, 1, dc.Spec.ClusterName, dc.Name, dc.Namespace))
 	}
 
 	if seeds == nil {
@@ -192,6 +211,7 @@ func makeImage(repo, version string) string {
 	return repo + ":" + version
 }
 
+// GetRackLabels ...
 func (dc *DseDatacenter) GetRackLabels(rackName string) map[string]string {
 	labels := map[string]string{
 		RACK_LABEL: rackName,
@@ -202,6 +222,7 @@ func (dc *DseDatacenter) GetRackLabels(rackName string) map[string]string {
 	return labels
 }
 
+// GetDatacenterLabels ...
 func (dc *DseDatacenter) GetDatacenterLabels() map[string]string {
 	labels := map[string]string{
 		DATACENTER_LABEL: dc.Name,
@@ -212,6 +233,7 @@ func (dc *DseDatacenter) GetDatacenterLabels() map[string]string {
 	return labels
 }
 
+// GetClusterLabels ...
 func (dc *DseDatacenter) GetClusterLabels() map[string]string {
 	return map[string]string{
 		CLUSTER_LABEL: dc.Spec.ClusterName,
@@ -219,28 +241,28 @@ func (dc *DseDatacenter) GetClusterLabels() map[string]string {
 }
 
 // Gather the cluster model values for cluster and datacenter
-func (dseDatacenter *DseDatacenter) getModelValues() DseConfigMap {
+func (dc *DseDatacenter) getModelValues() dseConfigMap {
 
-	seeds := dseDatacenter.GetSeedList()
+	seeds := dc.GetSeedList()
 	seedsString := strings.Join(seeds, ",")
 
 	// Note: the operator does not currently support graph, solr, and spark
-	modelValues := DseConfigMap{
-		"cluster-info": DseConfigMap{
-			"name":  dseDatacenter.Spec.ClusterName,
+	modelValues := dseConfigMap{
+		"cluster-info": dseConfigMap{
+			"name":  dc.Spec.ClusterName,
 			"seeds": seedsString,
 		},
-		"datacenter-info": DseConfigMap{
-			"name": dseDatacenter.Name,
+		"datacenter-info": dseConfigMap{
+			"name": dc.Name,
 		}}
 
 	return modelValues
 }
 
-// Get a JSON-encoded string suitable for passing to configBuilder
-func (dseDatacenter *DseDatacenter) GetConfigAsJSON() (string, error) {
+// GetConfigAsJSON gets a JSON-encoded string suitable for passing to configBuilder
+func (dc *DseDatacenter) GetConfigAsJSON() (string, error) {
 
-	modelValues := dseDatacenter.getModelValues()
+	modelValues := dc.getModelValues()
 
 	var modelBytes []byte
 
@@ -256,8 +278,8 @@ func (dseDatacenter *DseDatacenter) GetConfigAsJSON() (string, error) {
 		return "", errors.Wrap(err, "Model information for DseDatacenter resource was not properly configured")
 	}
 
-	if dseDatacenter.Spec.Config != nil {
-		configParsed, err := gabs.ParseJSON([]byte(dseDatacenter.Spec.Config))
+	if dc.Spec.Config != nil {
+		configParsed, err := gabs.ParseJSON([]byte(dc.Spec.Config))
 		if err != nil {
 			return "", errors.Wrap(err, "Error parsing Spec.Config for DseDatacenter resource")
 		}
@@ -269,8 +291,3 @@ func (dseDatacenter *DseDatacenter) GetConfigAsJSON() (string, error) {
 
 	return modelParsed.String(), nil
 }
-
-// FIXME workaround!
-// putting this here for the generated client to latch onto
-// not sure why Operator SDK didn't leave this in register.go or a similar file
-var AddToScheme = SchemeBuilder.AddToScheme

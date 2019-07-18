@@ -10,16 +10,19 @@ import (
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation/reconcileriface"
 )
 
+// ReconcileServices ...
 type ReconcileServices struct {
 	ReconcileContext *dsereconciliation.ReconciliationContext
 	Service          *corev1.Service
 }
 
+// ReconcileSeedServices ...
 type ReconcileSeedServices struct {
 	ReconcileContext *dsereconciliation.ReconciliationContext
 	Service          *corev1.Service
 }
 
+// Apply ...
 func (r *ReconcileServices) Apply() (reconcile.Result, error) {
 	r.ReconcileContext.ReqLogger.Info(
 		"Creating a new headless service",
@@ -42,6 +45,7 @@ func (r *ReconcileServices) Apply() (reconcile.Result, error) {
 	return reconcile.Result{Requeue: true}, nil
 }
 
+// ReconcileHeadlessService ...
 func (r *ReconcileServices) ReconcileHeadlessService() (reconcileriface.Reconciler, error) {
 	r.ReconcileContext.ReqLogger.Info("reconcile_services::reconcileHeadlessService")
 
@@ -100,17 +104,12 @@ func (r *ReconcileServices) ReconcileHeadlessService() (reconcileriface.Reconcil
 	return nil, nil
 }
 
-//
-// Create a headless service for this datacenter.
-//
-
+// Apply create a headless service for this datacenter.
 func (r *ReconcileSeedServices) Apply() (reconcile.Result, error) {
 	r.ReconcileContext.ReqLogger.Info(
 		"Creating a new headless seed service",
-		"serviceNamespace",
-		r.Service.Namespace,
-		"serviceName",
-		r.Service.Name)
+		"serviceNamespace", r.Service.Namespace,
+		"serviceName", r.Service.Name)
 
 	err := r.ReconcileContext.Client.Create(
 		r.ReconcileContext.Ctx,
@@ -126,6 +125,7 @@ func (r *ReconcileSeedServices) Apply() (reconcile.Result, error) {
 	return reconcile.Result{}, nil
 }
 
+// ReconcileHeadlessSeedService ...
 func (r *ReconcileSeedServices) ReconcileHeadlessSeedService() (reconcileriface.Reconciler, error) {
 
 	r.ReconcileContext.ReqLogger.Info("reconcile_services::reconcileHeadlessSeedService")

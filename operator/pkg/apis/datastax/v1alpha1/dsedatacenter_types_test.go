@@ -334,7 +334,7 @@ func Test_getModelValues(t *testing.T) {
 		},
 	}
 	result := dseDatacenter.getModelValues()
-	if name := result["cluster-info"].(DseConfigMap)["name"]; name != dseDatacenter.Spec.ClusterName {
+	if name := result["cluster-info"].(dseConfigMap)["name"]; name != dseDatacenter.Spec.ClusterName {
 		t.Errorf("Found cluster name of %v, want %v", name, dseDatacenter.Spec.ClusterName)
 	}
 }
