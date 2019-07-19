@@ -41,32 +41,16 @@ func newServiceForDseDatacenter(
 					TargetPort: intstr.FromInt(9042),
 				},
 				{
-					Name:       "inter-node-msg",
-					Port:       8609,
-					TargetPort: intstr.FromInt(8609),
-				},
-				{
-					Name:       "intra-node",
-					Port:       7000,
-					TargetPort: intstr.FromInt(7000),
-				},
-				{
-					Name:       "tls-intra-node",
-					Port:       7001,
-					TargetPort: intstr.FromInt(7001),
-				},
-				{
 					Name:       "mgmt-api",
 					Port:       8080,
 					TargetPort: intstr.FromInt(8080),
 				},
-				// TODO Lococo suggests we can parse the config and see if this needs to be open
-				{
-					Name:       "prometheus",
-					Port:       9103,
-					TargetPort: intstr.FromInt(9103),
-				},
-				// jmx port 7199 was here, seems like we no longer need to expose it
+				// I don't believe we need to expose any of
+				//     jmx-port:7199
+				//     inter-node-msg:8609
+				//     intra-node:7000
+				//     tls-intra-node:7001
+				// with this load balancer
 			},
 		},
 	}
@@ -262,8 +246,7 @@ func newStatefulSetForDseDatacenter(
 						},
 						Ports: []corev1.ContainerPort{
 							// Note: Port Names cannot be more than 15 characters
-							// TODO: Use specified config to determine which
-							//       ports we need.
+							// TODO: Use specified config to determine which ports we need.
 							{
 								Name:          "native",
 								ContainerPort: 9042,
@@ -280,12 +263,16 @@ func newStatefulSetForDseDatacenter(
 								Name:          "tls-intra-node",
 								ContainerPort: 7001,
 							},
+							// jmx-port 7199 was here, seems like we no longer need to expose it
 							{
 								Name:          "mgmt-api-http",
 								ContainerPort: 8080,
 							},
-							// jmx port 7199 was here, seems like we no longer need to expose it
-
+							// TODO Lococo suggests we can parse the config and see if this needs to be open
+							{
+								Name:          "prometheus",
+								ContainerPort: 9103,
+							},
 						},
 						LivenessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
