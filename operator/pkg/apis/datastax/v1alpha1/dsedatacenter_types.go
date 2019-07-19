@@ -37,6 +37,9 @@ const (
 
 	// RackLabel is the DSE operator's label for the DSE rack name
 	RackLabel = RACK_LABEL
+
+	// RackLabel is the DSE operator's label for the DSE rack name
+	DseOperatorProgressLabel = "com.datastax.dse.operator.progress"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!

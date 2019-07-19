@@ -21,8 +21,13 @@ type reconcileFun func() (reconcileriface.Reconciler, error)
 // be taken on the DseDatacenter. If a change is needed then the apply function will be called on that reconciler and the
 // request will be requeued for the next reconciler to handle in the subsequent reconcile loop, otherwise the next reconciler
 // will be called.
-func calculateReconciliationActions(rc *dsereconciliation.ReconciliationContext, reconcileDatacenter ReconcileDatacenter, reconcileRacks ReconcileRacks,
-	reconcileServices ReconcileServices, reconcileSeedServices ReconcileSeedServices, reconciler *ReconcileDseDatacenter) (reconcile.Result, error) {
+func calculateReconciliationActions(
+	rc *dsereconciliation.ReconciliationContext,
+	reconcileDatacenter ReconcileDatacenter,
+	reconcileRacks ReconcileRacks,
+	reconcileServices ReconcileServices,
+	reconcileSeedServices ReconcileSeedServices,
+	reconciler *ReconcileDseDatacenter) (reconcile.Result, error) {
 
 	rc.ReqLogger.Info("handler::calculateReconciliationActions")
 
@@ -35,6 +40,10 @@ func calculateReconciliationActions(rc *dsereconciliation.ReconciliationContext,
 		}
 
 		return rec.Apply()
+	}
+
+	if err := addOperatorProgressLabel(rc, updating); err != nil {
+		return reconcile.Result{Requeue: true}, err
 	}
 
 	if err := reconciler.addFinalizer(rc); err != nil {
@@ -56,6 +65,13 @@ func calculateReconciliationActions(rc *dsereconciliation.ReconciliationContext,
 
 			return recResult, recErr
 		}
+	}
+
+	// no more changes to make!
+
+	if err := addOperatorProgressLabel(rc, ready); err != nil {
+		// this error is especially sad because we were just about to be done reconciling
+		return reconcile.Result{Requeue: true}, err
 	}
 
 	// nothing happened so return and don't requeue

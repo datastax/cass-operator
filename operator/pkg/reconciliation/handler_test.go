@@ -42,7 +42,7 @@ func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
 	rc.Client = mockClient
 
 	k8sMockClientGet(mockClient, fmt.Errorf(""))
-	k8sMockClientUpdate(mockClient, nil)
+	k8sMockClientUpdate(mockClient, nil).Times(2)
 
 	datacenterReconcile, reconcileRacks, reconcileServices, reconcileSeedServices := getReconcilers(rc)
 

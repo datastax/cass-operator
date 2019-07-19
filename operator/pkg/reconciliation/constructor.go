@@ -6,7 +6,9 @@ package reconciliation
 
 import (
 	"fmt"
+
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -345,4 +347,40 @@ func newPodDisruptionBudgetForStatefulSet(
 			MaxUnavailable: &maxUnavailable,
 		},
 	}
+}
+
+// this type exists so there's no chance of pushing random strings to our progress label
+type dseOperatorStatus string
+
+const (
+	updating dseOperatorStatus = "Updating"
+	ready    dseOperatorStatus = "Ready"
+)
+
+func addOperatorProgressLabel(
+	rc *dsereconciliation.ReconciliationContext,
+	status dseOperatorStatus) error {
+
+	labelVal := string(status)
+
+	if rc.DseDatacenter.Spec.Labels == nil {
+		rc.DseDatacenter.Spec.Labels = make(map[string]string)
+	}
+
+	existingLabel, ok := rc.DseDatacenter.Spec.Labels[datastaxv1alpha1.DseOperatorProgressLabel]
+	if ok && existingLabel == labelVal {
+		// early return, no need to ping k8s
+		return nil
+	}
+
+	// set the label and push it to k8s
+	rc.DseDatacenter.Spec.Labels[datastaxv1alpha1.DseOperatorProgressLabel] = labelVal
+	err := rc.Client.Update(rc.Ctx, rc.DseDatacenter)
+	if err != nil {
+		rc.ReqLogger.Error(err, "error updating label",
+			"label", datastaxv1alpha1.DseOperatorProgressLabel,
+			"value", labelVal)
+	}
+
+	return err
 }
