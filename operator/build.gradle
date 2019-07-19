@@ -37,6 +37,13 @@ task dockerImage(type: DockerBuildImage, group: 'Docker', description: 'Build op
     tags.add("datastax/dse-${project.name}:${version.toString().replaceAll('[^a-zA-Z0-9\\.\\-_]', '_')}")
 }
 
+// "go mod vendor" is necessary to provide IDE autocompletion
+// and also for the operator-sdk code generation.
+task runGoModVendor(type: Exec) {
+    environment "GO111MODULE", "on"
+    commandLine 'go', 'mod', 'vendor'
+}
+
 assemble.dependsOn goBuild, dockerImage
 
 [resolveBuildDependencies, installDependencies]*.enabled = false
@@ -72,3 +79,30 @@ class LocalOperatorStart extends Exec {
         environment.WATCH_NAMESPACE = ns
     }
 }
+
+task createOperatorSdkDockerImage(type: Exec) {
+    workingDir = "../tools/operator-sdk"
+    commandLine 'docker', 'build', '-t', 'operator-sdk-binary', '.'
+}
+
+// This is needed for operator-sdk generate k8s to run
+task mkdirBuild(type: Exec) {
+    commandLine 'mkdir', '-p', 'build'
+}
+
+// This is needed for operator-sdk generate k8s to run
+task touchBuildDockerfile(type: Exec) {
+    commandLine 'touch', 'build/Dockerfile'
+}
+
+// Generate the files and clean up afterwards
+task updateGeneratedFiles(type: Exec) {
+    workingDir = ".."
+    // Note: the temporary build artifacts in operator/build/_output may be
+    // owned by root:root. No matter what the ownership is, the docker image
+    // has permission to remove them, so we remove "build"
+    commandLine 'docker', 'run', '--rm', '-t', '-v', "$rootProject.projectDir:/go/src/github.com/riptano/dse-operator", "operator-sdk-binary", "/bin/bash", '-c', 'cd ../../riptano/dse-operator/operator && operator-sdk generate k8s && rm -rf build'
+}
+
+touchBuildDockerfile.dependsOn mkdirBuild
+updateGeneratedFiles.dependsOn createOperatorSdkDockerImage, runGoModVendor, touchBuildDockerfile
