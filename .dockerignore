@@ -1,0 +1,4 @@
+/operator/.gogradle/
+/operator/vendor/
+/operator/build/
+/.gradle/
