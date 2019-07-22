@@ -149,7 +149,7 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 
 		readyReplicas := statefulSet.Status.ReadyReplicas
 
-		if readyReplicas < desiredNodeCount {
+		if readyReplicas < currentPodCount {
 			// We should do nothing but wait until all replicas are ready
 			r.ReconcileContext.ReqLogger.Info(
 				"Not all replicas for StatefulSet are ready.",
@@ -183,16 +183,17 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 	// By the time we get here we know all the racks are ready for that particular size
 	for index, rackInfo := range r.desiredRackInformation {
 
-		if statefulSets[index].Status.ReadyReplicas < int32(rackInfo.NodeCount) {
+		readyReplicas := statefulSets[index].Status.ReadyReplicas
+		if readyReplicas < int32(rackInfo.NodeCount) {
 			// update it
 			r.ReconcileContext.ReqLogger.Info(
-				"Need to update the rack's remaining node count",
+				"Need to update the rack's node count by one",
 				"Rack", rackInfo.RackName,
-				"currentSize", statefulSets[index].Status.ReadyReplicas,
+				"currentSize", readyReplicas,
 				"desiredSize", rackInfo.NodeCount,
 			)
 
-			return r.UpdateRackNodeCount(statefulSets[index], int32(rackInfo.NodeCount))
+			return r.UpdateRackNodeCount(statefulSets[index], readyReplicas+1)
 		}
 	}
 

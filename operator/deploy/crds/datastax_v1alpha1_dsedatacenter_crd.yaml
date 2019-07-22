@@ -36,7 +36,11 @@ spec:
               description: DSE ClusterName
               type: string
             config:
-              description: Definition file config
+              description: Definition file config Note that k8s will populate Spec.Config
+                with a json version of the contents of this field.  Somehow k8s converts
+                the yaml fragment to json, which is bizarre but useful for us.  We
+                can use []byte(dseDatacenter.Spec.Config) to make the data accessible
+                for parsing.
               type: string
             labels:
               additionalProperties:
@@ -96,8 +100,8 @@ spec:
           required:
           - size
           - version
+          - repository
           - clusterName
-          - parked
           type: object
         status:
           properties:

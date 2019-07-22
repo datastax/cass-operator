@@ -119,7 +119,7 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 					},
 					"config": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Definition file config",
+							Description: "Definition file config Note that k8s will populate Spec.Config with a json version of the contents of this field.  Somehow k8s converts the yaml fragment to json, which is bizarre but useful for us.  We can use []byte(dseDatacenter.Spec.Config) to make the data accessible for parsing.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -164,7 +164,7 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"size", "version", "clusterName", "parked"},
+				Required: []string{"size", "version", "repository", "clusterName"},
 			},
 		},
 		Dependencies: []string{

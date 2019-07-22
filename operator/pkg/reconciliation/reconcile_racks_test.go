@@ -615,9 +615,55 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 
 	result, err := reconcileRacks.Apply()
 	assert.NoErrorf(t, err, "Should not have returned an error")
-	assert.Equal(t, reconcile.Result{}, result, "Should requeue request")
+	assert.Equal(t, reconcile.Result{}, result, "Should not requeue request")
+}
 
-	//assert.False(t, calledReconcileNextRack, "Should call correct handler.")
+func TestReconcileRacks_FirstRackAlreadyReconciled(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
+		"rack0",
+		rc.DseDatacenter,
+		2)
+	assert.NoErrorf(t, err, "error occurred creating statefulset")
+
+	desiredStatefulSet.Status.ReadyReplicas = 2
+
+	secondDesiredStatefulSet, err := newStatefulSetForDseDatacenter(
+		"rack1",
+		rc.DseDatacenter,
+		1)
+	assert.NoErrorf(t, err, "error occurred creating statefulset")
+	secondDesiredStatefulSet.Status.ReadyReplicas = 1
+
+	trackObjects := []runtime.Object{
+		desiredStatefulSet,
+		secondDesiredStatefulSet,
+	}
+
+	rc.Client = fake.NewFakeClient(trackObjects...)
+
+	var rackInfo []*dsereconciliation.RackInformation
+
+	rack0 := &dsereconciliation.RackInformation{}
+	rack0.RackName = "rack0"
+	rack0.NodeCount = 2
+
+	rack1 := &dsereconciliation.RackInformation{}
+	rack1.RackName = "rack1"
+	rack1.NodeCount = 2
+
+	rackInfo = append(rackInfo, rack0, rack1)
+
+	reconcileRacks := ReconcileRacks{
+		ReconcileContext:       rc,
+		desiredRackInformation: rackInfo,
+	}
+
+	result, err := reconcileRacks.Apply()
+	assert.NoErrorf(t, err, "Should not have returned an error")
+	assert.Equal(t, reconcile.Result{}, result, "Should not requeue request")
 }
 
 func TestReconcileRacks_UpdateRackNodeCount(t *testing.T) {
