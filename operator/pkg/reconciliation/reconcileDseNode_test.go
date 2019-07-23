@@ -9,8 +9,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	corev1 "k8s.io/api/core/v1"
 
+	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
 )
 
@@ -32,7 +32,14 @@ func Test_callPodEndpoint(t *testing.T) {
 		Return(res, nil).
 		Once()
 
-	if err := callNodeMgmtEndpoint(rc, mockHttpClient, corev1.Pod{}, "/api/v0/ops/seeds/reload"); err != nil {
+	request := httphelper.NodeMgmtRequest{
+		Endpoint: "/api/v0/ops/seeds/reload",
+		Host:     httphelper.GetPodHost("pod-name", rc.DseDatacenter.Spec.ClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
+		Client:   mockHttpClient,
+		Method:   http.MethodPost,
+	}
+
+	if err := httphelper.CallNodeMgmtEndpoint(rc.ReqLogger, request); err != nil {
 		assert.Fail(t, "Should not have returned error")
 	}
 }
@@ -55,7 +62,14 @@ func Test_callPodEndpoint_BadStatus(t *testing.T) {
 		Return(res, nil).
 		Once()
 
-	if err := callNodeMgmtEndpoint(rc, mockHttpClient, corev1.Pod{}, "/api/v0/ops/seeds/reload"); err == nil {
+	request := httphelper.NodeMgmtRequest{
+		Endpoint: "/api/v0/ops/seeds/reload",
+		Host:     httphelper.GetPodHost("pod-name", rc.DseDatacenter.Spec.ClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
+		Client:   mockHttpClient,
+		Method:   http.MethodPost,
+	}
+
+	if err := httphelper.CallNodeMgmtEndpoint(rc.ReqLogger, request); err == nil {
 		assert.Fail(t, "Should have returned error")
 	}
 }
@@ -78,7 +92,14 @@ func Test_callPodEndpoint_RequestFail(t *testing.T) {
 		Return(res, fmt.Errorf("")).
 		Once()
 
-	if err := callNodeMgmtEndpoint(rc, mockHttpClient, corev1.Pod{}, "/api/v0/ops/seeds/reload"); err == nil {
+	request := httphelper.NodeMgmtRequest{
+		Endpoint: "/api/v0/ops/seeds/reload",
+		Host:     httphelper.GetPodHost("pod-name", rc.DseDatacenter.Spec.ClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
+		Client:   mockHttpClient,
+		Method:   http.MethodPost,
+	}
+
+	if err := httphelper.CallNodeMgmtEndpoint(rc.ReqLogger, request); err == nil {
 		assert.Fail(t, "Should have returned error")
 	}
 }

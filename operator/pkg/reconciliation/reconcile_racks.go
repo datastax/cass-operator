@@ -2,6 +2,7 @@ package reconciliation
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -15,6 +16,7 @@ import (
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation/reconcileriface"
+	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
 
@@ -185,6 +187,10 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 
 		readyReplicas := statefulSets[index].Status.ReadyReplicas
 		if readyReplicas < int32(rackInfo.NodeCount) {
+			if !isClusterHealthy(r.ReconcileContext) {
+				return reconcile.Result{Requeue: true}, nil
+			}
+
 			// update it
 			r.ReconcileContext.ReqLogger.Info(
 				"Need to update the rack's node count by one",
@@ -200,6 +206,35 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 	r.ReconcileContext.ReqLogger.Info("All StatefulSets should now be reconciled.")
 
 	return reconcile.Result{}, nil
+}
+
+func isClusterHealthy(rc *dsereconciliation.ReconciliationContext) bool {
+	selector := map[string]string{
+		datastaxv1alpha1.CLUSTER_LABEL: rc.DseDatacenter.Spec.ClusterName,
+	}
+	podList, err := listPods(rc, selector)
+	if err != nil {
+		rc.ReqLogger.Error(err, "no pods found for DseDatacenter")
+		return false
+	}
+
+	for _, pod := range podList.Items {
+		rc.ReqLogger.Info("requesting Cluster Health status from DSE Node Management API",
+			"pod", pod.Name)
+
+		request := httphelper.NodeMgmtRequest{
+			Endpoint: fmt.Sprintf("/api/v0/probes/cluster?consistency_level=LOCAL_QUORUM&rf_per_dc=%d", len(rc.DseDatacenter.Spec.Racks)),
+			Host:     httphelper.GetPodHost(pod.Name, rc.DseDatacenter.Spec.ClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
+			Client:   http.DefaultClient,
+			Method:   http.MethodGet,
+		}
+
+		if err := httphelper.CallNodeMgmtEndpoint(rc.ReqLogger, request); err != nil {
+			return false
+		}
+	}
+
+	return true
 }
 
 // LabelSeedPods will iterate over all seed node pods for a datacenter and if the pod exists

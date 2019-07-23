@@ -1,8 +1,6 @@
 package reconciliation
 
 import (
-	"fmt"
-	"io/ioutil"
 	"net/http"
 
 	corev1 "k8s.io/api/core/v1"
@@ -75,17 +73,26 @@ func (r *ReconcileDseNode) Reconcile(request reconcile.Request) (reconcile.Resul
 func refreshSeeds(rc *dsereconciliation.ReconciliationContext, client httphelper.HttpClient) error {
 	rc.ReqLogger.Info("reconcileDseNode::refreshSeeds")
 
-	podList, err := listPods(rc)
+	selector := map[string]string{
+		datastaxv1alpha1.CLUSTER_LABEL: rc.DseDatacenter.Spec.ClusterName,
+	}
+	podList, err := listPods(rc, selector)
 	if err != nil {
 		rc.ReqLogger.Error(err, "No pods found for DseDatacenter")
 		return err
 	}
 
 	for _, pod := range podList.Items {
-		rc.ReqLogger.Info("Reloading seeds for pod",
+		rc.ReqLogger.Info("reloading seeds for pod from DSE Node Management API",
 			"pod", pod.Name)
 
-		if err := callNodeMgmtEndpoint(rc, client, pod, "/api/v0/ops/seeds/reload"); err != nil {
+		request := httphelper.NodeMgmtRequest{
+			Endpoint: "/api/v0/ops/seeds/reload",
+			Host:     httphelper.GetPodHost(pod.Name, rc.DseDatacenter.Spec.ClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
+			Client:   client,
+			Method:   http.MethodPost,
+		}
+		if err := httphelper.CallNodeMgmtEndpoint(rc.ReqLogger, request); err != nil {
 			return err
 		}
 	}
@@ -93,12 +100,8 @@ func refreshSeeds(rc *dsereconciliation.ReconciliationContext, client httphelper
 	return nil
 }
 
-func listPods(rc *dsereconciliation.ReconciliationContext) (*corev1.PodList, error) {
+func listPods(rc *dsereconciliation.ReconciliationContext, selector map[string]string) (*corev1.PodList, error) {
 	rc.ReqLogger.Info("reconcileDseNode::listPods")
-
-	selector := map[string]string{
-		datastaxv1alpha1.CLUSTER_LABEL: rc.DseDatacenter.Spec.ClusterName,
-	}
 
 	listOptions := &client.ListOptions{
 		Namespace:     rc.DseDatacenter.Namespace,
@@ -113,48 +116,4 @@ func listPods(rc *dsereconciliation.ReconciliationContext) (*corev1.PodList, err
 	}
 
 	return podList, rc.Client.List(rc.Ctx, listOptions, podList)
-}
-
-func callNodeMgmtEndpoint(rc *dsereconciliation.ReconciliationContext, client httphelper.HttpClient, pod corev1.Pod, apiEndpoint string) error {
-	rc.ReqLogger.Info("reconcileDseNode::callNodeMgmtEndpoint")
-
-	nodeServicePattern := "%s.%s-%s-service.%s"
-
-	podHost := fmt.Sprintf(nodeServicePattern, pod.Name, rc.DseDatacenter.Spec.ClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace)
-
-	url := "http://" + podHost + ":8080" + apiEndpoint
-	req, err := http.NewRequest(http.MethodPost, url, nil)
-	if err != nil {
-		rc.ReqLogger.Error(err, "unable to create request")
-		return err
-	}
-
-	res, err := client.Do(req)
-	if err != nil {
-		rc.ReqLogger.Error(err, "unable to do request")
-		return err
-	}
-
-	defer func() {
-		err := res.Body.Close()
-		if err != nil {
-			rc.ReqLogger.Error(err, "unable to close response body")
-		}
-	}()
-
-	_, err = ioutil.ReadAll(res.Body)
-	if err != nil {
-		rc.ReqLogger.Error(err, "unable to read response body")
-		return err
-	}
-
-	if res.StatusCode != http.StatusOK {
-		rc.ReqLogger.Info("incorrect status code when reloading seeds",
-			"statusCode", res.StatusCode,
-			"pod", podHost)
-
-		return fmt.Errorf("incorrect status code of %d when reloading seeds", res.StatusCode)
-	}
-
-	return nil
 }
