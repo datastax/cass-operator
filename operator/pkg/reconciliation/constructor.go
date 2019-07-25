@@ -163,7 +163,7 @@ func newStatefulSetForDseDatacenter(
 								PodAffinityTerm: corev1.PodAffinityTerm{
 									LabelSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
-											datastaxv1alpha1.RACK_LABEL: rackName,
+											datastaxv1alpha1.RackLabel: rackName,
 										},
 									},
 									TopologyKey: "failure-domain.beta.kubernetes.io/zone",
@@ -172,11 +172,13 @@ func newStatefulSetForDseDatacenter(
 						},
 						PodAntiAffinity: &corev1.PodAntiAffinity{
 							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
-								Weight: 90,
+								Weight: 100,
 								PodAffinityTerm: corev1.PodAffinityTerm{
 									LabelSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
-											datastaxv1alpha1.DATACENTER_LABEL: dseDatacenter.Name,
+											datastaxv1alpha1.RackLabel:       rackName,
+											datastaxv1alpha1.DatacenterLabel: dseDatacenter.Name,
+											datastaxv1alpha1.ClusterLabel:    dseDatacenter.Spec.ClusterName,
 										},
 									},
 									TopologyKey: "kubernetes.io/hostname",
