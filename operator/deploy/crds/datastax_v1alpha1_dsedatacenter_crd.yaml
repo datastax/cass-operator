@@ -41,7 +41,7 @@ spec:
                 the yaml fragment to json, which is bizarre but useful for us.  We
                 can use []byte(dseDatacenter.Spec.Config) to make the data accessible
                 for parsing.
-              type: string
+              type: object
             labels:
               additionalProperties:
                 type: string

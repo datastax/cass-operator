@@ -1,15 +1,17 @@
 apiVersion: datastax.com/v1alpha1
 kind: DseDatacenter
 metadata:
-  name: example-dsedatacenter
+  name: dtcntr
 spec:
-  clusterName: example-cluster
-  size: 1
-  storageclaim:
+  clusterName: clstr
+  size: 2
+  storageClaim:
     storageclassname: standard
     resources:
       requests:
         storage: 1Gi
+  racks:
+    - name: r0
   config:
     cassandra-yaml:
       authenticator: AllowAllAuthenticator
