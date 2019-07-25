@@ -89,15 +89,6 @@ func (s *DseDatacenterSpec) GetRacks() []DseRack {
 	}}
 }
 
-// GetDesiredNodeCount returns the desired number of active pods for this DseDatacenter,
-// taking parked state into account.
-func (s *DseDatacenterSpec) GetDesiredNodeCount() int32 {
-	if s.Parked {
-		return 0
-	}
-	return s.Size
-}
-
 // DseRack ...
 type DseRack struct {
 	// The rack name
@@ -274,5 +265,3 @@ func (dc *DseDatacenter) GetConfigAsJSON() (string, error) {
 
 	return modelParsed.String(), nil
 }
-
-

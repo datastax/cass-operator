@@ -250,46 +250,6 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 	}
 }
 
-func TestDseDatacenterSpec_GetDesiredNodeCount(t *testing.T) {
-	type fields struct {
-		Size   int32
-		Parked bool
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   int32
-	}{
-		{
-			name: "test unparked node count",
-			fields: fields{
-				Size:   3,
-				Parked: false,
-			},
-			want: 3,
-		},
-		{
-			name: "test parked node count",
-			fields: fields{
-				Size:   6,
-				Parked: true,
-			},
-			want: 0,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := &DseDatacenterSpec{
-				Size:   tt.fields.Size,
-				Parked: tt.fields.Parked,
-			}
-			if got := s.GetDesiredNodeCount(); got != tt.want {
-				t.Errorf("DseDatacenterSpec.GetDesiredNodeCount() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestDseDatacenterSpec_GetDseVersion(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -320,7 +280,7 @@ func TestDseDatacenterSpec_GetDseVersion(t *testing.T) {
 				},
 			}
 			if got := s.GetDseVersion(); got != tt.want {
-				t.Errorf("DseDatacenterSpec.GetDesiredNodeCount() = %v, want %v", got, tt.want)
+				t.Errorf("DseDatacenterSpec.GetDseVersion() = %v, want %v", got, tt.want)
 			}
 		})
 	}

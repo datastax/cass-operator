@@ -31,11 +31,12 @@ func (r *ReconcileRacks) CalculateRackInformation() (reconcileriface.Reconciler,
 
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::calculateRackInformation")
 
-	//
 	// Create RackInformation
-	//
 
-	nodeCount := int(r.ReconcileContext.DseDatacenter.Spec.GetDesiredNodeCount())
+	nodeCount := int(r.ReconcileContext.DseDatacenter.Spec.Size)
+	if r.ReconcileContext.DseDatacenter.Spec.Parked {
+		nodeCount = 0
+	}
 	rackCount := len(r.ReconcileContext.DseDatacenter.Spec.Racks)
 
 	var desiredRackInformation []*dsereconciliation.RackInformation
@@ -88,16 +89,14 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 			r.ReconcileContext.ReqLogger.Error(
 				err,
 				"Could not locate statefulSet for",
-				"Rack",
-				rackInfo.RackName)
+				"Rack", rackInfo.RackName)
 			return reconcile.Result{Requeue: true}, err
 		}
 
 		if statefulSetFound == false {
 			r.ReconcileContext.ReqLogger.Info(
 				"Need to create new StatefulSet for",
-				"Rack",
-				rackInfo.RackName)
+				"Rack", rackInfo.RackName)
 
 			return r.ReconcileNextRack(statefulSet)
 		}
@@ -116,20 +115,24 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 
 			if err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, statefulSet); err != nil {
 				r.ReconcileContext.ReqLogger.Info("Unable to update statefulSet with labels",
-					"statefulSet",
-					statefulSet)
+					"statefulSet", statefulSet)
 			}
 		}
 
-		desiredNodeCount := int32(1)
-
-		currentPodCount := *statefulSet.Spec.Replicas
-		// already gone through the first round of scaling seed nodes, now lets add the rest of the nodes
-		if currentPodCount > 1 {
-			desiredNodeCount = int32(rackInfo.NodeCount)
-		}
-
 		parked := r.ReconcileContext.DseDatacenter.Spec.Parked
+		currentPodCount := *statefulSet.Spec.Replicas
+
+		var desiredNodeCount int32
+		if parked {
+			// rackInfo.NodeCount should be passed in as zero for parked clusters
+			desiredNodeCount = int32(rackInfo.NodeCount)
+		} else if currentPodCount > 1 {
+			// already gone through the first round of scaling seed nodes, now lets add the rest of the nodes
+			desiredNodeCount = int32(rackInfo.NodeCount)
+		} else {
+			// not parked and we just want to get our first seed up fully
+			desiredNodeCount = int32(1)
+		}
 
 		if parked && currentPodCount > 0 {
 			r.ReconcileContext.ReqLogger.Info(
@@ -139,13 +142,14 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 				"desiredSize", desiredNodeCount,
 			)
 
+			// TODO we should call a more graceful stop node command here
+
 			return r.UpdateRackNodeCount(statefulSet, desiredNodeCount)
 		}
 
 		r.ReconcileContext.ReqLogger.Info(
 			"StatefulSet found",
-			"ResourceVersion",
-			statefulSet.ResourceVersion)
+			"ResourceVersion", statefulSet.ResourceVersion)
 
 		r.LabelSeedPods(statefulSet)
 
@@ -172,8 +176,7 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 
 		r.ReconcileContext.ReqLogger.Info(
 			"All replicas are ready for StatefulSet for",
-			"Rack",
-			rackInfo.RackName)
+			"Rack", rackInfo.RackName)
 
 		if err := r.ReconcilePods(statefulSet); err != nil {
 			return reconcile.Result{Requeue: true}, err
@@ -398,7 +401,7 @@ func (r *ReconcileRacks) UpdateRackNodeCount(statefulSet *appsv1.StatefulSet, ne
 		r.ReconcileContext.Ctx,
 		statefulSet)
 
-	return reconcile.Result{}, err
+	return reconcile.Result{Requeue: true}, err
 }
 
 // ReconcilePods ...

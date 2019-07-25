@@ -20,6 +20,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -564,11 +565,10 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 
 	var rackInfo []*dsereconciliation.RackInformation
 
+	rc.DseDatacenter.Spec.Parked = true
 	nextRack := &dsereconciliation.RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 0
-
-	rc.DseDatacenter.Spec.Parked = true
 
 	rackInfo = append(rackInfo, nextRack)
 
@@ -578,8 +578,15 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 	}
 
 	result, err := reconcileRacks.Apply()
-	assert.NoErrorf(t, err, "Should not have returned an error")
-	assert.Equal(t, reconcile.Result{}, result, "Should not requeue request")
+	assert.NoErrorf(t, err, "Apply() should not have returned an error")
+	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
+
+	currentStatefulSet := &appsv1.StatefulSet{}
+	nsName := types.NamespacedName{Name: preExistingStatefulSet.Name, Namespace: preExistingStatefulSet.Namespace}
+	err = rc.Client.Get(rc.Ctx, nsName, currentStatefulSet)
+	assert.NoErrorf(t, err, "Client.Get() should not have returned an error")
+
+	assert.Equal(t, int32(0), *currentStatefulSet.Spec.Replicas, "The statefulset should be set to zero replicas")
 }
 
 func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
@@ -663,7 +670,14 @@ func TestReconcileRacks_FirstRackAlreadyReconciled(t *testing.T) {
 
 	result, err := reconcileRacks.Apply()
 	assert.NoErrorf(t, err, "Should not have returned an error")
-	assert.Equal(t, reconcile.Result{}, result, "Should not requeue request")
+	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
+
+	currentStatefulSet := &appsv1.StatefulSet{}
+	nsName := types.NamespacedName{Name: secondDesiredStatefulSet.Name, Namespace: secondDesiredStatefulSet.Namespace}
+	err = rc.Client.Get(rc.Ctx, nsName, currentStatefulSet)
+	assert.NoErrorf(t, err, "Client.Get() should not have returned an error")
+
+	assert.Equal(t, int32(2), *currentStatefulSet.Spec.Replicas, "The statefulset should be set to 2 replicas")
 }
 
 func TestReconcileRacks_UpdateRackNodeCount(t *testing.T) {

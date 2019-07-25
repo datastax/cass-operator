@@ -90,6 +90,7 @@ func newStatefulSetForDseDatacenter(
 	rackName string,
 	dseDatacenter *datastaxv1alpha1.DseDatacenter,
 	replicaCount int) (*appsv1.StatefulSet, error) {
+
 	replicaCountInt32 := int32(replicaCount)
 	labels := dseDatacenter.GetRackLabels(rackName)
 	dseVersion := dseDatacenter.GetDseVersion()
