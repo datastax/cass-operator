@@ -65,6 +65,7 @@ func TestCreateHeadlessService_ClientReturnsError(t *testing.T) {
 	rc.Client = mockClient
 
 	k8sMockClientCreate(mockClient, fmt.Errorf(""))
+	k8sMockClientUpdate(mockClient, nil).Times(1)
 
 	reconcileServices := ReconcileServices{
 		ReconcileContext: rc,
@@ -144,6 +145,7 @@ func TestCreateHeadlessSeedService_ClientReturnsError(t *testing.T) {
 	rc.Client = mockClient
 
 	k8sMockClientCreate(mockClient, fmt.Errorf(""))
+	k8sMockClientUpdate(mockClient, nil).Times(1)
 
 	reconcileSeedServices := ReconcileSeedServices{
 		ReconcileContext: rc,

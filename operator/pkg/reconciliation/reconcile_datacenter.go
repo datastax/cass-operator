@@ -22,6 +22,11 @@ type ReconcileDatacenter struct {
 
 // Apply ...
 func (r *ReconcileDatacenter) Apply() (reconcile.Result, error) {
+	// set the label here but no need to remove since we're deleting the DseDatacenter
+	if err := addOperatorProgressLabel(r.ReconcileContext, updating); err != nil {
+		return reconcile.Result{Requeue: true}, err
+	}
+
 	if err := r.deletePVCs(); err != nil {
 		r.ReconcileContext.ReqLogger.Error(err, "Failed to delete PVCs for DseDatacenter")
 		return reconcile.Result{Requeue: true}, err

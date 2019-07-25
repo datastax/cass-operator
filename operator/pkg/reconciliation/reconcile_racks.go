@@ -206,6 +206,11 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 		}
 	}
 
+	if err := addOperatorProgressLabel(r.ReconcileContext, ready); err != nil {
+		// this error is especially sad because we were just about to be done reconciling
+		return reconcile.Result{Requeue: true}, err
+	}
+
 	r.ReconcileContext.ReqLogger.Info("All StatefulSets should now be reconciled.")
 
 	return reconcile.Result{}, nil
@@ -324,6 +329,10 @@ func (r *ReconcileRacks) ReconcileNextRack(statefulSet *appsv1.StatefulSet) (rec
 
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::reconcileNextRack")
 
+	if err := addOperatorProgressLabel(r.ReconcileContext, updating); err != nil {
+		return reconcile.Result{Requeue: true}, err
+	}
+
 	// Create the StatefulSet
 	r.ReconcileContext.ReqLogger.Info(
 		"Creating a new StatefulSet.",
@@ -394,6 +403,10 @@ func (r *ReconcileRacks) UpdateRackNodeCount(statefulSet *appsv1.StatefulSet, ne
 		"statefulSetName", statefulSet.Name,
 		"newNodeCount", newNodeCount,
 	)
+
+	if err := addOperatorProgressLabel(r.ReconcileContext, updating); err != nil {
+		return reconcile.Result{Requeue: true}, err
+	}
 
 	statefulSet.Spec.Replicas = &newNodeCount
 

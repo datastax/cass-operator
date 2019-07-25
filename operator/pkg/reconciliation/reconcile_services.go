@@ -31,6 +31,10 @@ func (r *ReconcileServices) Apply() (reconcile.Result, error) {
 		"serviceName",
 		r.Service.Name)
 
+	if err := addOperatorProgressLabel(r.ReconcileContext, updating); err != nil {
+		return reconcile.Result{Requeue: true}, err
+	}
+
 	err := r.ReconcileContext.Client.Create(
 		r.ReconcileContext.Ctx,
 		r.Service)
@@ -110,6 +114,10 @@ func (r *ReconcileSeedServices) Apply() (reconcile.Result, error) {
 		"Creating a new headless seed service",
 		"serviceNamespace", r.Service.Namespace,
 		"serviceName", r.Service.Name)
+
+	if err := addOperatorProgressLabel(r.ReconcileContext, updating); err != nil {
+		return reconcile.Result{Requeue: true}, err
+	}
 
 	err := r.ReconcileContext.Client.Create(
 		r.ReconcileContext.Ctx,

@@ -151,6 +151,7 @@ func TestReconcileRacks_ReconcilePods(t *testing.T) {
 
 	trackObjects := []runtime.Object{
 		desiredStatefulSet,
+		rc.DseDatacenter,
 	}
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
@@ -322,6 +323,7 @@ func TestReconcileNextRack_CreateError(t *testing.T) {
 	rc.Client = mockClient
 
 	k8sMockClientCreate(mockClient, fmt.Errorf(""))
+	k8sMockClientUpdate(mockClient, nil).Times(1)
 
 	reconcileRacks := ReconcileRacks{
 		ReconcileContext: rc,
@@ -559,6 +561,7 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 
 	trackObjects := []runtime.Object{
 		preExistingStatefulSet,
+		rc.DseDatacenter,
 	}
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
@@ -603,6 +606,7 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 
 	trackObjects := []runtime.Object{
 		desiredStatefulSet,
+		rc.DseDatacenter,
 	}
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
@@ -647,6 +651,7 @@ func TestReconcileRacks_FirstRackAlreadyReconciled(t *testing.T) {
 	trackObjects := []runtime.Object{
 		desiredStatefulSet,
 		secondDesiredStatefulSet,
+		rc.DseDatacenter,
 	}
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
@@ -721,6 +726,7 @@ func TestReconcileRacks_UpdateRackNodeCount(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			trackObjects := []runtime.Object{
 				tt.args.statefulSet,
+				rc.DseDatacenter,
 			}
 
 			reconcileRacks.ReconcileContext.Client = fake.NewFakeClient(trackObjects...)

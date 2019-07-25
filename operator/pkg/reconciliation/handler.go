@@ -42,10 +42,6 @@ func calculateReconciliationActions(
 		return rec.Apply()
 	}
 
-	if err := addOperatorProgressLabel(rc, updating); err != nil {
-		return reconcile.Result{Requeue: true}, err
-	}
-
 	if err := reconciler.addFinalizer(rc); err != nil {
 		return reconcile.Result{Requeue: true}, err
 	}
@@ -61,18 +57,12 @@ func calculateReconciliationActions(
 			if err != nil {
 				return reconcile.Result{Requeue: true}, err
 			}
-			recResult, recErr := rec.Apply()
 
-			return recResult, recErr
+			return rec.Apply()
 		}
 	}
 
 	// no more changes to make!
-
-	if err := addOperatorProgressLabel(rc, ready); err != nil {
-		// this error is especially sad because we were just about to be done reconciling
-		return reconcile.Result{Requeue: true}, err
-	}
 
 	// nothing happened so return and don't requeue
 	return reconcile.Result{}, nil

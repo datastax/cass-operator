@@ -42,7 +42,7 @@ func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
 	rc.Client = mockClient
 
 	k8sMockClientGet(mockClient, fmt.Errorf(""))
-	k8sMockClientUpdate(mockClient, nil).Times(2)
+	k8sMockClientUpdate(mockClient, nil).Times(1)
 
 	datacenterReconcile, reconcileRacks, reconcileServices, reconcileSeedServices := getReconcilers(rc)
 
@@ -88,6 +88,7 @@ func TestProcessDeletion_FailedDelete(t *testing.T) {
 		})
 
 	k8sMockClientDelete(mockClient, fmt.Errorf(""))
+	k8sMockClientUpdate(mockClient, nil).Times(1)
 
 	now := metav1.Now()
 	rc.DseDatacenter.SetDeletionTimestamp(&now)
