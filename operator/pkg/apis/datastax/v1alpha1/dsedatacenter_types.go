@@ -18,6 +18,8 @@ const (
 	defaultRepository = ""
 	defaultVersion    = ""
 
+	defaultConfigBuilderImage = "datastax-docker.jfrog.io/datastax/dse-server-config-builder:7.0.0-3e8847c"
+
 	CLUSTER_LABEL    = "com.datastax.dse.cluster"
 	DATACENTER_LABEL = "com.datastax.dse.datacenter"
 	SEED_NODE_LABEL  = "com.datastax.dse.seednode"
@@ -75,6 +77,8 @@ type DseDatacenterSpec struct {
 	ClusterName string `json:"clusterName"`
 	// Parked state means we do not want any DSE processes running
 	Parked bool `json:"parked,omitempty"`
+	// ConfigBuilderImage
+	ConfigBuilderImage string `json:"configBuilderImage,omitempty"`
 }
 
 // GetRacks is a getter for the DseRack slice in the spec
@@ -172,6 +176,13 @@ func init() {
 // If they aren't specified the default is datastax/dse-server:6.7.3 from docker hub
 func (dc *DseDatacenter) GetServerImage() string {
 	return makeImage(dc.Spec.Repository, dc.Spec.Version)
+}
+
+func (dc *DseDatacenter) GetConfigBuilderImage() string {
+	if dc.Spec.ConfigBuilderImage == "" {
+		return defaultConfigBuilderImage
+	}
+	return dc.Spec.ConfigBuilderImage
 }
 
 // GetDseVersion returns a simple string version of the DSE version.

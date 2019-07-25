@@ -97,6 +97,7 @@ func newStatefulSetForDseDatacenter(
 	var userID int64 = 999
 	var volumeCaimTemplates []corev1.PersistentVolumeClaim
 	var dseVolumeMounts []corev1.VolumeMount
+	initContainerImage := dseDatacenter.GetConfigBuilderImage()
 
 	dseConfigVolumeMount := corev1.VolumeMount{
 		Name:      "dse-config",
@@ -199,7 +200,7 @@ func newStatefulSetForDseDatacenter(
 					},
 					InitContainers: []corev1.Container{{
 						Name:  "dse-config-init",
-						Image: "datastax-docker.jfrog.io/datastax/dse-server-config-builder:7.0.0-3e8847c",
+						Image: initContainerImage,
 						VolumeMounts: []corev1.VolumeMount{
 							dseConfigVolumeMount,
 						},
