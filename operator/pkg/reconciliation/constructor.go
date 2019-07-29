@@ -354,24 +354,25 @@ func addOperatorProgressLabel(
 
 	labelVal := string(status)
 
-	if rc.DseDatacenter.Spec.Labels == nil {
-		rc.DseDatacenter.Spec.Labels = make(map[string]string)
+	dcLabels := rc.DseDatacenter.GetLabels()
+	if dcLabels == nil {
+		dcLabels = make(map[string]string)
 	}
 
-	existingLabel, ok := rc.DseDatacenter.Spec.Labels[datastaxv1alpha1.DseOperatorProgressLabel]
-	if ok && existingLabel == labelVal {
+	if dcLabels[datastaxv1alpha1.DseOperatorProgressLabel] == labelVal {
 		// early return, no need to ping k8s
 		return nil
 	}
 
 	// set the label and push it to k8s
-	rc.DseDatacenter.Spec.Labels[datastaxv1alpha1.DseOperatorProgressLabel] = labelVal
-	err := rc.Client.Update(rc.Ctx, rc.DseDatacenter)
-	if err != nil {
+	dcLabels[datastaxv1alpha1.DseOperatorProgressLabel] = labelVal
+	rc.DseDatacenter.SetLabels(dcLabels)
+	if err := rc.Client.Update(rc.Ctx, rc.DseDatacenter); err != nil {
 		rc.ReqLogger.Error(err, "error updating label",
 			"label", datastaxv1alpha1.DseOperatorProgressLabel,
 			"value", labelVal)
+		return err
 	}
 
-	return err
+	return nil
 }

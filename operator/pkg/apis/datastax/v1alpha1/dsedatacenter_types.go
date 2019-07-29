@@ -56,10 +56,6 @@ type DseDatacenterSpec struct {
 	Version string `json:"version"`
 	// Repository to grab the DSE image from
 	Repository string `json:"repository"`
-	// Annotations
-	Annotations map[string]string `json:"annotations,omitempty"`
-	// Labels
-	Labels map[string]string `json:"labels,omitempty"`
 	// Definition file config
 	// Note that k8s will populate Spec.Config with a json version of the contents
 	// of this field.  Somehow k8s converts the yaml fragment to json, which is bizarre
@@ -97,10 +93,6 @@ func (s *DseDatacenterSpec) GetRacks() []DseRack {
 type DseRack struct {
 	// The rack name
 	Name string `json:"name"`
-	// Annotations
-	Annotations map[string]string `json:"annotations,omitempty"`
-	// Labels
-	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // DseStorageClaim ...
