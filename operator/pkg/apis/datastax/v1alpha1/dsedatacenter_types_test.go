@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -337,6 +338,123 @@ func Test_GenerateBaseConfigString(t *testing.T) {
 				if err.Error() != tt.errString {
 					t.Errorf("GenerateBaseConfigString() err = %v, want %v", err, tt.errString)
 				}
+			}
+		})
+	}
+}
+
+func TestDseDatacenter_GetContainerPorts(t *testing.T) {
+	type fields struct {
+		TypeMeta   metav1.TypeMeta
+		ObjectMeta metav1.ObjectMeta
+		Spec       DseDatacenterSpec
+		Status     DseDatacenterStatus
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    []corev1.ContainerPort
+		wantErr bool
+	}{
+		{
+			name: "Happy Path",
+			fields: fields{
+				Spec: DseDatacenterSpec{
+					ClusterName: "dseCluster",
+					Config:      []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
+				},
+			},
+			want: []corev1.ContainerPort{
+				{
+					Name:          "native",
+					ContainerPort: 9042,
+				}, {
+					Name:          "inter-node-msg",
+					ContainerPort: 8609,
+				}, {
+					Name:          "intra-node",
+					ContainerPort: 7000,
+				}, {
+					Name:          "tls-intra-node",
+					ContainerPort: 7001,
+				}, {
+					Name:          "mgmt-api-http",
+					ContainerPort: 8080,
+				}},
+			wantErr: false,
+		},
+		{
+			name: "Expose Prometheus",
+			fields: fields{
+				Spec: DseDatacenterSpec{
+					ClusterName: "dseCluster",
+					Config:      []byte("{\"cassandra-yaml\":{\"10-write-prom-conf\":{\"enabled\":true,\"port\":9103,\"staleness-delta\":300},\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
+				},
+			},
+			want: []corev1.ContainerPort{
+				{
+					Name:          "native",
+					ContainerPort: 9042,
+				}, {
+					Name:          "inter-node-msg",
+					ContainerPort: 8609,
+				}, {
+					Name:          "intra-node",
+					ContainerPort: 7000,
+				}, {
+					Name:          "tls-intra-node",
+					ContainerPort: 7001,
+				}, {
+					Name:          "mgmt-api-http",
+					ContainerPort: 8080,
+				}, {
+					Name:          "prometheus",
+					ContainerPort: 9103,
+				}},
+			wantErr: false,
+		},
+		{
+			name: "Expose Prometheus - No config",
+			fields: fields{
+				Spec: DseDatacenterSpec{
+					ClusterName: "dseCluster",
+				},
+			},
+			want: []corev1.ContainerPort{
+				{
+					Name:          "native",
+					ContainerPort: 9042,
+				}, {
+					Name:          "inter-node-msg",
+					ContainerPort: 8609,
+				}, {
+					Name:          "intra-node",
+					ContainerPort: 7000,
+				}, {
+					Name:          "tls-intra-node",
+					ContainerPort: 7001,
+				}, {
+					Name:          "mgmt-api-http",
+					ContainerPort: 8080,
+				}},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dc := &DseDatacenter{
+				TypeMeta:   tt.fields.TypeMeta,
+				ObjectMeta: tt.fields.ObjectMeta,
+				Spec:       tt.fields.Spec,
+				Status:     tt.fields.Status,
+			}
+			got, err := dc.GetContainerPorts()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("DseDatacenter.GetContainerPorts() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("DseDatacenter.GetContainerPorts() = %v, want %v", got, tt.want)
 			}
 		})
 	}

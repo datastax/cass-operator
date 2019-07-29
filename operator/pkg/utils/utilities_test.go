@@ -111,3 +111,110 @@ func Test_mergeMap(t *testing.T) {
 		})
 	}
 }
+
+func TestSearchMap(t *testing.T) {
+	type args struct {
+		mapToSearch map[string]interface{}
+		key         string
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]interface{}
+	}{
+		{
+			name: "Happy Path",
+			args: args{
+				mapToSearch: map[string]interface{}{
+					"key": map[string]interface{}{
+						"foo": "bar",
+					},
+				},
+				key: "key",
+			},
+			want: map[string]interface{}{
+				"foo": "bar",
+			},
+		}, {
+			name: "Deeply nested",
+			args: args{
+				mapToSearch: map[string]interface{}{
+					"foo": "bar",
+					"a": map[string]interface{}{
+						"alpha": map[string]interface{}{
+							"foo": "bar",
+						},
+						"alpha1": map[string]interface{}{
+							"foo1": "bar1",
+						},
+					},
+					"b": map[string]interface{}{
+						"bravo": "bar",
+						"bravo1": map[string]interface{}{
+							"bravo111": map[string]interface{}{
+								"key": map[string]interface{}{
+									"foo": "bar",
+								},
+							},
+						},
+					},
+					"c": map[string]interface{}{
+						"charlie": map[string]interface{}{
+							"foo": "bar",
+						},
+						"charlie1": map[string]interface{}{
+							"foo1": "bar1",
+						},
+					},
+				},
+				key: "key",
+			},
+			want: map[string]interface{}{
+				"foo": "bar",
+			},
+		}, {
+			name: "Key Not Found",
+			args: args{
+				mapToSearch: map[string]interface{}{
+					"foo": "bar",
+					"a": map[string]interface{}{
+						"alpha": map[string]interface{}{
+							"foo": "bar",
+						},
+						"alpha1": map[string]interface{}{
+							"foo1": "bar1",
+						},
+					},
+					"b": map[string]interface{}{
+						"bravo": "bar",
+						"bravo1": map[string]interface{}{
+							"bravo111": map[string]interface{}{
+								"wrong-key": map[string]interface{}{
+									"foo": "bar",
+								},
+							},
+						},
+					},
+					"c": map[string]interface{}{
+						"charlie": map[string]interface{}{
+							"foo": "bar",
+						},
+						"charlie1": map[string]interface{}{
+							"foo1": "bar1",
+						},
+					},
+				},
+				key: "key",
+			},
+			want: map[string]interface{}{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := SearchMap(tt.args.mapToSearch, tt.args.key)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("SearchMap() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

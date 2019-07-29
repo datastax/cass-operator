@@ -134,6 +134,11 @@ func newStatefulSetForDseDatacenter(
 		}}
 	}
 
+	ports, err := dseDatacenter.GetContainerPorts()
+	if err != nil {
+		return nil, err
+	}
+
 	result := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dseDatacenter.Spec.ClusterName + "-" + dseDatacenter.Name + "-" + rackName + "-sts",
@@ -248,36 +253,7 @@ func newStatefulSetForDseDatacenter(
 								Value: "all",
 							},
 						},
-						Ports: []corev1.ContainerPort{
-							// Note: Port Names cannot be more than 15 characters
-							// TODO: Use specified config to determine which ports we need.
-							{
-								Name:          "native",
-								ContainerPort: 9042,
-							},
-							{
-								Name:          "inter-node-msg",
-								ContainerPort: 8609,
-							},
-							{
-								Name:          "intra-node",
-								ContainerPort: 7000,
-							},
-							{
-								Name:          "tls-intra-node",
-								ContainerPort: 7001,
-							},
-							// jmx-port 7199 was here, seems like we no longer need to expose it
-							{
-								Name:          "mgmt-api-http",
-								ContainerPort: 8080,
-							},
-							// TODO Lococo suggests we can parse the config and see if this needs to be open
-							{
-								Name:          "prometheus",
-								ContainerPort: 9103,
-							},
-						},
+						Ports: ports,
 						LivenessProbe: &corev1.Probe{
 							Handler: corev1.Handler{
 								HTTPGet: &corev1.HTTPGetAction{

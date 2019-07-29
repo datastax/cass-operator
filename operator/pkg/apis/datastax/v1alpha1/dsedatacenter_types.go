@@ -268,3 +268,53 @@ func (dc *DseDatacenter) GetConfigAsJSON() (string, error) {
 
 	return modelParsed.String(), nil
 }
+
+// GetContainerPorts will return the container ports for the pods in a statefulset based on the provided config
+func (dc *DseDatacenter) GetContainerPorts() ([]corev1.ContainerPort, error) {
+	ports := []corev1.ContainerPort{
+		{
+			// Note: Port Names cannot be more than 15 characters
+			Name:          "native",
+			ContainerPort: 9042,
+		},
+		{
+			Name:          "inter-node-msg",
+			ContainerPort: 8609,
+		},
+		{
+			Name:          "intra-node",
+			ContainerPort: 7000,
+		},
+		{
+			Name:          "tls-intra-node",
+			ContainerPort: 7001,
+		},
+		// jmx-port 7199 was here, seems like we no longer need to expose it
+		{
+			Name:          "mgmt-api-http",
+			ContainerPort: 8080,
+		},
+	}
+
+	config, err := dc.GetConfigAsJSON()
+	if err != nil {
+		return nil, err
+	}
+
+	var f interface{}
+	err = json.Unmarshal([]byte(config), &f)
+	if err != nil {
+		return nil, err
+	}
+
+	m := f.(map[string]interface{})
+	promConf := utils.SearchMap(m, "10-write-prom-conf")
+	if _, ok := promConf["enabled"]; ok {
+		ports = append(ports, corev1.ContainerPort{
+			Name:          "prometheus",
+			ContainerPort: 9103,
+		})
+	}
+
+	return ports, nil
+}
