@@ -27,26 +27,12 @@ spec:
           type: object
         spec:
           properties:
-            annotations:
-              additionalProperties:
-                type: string
-              description: Annotations
-              type: object
             clusterName:
               description: DSE ClusterName
               type: string
-            config:
-              description: Definition file config Note that k8s will populate Spec.Config
-                with a json version of the contents of this field.  Somehow k8s converts
-                the yaml fragment to json, which is bizarre but useful for us.  We
-                can use []byte(dseDatacenter.Spec.Config) to make the data accessible
-                for parsing.
-              type: object
-            labels:
-              additionalProperties:
-                type: string
-              description: Labels
-              type: object
+            configBuilderImage:
+              description: ConfigBuilderImage
+              type: string
             parked:
               description: Parked state means we do not want any DSE processes running
               type: boolean
@@ -56,16 +42,6 @@ spec:
                 where no rack is defined
               items:
                 properties:
-                  annotations:
-                    additionalProperties:
-                      type: string
-                    description: Annotations
-                    type: object
-                  labels:
-                    additionalProperties:
-                      type: string
-                    description: Labels
-                    type: object
                   name:
                     description: The rack name
                     type: string

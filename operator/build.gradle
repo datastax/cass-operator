@@ -95,14 +95,23 @@ task touchBuildDockerfile(type: Exec) {
     commandLine 'touch', 'build/Dockerfile'
 }
 
-// Generate the files and clean up afterwards
-task updateGeneratedFiles(type: Exec) {
+// Internal task to generate the files and clean up afterwards
+task doUpdateGeneratedFiles(type: Exec) {
     workingDir = ".."
     // Note: the temporary build artifacts in operator/build/_output may be
     // owned by root:root. No matter what the ownership is, the docker image
     // has permission to remove them, so we remove "build"
-    commandLine 'docker', 'run', '--rm', '-t', '-v', "$rootProject.projectDir:/go/src/github.com/riptano/dse-operator", "operator-sdk-binary", "/bin/bash", '-c', 'cd ../../riptano/dse-operator/operator && operator-sdk generate k8s && rm -rf build'
+    commandLine 'docker', 'run', '--rm', '-t', '-v', "$rootProject.projectDir:/go/src/github.com/riptano/dse-operator", "operator-sdk-binary", "/bin/bash", '-c', 'export GO111MODULE=on; cd ../../riptano/dse-operator/operator && operator-sdk generate k8s && operator-sdk generate openapi && rm -rf build'
+}
+
+// This task is manually tweak the crd.yaml file
+task updateGeneratedFiles(type: Exec) {
+    workingDir = ".."
+    // A perl one-liner seems to be more portable and readable than sed/awk solutions
+    // Remove lines between config: and type:
+    commandLine 'perl', '-i', '-ne', 'print unless /config:/ .. /type:/', 'operator/deploy/crds/datastax_v1alpha1_dsedatacenter_crd.yaml'
 }
 
 touchBuildDockerfile.dependsOn mkdirBuild
-updateGeneratedFiles.dependsOn createOperatorSdkDockerImage, runGoModVendor, touchBuildDockerfile
+doUpdateGeneratedFiles.dependsOn createOperatorSdkDockerImage, runGoModVendor, touchBuildDockerfile
+updateGeneratedFiles.dependsOn doUpdateGeneratedFiles

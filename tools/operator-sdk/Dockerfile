@@ -10,7 +10,7 @@ FROM golang:1.12-stretch
 # inside the container. Something like...
 # docker run -v /Users/jim/datastax/dse-operator:/go/src/github.com/riptano/dse-operator ...
 
-ENV OP_SDK_VERSION=v0.8.1
+ENV OP_SDK_VERSION=v0.9.0
 
 WORKDIR /usr/bin
 
@@ -29,15 +29,34 @@ WORKDIR $GOPATH/src/github.com/example-inc/
 RUN GO111MODULE=on operator-sdk new memcached-operator
 
 WORKDIR $GOPATH/src/github.com/example-inc/memcached-operator
-RUN operator-sdk add api --api-version=memcached.com/v1alpha1 --kind=Memcached
-RUN operator-sdk generate k8s
-RUN operator-sdk generate openapi
+RUN GO111MODULE=on operator-sdk add api --api-version=memcached.com/v1alpha1 --kind=Memcached
+
+# We now have to pull the code generator down as a separate step
+# Add a tools.go to the example project that requires the code-generator
+# see: https://github.com/docker-library/openjdk/blob/8a23a228bda7d2edeb4132fffd2d08c1e1fcf4ac/8-jdk/Dockerfile#L28-L36
+RUN { \
+    echo 'package tools'; \
+    echo ''; \
+    echo 'import ('; \
+    echo '        _ "k8s.io/code-generator/cmd/client-gen"'; \
+    echo '        _ "k8s.io/code-generator/cmd/conversion-gen"'; \
+    echo '        _ "k8s.io/code-generator/cmd/deepcopy-gen"'; \
+    echo '        _ "k8s.io/code-generator/cmd/informer-gen"'; \
+    echo '        _ "k8s.io/code-generator/cmd/lister-gen"'; \
+    echo '        _ "k8s.io/gengo/args"'; \
+    echo '        _ "k8s.io/kube-openapi/cmd/openapi-gen"'; \
+    echo '        _ "sigs.k8s.io/controller-tools/pkg/crd/generator"'; \
+    echo ')'; \
+    } > $GOPATH/src/github.com/example-inc/memcached-operator/tools.go
+
+RUN GO111MODULE=on go mod vendor
+RUN GO111MODULE=on operator-sdk generate k8s
+RUN GO111MODULE=on operator-sdk generate openapi
 
 # The next steps use the kubernetes code-generator to make a client
 
 WORKDIR $GOPATH/src/k8s.io
-RUN cp -r "/go/pkg/mod/k8s.io/code-generator@v0.0.0-20181117043124-c2090bec4d9b" "code-generator"
-
+RUN cp -r "/go/pkg/mod/k8s.io/code-generator@v0.0.0-20181203235156-f8cba74510f3" "code-generator"
 WORKDIR $GOPATH/src/k8s.io/code-generator
 RUN chmod 700 generate-groups.sh
 
