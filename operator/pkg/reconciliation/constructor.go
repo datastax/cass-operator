@@ -168,7 +168,9 @@ func newStatefulSetForDseDatacenter(
 								PodAffinityTerm: corev1.PodAffinityTerm{
 									LabelSelector: &metav1.LabelSelector{
 										MatchLabels: map[string]string{
-											datastaxv1alpha1.RackLabel: rackName,
+											datastaxv1alpha1.RackLabel:       rackName,
+											datastaxv1alpha1.DatacenterLabel: dseDatacenter.Name,
+											datastaxv1alpha1.ClusterLabel:    dseDatacenter.Spec.ClusterName,
 										},
 									},
 									TopologyKey: "failure-domain.beta.kubernetes.io/zone",
@@ -176,19 +178,35 @@ func newStatefulSetForDseDatacenter(
 							}},
 						},
 						PodAntiAffinity: &corev1.PodAntiAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
-								Weight: 100,
-								PodAffinityTerm: corev1.PodAffinityTerm{
-									LabelSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											datastaxv1alpha1.RackLabel:       rackName,
-											datastaxv1alpha1.DatacenterLabel: dseDatacenter.Name,
-											datastaxv1alpha1.ClusterLabel:    dseDatacenter.Spec.ClusterName,
+							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+								{
+									Weight: 100,
+									PodAffinityTerm: corev1.PodAffinityTerm{
+										LabelSelector: &metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												datastaxv1alpha1.RackLabel:       rackName,
+												datastaxv1alpha1.DatacenterLabel: dseDatacenter.Name,
+												datastaxv1alpha1.ClusterLabel:    dseDatacenter.Spec.ClusterName,
+											},
 										},
+										TopologyKey: "kubernetes.io/hostname",
 									},
-									TopologyKey: "kubernetes.io/hostname",
 								},
-							}},
+								{
+									Weight: 100,
+									PodAffinityTerm: corev1.PodAffinityTerm{
+										LabelSelector: &metav1.LabelSelector{
+											MatchExpressions: []metav1.LabelSelectorRequirement{
+												{
+													Key:      datastaxv1alpha1.RackLabel,
+													Operator: metav1.LabelSelectorOpNotIn,
+													Values:   []string{rackName},
+												},
+											},
+										},
+										TopologyKey: "failure-domain.beta.kubernetes.io/zone",
+									},
+								}},
 						},
 					},
 					// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
