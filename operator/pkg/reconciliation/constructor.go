@@ -259,8 +259,9 @@ func newStatefulSetForDseDatacenter(
 					ServiceAccountName: "dse-operator",
 					Containers: []corev1.Container{{
 						// TODO FIXME
-						Name:  "dse",
-						Image: dseDatacenter.GetServerImage(),
+						Name:      "dse",
+						Image:     dseDatacenter.GetServerImage(),
+						Resources: dseDatacenter.Spec.Resources,
 						Env: []corev1.EnvVar{
 							{
 								Name:  "DS_LICENSE",

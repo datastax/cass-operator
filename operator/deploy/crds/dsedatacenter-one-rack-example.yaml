@@ -5,6 +5,11 @@ metadata:
 spec:
   clusterName: clstr
   size: 2
+  resources:
+    requests:
+      memory: "512Mi"
+    limits:
+      memory: "8000Mi"
   storageClaim:
     storageclassname: standard
     resources:
