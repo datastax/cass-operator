@@ -740,3 +740,75 @@ func TestReconcileRacks_UpdateRackNodeCount(t *testing.T) {
 		})
 	}
 }
+
+func TestReconcileRacks_UpdateConfig(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
+		"rack0",
+		rc.DseDatacenter,
+		2)
+	assert.NoErrorf(t, err, "error occurred creating statefulset")
+
+	desiredStatefulSet.Status.ReadyReplicas = 2
+
+	trackObjects := []runtime.Object{
+		desiredStatefulSet,
+		rc.DseDatacenter,
+	}
+
+	rc.Client = fake.NewFakeClient(trackObjects...)
+
+	var rackInfo []*dsereconciliation.RackInformation
+
+	rack0 := &dsereconciliation.RackInformation{}
+	rack0.RackName = "rack0"
+	rack0.NodeCount = 2
+
+	rackInfo = append(rackInfo, rack0)
+
+	reconcileRacks := ReconcileRacks{
+		ReconcileContext:       rc,
+		desiredRackInformation: rackInfo,
+	}
+
+	result, err := reconcileRacks.Apply()
+	assert.NoErrorf(t, err, "Should not have returned an error")
+	assert.Equal(t, reconcile.Result{Requeue: false}, result, "Should not requeue request")
+
+	currentStatefulSet := &appsv1.StatefulSet{}
+	nsName := types.NamespacedName{Name: desiredStatefulSet.Name, Namespace: desiredStatefulSet.Namespace}
+	err = rc.Client.Get(rc.Ctx, nsName, currentStatefulSet)
+	assert.NoErrorf(t, err, "Client.Get() should not have returned an error")
+
+	assert.Equal(t,
+		"{\"cluster-info\":{\"name\":\"dsedatacenter-example-cluster\",\"seeds\":\"dsedatacenter-example-cluster-dsedatacenter-example-default-sts-0.dsedatacenter-example-cluster-dsedatacenter-example-service.default.svc.cluster.local,dsedatacenter-example-cluster-dsedatacenter-example-default-sts-1.dsedatacenter-example-cluster-dsedatacenter-example-service.default.svc.cluster.local\"},\"datacenter-info\":{\"name\":\"dsedatacenter-example\"}}",
+		currentStatefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Value,
+		"The statefulset env config should not contain a cassandra-yaml entry.")
+
+	// Update the config and rerun the reconcile
+
+	configJson := []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\"}}")
+
+	rc.DseDatacenter.Spec.Config = configJson
+
+	reconcileRacks = ReconcileRacks{
+		ReconcileContext:       rc,
+		desiredRackInformation: rackInfo,
+	}
+
+	result, err = reconcileRacks.Apply()
+	assert.NoErrorf(t, err, "Should not have returned an error")
+	assert.Equal(t, reconcile.Result{Requeue: false}, result, "Should not requeue request")
+
+	currentStatefulSet = &appsv1.StatefulSet{}
+	nsName = types.NamespacedName{Name: desiredStatefulSet.Name, Namespace: desiredStatefulSet.Namespace}
+	err = rc.Client.Get(rc.Ctx, nsName, currentStatefulSet)
+	assert.NoErrorf(t, err, "Client.Get() should not have returned an error")
+
+	assert.Equal(t,
+		"{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\"},\"cluster-info\":{\"name\":\"dsedatacenter-example-cluster\",\"seeds\":\"dsedatacenter-example-cluster-dsedatacenter-example-default-sts-0.dsedatacenter-example-cluster-dsedatacenter-example-service.default.svc.cluster.local,dsedatacenter-example-cluster-dsedatacenter-example-default-sts-1.dsedatacenter-example-cluster-dsedatacenter-example-service.default.svc.cluster.local\"},\"datacenter-info\":{\"name\":\"dsedatacenter-example\"}}",
+		currentStatefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Value,
+		"The statefulset should contain a cassandra-yaml entry.")
+}

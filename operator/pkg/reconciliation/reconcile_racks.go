@@ -119,6 +119,40 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 			}
 		}
 
+		r.ReconcileContext.ReqLogger.Info("Examining config of StatefulSet")
+
+		currentConfig, desiredConfig, err := getConfigsForRackResource(r.ReconcileContext.DseDatacenter, statefulSet)
+		if err != nil {
+			r.ReconcileContext.ReqLogger.Error(err, "Error examining config of StatefulSet")
+			return reconcile.Result{Requeue: false}, err
+		}
+
+		if currentConfig != desiredConfig {
+			r.ReconcileContext.ReqLogger.Info("Updating config",
+				"statefulSet", statefulSet,
+				"current", currentConfig,
+				"desired", desiredConfig)
+
+			// The first env var should be the config
+			err = setConfigFileData(statefulSet, desiredConfig)
+			if err != nil {
+				r.ReconcileContext.ReqLogger.Error(
+					err,
+					"Unable to update statefulSet PodTemplate with config",
+					"statefulSet", statefulSet)
+				return reconcile.Result{Requeue: false}, err
+			}
+
+			err = r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, statefulSet)
+			if err != nil {
+				r.ReconcileContext.ReqLogger.Error(
+					err,
+					"Unable to perform update on statefulset for config",
+					"statefulSet", statefulSet)
+				return reconcile.Result{Requeue: false}, err
+			}
+		}
+
 		parked := r.ReconcileContext.DseDatacenter.Spec.Parked
 		currentPodCount := *statefulSet.Spec.Replicas
 
@@ -559,4 +593,36 @@ func shouldUpdateLabelsForDatacenterResource(resourceLabels map[string]string, d
 	}
 
 	return labelsUpdated, resourceLabels
+}
+
+// getConfigsForRackResource return the desired and current configs for a statefulset
+func getConfigsForRackResource(dseDatacenter *datastaxv1alpha1.DseDatacenter, statefulSet *appsv1.StatefulSet) (string, string, error) {
+	currentConfig, err := getConfigFileData(statefulSet)
+	if err != nil {
+		return "", "", err
+	}
+
+	desiredConfig, err := dseDatacenter.GetConfigAsJSON()
+	if err != nil {
+		return "", "", err
+	}
+
+	return currentConfig, desiredConfig, nil
+}
+
+// getConfigFileData returns the current CONFIG_FILE_DATA or an error
+func getConfigFileData(statefulSet *appsv1.StatefulSet) (string, error) {
+	if "CONFIG_FILE_DATA" == statefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Name {
+		return statefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Value, nil
+	}
+	return "", fmt.Errorf("CONFIG_FILE_DATA environment variable not available in StatefulSet")
+}
+
+// setConfigFileData updates the CONFIG_FILE_DATA in a statefulset.
+func setConfigFileData(statefulSet *appsv1.StatefulSet, desiredConfig string) error {
+	if "CONFIG_FILE_DATA" == statefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Name {
+		statefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Value = desiredConfig
+		return nil
+	}
+	return fmt.Errorf("CONFIG_FILE_DATA environment variable not available in StatefulSet")
 }
