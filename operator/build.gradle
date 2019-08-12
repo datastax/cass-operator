@@ -35,6 +35,7 @@ task dockerImage(type: DockerBuildImage, group: 'Docker', description: 'Build op
     dependsOn 'buildLinuxAmd64', copyDockerFiles
     inputDir = buildDir
     tags.add("datastax/dse-${project.name}:${version.toString().replaceAll('[^a-zA-Z0-9\\.\\-_]', '_')}")
+    tags.add("datastax/dse-${project.name}:latest")
 }
 
 // "go mod vendor" is necessary to provide IDE autocompletion

@@ -16,8 +16,8 @@ spec:
       containers:
         - name: dse-operator
           # Replace this with the built image name
-          image: REPLACE_IMAGE
-          imagePullPolicy: Always
+          image: datastax/dse-operator:latest
+          imagePullPolicy: IfNotPresent
           env:
             - name: WATCH_NAMESPACE
               valueFrom:
