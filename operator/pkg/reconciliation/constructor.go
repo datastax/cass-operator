@@ -14,6 +14,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -85,6 +86,19 @@ func newSeedServiceForDseDatacenter(
 	}
 }
 
+func newNamespacedNameForStatefulSet(
+	dseDc *datastaxv1alpha1.DseDatacenter,
+	rackName string) types.NamespacedName {
+
+	name := dseDc.Spec.ClusterName + "-" + dseDc.Name + "-" + rackName + "-sts"
+	ns := dseDc.Namespace
+
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: ns,
+	}
+}
+
 // Create a statefulset object for the DSE Datacenter.
 func newStatefulSetForDseDatacenter(
 	rackName string,
@@ -139,10 +153,12 @@ func newStatefulSetForDseDatacenter(
 		return nil, err
 	}
 
+	nsName := newNamespacedNameForStatefulSet(dseDatacenter, rackName)
+
 	result := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dseDatacenter.Spec.ClusterName + "-" + dseDatacenter.Name + "-" + rackName + "-sts",
-			Namespace: dseDatacenter.Namespace,
+			Name:      nsName.Name,
+			Namespace: nsName.Namespace,
 			Labels:    labels,
 		},
 		Spec: appsv1.StatefulSetSpec{

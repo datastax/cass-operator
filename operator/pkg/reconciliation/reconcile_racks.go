@@ -24,6 +24,7 @@ import (
 type ReconcileRacks struct {
 	ReconcileContext       *dsereconciliation.ReconciliationContext
 	desiredRackInformation []*dsereconciliation.RackInformation
+	statefulSets           []*appsv1.StatefulSet
 }
 
 // CalculateRackInformation determine how many nodes per rack are needed
@@ -34,54 +35,69 @@ func (r *ReconcileRacks) CalculateRackInformation() (reconcileriface.Reconciler,
 	// Create RackInformation
 
 	nodeCount := int(r.ReconcileContext.DseDatacenter.Spec.Size)
+	racks := r.ReconcileContext.DseDatacenter.Spec.GetRacks()
+	rackCount := len(racks)
+
+	// TODO error if nodeCount < rackCount
+
 	if r.ReconcileContext.DseDatacenter.Spec.Parked {
 		nodeCount = 0
 	}
-	rackCount := len(r.ReconcileContext.DseDatacenter.Spec.Racks)
+
+	// 3 seeds per datacenter (this could be two, but we would like three seeds per cluster
+	// and it's not easy for us to know if we're in a multi DC cluster in this part of the code)
+	// OR all of the nodes, if there's less than 3
+	// OR one per rack if there are four or more racks
+	seedCount := 3
+	if nodeCount < 3 {
+		seedCount = nodeCount
+	} else if rackCount > 3 {
+		seedCount = rackCount
+	}
 
 	var desiredRackInformation []*dsereconciliation.RackInformation
 
-	// If explicit racks are not specified,
-	// then we have only one
-	if rackCount == 0 {
-		rackCount = 1
+	if rackCount < 1 {
+		return nil, fmt.Errorf("assertion failed! rackCount should not possibly be zero here")
+	}
 
+	// nodes_per_rack = total_size / rack_count + 1 if rack_index < remainder
+
+	nodesPerRack, extraNodes := nodeCount/rackCount, nodeCount%rackCount
+	seedsPerRack, extraSeeds := seedCount/rackCount, seedCount%rackCount
+
+	for rackIndex, dseRack := range racks {
+		nodesForThisRack := nodesPerRack
+		if rackIndex < extraNodes {
+			nodesForThisRack++
+		}
+		seedsForThisRack := seedsPerRack
+		if rackIndex < extraSeeds {
+			seedsForThisRack++
+		}
 		nextRack := &dsereconciliation.RackInformation{}
-		nextRack.RackName = "default"
-		nextRack.NodeCount = nodeCount
+		nextRack.RackName = dseRack.Name
+		nextRack.NodeCount = nodesForThisRack
+		nextRack.SeedCount = seedsForThisRack
 
 		desiredRackInformation = append(desiredRackInformation, nextRack)
-	} else {
-		// nodes_per_rack = total_size / rack_count + 1 if rack_index < remainder
-
-		nodesPerRack, extraNodes := nodeCount/rackCount, nodeCount%rackCount
-
-		for rackIndex, dseRack := range r.ReconcileContext.DseDatacenter.Spec.Racks {
-			nodesForThisRack := nodesPerRack
-			if rackIndex < extraNodes {
-				nodesForThisRack++
-			}
-			nextRack := &dsereconciliation.RackInformation{}
-			nextRack.RackName = dseRack.Name
-			nextRack.NodeCount = nodesForThisRack
-
-			desiredRackInformation = append(desiredRackInformation, nextRack)
-		}
 	}
+
+	statefulSets := make([]*appsv1.StatefulSet, len(desiredRackInformation), len(desiredRackInformation))
 
 	return &ReconcileRacks{
 		ReconcileContext:       r.ReconcileContext,
 		desiredRackInformation: desiredRackInformation,
+		statefulSets:           statefulSets,
 	}, nil
 }
 
-// Apply reconcileRacks determines if a rack needs to be reconciled.
-func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
+func (r *ReconcileRacks) CheckRackCreation() (*reconcile.Result, error) {
+	r.ReconcileContext.ReqLogger.Info("reconcile_racks::CheckRackCreation")
 
-	r.ReconcileContext.ReqLogger.Info("reconcile_racks::reconcileRacks")
+	for idx, _ := range r.desiredRackInformation {
+		rackInfo := r.desiredRackInformation[idx]
 
-	var statefulSets []*appsv1.StatefulSet
-	for _, rackInfo := range r.desiredRackInformation {
 		// Does this rack have a statefulset?
 
 		statefulSet, statefulSetFound, err := r.GetStatefulSetForRack(rackInfo)
@@ -90,16 +106,80 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 				err,
 				"Could not locate statefulSet for",
 				"Rack", rackInfo.RackName)
-			return reconcile.Result{Requeue: true}, err
+			res := &reconcile.Result{Requeue: true}
+			return res, err
 		}
 
 		if statefulSetFound == false {
 			r.ReconcileContext.ReqLogger.Info(
 				"Need to create new StatefulSet for",
 				"Rack", rackInfo.RackName)
-
-			return r.ReconcileNextRack(statefulSet)
+			res, err := r.ReconcileNextRack(statefulSet)
+			return &res, err
 		}
+
+		r.statefulSets[idx] = statefulSet
+	}
+
+	return nil, nil
+}
+
+func (r *ReconcileRacks) CheckRackConfiguration() (*reconcile.Result, error) {
+	r.ReconcileContext.ReqLogger.Info("Examining config of StatefulSet")
+
+	for idx, _ := range r.desiredRackInformation {
+		//rackInfo := r.desiredRackInformation[idx]
+		statefulSet := r.statefulSets[idx]
+		currentConfig, desiredConfig, err := getConfigsForRackResource(r.ReconcileContext.DseDatacenter, statefulSet)
+		if err != nil {
+			r.ReconcileContext.ReqLogger.Error(err, "Error examining config of StatefulSet")
+			res := reconcile.Result{Requeue: false}
+			return &res, err
+		}
+
+		if currentConfig != desiredConfig {
+			r.ReconcileContext.ReqLogger.Info("Updating config",
+				"statefulSet", statefulSet,
+				"current", currentConfig,
+				"desired", desiredConfig)
+
+			// The first env var should be the config
+			err = setConfigFileData(statefulSet, desiredConfig)
+			if err != nil {
+				r.ReconcileContext.ReqLogger.Error(
+					err,
+					"Unable to update statefulSet PodTemplate with config",
+					"statefulSet", statefulSet)
+				res := reconcile.Result{Requeue: false}
+				return &res, err
+			}
+
+			err = r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, statefulSet)
+			if err != nil {
+				r.ReconcileContext.ReqLogger.Error(
+					err,
+					"Unable to perform update on statefulset for config",
+					"statefulSet", statefulSet)
+				res := reconcile.Result{Requeue: false}
+				return &res, err
+			}
+
+			// we just updated k8s and pods will be knocked out of ready state,
+			// so go back through the reconcilation loop
+			res := reconcile.Result{Requeue: true}
+			return &res, err
+		}
+	}
+
+	return nil, nil
+}
+
+func (r *ReconcileRacks) CheckRackLabels() (*reconcile.Result, error) {
+	r.ReconcileContext.ReqLogger.Info("reconcile_racks::CheckRackLabels")
+
+	for idx, _ := range r.desiredRackInformation {
+		rackInfo := r.desiredRackInformation[idx]
+		statefulSet := r.statefulSets[idx]
 
 		// Has this statefulset been reconciled?
 
@@ -118,40 +198,18 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 					"statefulSet", statefulSet)
 			}
 		}
+	}
 
-		r.ReconcileContext.ReqLogger.Info("Examining config of StatefulSet")
+	// FIXME we never return anything else
+	return nil, nil
+}
 
-		currentConfig, desiredConfig, err := getConfigsForRackResource(r.ReconcileContext.DseDatacenter, statefulSet)
-		if err != nil {
-			r.ReconcileContext.ReqLogger.Error(err, "Error examining config of StatefulSet")
-			return reconcile.Result{Requeue: false}, err
-		}
+func (r *ReconcileRacks) CheckRackParkedState() (*reconcile.Result, error) {
+	r.ReconcileContext.ReqLogger.Info("reconcile_racks::CheckRackParkedState")
 
-		if currentConfig != desiredConfig {
-			r.ReconcileContext.ReqLogger.Info("Updating config",
-				"statefulSet", statefulSet,
-				"current", currentConfig,
-				"desired", desiredConfig)
-
-			// The first env var should be the config
-			err = setConfigFileData(statefulSet, desiredConfig)
-			if err != nil {
-				r.ReconcileContext.ReqLogger.Error(
-					err,
-					"Unable to update statefulSet PodTemplate with config",
-					"statefulSet", statefulSet)
-				return reconcile.Result{Requeue: false}, err
-			}
-
-			err = r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, statefulSet)
-			if err != nil {
-				r.ReconcileContext.ReqLogger.Error(
-					err,
-					"Unable to perform update on statefulset for config",
-					"statefulSet", statefulSet)
-				return reconcile.Result{Requeue: false}, err
-			}
-		}
+	for idx, _ := range r.desiredRackInformation {
+		rackInfo := r.desiredRackInformation[idx]
+		statefulSet := r.statefulSets[idx]
 
 		parked := r.ReconcileContext.DseDatacenter.Spec.Parked
 		currentPodCount := *statefulSet.Spec.Replicas
@@ -178,8 +236,20 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 
 			// TODO we should call a more graceful stop node command here
 
-			return r.UpdateRackNodeCount(statefulSet, desiredNodeCount)
+			res, err := r.UpdateRackNodeCount(statefulSet, desiredNodeCount)
+			return &res, err
 		}
+	}
+
+	return nil, nil
+}
+
+func (r *ReconcileRacks) CheckRackSeedsReady() (*reconcile.Result, error) {
+	r.ReconcileContext.ReqLogger.Info("reconcile_racks::CheckRackSeedsReady")
+
+	for idx, _ := range r.desiredRackInformation {
+		rackInfo := r.desiredRackInformation[idx]
+		statefulSet := r.statefulSets[idx]
 
 		r.ReconcileContext.ReqLogger.Info(
 			"StatefulSet found",
@@ -187,16 +257,77 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 
 		r.LabelSeedPods(statefulSet)
 
+		desiredSeedCount := int32(rackInfo.SeedCount)
+		maxReplicas := *statefulSet.Spec.Replicas
 		readyReplicas := statefulSet.Status.ReadyReplicas
 
-		if readyReplicas < currentPodCount {
+		// this is needed because we will be passing through here after all of our seeds are up
+		// and the maxReplicas will be the full rack size, and we want the scaling up for
+		// non-seeds to happen in CheckRackScaleReady below
+		if readyReplicas >= desiredSeedCount {
+			continue
+		}
+
+		if readyReplicas < maxReplicas {
+			// We should do nothing but wait until all replicas are ready
+			r.ReconcileContext.ReqLogger.Info(
+				"Not all seeds for StatefulSet are ready.",
+				"maxReplicas", maxReplicas,
+				"readyCount", readyReplicas)
+
+			res := reconcile.Result{Requeue: true}
+			return &res, nil
+
+		}
+		if readyReplicas < desiredSeedCount {
+			res, err := r.UpdateRackNodeCount(statefulSet, readyReplicas+1)
+			return &res, err
+		}
+	}
+
+	return nil, nil
+}
+
+func (r *ReconcileRacks) CheckRackScaleReady() (*reconcile.Result, error) {
+	r.ReconcileContext.ReqLogger.Info("reconcile_racks::CheckRackScaleReady")
+
+	for idx, _ := range r.desiredRackInformation {
+		rackInfo := r.desiredRackInformation[idx]
+		statefulSet := r.statefulSets[idx]
+
+		// By the time we get here we know all the racks are ready for that particular size
+
+		readyReplicas := statefulSet.Status.ReadyReplicas
+		desiredNodeCount := int32(rackInfo.NodeCount)
+		maxReplicas := *statefulSet.Spec.Replicas
+
+		if readyReplicas < maxReplicas {
 			// We should do nothing but wait until all replicas are ready
 			r.ReconcileContext.ReqLogger.Info(
 				"Not all replicas for StatefulSet are ready.",
-				"desiredCount", desiredNodeCount,
+				"maxReplicas", maxReplicas,
 				"readyCount", readyReplicas)
 
-			return reconcile.Result{Requeue: true}, nil
+			res := reconcile.Result{Requeue: true}
+			return &res, nil
+		}
+
+		if maxReplicas < desiredNodeCount {
+			if !isClusterHealthy(r.ReconcileContext) {
+				res := reconcile.Result{Requeue: true}
+				return &res, nil
+			}
+
+			// update it
+			r.ReconcileContext.ReqLogger.Info(
+				"Need to update the rack's node count by one",
+				"Rack", rackInfo.RackName,
+				"maxReplicas", maxReplicas,
+				"desiredSize", desiredNodeCount,
+			)
+
+			res, err := r.UpdateRackNodeCount(statefulSet, maxReplicas+1)
+			return &res, err
 		}
 
 		if readyReplicas > desiredNodeCount {
@@ -205,39 +336,70 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 				"Too many replicas for StatefulSet are ready",
 				"desiredCount", desiredNodeCount,
 				"readyCount", readyReplicas)
-			return reconcile.Result{Requeue: true}, nil
+			res := reconcile.Result{Requeue: true}
+			return &res, nil
 		}
 
 		r.ReconcileContext.ReqLogger.Info(
 			"All replicas are ready for StatefulSet for",
-			"Rack", rackInfo.RackName)
-
-		if err := r.ReconcilePods(statefulSet); err != nil {
-			return reconcile.Result{Requeue: true}, err
-		}
-
-		statefulSets = append(statefulSets, statefulSet)
+			"rack", rackInfo.RackName)
 	}
 
-	// By the time we get here we know all the racks are ready for that particular size
-	for index, rackInfo := range r.desiredRackInformation {
+	return nil, nil
+}
 
-		readyReplicas := statefulSets[index].Status.ReadyReplicas
-		if readyReplicas < int32(rackInfo.NodeCount) {
-			if !isClusterHealthy(r.ReconcileContext) {
-				return reconcile.Result{Requeue: true}, nil
-			}
+func (r *ReconcileRacks) CheckRackPodLabels() (*reconcile.Result, error) {
+	r.ReconcileContext.ReqLogger.Info("reconcile_racks::CheckRackPodLabels")
 
-			// update it
-			r.ReconcileContext.ReqLogger.Info(
-				"Need to update the rack's node count by one",
-				"Rack", rackInfo.RackName,
-				"currentSize", readyReplicas,
-				"desiredSize", rackInfo.NodeCount,
-			)
+	for idx, _ := range r.desiredRackInformation {
+		statefulSet := r.statefulSets[idx]
 
-			return r.UpdateRackNodeCount(statefulSets[index], readyReplicas+1)
+		if err := r.ReconcilePods(statefulSet); err != nil {
+			res := reconcile.Result{Requeue: true}
+			return &res, nil
 		}
+	}
+
+	return nil, nil
+}
+
+// Apply reconcileRacks determines if a rack needs to be reconciled.
+func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
+	r.ReconcileContext.ReqLogger.Info("reconcile_racks::Apply")
+
+	recResult, err := r.CheckRackCreation()
+	if recResult != nil || err != nil {
+		return *recResult, err
+	}
+
+	recResult, err = r.CheckRackLabels()
+	if recResult != nil || err != nil {
+		return *recResult, err
+	}
+
+	recResult, err = r.CheckRackParkedState()
+	if recResult != nil || err != nil {
+		return *recResult, err
+	}
+
+	recResult, err = r.CheckRackSeedsReady()
+	if recResult != nil || err != nil {
+		return *recResult, err
+	}
+
+	recResult, err = r.CheckRackScaleReady()
+	if recResult != nil || err != nil {
+		return *recResult, err
+	}
+
+	recResult, err = r.CheckRackConfiguration()
+	if recResult != nil || err != nil {
+		return *recResult, err
+	}
+
+	recResult, err = r.CheckRackPodLabels()
+	if recResult != nil || err != nil {
+		return *recResult, err
 	}
 
 	if err := addOperatorProgressLabel(r.ReconcileContext, ready); err != nil {
@@ -322,10 +484,25 @@ func (r *ReconcileRacks) GetStatefulSetForRack(
 
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::getStatefulSetForRack")
 
+	// Check if the desiredStatefulSet already exists
+	currentStatefulSet := &appsv1.StatefulSet{}
+	err := r.ReconcileContext.Client.Get(
+		r.ReconcileContext.Ctx,
+		newNamespacedNameForStatefulSet(r.ReconcileContext.DseDatacenter, nextRack.RackName),
+		currentStatefulSet)
+
+	if err == nil {
+		return currentStatefulSet, true, nil
+	}
+
+	if !errors.IsNotFound(err) {
+		return nil, false, err
+	}
+
 	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		nextRack.RackName,
 		r.ReconcileContext.DseDatacenter,
-		1)
+		0)
 	if err != nil {
 		return nil, false, err
 	}
@@ -339,21 +516,7 @@ func (r *ReconcileRacks) GetStatefulSetForRack(
 		return nil, false, err
 	}
 
-	// Check if the desiredStatefulSet already exists
-	currentStatefulSet := &appsv1.StatefulSet{}
-	err = r.ReconcileContext.Client.Get(
-		r.ReconcileContext.Ctx,
-		types.NamespacedName{
-			Name:      desiredStatefulSet.Name,
-			Namespace: desiredStatefulSet.Namespace},
-		currentStatefulSet)
-	if err != nil && errors.IsNotFound(err) {
-		return desiredStatefulSet, false, nil
-	} else if err != nil {
-		return nil, false, err
-	}
-
-	return currentStatefulSet, true, nil
+	return desiredStatefulSet, false, nil
 }
 
 // ReconcileNextRack ensures that the resources for a dse rack have been properly created

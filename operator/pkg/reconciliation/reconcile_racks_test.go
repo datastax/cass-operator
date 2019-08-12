@@ -156,17 +156,17 @@ func TestReconcileRacks_ReconcilePods(t *testing.T) {
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
-	var rackInfo []*dsereconciliation.RackInformation
-
 	nextRack := &dsereconciliation.RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 1
+	nextRack.SeedCount = 1
 
-	rackInfo = append(rackInfo, nextRack)
+	rackInfo := []*dsereconciliation.RackInformation{nextRack}
 
 	reconcileRacks := ReconcileRacks{
 		ReconcileContext:       rc,
 		desiredRackInformation: rackInfo,
+		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
 	}
 
 	result, err := reconcileRacks.Apply()
@@ -468,12 +468,14 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 	nextRack := &dsereconciliation.RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 1
+	nextRack.SeedCount = 1
 
 	rackInfo = append(rackInfo, nextRack)
 
 	reconcileRacks := ReconcileRacks{
 		ReconcileContext:       rc,
 		desiredRackInformation: rackInfo,
+		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
 	}
 
 	result, err := reconcileRacks.Apply()
@@ -502,12 +504,14 @@ func TestReconcileRacks_NeedMoreReplicas(t *testing.T) {
 	nextRack := &dsereconciliation.RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 3
+	nextRack.SeedCount = 3
 
 	rackInfo = append(rackInfo, nextRack)
 
 	reconcileRacks := ReconcileRacks{
 		ReconcileContext:       rc,
 		desiredRackInformation: rackInfo,
+		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
 	}
 
 	result, err := reconcileRacks.Apply()
@@ -536,12 +540,14 @@ func TestReconcileRacks_DoesntScaleDown(t *testing.T) {
 	nextRack := &dsereconciliation.RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 1
+	nextRack.SeedCount = 1
 
 	rackInfo = append(rackInfo, nextRack)
 
 	reconcileRacks := ReconcileRacks{
 		ReconcileContext:       rc,
 		desiredRackInformation: rackInfo,
+		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
 	}
 
 	result, err := reconcileRacks.Apply()
@@ -572,12 +578,14 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 	nextRack := &dsereconciliation.RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 0
+	nextRack.SeedCount = 0
 
 	rackInfo = append(rackInfo, nextRack)
 
 	reconcileRacks := ReconcileRacks{
 		ReconcileContext:       rc,
 		desiredRackInformation: rackInfo,
+		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
 	}
 
 	result, err := reconcileRacks.Apply()
@@ -616,12 +624,14 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 	nextRack := &dsereconciliation.RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 2
+	nextRack.SeedCount = 2
 
 	rackInfo = append(rackInfo, nextRack)
 
 	reconcileRacks := ReconcileRacks{
 		ReconcileContext:       rc,
 		desiredRackInformation: rackInfo,
+		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
 	}
 
 	result, err := reconcileRacks.Apply()
@@ -661,16 +671,19 @@ func TestReconcileRacks_FirstRackAlreadyReconciled(t *testing.T) {
 	rack0 := &dsereconciliation.RackInformation{}
 	rack0.RackName = "rack0"
 	rack0.NodeCount = 2
+	rack0.SeedCount = 2
 
 	rack1 := &dsereconciliation.RackInformation{}
 	rack1.RackName = "rack1"
 	rack1.NodeCount = 2
+	rack1.SeedCount = 1
 
 	rackInfo = append(rackInfo, rack0, rack1)
 
 	reconcileRacks := ReconcileRacks{
 		ReconcileContext:       rc,
 		desiredRackInformation: rackInfo,
+		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
 	}
 
 	result, err := reconcileRacks.Apply()
@@ -771,6 +784,7 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 	reconcileRacks := ReconcileRacks{
 		ReconcileContext:       rc,
 		desiredRackInformation: rackInfo,
+		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
 	}
 
 	result, err := reconcileRacks.Apply()
@@ -796,11 +810,12 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 	reconcileRacks = ReconcileRacks{
 		ReconcileContext:       rc,
 		desiredRackInformation: rackInfo,
+		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
 	}
 
 	result, err = reconcileRacks.Apply()
 	assert.NoErrorf(t, err, "Should not have returned an error")
-	assert.Equal(t, reconcile.Result{Requeue: false}, result, "Should not requeue request")
+	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 
 	currentStatefulSet = &appsv1.StatefulSet{}
 	nsName = types.NamespacedName{Name: desiredStatefulSet.Name, Namespace: desiredStatefulSet.Namespace}

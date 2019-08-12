@@ -79,6 +79,7 @@ type DseDatacenterSpec struct {
 
 // GetRacks is a getter for the DseRack slice in the spec
 // It ensures there is always at least one rack
+// FIXME move this onto the DseDatacenter for consistency?
 func (s *DseDatacenterSpec) GetRacks() []DseRack {
 	if len(s.Racks) >= 1 {
 		return s.Racks
