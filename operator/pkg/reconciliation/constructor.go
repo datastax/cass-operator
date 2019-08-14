@@ -16,6 +16,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
 
 // Creates a headless service object for the DSE Datacenter.
@@ -57,22 +58,36 @@ func newServiceForDseDatacenter(
 	}
 }
 
+func buildLabelSelectorForSeedService(dseDatacenter *datastaxv1alpha1.DseDatacenter) map[string]string {
+	// copy the labels, don't assume we own the return value of a getter
+	clusterLabels := dseDatacenter.GetClusterLabels()
+	labels := make(map[string]string)
+	utils.MergeMap(&labels, clusterLabels)
+
+	// narrow selection to just the seed nodes
+	labels[datastaxv1alpha1.SEED_NODE_LABEL] = "true"
+
+	return labels
+}
+
 // newSeedServiceForDseDatacenter creates a headless service owned by the DseDatacenter which will attach to all seed
 // nodes in the cluster
 func newSeedServiceForDseDatacenter(
 	dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
-	// TODO adjust labels
+
+	selectorLabels := buildLabelSelectorForSeedService(dseDatacenter)
 	labels := dseDatacenter.GetClusterLabels()
+
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dseDatacenter.Spec.ClusterName + "-seed-service",
+			Name:      dseDatacenter.GetSeedServiceName(),
 			Namespace: dseDatacenter.Namespace,
 			Labels:    labels,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: nil,
 			// This MUST match a template pod label in the statefulset
-			Selector:  labels,
+			Selector:  selectorLabels,
 			ClusterIP: "None",
 			Type:      "ClusterIP",
 			// Make sure addresses are provided from the beginning so that we don't have to go back and reload seeds

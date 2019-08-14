@@ -16,6 +16,7 @@ spec:
       containers:
         - name: dse-operator
           # Replace this with the built image name
+          # echo "datastax-docker.jfrog.io/dse-operator/operator:$(git symbolic-ref --short HEAD).$(git rev-parse HEAD)"
           image: datastax/dse-operator:latest
           imagePullPolicy: IfNotPresent
           env:

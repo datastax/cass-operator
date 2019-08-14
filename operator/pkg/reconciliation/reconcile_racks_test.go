@@ -797,7 +797,7 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 	assert.NoErrorf(t, err, "Client.Get() should not have returned an error")
 
 	assert.Equal(t,
-		"{\"cluster-info\":{\"name\":\"dsedatacenter-example-cluster\",\"seeds\":\"dsedatacenter-example-cluster-dsedatacenter-example-default-sts-0.dsedatacenter-example-cluster-dsedatacenter-example-service.default.svc.cluster.local,dsedatacenter-example-cluster-dsedatacenter-example-default-sts-1.dsedatacenter-example-cluster-dsedatacenter-example-service.default.svc.cluster.local\"},\"datacenter-info\":{\"name\":\"dsedatacenter-example\"}}",
+		"{\"cluster-info\":{\"name\":\"dsedatacenter-example-cluster\",\"seeds\":\"dsedatacenter-example-cluster-seed-service\"},\"datacenter-info\":{\"name\":\"dsedatacenter-example\"}}",
 		currentStatefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Value,
 		"The statefulset env config should not contain a cassandra-yaml entry.")
 
@@ -823,7 +823,7 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 	assert.NoErrorf(t, err, "Client.Get() should not have returned an error")
 
 	assert.Equal(t,
-		"{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\"},\"cluster-info\":{\"name\":\"dsedatacenter-example-cluster\",\"seeds\":\"dsedatacenter-example-cluster-dsedatacenter-example-default-sts-0.dsedatacenter-example-cluster-dsedatacenter-example-service.default.svc.cluster.local,dsedatacenter-example-cluster-dsedatacenter-example-default-sts-1.dsedatacenter-example-cluster-dsedatacenter-example-service.default.svc.cluster.local\"},\"datacenter-info\":{\"name\":\"dsedatacenter-example\"}}",
+		"{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\"},\"cluster-info\":{\"name\":\"dsedatacenter-example-cluster\",\"seeds\":\"dsedatacenter-example-cluster-seed-service\"},\"datacenter-info\":{\"name\":\"dsedatacenter-example\"}}",
 		currentStatefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Value,
 		"The statefulset should contain a cassandra-yaml entry.")
 }

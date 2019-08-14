@@ -305,7 +305,7 @@ func Test_GenerateBaseConfigString(t *testing.T) {
 					Config:      []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
 				},
 			},
-			want:      `{"cassandra-yaml":{"authenticator":"AllowAllAuthenticator","batch_size_fail_threshold_in_kb":1280},"cluster-info":{"name":"dseCluster","seeds":""},"datacenter-info":{"name":"dseDC"}}`,
+			want:      `{"cassandra-yaml":{"authenticator":"AllowAllAuthenticator","batch_size_fail_threshold_in_kb":1280},"cluster-info":{"name":"dseCluster","seeds":"dseCluster-seed-service"},"datacenter-info":{"name":"dseDC"}}`,
 			errString: "",
 		},
 		{
@@ -457,5 +457,19 @@ func TestDseDatacenter_GetContainerPorts(t *testing.T) {
 				t.Errorf("DseDatacenter.GetContainerPorts() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestDseDatacenter_GetSeedServiceName(t *testing.T) {
+	dc := &DseDatacenter{
+		Spec: DseDatacenterSpec {
+			ClusterName: "bob",
+		},
+	}
+	want := "bob-seed-service"
+	got := dc.GetSeedServiceName()
+
+	if want != got {
+		t.Errorf("DseDatacenter.GetSeedService() = %v, want %v", got, want)
 	}
 }

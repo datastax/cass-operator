@@ -8,3 +8,7 @@ spec:
   racks:
     - name: default
     - name: rack2
+  repository: datastax-docker.jfrog.io/datastax/dse-server
+  # we will want to update this once the management api branch has the
+  # KO-14 changes
+  version: 6.8.0-KO-14-dns-with-management-apis-20190809231145-b303270

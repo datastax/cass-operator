@@ -70,6 +70,14 @@ func (r *ReconcileDseNode) Reconcile(request reconcile.Request) (reconcile.Resul
 	return reconcile.Result{}, nil
 }
 
+func buildPodHostFromPod(pod corev1.Pod) string {
+	return httphelper.GetPodHost(
+		pod.Name,
+		pod.Labels[datastaxv1alpha1.CLUSTER_LABEL],
+		pod.Labels[datastaxv1alpha1.DATACENTER_LABEL],
+		pod.Namespace)
+}
+
 func refreshSeeds(rc *dsereconciliation.ReconciliationContext, client httphelper.HttpClient) error {
 	rc.ReqLogger.Info("reconcileDseNode::refreshSeeds")
 
@@ -88,10 +96,11 @@ func refreshSeeds(rc *dsereconciliation.ReconciliationContext, client httphelper
 
 		request := httphelper.NodeMgmtRequest{
 			Endpoint: "/api/v0/ops/seeds/reload",
-			Host:     httphelper.GetPodHost(pod.Name, rc.DseDatacenter.Spec.ClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
+			Host:     buildPodHostFromPod(pod),
 			Client:   client,
 			Method:   http.MethodPost,
 		}
+
 		if err := httphelper.CallNodeMgmtEndpoint(rc.ReqLogger, request); err != nil {
 			return err
 		}

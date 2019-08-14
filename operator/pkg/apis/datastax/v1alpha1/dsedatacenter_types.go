@@ -237,10 +237,17 @@ func (dc *DseDatacenter) GetClusterLabels() map[string]string {
 	}
 }
 
+func (dc *DseDatacenter) GetSeedServiceName() string {
+	return dc.Spec.ClusterName + "-seed-service"
+}
+
 // GetConfigAsJSON gets a JSON-encoded string suitable for passing to configBuilder
 func (dc *DseDatacenter) GetConfigAsJSON() (string, error) {
 
-	modelValues := dseconfig.GetModelValues(dc.GetSeedList(), dc.Spec.ClusterName, dc.Name)
+	// We use the cluster seed-service name here for the seed list as it will
+	// resolve to the seed nodes. This obviates the need to update the
+	// cassandra.yaml whenever the seed nodes change.
+	modelValues := dseconfig.GetModelValues([]string{dc.GetSeedServiceName()}, dc.Spec.ClusterName, dc.Name)
 
 	var modelBytes []byte
 
