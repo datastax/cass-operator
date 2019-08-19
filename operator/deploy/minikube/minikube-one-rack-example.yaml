@@ -1,0 +1,25 @@
+apiVersion: datastax.com/v1alpha1
+kind: DseDatacenter
+metadata:
+  name: dtcntr
+spec:
+  clusterName: clstr
+  size: 2
+  resources:
+    requests:
+      memory: "512Mi"
+    limits:
+      memory: "6000Mi"
+  storageClaim:
+    storageclassname: standard
+    resources:
+      requests:
+        storage: 1Gi
+  racks:
+    - name: r0
+  config:
+    cassandra-yaml:
+      authenticator: AllowAllAuthenticator
+      batch_size_fail_threshold_in_kb: 1280
+  repository: datastax-docker.jfrog.io/datastax/dse-server
+  version: 6.8.0-DSP-18785-management-api-20190722175849-6c130dc
