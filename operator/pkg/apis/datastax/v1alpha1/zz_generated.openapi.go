@@ -68,41 +68,41 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 				Properties: map[string]spec.Schema{
 					"size": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The desired number of DSE server pods",
+							Description: "Desired number of DSE server nodes",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
 					},
 					"version": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DSE Version",
+							Description: "DSE container image tag",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"repository": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Repository to grab the DSE image from",
+							Description: "DSE container image repository, with host and path",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"config": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Definition file config Note that k8s will populate Spec.Config with a json version of the contents of this field.  Somehow k8s converts the yaml fragment to json, which is bizarre but useful for us.  We can use []byte(dseDatacenter.Spec.Config) to make the data accessible for parsing.",
+							Description: "Config for DSE, in YAML format",
 							Type:        []string{"string"},
 							Format:      "byte",
 						},
 					},
 					"resources": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Resource requirements",
+							Description: "Kubernetes resource requests and limits, per DSE pod",
 							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
 						},
 					},
 					"racks": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Racks is an exported field, BUT it is highly recommended that GetRacks() be used for accessing in order to handle the case where no rack is defined",
+							Description: "A list of the named racks in the datacenter, representing independent failure domains. The number of racks should match the replication factor in the keyspaces you plan to create, and the number of racks cannot easily be changed once a datacenter is deployed.",
 							Type:        []string{"array"},
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
@@ -115,27 +115,27 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 					},
 					"storageClaim": {
 						SchemaProps: spec.SchemaProps{
-							Description: "StorageClaim",
+							Description: "Describes the persistent storage request of each DSE node",
 							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseStorageClaim"),
 						},
 					},
 					"clusterName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DSE ClusterName",
+							Description: "The name by which CQL clients and DSE instances will know the DSE cluster. If the same cluster name is shared by multiple DseDatacenters in the same Kubernetes namespace, they will join together in a multi-datacenter DSE cluster.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"parked": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Parked state means we do not want any DSE processes running",
+							Description: "Indicates no DSE nodes should run, like powering down bare metal servers. Volume resources will be left intact in Kubernetes and re-attached when the cluster is unparked. This is an experimental feature that requires that pod ip addresses do not change on restart.",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
 					},
 					"configBuilderImage": {
 						SchemaProps: spec.SchemaProps{
-							Description: "ConfigBuilderImage",
+							Description: "Container image for the DSE config builder init container, with host, path, and tag",
 							Type:        []string{"string"},
 							Format:      "",
 						},

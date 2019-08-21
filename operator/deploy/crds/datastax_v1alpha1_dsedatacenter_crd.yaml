@@ -28,18 +28,26 @@ spec:
         spec:
           properties:
             clusterName:
-              description: DSE ClusterName
+              description: The name by which CQL clients and DSE instances will know
+                the DSE cluster. If the same cluster name is shared by multiple DseDatacenters
+                in the same Kubernetes namespace, they will join together in a multi-datacenter
+                DSE cluster.
               type: string
             configBuilderImage:
-              description: ConfigBuilderImage
+              description: Container image for the DSE config builder init container,
+                with host, path, and tag
               type: string
             parked:
-              description: Parked state means we do not want any DSE processes running
+              description: Indicates no DSE nodes should run, like powering down bare
+                metal servers. Volume resources will be left intact in Kubernetes
+                and re-attached when the cluster is unparked. This is an experimental
+                feature that requires that pod ip addresses do not change on restart.
               type: boolean
             racks:
-              description: Racks is an exported field, BUT it is highly recommended
-                that GetRacks() be used for accessing in order to handle the case
-                where no rack is defined
+              description: A list of the named racks in the datacenter, representing
+                independent failure domains. The number of racks should match the
+                replication factor in the keyspaces you plan to create, and the number
+                of racks cannot easily be changed once a datacenter is deployed.
               items:
                 properties:
                   name:
@@ -50,17 +58,17 @@ spec:
                 type: object
               type: array
             repository:
-              description: Repository to grab the DSE image from
+              description: DSE container image repository, with host and path
               type: string
             resources:
-              description: Resource requirements
+              description: Kubernetes resource requests and limits, per DSE pod
               type: object
             size:
-              description: The desired number of DSE server pods
+              description: Desired number of DSE server nodes
               format: int32
               type: integer
             storageClaim:
-              description: StorageClaim
+              description: Describes the persistent storage request of each DSE node
               properties:
                 resources:
                   description: Resource requirements
@@ -71,7 +79,7 @@ spec:
               - storageclassname
               type: object
             version:
-              description: DSE Version
+              description: DSE container image tag
               type: string
           required:
           - size

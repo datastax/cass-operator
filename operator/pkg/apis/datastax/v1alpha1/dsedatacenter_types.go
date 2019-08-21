@@ -47,33 +47,51 @@ const (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// NOTE: Comments in the DseDatacenterSpec struct become automatically embedded in the CRD yaml.
+// Ensure that the comments there are appropriate for customer consumption. Keep internal comments for
+// the engineering team in this block comment.
+
+// Config
+// Definition file config
+// Note that k8s will populate Spec.Config with a json version of the contents
+// of this field.  Somehow k8s converts the yaml fragment to json, which is bizarre
+// but useful for us.  We can use []byte(dseDatacenter.Spec.Config) to make
+// the data accessible for parsing.
+
+// Racks
+// Racks is an exported field, BUT it is highly recommended that GetRacks()
+// be used for accessing in order to handle the case where no rack is defined
+
+// End internal docstrings
+
 // DseDatacenterSpec defines the desired state of DseDatacenter
 // +k8s:openapi-gen=true
 type DseDatacenterSpec struct {
-	// The desired number of DSE server pods
+	// Desired number of DSE server nodes
 	Size int32 `json:"size"`
-	// DSE Version
+	// DSE container image tag
 	Version string `json:"version"`
-	// Repository to grab the DSE image from
+	// DSE container image repository, with host and path
 	Repository string `json:"repository"`
-	// Definition file config
-	// Note that k8s will populate Spec.Config with a json version of the contents
-	// of this field.  Somehow k8s converts the yaml fragment to json, which is bizarre
-	// but useful for us.  We can use []byte(dseDatacenter.Spec.Config) to make
-	// the data accessible for parsing.
+	// Config for DSE, in YAML format
 	Config json.RawMessage `json:"config,omitempty"`
-	// Resource requirements
+	// Kubernetes resource requests and limits, per DSE pod
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
-	// Racks is an exported field, BUT it is highly recommended that GetRacks() be used for accessing in order to handle
-	// the case where no rack is defined
+	// A list of the named racks in the datacenter, representing independent failure domains. The
+	// number of racks should match the replication factor in the keyspaces you plan to create, and
+	// the number of racks cannot easily be changed once a datacenter is deployed.
 	Racks []DseRack `json:"racks,omitempty"`
-	// StorageClaim
+	// Describes the persistent storage request of each DSE node
 	StorageClaim *DseStorageClaim `json:"storageClaim,omitempty"`
-	// DSE ClusterName
+	// The name by which CQL clients and DSE instances will know the DSE cluster. If the same
+	// cluster name is shared by multiple DseDatacenters in the same Kubernetes namespace,
+	// they will join together in a multi-datacenter DSE cluster.
 	ClusterName string `json:"clusterName"`
-	// Parked state means we do not want any DSE processes running
+	// Indicates no DSE nodes should run, like powering down bare metal servers. Volume resources
+	// will be left intact in Kubernetes and re-attached when the cluster is unparked. This is an
+	// experimental feature that requires that pod ip addresses do not change on restart.
 	Parked bool `json:"parked,omitempty"`
-	// ConfigBuilderImage
+	// Container image for the DSE config builder init container, with host, path, and tag
 	ConfigBuilderImage string `json:"configBuilderImage,omitempty"`
 }
 
