@@ -20,25 +20,17 @@ const (
 
 	defaultConfigBuilderImage = "datastax-docker.jfrog.io/datastax/dse-server-config-builder:7.0.0-3e8847c"
 
-	CLUSTER_LABEL    = "com.datastax.dse.cluster"
-	DATACENTER_LABEL = "com.datastax.dse.datacenter"
-	SEED_NODE_LABEL  = "com.datastax.dse.seednode"
-	RACK_LABEL       = "com.datastax.dse.rack"
-
-	// FIXME switch over to using these constants below, then get rid of the above ones
-	// golint says ALL_CAPS is a no-no
-
 	// ClusterLabel is the DSE operator's label for the DSE cluster name
-	ClusterLabel = CLUSTER_LABEL
+	ClusterLabel = "com.datastax.dse.cluster"
 
 	// DatacenterLabel is the DSE operator's label for the DSE datacenter name
-	DatacenterLabel = DATACENTER_LABEL
+	DatacenterLabel = "com.datastax.dse.datacenter"
 
 	// SeedNodeLabel is the DSE operator's label for the DSE seed node state
-	SeedNodeLabel = SEED_NODE_LABEL
+	SeedNodeLabel = "com.datastax.dse.seednode"
 
 	// RackLabel is the DSE operator's label for the DSE rack name
-	RackLabel = RACK_LABEL
+	RackLabel = "com.datastax.dse.rack"
 
 	// RackLabel is the DSE operator's label for the DSE rack name
 	DseOperatorProgressLabel = "com.datastax.dse.operator.progress"
@@ -86,7 +78,7 @@ type DseDatacenterSpec struct {
 	// The name by which CQL clients and DSE instances will know the DSE cluster. If the same
 	// cluster name is shared by multiple DseDatacenters in the same Kubernetes namespace,
 	// they will join together in a multi-datacenter DSE cluster.
-	ClusterName string `json:"clusterName"`
+	DseClusterName string `json:"dseClusterName"`
 	// Indicates no DSE nodes should run, like powering down bare metal servers. Volume resources
 	// will be left intact in Kubernetes and re-attached when the cluster is unparked. This is an
 	// experimental feature that requires that pod ip addresses do not change on restart.
@@ -155,12 +147,12 @@ func (dc *DseDatacenter) GetSeedList() []string {
 	}
 
 	for _, dseRack := range dc.Spec.GetRacks() {
-		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, dc.Spec.ClusterName, dc.Name, dseRack.Name, 0, dc.Spec.ClusterName, dc.Name, dc.Namespace))
+		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, dc.Spec.DseClusterName, dc.Name, dseRack.Name, 0, dc.Spec.DseClusterName, dc.Name, dc.Namespace))
 	}
 
 	// ensure that each Datacenter has at least 2 seeds
 	if len(dc.Spec.GetRacks()) == 1 && dc.Spec.Size > 1 {
-		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, dc.Spec.ClusterName, dc.Name, dc.Spec.GetRacks()[0].Name, 1, dc.Spec.ClusterName, dc.Name, dc.Namespace))
+		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, dc.Spec.DseClusterName, dc.Name, dc.Spec.GetRacks()[0].Name, 1, dc.Spec.DseClusterName, dc.Name, dc.Namespace))
 	}
 
 	if seeds == nil {
@@ -229,7 +221,7 @@ func makeImage(repo, version string) string {
 // GetRackLabels ...
 func (dc *DseDatacenter) GetRackLabels(rackName string) map[string]string {
 	labels := map[string]string{
-		RACK_LABEL: rackName,
+		RackLabel: rackName,
 	}
 
 	utils.MergeMap(&labels, dc.GetDatacenterLabels())
@@ -240,7 +232,7 @@ func (dc *DseDatacenter) GetRackLabels(rackName string) map[string]string {
 // GetDatacenterLabels ...
 func (dc *DseDatacenter) GetDatacenterLabels() map[string]string {
 	labels := map[string]string{
-		DATACENTER_LABEL: dc.Name,
+		DatacenterLabel: dc.Name,
 	}
 
 	utils.MergeMap(&labels, dc.GetClusterLabels())
@@ -251,12 +243,12 @@ func (dc *DseDatacenter) GetDatacenterLabels() map[string]string {
 // GetClusterLabels ...
 func (dc *DseDatacenter) GetClusterLabels() map[string]string {
 	return map[string]string{
-		CLUSTER_LABEL: dc.Spec.ClusterName,
+		ClusterLabel: dc.Spec.DseClusterName,
 	}
 }
 
 func (dc *DseDatacenter) GetSeedServiceName() string {
-	return dc.Spec.ClusterName + "-seed-service"
+	return dc.Spec.DseClusterName + "-seed-service"
 }
 
 // GetConfigAsJSON gets a JSON-encoded string suitable for passing to configBuilder
@@ -265,7 +257,7 @@ func (dc *DseDatacenter) GetConfigAsJSON() (string, error) {
 	// We use the cluster seed-service name here for the seed list as it will
 	// resolve to the seed nodes. This obviates the need to update the
 	// cassandra.yaml whenever the seed nodes change.
-	modelValues := dseconfig.GetModelValues([]string{dc.GetSeedServiceName()}, dc.Spec.ClusterName, dc.Name)
+	modelValues := dseconfig.GetModelValues([]string{dc.GetSeedServiceName()}, dc.Spec.DseClusterName, dc.Name)
 
 	var modelBytes []byte
 

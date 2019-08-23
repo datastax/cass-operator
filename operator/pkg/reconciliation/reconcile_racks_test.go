@@ -45,14 +45,14 @@ func Test_validateLabelsForCluster(t *testing.T) {
 							Name: "dseDC",
 						},
 						Spec: datastaxv1alpha1.DseDatacenterSpec{
-							ClusterName: "dseCluster",
+							DseClusterName: "dseCluster",
 						},
 					},
 				},
 			},
 			want: true,
 			wantLabels: map[string]string{
-				datastaxv1alpha1.CLUSTER_LABEL: "dseCluster",
+				datastaxv1alpha1.ClusterLabel: "dseCluster",
 			},
 		}, {
 			name: "Nil labels",
@@ -64,21 +64,21 @@ func Test_validateLabelsForCluster(t *testing.T) {
 							Name: "dseDC",
 						},
 						Spec: datastaxv1alpha1.DseDatacenterSpec{
-							ClusterName: "dseCluster",
+							DseClusterName: "dseCluster",
 						},
 					},
 				},
 			},
 			want: true,
 			wantLabels: map[string]string{
-				datastaxv1alpha1.CLUSTER_LABEL: "dseCluster",
+				datastaxv1alpha1.ClusterLabel: "dseCluster",
 			},
 		},
 		{
 			name: "Has Label",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.CLUSTER_LABEL: "dseCluster",
+					datastaxv1alpha1.ClusterLabel: "dseCluster",
 				},
 				rc: &dsereconciliation.ReconciliationContext{
 					DseDatacenter: &datastaxv1alpha1.DseDatacenter{
@@ -86,20 +86,20 @@ func Test_validateLabelsForCluster(t *testing.T) {
 							Name: "dseDC",
 						},
 						Spec: datastaxv1alpha1.DseDatacenterSpec{
-							ClusterName: "dseCluster",
+							DseClusterName: "dseCluster",
 						},
 					},
 				},
 			},
 			want: false,
 			wantLabels: map[string]string{
-				datastaxv1alpha1.CLUSTER_LABEL: "dseCluster",
+				datastaxv1alpha1.ClusterLabel: "dseCluster",
 			},
 		}, {
 			name: "DC Label, No Cluster Label",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.DATACENTER_LABEL: "dseDC",
+					datastaxv1alpha1.DatacenterLabel: "dseDC",
 				},
 				rc: &dsereconciliation.ReconciliationContext{
 					DseDatacenter: &datastaxv1alpha1.DseDatacenter{
@@ -107,15 +107,15 @@ func Test_validateLabelsForCluster(t *testing.T) {
 							Name: "dseDC",
 						},
 						Spec: datastaxv1alpha1.DseDatacenterSpec{
-							ClusterName: "dseCluster",
+							DseClusterName: "dseCluster",
 						},
 					},
 				},
 			},
 			want: true,
 			wantLabels: map[string]string{
-				datastaxv1alpha1.DATACENTER_LABEL: "dseDC",
-				datastaxv1alpha1.CLUSTER_LABEL:    "dseCluster",
+				datastaxv1alpha1.DatacenterLabel: "dseDC",
+				datastaxv1alpha1.ClusterLabel:    "dseCluster",
 			},
 		},
 	}
@@ -197,7 +197,7 @@ func TestReconcilePods(t *testing.T) {
 						Namespace: "default",
 					},
 					Spec: datastaxv1alpha1.DseDatacenterSpec{
-						ClusterName: "dsedatacenter-example-cluster",
+						DseClusterName: "dsedatacenter-example-cluster",
 					},
 				}
 				return reflect.DeepEqual(obj.GetLabels(), dseDatacenter.GetRackLabels("default"))

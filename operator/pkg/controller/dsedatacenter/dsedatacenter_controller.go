@@ -111,9 +111,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 func isPodOwnedByDseDatacenter(podLabels map[string]string) bool {
 	// if the pod has one of those three labels then it's probably owned by a DseDatacenter
 
-	_, hasDCLabel := podLabels[datastaxv1alpha1.DATACENTER_LABEL]
-	_, hasClusterLabel := podLabels[datastaxv1alpha1.CLUSTER_LABEL]
-	_, hasRackLabel := podLabels[datastaxv1alpha1.RACK_LABEL]
+	_, hasDCLabel := podLabels[datastaxv1alpha1.DatacenterLabel]
+	_, hasClusterLabel := podLabels[datastaxv1alpha1.ClusterLabel]
+	_, hasRackLabel := podLabels[datastaxv1alpha1.RackLabel]
 
 	return hasDCLabel || hasClusterLabel || hasRackLabel
 }

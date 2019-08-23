@@ -73,8 +73,8 @@ func (r *ReconcileDseNode) Reconcile(request reconcile.Request) (reconcile.Resul
 func buildPodHostFromPod(pod corev1.Pod) string {
 	return httphelper.GetPodHost(
 		pod.Name,
-		pod.Labels[datastaxv1alpha1.CLUSTER_LABEL],
-		pod.Labels[datastaxv1alpha1.DATACENTER_LABEL],
+		pod.Labels[datastaxv1alpha1.ClusterLabel],
+		pod.Labels[datastaxv1alpha1.DatacenterLabel],
 		pod.Namespace)
 }
 
@@ -82,7 +82,7 @@ func refreshSeeds(rc *dsereconciliation.ReconciliationContext, client httphelper
 	rc.ReqLogger.Info("reconcileDseNode::refreshSeeds")
 
 	selector := map[string]string{
-		datastaxv1alpha1.CLUSTER_LABEL: rc.DseDatacenter.Spec.ClusterName,
+		datastaxv1alpha1.ClusterLabel: rc.DseDatacenter.Spec.DseClusterName,
 	}
 	podList, err := listPods(rc, selector)
 	if err != nil {

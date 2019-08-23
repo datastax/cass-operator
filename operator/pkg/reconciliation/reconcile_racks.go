@@ -414,7 +414,7 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 
 func isClusterHealthy(rc *dsereconciliation.ReconciliationContext) bool {
 	selector := map[string]string{
-		datastaxv1alpha1.CLUSTER_LABEL: rc.DseDatacenter.Spec.ClusterName,
+		datastaxv1alpha1.ClusterLabel: rc.DseDatacenter.Spec.DseClusterName,
 	}
 	podList, err := listPods(rc, selector)
 	if err != nil {
@@ -428,7 +428,7 @@ func isClusterHealthy(rc *dsereconciliation.ReconciliationContext) bool {
 
 		request := httphelper.NodeMgmtRequest{
 			Endpoint: fmt.Sprintf("/api/v0/probes/cluster?consistency_level=LOCAL_QUORUM&rf_per_dc=%d", len(rc.DseDatacenter.Spec.Racks)),
-			Host:     httphelper.GetPodHost(pod.Name, rc.DseDatacenter.Spec.ClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
+			Host:     httphelper.GetPodHost(pod.Name, rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
 			Client:   http.DefaultClient,
 			Method:   http.MethodGet,
 		}
@@ -464,8 +464,8 @@ func (r *ReconcileRacks) LabelSeedPods(statefulSet *appsv1.StatefulSet) {
 
 		podLabels := pod.GetLabels()
 
-		if _, ok := podLabels[datastaxv1alpha1.SEED_NODE_LABEL]; !ok {
-			podLabels[datastaxv1alpha1.SEED_NODE_LABEL] = "true"
+		if _, ok := podLabels[datastaxv1alpha1.SeedNodeLabel]; !ok {
+			podLabels[datastaxv1alpha1.SeedNodeLabel] = "true"
 			pod.SetLabels(podLabels)
 
 			if err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, pod); err != nil {
@@ -636,7 +636,7 @@ func (r *ReconcileRacks) ReconcilePods(statefulSet *appsv1.StatefulSet) error {
 		}
 
 		podLabels := pod.GetLabels()
-		shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForRackResource(podLabels, r.ReconcileContext.DseDatacenter, statefulSet.GetLabels()[datastaxv1alpha1.RACK_LABEL])
+		shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForRackResource(podLabels, r.ReconcileContext.DseDatacenter, statefulSet.GetLabels()[datastaxv1alpha1.RackLabel])
 		if shouldUpdateLabels {
 			r.ReconcileContext.ReqLogger.Info("Updating labels",
 				"Pod", podName,
@@ -680,7 +680,7 @@ func (r *ReconcileRacks) ReconcilePods(statefulSet *appsv1.StatefulSet) error {
 		}
 
 		pvcLabels := pvc.GetLabels()
-		shouldUpdateLabels, updatedLabels = shouldUpdateLabelsForRackResource(pvcLabels, r.ReconcileContext.DseDatacenter, statefulSet.GetLabels()[datastaxv1alpha1.RACK_LABEL])
+		shouldUpdateLabels, updatedLabels = shouldUpdateLabelsForRackResource(pvcLabels, r.ReconcileContext.DseDatacenter, statefulSet.GetLabels()[datastaxv1alpha1.RackLabel])
 		if shouldUpdateLabels {
 			r.ReconcileContext.ReqLogger.Info("Updating labels",
 				"PVC", pvc,
@@ -709,9 +709,9 @@ func shouldUpdateLabelsForClusterResource(resourceLabels map[string]string, dseD
 		resourceLabels = make(map[string]string)
 	}
 
-	if _, ok := resourceLabels[datastaxv1alpha1.CLUSTER_LABEL]; !ok {
+	if _, ok := resourceLabels[datastaxv1alpha1.ClusterLabel]; !ok {
 		labelsUpdated = true
-	} else if resourceLabels[datastaxv1alpha1.CLUSTER_LABEL] != dseDatacenter.Spec.ClusterName {
+	} else if resourceLabels[datastaxv1alpha1.ClusterLabel] != dseDatacenter.Spec.DseClusterName {
 		labelsUpdated = true
 	}
 
@@ -727,9 +727,9 @@ func shouldUpdateLabelsForClusterResource(resourceLabels map[string]string, dseD
 func shouldUpdateLabelsForRackResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter, rackName string) (bool, map[string]string) {
 	labelsUpdated, resourceLabels := shouldUpdateLabelsForDatacenterResource(resourceLabels, dseDatacenter)
 
-	if _, ok := resourceLabels[datastaxv1alpha1.RACK_LABEL]; !ok {
+	if _, ok := resourceLabels[datastaxv1alpha1.RackLabel]; !ok {
 		labelsUpdated = true
-	} else if resourceLabels[datastaxv1alpha1.RACK_LABEL] != rackName {
+	} else if resourceLabels[datastaxv1alpha1.RackLabel] != rackName {
 		labelsUpdated = true
 	}
 
@@ -745,9 +745,9 @@ func shouldUpdateLabelsForRackResource(resourceLabels map[string]string, dseData
 func shouldUpdateLabelsForDatacenterResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter) (bool, map[string]string) {
 	labelsUpdated, resourceLabels := shouldUpdateLabelsForClusterResource(resourceLabels, dseDatacenter)
 
-	if _, ok := resourceLabels[datastaxv1alpha1.DATACENTER_LABEL]; !ok {
+	if _, ok := resourceLabels[datastaxv1alpha1.DatacenterLabel]; !ok {
 		labelsUpdated = true
-	} else if resourceLabels[datastaxv1alpha1.DATACENTER_LABEL] != dseDatacenter.Name {
+	} else if resourceLabels[datastaxv1alpha1.DatacenterLabel] != dseDatacenter.Name {
 		labelsUpdated = true
 	}
 

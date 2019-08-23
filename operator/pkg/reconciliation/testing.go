@@ -60,8 +60,8 @@ func CreateMockReconciliationContext(
 			Namespace: namespace,
 		},
 		Spec: datastaxv1alpha1.DseDatacenterSpec{
-			Size:        size,
-			ClusterName: clusterName,
+			Size:           size,
+			DseClusterName: clusterName,
 		},
 	}
 

@@ -43,7 +43,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 				return false
 			},
 			CreateFunc: func(e event.CreateEvent) bool {
-				if _, ok := e.Meta.GetLabels()[datastaxv1alpha1.SEED_NODE_LABEL]; ok {
+				if _, ok := e.Meta.GetLabels()[datastaxv1alpha1.SeedNodeLabel]; ok {
 					return true
 				}
 
@@ -54,7 +54,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 				return shouldReconcilePod(e.MetaNew, e.MetaOld)
 			},
 			DeleteFunc: func(e event.DeleteEvent) bool {
-				if _, ok := e.Meta.GetLabels()[datastaxv1alpha1.SEED_NODE_LABEL]; ok {
+				if _, ok := e.Meta.GetLabels()[datastaxv1alpha1.SeedNodeLabel]; ok {
 					return true
 				}
 				return false
@@ -69,7 +69,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 }
 
 func shouldReconcilePod(metaNew metav1.Object, metaOld metav1.Object) bool {
-	if _, ok := metaNew.GetLabels()[datastaxv1alpha1.SEED_NODE_LABEL]; !ok {
+	if _, ok := metaNew.GetLabels()[datastaxv1alpha1.SeedNodeLabel]; !ok {
 		return false
 	}
 

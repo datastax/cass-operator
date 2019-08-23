@@ -1,20 +1,21 @@
 package reconciliation
 
 import (
-	"testing"
 	"reflect"
+	"testing"
+
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 )
 
 func TestDseDatacenter_buildLabelSelectorForSeedService(t *testing.T) {
 	dc := &datastaxv1alpha1.DseDatacenter{
-		Spec: datastaxv1alpha1.DseDatacenterSpec {
-			ClusterName: "bob",
+		Spec: datastaxv1alpha1.DseDatacenterSpec{
+			DseClusterName: "bob",
 		},
 	}
-	want := map[string]string {
-		datastaxv1alpha1.CLUSTER_LABEL: "bob",
-		datastaxv1alpha1.SEED_NODE_LABEL: "true",
+	want := map[string]string{
+		datastaxv1alpha1.ClusterLabel:  "bob",
+		datastaxv1alpha1.SeedNodeLabel: "true",
 	}
 
 	got := buildLabelSelectorForSeedService(dc)

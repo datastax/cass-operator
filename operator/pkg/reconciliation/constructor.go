@@ -10,13 +10,13 @@ import (
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
 
+	"github.com/riptano/dse-operator/operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
 
 // Creates a headless service object for the DSE Datacenter.
@@ -26,7 +26,7 @@ func newServiceForDseDatacenter(
 	labels := dseDatacenter.GetDatacenterLabels()
 	return &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dseDatacenter.Spec.ClusterName + "-" + dseDatacenter.Name + "-service",
+			Name:      dseDatacenter.Spec.DseClusterName + "-" + dseDatacenter.Name + "-service",
 			Namespace: dseDatacenter.Namespace,
 			Labels:    labels,
 		},
@@ -65,7 +65,7 @@ func buildLabelSelectorForSeedService(dseDatacenter *datastaxv1alpha1.DseDatacen
 	utils.MergeMap(&labels, clusterLabels)
 
 	// narrow selection to just the seed nodes
-	labels[datastaxv1alpha1.SEED_NODE_LABEL] = "true"
+	labels[datastaxv1alpha1.SeedNodeLabel] = "true"
 
 	return labels
 }
@@ -105,7 +105,7 @@ func newNamespacedNameForStatefulSet(
 	dseDc *datastaxv1alpha1.DseDatacenter,
 	rackName string) types.NamespacedName {
 
-	name := dseDc.Spec.ClusterName + "-" + dseDc.Name + "-" + rackName + "-sts"
+	name := dseDc.Spec.DseClusterName + "-" + dseDc.Name + "-" + rackName + "-sts"
 	ns := dseDc.Namespace
 
 	return types.NamespacedName{
@@ -182,7 +182,7 @@ func newStatefulSetForDseDatacenter(
 				MatchLabels: labels,
 			},
 			Replicas:            &replicaCountInt32,
-			ServiceName:         dseDatacenter.Spec.ClusterName + "-" + dseDatacenter.Name + "-service",
+			ServiceName:         dseDatacenter.Spec.DseClusterName + "-" + dseDatacenter.Name + "-service",
 			PodManagementPolicy: appsv1.OrderedReadyPodManagement,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
@@ -201,7 +201,7 @@ func newStatefulSetForDseDatacenter(
 										MatchLabels: map[string]string{
 											datastaxv1alpha1.RackLabel:       rackName,
 											datastaxv1alpha1.DatacenterLabel: dseDatacenter.Name,
-											datastaxv1alpha1.ClusterLabel:    dseDatacenter.Spec.ClusterName,
+											datastaxv1alpha1.ClusterLabel:    dseDatacenter.Spec.DseClusterName,
 										},
 									},
 									TopologyKey: "failure-domain.beta.kubernetes.io/zone",
@@ -217,7 +217,7 @@ func newStatefulSetForDseDatacenter(
 											MatchLabels: map[string]string{
 												datastaxv1alpha1.RackLabel:       rackName,
 												datastaxv1alpha1.DatacenterLabel: dseDatacenter.Name,
-												datastaxv1alpha1.ClusterLabel:    dseDatacenter.Spec.ClusterName,
+												datastaxv1alpha1.ClusterLabel:    dseDatacenter.Spec.DseClusterName,
 											},
 										},
 										TopologyKey: "kubernetes.io/hostname",
@@ -277,7 +277,7 @@ func newStatefulSetForDseDatacenter(
 								Name: "RACK_NAME",
 								ValueFrom: &corev1.EnvVarSource{
 									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: fmt.Sprintf("metadata.labels['%s']", datastaxv1alpha1.RACK_LABEL),
+										FieldPath: fmt.Sprintf("metadata.labels['%s']", datastaxv1alpha1.RackLabel),
 									},
 								},
 							},

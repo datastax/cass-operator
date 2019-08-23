@@ -123,7 +123,7 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					Racks: []DseRack{{
 						Name: "rack0",
 					}},
-					ClusterName: "example-cluster",
+					DseClusterName: "example-cluster",
 				},
 			},
 			want: []string{"example-cluster-example-dsedatacenter-rack0-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local"},
@@ -141,7 +141,7 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					}, {
 						Name: "rack1",
 					}},
-					ClusterName: "example-cluster",
+					DseClusterName: "example-cluster",
 				},
 			},
 			want: []string{"example-cluster-example-dsedatacenter-rack0-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local",
@@ -158,7 +158,7 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					Racks: []DseRack{{
 						Name: "rack0",
 					}},
-					ClusterName: "example-cluster",
+					DseClusterName: "example-cluster",
 				},
 			},
 			want: []string{"example-cluster-example-dsedatacenter-rack0-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local",
@@ -179,7 +179,7 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					}, {
 						Name: "rack2",
 					}},
-					ClusterName: "example-cluster",
+					DseClusterName: "example-cluster",
 				},
 			},
 			want: []string{"example-cluster-example-dsedatacenter-rack0-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local",
@@ -193,9 +193,9 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					Namespace: "default_ns",
 				},
 				Spec: DseDatacenterSpec{
-					Size:        0,
-					Racks:       []DseRack{},
-					ClusterName: "example-cluster",
+					Size:           0,
+					Racks:          []DseRack{},
+					DseClusterName: "example-cluster",
 				},
 			},
 			want: []string{},
@@ -215,7 +215,7 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					}, {
 						Name: "rack2",
 					}},
-					ClusterName: "example-cluster",
+					DseClusterName: "example-cluster",
 				},
 			},
 			want: []string{"example-cluster-example-dsedatacenter-rack0-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local",
@@ -229,8 +229,8 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 					Namespace: "default_ns",
 				},
 				Spec: DseDatacenterSpec{
-					Size:        1,
-					ClusterName: "example-cluster",
+					Size:           1,
+					DseClusterName: "example-cluster",
 				},
 			},
 			want: []string{"example-cluster-example-dsedatacenter-default-sts-0.example-cluster-example-dsedatacenter-service.default_ns.svc.cluster.local"},
@@ -301,8 +301,8 @@ func Test_GenerateBaseConfigString(t *testing.T) {
 					Name: "dseDC",
 				},
 				Spec: DseDatacenterSpec{
-					ClusterName: "dseCluster",
-					Config:      []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
+					DseClusterName: "dseCluster",
+					Config:         []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
 				},
 			},
 			want:      `{"cassandra-yaml":{"authenticator":"AllowAllAuthenticator","batch_size_fail_threshold_in_kb":1280},"cluster-info":{"name":"dseCluster","seeds":"dseCluster-seed-service"},"datacenter-info":{"name":"dseDC"}}`,
@@ -315,8 +315,8 @@ func Test_GenerateBaseConfigString(t *testing.T) {
 					Name: "dseDC",
 				},
 				Spec: DseDatacenterSpec{
-					ClusterName: "dseCluster",
-					Config:      []byte("\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
+					DseClusterName: "dseCluster",
+					Config:         []byte("\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
 				},
 			},
 			want:      "",
@@ -360,8 +360,8 @@ func TestDseDatacenter_GetContainerPorts(t *testing.T) {
 			name: "Happy Path",
 			fields: fields{
 				Spec: DseDatacenterSpec{
-					ClusterName: "dseCluster",
-					Config:      []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
+					DseClusterName: "dseCluster",
+					Config:         []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
 				},
 			},
 			want: []corev1.ContainerPort{
@@ -387,8 +387,8 @@ func TestDseDatacenter_GetContainerPorts(t *testing.T) {
 			name: "Expose Prometheus",
 			fields: fields{
 				Spec: DseDatacenterSpec{
-					ClusterName: "dseCluster",
-					Config:      []byte("{\"cassandra-yaml\":{\"10-write-prom-conf\":{\"enabled\":true,\"port\":9103,\"staleness-delta\":300},\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
+					DseClusterName: "dseCluster",
+					Config:         []byte("{\"cassandra-yaml\":{\"10-write-prom-conf\":{\"enabled\":true,\"port\":9103,\"staleness-delta\":300},\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
 				},
 			},
 			want: []corev1.ContainerPort{
@@ -417,7 +417,7 @@ func TestDseDatacenter_GetContainerPorts(t *testing.T) {
 			name: "Expose Prometheus - No config",
 			fields: fields{
 				Spec: DseDatacenterSpec{
-					ClusterName: "dseCluster",
+					DseClusterName: "dseCluster",
 				},
 			},
 			want: []corev1.ContainerPort{
@@ -462,8 +462,8 @@ func TestDseDatacenter_GetContainerPorts(t *testing.T) {
 
 func TestDseDatacenter_GetSeedServiceName(t *testing.T) {
 	dc := &DseDatacenter{
-		Spec: DseDatacenterSpec {
-			ClusterName: "bob",
+		Spec: DseDatacenterSpec{
+			DseClusterName: "bob",
 		},
 	}
 	want := "bob-seed-service"

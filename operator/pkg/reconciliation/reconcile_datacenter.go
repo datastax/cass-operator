@@ -100,7 +100,7 @@ func (r *ReconcileDatacenter) listPVCs() (*corev1.PersistentVolumeClaimList, err
 	r.ReconcileContext.ReqLogger.Info("reconciler::listPVCs")
 
 	selector := map[string]string{
-		datastaxv1alpha1.DATACENTER_LABEL: r.ReconcileContext.DseDatacenter.Name,
+		datastaxv1alpha1.DatacenterLabel: r.ReconcileContext.DseDatacenter.Name,
 	}
 
 	listOptions := &client.ListOptions{

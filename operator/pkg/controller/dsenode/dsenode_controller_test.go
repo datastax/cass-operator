@@ -26,8 +26,8 @@ func Test_shouldReconcilePod(t *testing.T) {
 				metaNew: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							datastaxv1alpha1.SEED_NODE_LABEL: "true",
-							datastaxv1alpha1.RACK_LABEL:      "default",
+							datastaxv1alpha1.SeedNodeLabel: "true",
+							datastaxv1alpha1.RackLabel:     "default",
 						},
 					},
 					Status: corev1.PodStatus{
@@ -37,8 +37,8 @@ func Test_shouldReconcilePod(t *testing.T) {
 				metaOld: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							datastaxv1alpha1.SEED_NODE_LABEL: "true",
-							datastaxv1alpha1.RACK_LABEL:      "default",
+							datastaxv1alpha1.SeedNodeLabel: "true",
+							datastaxv1alpha1.RackLabel:     "default",
 						},
 					},
 					Status: corev1.PodStatus{
@@ -54,8 +54,8 @@ func Test_shouldReconcilePod(t *testing.T) {
 				metaNew: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							datastaxv1alpha1.SEED_NODE_LABEL: "true",
-							datastaxv1alpha1.RACK_LABEL:      "default",
+							datastaxv1alpha1.SeedNodeLabel: "true",
+							datastaxv1alpha1.RackLabel:     "default",
 						},
 					},
 					Status: corev1.PodStatus{
@@ -65,8 +65,8 @@ func Test_shouldReconcilePod(t *testing.T) {
 				metaOld: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							datastaxv1alpha1.SEED_NODE_LABEL: "true",
-							datastaxv1alpha1.RACK_LABEL:      "default",
+							datastaxv1alpha1.SeedNodeLabel: "true",
+							datastaxv1alpha1.RackLabel:     "default",
 						},
 					},
 					Status: corev1.PodStatus{
@@ -82,7 +82,7 @@ func Test_shouldReconcilePod(t *testing.T) {
 				metaNew: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							datastaxv1alpha1.RACK_LABEL: "default",
+							datastaxv1alpha1.RackLabel: "default",
 						},
 					},
 					Status: corev1.PodStatus{
@@ -92,7 +92,7 @@ func Test_shouldReconcilePod(t *testing.T) {
 				metaOld: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							datastaxv1alpha1.RACK_LABEL: "default",
+							datastaxv1alpha1.RackLabel: "default",
 						},
 					},
 					Status: corev1.PodStatus{
@@ -108,7 +108,7 @@ func Test_shouldReconcilePod(t *testing.T) {
 				metaNew: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							datastaxv1alpha1.RACK_LABEL: "default",
+							datastaxv1alpha1.RackLabel: "default",
 						},
 					},
 					Status: corev1.PodStatus{
@@ -118,7 +118,7 @@ func Test_shouldReconcilePod(t *testing.T) {
 				metaOld: &corev1.Pod{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels: map[string]string{
-							datastaxv1alpha1.RACK_LABEL: "default",
+							datastaxv1alpha1.RackLabel: "default",
 						},
 					},
 					Status: corev1.PodStatus{

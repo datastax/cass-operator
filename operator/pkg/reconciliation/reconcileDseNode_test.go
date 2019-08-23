@@ -39,7 +39,7 @@ func Test_callPodEndpoint(t *testing.T) {
 
 	request := httphelper.NodeMgmtRequest{
 		Endpoint: "/api/v0/ops/seeds/reload",
-		Host:     httphelper.GetPodHost("pod-name", rc.DseDatacenter.Spec.ClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
+		Host:     httphelper.GetPodHost("pod-name", rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
 		Client:   mockHttpClient,
 		Method:   http.MethodPost,
 	}
@@ -69,7 +69,7 @@ func Test_callPodEndpoint_BadStatus(t *testing.T) {
 
 	request := httphelper.NodeMgmtRequest{
 		Endpoint: "/api/v0/ops/seeds/reload",
-		Host:     httphelper.GetPodHost("pod-name", rc.DseDatacenter.Spec.ClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
+		Host:     httphelper.GetPodHost("pod-name", rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
 		Client:   mockHttpClient,
 		Method:   http.MethodPost,
 	}
@@ -99,7 +99,7 @@ func Test_callPodEndpoint_RequestFail(t *testing.T) {
 
 	request := httphelper.NodeMgmtRequest{
 		Endpoint: "/api/v0/ops/seeds/reload",
-		Host:     httphelper.GetPodHost("pod-name", rc.DseDatacenter.Spec.ClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
+		Host:     httphelper.GetPodHost("pod-name", rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
 		Client:   mockHttpClient,
 		Method:   http.MethodPost,
 	}
@@ -109,15 +109,14 @@ func Test_callPodEndpoint_RequestFail(t *testing.T) {
 	}
 }
 
-
 func Test_buildPodHostFromPod(t *testing.T) {
 	pod := corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "pod-foo",
+			Name:      "pod-foo",
 			Namespace: "somenamespace",
 			Labels: map[string]string{
-				datastaxv1alpha1.DATACENTER_LABEL: "dc-bar" ,
-				datastaxv1alpha1.CLUSTER_LABEL: "the-foobar-cluster",
+				datastaxv1alpha1.DatacenterLabel: "dc-bar",
+				datastaxv1alpha1.ClusterLabel:    "the-foobar-cluster",
 			},
 		},
 	}
