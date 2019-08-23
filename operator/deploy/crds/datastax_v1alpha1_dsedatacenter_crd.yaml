@@ -83,8 +83,6 @@ spec:
               type: string
           required:
           - size
-          - version
-          - repository
           - dseClusterName
           type: object
         status:

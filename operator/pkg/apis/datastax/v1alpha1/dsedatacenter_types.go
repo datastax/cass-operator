@@ -62,9 +62,9 @@ type DseDatacenterSpec struct {
 	// Desired number of DSE server nodes
 	Size int32 `json:"size"`
 	// DSE container image tag
-	Version string `json:"version"`
+	Version string `json:"version,omitempty"`
 	// DSE container image repository, with host and path
-	Repository string `json:"repository"`
+	Repository string `json:"repository,omitempty"`
 	// Config for DSE, in YAML format
 	Config json.RawMessage `json:"config,omitempty"`
 	// Kubernetes resource requests and limits, per DSE pod

@@ -141,7 +141,7 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"size", "version", "repository", "dseClusterName"},
+				Required: []string{"size", "dseClusterName"},
 			},
 		},
 		Dependencies: []string{
