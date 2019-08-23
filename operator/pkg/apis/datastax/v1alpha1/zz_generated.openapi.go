@@ -119,7 +119,7 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseStorageClaim"),
 						},
 					},
-					"clusterName": {
+					"dseClusterName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The name by which CQL clients and DSE instances will know the DSE cluster. If the same cluster name is shared by multiple DseDatacenters in the same Kubernetes namespace, they will join together in a multi-datacenter DSE cluster.",
 							Type:        []string{"string"},
@@ -141,7 +141,7 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"size", "version", "repository", "clusterName"},
+				Required: []string{"size", "version", "repository", "dseClusterName"},
 			},
 		},
 		Dependencies: []string{

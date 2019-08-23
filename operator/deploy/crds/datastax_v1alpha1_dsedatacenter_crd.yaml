@@ -27,15 +27,15 @@ spec:
           type: object
         spec:
           properties:
-            clusterName:
+            configBuilderImage:
+              description: Container image for the DSE config builder init container,
+                with host, path, and tag
+              type: string
+            dseClusterName:
               description: The name by which CQL clients and DSE instances will know
                 the DSE cluster. If the same cluster name is shared by multiple DseDatacenters
                 in the same Kubernetes namespace, they will join together in a multi-datacenter
                 DSE cluster.
-              type: string
-            configBuilderImage:
-              description: Container image for the DSE config builder init container,
-                with host, path, and tag
               type: string
             parked:
               description: Indicates no DSE nodes should run, like powering down bare
@@ -85,7 +85,7 @@ spec:
           - size
           - version
           - repository
-          - clusterName
+          - dseClusterName
           type: object
         status:
           properties:
