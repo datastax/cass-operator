@@ -25,7 +25,7 @@ func Test_makeImage(t *testing.T) {
 				repo:    "",
 				version: "",
 			},
-			want: ":",
+			want: "datastaxlabs/dse-k8s-server:6.8.0-20190822",
 		},
 		{
 			name: "test different public version",
@@ -33,7 +33,7 @@ func Test_makeImage(t *testing.T) {
 				repo:    "",
 				version: "6.8",
 			},
-			want: ":6.8",
+			want: "datastaxlabs/dse-k8s-server:6.8",
 		},
 		{
 			name: "test private repo server",
@@ -41,7 +41,7 @@ func Test_makeImage(t *testing.T) {
 				repo:    "datastax.jfrog.io/secret-debug-image/dse-server",
 				version: "",
 			},
-			want: "datastax.jfrog.io/secret-debug-image/dse-server:",
+			want: "datastax.jfrog.io/secret-debug-image/dse-server:6.8.0-20190822",
 		},
 		{
 			name: "test fully custom params",

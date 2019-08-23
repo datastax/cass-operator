@@ -15,10 +15,10 @@ import (
 )
 
 const (
-	defaultRepository = ""
-	defaultVersion    = ""
+	defaultDseRepository = "datastaxlabs/dse-k8s-server"
+	defaultDseVersion    = "6.8.0-20190822"
 
-	defaultConfigBuilderImage = "datastax-docker.jfrog.io/datastax/dse-server-config-builder:7.0.0-3e8847c"
+	defaultConfigBuilderImage = "datastaxlabs/dse-k8s-config-builder:0.3.0-20190822"
 
 	// ClusterLabel is the DSE operator's label for the DSE cluster name
 	ClusterLabel = "com.datastax.dse.cluster"
@@ -198,7 +198,7 @@ func (dc *DseDatacenter) GetDseVersion() string {
 
 	version := dc.Spec.Version
 	if version == "" {
-		version = defaultVersion
+		version = defaultDseVersion
 	}
 	return re.FindString(version)
 }
@@ -210,10 +210,10 @@ func (dc *DseDatacenter) GetDseVersion() string {
 // if version is empty we use "6.7.3" as a default
 func makeImage(repo, version string) string {
 	if repo == "" {
-		repo = defaultRepository
+		repo = defaultDseRepository
 	}
 	if version == "" {
-		version = defaultVersion
+		version = defaultDseVersion
 	}
 	return repo + ":" + version
 }
