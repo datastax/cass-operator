@@ -341,27 +341,21 @@ func newStatefulSetForDseDatacenter(
 	return result, nil
 }
 
-// Create a statefulset object for the DSE Datacenter.
-func newPodDisruptionBudgetForStatefulSet(
-	dseDatacenter *datastaxv1alpha1.DseDatacenter,
-	statefulSet *appsv1.StatefulSet) *policyv1beta1.PodDisruptionBudget {
-	// Right now, we will just have maxUnavailable at 1
-	maxUnavailable := intstr.FromInt(1)
+// Create a PodDisruptionBudget object for the DSE Datacenter
+func newPodDisruptionBudgetForDatacenter(dseDatacenter *datastaxv1alpha1.DseDatacenter) *policyv1beta1.PodDisruptionBudget {
+	minAvailable := intstr.FromInt(int(dseDatacenter.Spec.Size - 1))
 	labels := dseDatacenter.GetDatacenterLabels()
 	return &policyv1beta1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      statefulSet.Name + "-pdb",
-			Namespace: statefulSet.Namespace,
+			Name:      dseDatacenter.Name + "-pdb",
+			Namespace: dseDatacenter.Namespace,
 			Labels:    labels,
 		},
 		Spec: policyv1beta1.PodDisruptionBudgetSpec{
-			// TODO figure selector policy this out
-			// right now this is matching ALL pods for a given datacenter
-			// across all racks
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			MaxUnavailable: &maxUnavailable,
+			MinAvailable: &minAvailable,
 		},
 	}
 }

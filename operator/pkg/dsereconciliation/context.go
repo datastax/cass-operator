@@ -62,7 +62,7 @@ func CreateReconciliationContext(
 
 	rc.ReqLogger = rc.ReqLogger.
 		WithValues("dseDatacenterName", dseDatacenter.Name).
-		WithValues("dseDatacenterClusterName", dseDatacenter.ClusterName)
+		WithValues("dseDatacenterClusterName", dseDatacenter.Spec.DseClusterName)
 
 	return rc, nil
 }

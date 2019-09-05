@@ -57,6 +57,4 @@ rules:
   resources:
   - poddisruptionbudgets
   verbs:
-  - get
-  - list
-  - watch
+  - '*'

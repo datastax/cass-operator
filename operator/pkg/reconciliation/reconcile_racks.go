@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -124,11 +125,16 @@ func (r *ReconcileRacks) CheckRackCreation() (*reconcile.Result, error) {
 	return nil, nil
 }
 
-func (r *ReconcileRacks) CheckRackConfiguration() (*reconcile.Result, error) {
-	r.ReconcileContext.ReqLogger.Info("Examining config of StatefulSet")
+func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
+	r.ReconcileContext.ReqLogger.Info("Examining config of StatefulSets")
 
-	for idx, _ := range r.desiredRackInformation {
-		//rackInfo := r.desiredRackInformation[idx]
+	for idx := range r.desiredRackInformation {
+		if r.ReconcileContext.DseDatacenter.Spec.CanaryUpgrade && idx > 0 {
+			rackName := r.desiredRackInformation[idx].RackName
+			r.ReconcileContext.ReqLogger.
+				WithValues("rackName", rackName).
+				Info("Skipping rack because CanaryUpgrade is turned on")
+		}
 		statefulSet := r.statefulSets[idx]
 		currentConfig, desiredConfig, err := getConfigsForRackResource(r.ReconcileContext.DseDatacenter, statefulSet)
 		if err != nil {
@@ -137,11 +143,26 @@ func (r *ReconcileRacks) CheckRackConfiguration() (*reconcile.Result, error) {
 			return &res, err
 		}
 
-		if currentConfig != desiredConfig {
-			r.ReconcileContext.ReqLogger.Info("Updating config",
+		updatePodSpec := shouldUpdatePodSpec(r.ReconcileContext.DseDatacenter, statefulSet, currentConfig, desiredConfig)
+
+		if updatePodSpec {
+			// TODO double check that index zero is the right container
+			currentDseImage := statefulSet.Spec.Template.Spec.Containers[0].Image
+			desiredDseImage := r.ReconcileContext.DseDatacenter.GetServerImage()
+
+			// TODO double check that index zero is the right container
+			currentConfigBuilderImage := statefulSet.Spec.Template.Spec.InitContainers[0].Image
+			desiredConfigBuilderImage := r.ReconcileContext.DseDatacenter.GetConfigBuilderImage()
+
+			r.ReconcileContext.ReqLogger.Info("Updating statefulset pod specs",
 				"statefulSet", statefulSet,
-				"current", currentConfig,
-				"desired", desiredConfig)
+				"currentConfig", currentConfig,
+				"desiredConfig", desiredConfig,
+				"currentDseImage", currentDseImage,
+				"desiredDseImage", desiredDseImage,
+				"currentConfigBuilderImage", currentConfigBuilderImage,
+				"desiredConfigBuilderImage", desiredConfigBuilderImage,
+			)
 
 			// The first env var should be the config
 			err = setConfigFileData(statefulSet, desiredConfig)
@@ -153,6 +174,10 @@ func (r *ReconcileRacks) CheckRackConfiguration() (*reconcile.Result, error) {
 				res := reconcile.Result{Requeue: false}
 				return &res, err
 			}
+
+			// TODO double check that index zero is the right container
+			statefulSet.Spec.Template.Spec.Containers[0].Image = desiredDseImage
+			statefulSet.Spec.Template.Spec.InitContainers[0].Image = desiredConfigBuilderImage
 
 			err = r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, statefulSet)
 			if err != nil {
@@ -167,6 +192,10 @@ func (r *ReconcileRacks) CheckRackConfiguration() (*reconcile.Result, error) {
 			// we just updated k8s and pods will be knocked out of ready state,
 			// so go back through the reconcilation loop
 			res := reconcile.Result{Requeue: true}
+
+			// FIXME this is not an ideal way to fix this
+			// adding a ten second cooldown because I've seen us get back into reconciliation too quickly
+			time.Sleep(time.Second * 10)
 			return &res, err
 		}
 	}
@@ -392,7 +421,12 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 		return *recResult, err
 	}
 
-	recResult, err = r.CheckRackConfiguration()
+	recResult, err = r.CheckDcPodDisruptionBudget()
+	if recResult != nil || err != nil {
+		return *recResult, err
+	}
+
+	recResult, err = r.CheckRackPodTemplate()
 	if recResult != nil || err != nil {
 		return *recResult, err
 	}
@@ -531,62 +565,75 @@ func (r *ReconcileRacks) ReconcileNextRack(statefulSet *appsv1.StatefulSet) (rec
 	}
 
 	// Create the StatefulSet
+
 	r.ReconcileContext.ReqLogger.Info(
 		"Creating a new StatefulSet.",
-		"statefulSetNamespace",
-		statefulSet.Namespace,
-		"statefulSetName",
-		statefulSet.Name)
-	err := r.ReconcileContext.Client.Create(
-		r.ReconcileContext.Ctx,
-		statefulSet)
-	if err != nil {
+		"statefulSetNamespace", statefulSet.Namespace,
+		"statefulSetName", statefulSet.Name)
+	if err := r.ReconcileContext.Client.Create(r.ReconcileContext.Ctx, statefulSet); err != nil {
 		return reconcile.Result{Requeue: true}, err
 	}
 
-	//
-	// Create a PodDisruptionBudget for the StatefulSet
-	//
+	return reconcile.Result{}, nil
+}
 
-	desiredBudget := newPodDisruptionBudgetForStatefulSet(
-		r.ReconcileContext.DseDatacenter,
-		statefulSet)
+func (r *ReconcileRacks) CheckDcPodDisruptionBudget() (*reconcile.Result, error) {
+	// Create a PodDisruptionBudget for the DseDatacenter
+	dseDc := r.ReconcileContext.DseDatacenter
+	ctx := r.ReconcileContext.Ctx
+	desiredBudget := newPodDisruptionBudgetForDatacenter(dseDc)
 
 	// Set DseDatacenter dseDatacenter as the owner and controller
-	err = setControllerReference(
-		r.ReconcileContext.DseDatacenter,
-		desiredBudget,
-		r.ReconcileContext.Scheme)
-	if err != nil {
-		return reconcile.Result{Requeue: true}, err
+	if err := setControllerReference(dseDc, desiredBudget, r.ReconcileContext.Scheme); err != nil {
+		res := &reconcile.Result{Requeue: true}
+		return res, err
 	}
 
 	// Check if the budget already exists
 	currentBudget := &policyv1beta1.PodDisruptionBudget{}
-	err = r.ReconcileContext.Client.Get(
-		r.ReconcileContext.Ctx,
+	err := r.ReconcileContext.Client.Get(
+		ctx,
 		types.NamespacedName{
 			Name:      desiredBudget.Name,
 			Namespace: desiredBudget.Namespace},
 		currentBudget)
 
+	// it's not possible to update a PodDisruptionBudget, so we need to delete this one and remake it
+	if err == nil && currentBudget.Spec.MinAvailable.IntValue() != desiredBudget.Spec.MinAvailable.IntValue() {
+		r.ReconcileContext.ReqLogger.Info(
+			"Deleting and re-creating a PodDisruptionBudget",
+			"pdbNamespace", desiredBudget.Namespace,
+			"pdbName", desiredBudget.Name,
+			"oldMinAvailable", currentBudget.Spec.MinAvailable,
+			"desiredMinAvailable", desiredBudget.Spec.MinAvailable,
+		)
+		err = r.ReconcileContext.Client.Delete(ctx, currentBudget)
+		if err == nil {
+			err = r.ReconcileContext.Client.Create(ctx, desiredBudget)
+		}
+		// either way we return here
+		res := &reconcile.Result{Requeue: true}
+		return res, err
+	}
+
 	if err != nil && errors.IsNotFound(err) {
 		// Create the Budget
 		r.ReconcileContext.ReqLogger.Info(
 			"Creating a new PodDisruptionBudget.",
-			"podDisruptionBudgetNamespace:",
-			desiredBudget.Namespace,
-			"podDisruptionBudgetName:",
-			desiredBudget.Name)
-		err = r.ReconcileContext.Client.Create(
-			r.ReconcileContext.Ctx,
-			desiredBudget)
-		if err != nil {
-			return reconcile.Result{Requeue: true}, err
-		}
+			"pdbNamespace", desiredBudget.Namespace,
+			"pdbName", desiredBudget.Name)
+		err = r.ReconcileContext.Client.Create(ctx, desiredBudget)
+		res := &reconcile.Result{Requeue: true}
+		// either way we return here
+		return res, err
 	}
 
-	return reconcile.Result{}, nil
+	if err != nil {
+		res := &reconcile.Result{Requeue: true}
+		return res, err
+	}
+
+	return nil, nil
 }
 
 // UpdateRackNodeCount ...
@@ -788,4 +835,26 @@ func setConfigFileData(statefulSet *appsv1.StatefulSet, desiredConfig string) er
 		return nil
 	}
 	return fmt.Errorf("CONFIG_FILE_DATA environment variable not available in StatefulSet")
+}
+
+func shouldUpdatePodSpec(
+	dseDatacenter *datastaxv1alpha1.DseDatacenter,
+	statefulSet *appsv1.StatefulSet,
+	currentConfig string,
+	desiredConfig string) bool {
+
+	// TODO double check that index zero is the right container
+	currentDseImage := statefulSet.Spec.Template.Spec.Containers[0].Image
+	desiredDseImage := dseDatacenter.GetServerImage()
+
+	// TODO double check that index zero is the right container
+	currentConfigBuilderImage := statefulSet.Spec.Template.Spec.InitContainers[0].Image
+	desiredConfigBuilderImage := dseDatacenter.GetConfigBuilderImage()
+
+	updatePodSpec :=
+		currentConfig != desiredConfig ||
+			currentDseImage != desiredDseImage ||
+			currentConfigBuilderImage != desiredConfigBuilderImage
+
+	return updatePodSpec
 }

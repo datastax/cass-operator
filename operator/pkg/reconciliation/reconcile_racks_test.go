@@ -612,9 +612,12 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 
 	desiredStatefulSet.Status.ReadyReplicas = 2
 
+	desiredPdb := newPodDisruptionBudgetForDatacenter(rc.DseDatacenter)
+
 	trackObjects := []runtime.Object{
 		desiredStatefulSet,
 		rc.DseDatacenter,
+		desiredPdb,
 	}
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
@@ -766,9 +769,12 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 
 	desiredStatefulSet.Status.ReadyReplicas = 2
 
+	desiredPdb := newPodDisruptionBudgetForDatacenter(rc.DseDatacenter)
+
 	trackObjects := []runtime.Object{
 		desiredStatefulSet,
 		rc.DseDatacenter,
+		desiredPdb,
 	}
 
 	rc.Client = fake.NewFakeClient(trackObjects...)

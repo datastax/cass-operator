@@ -85,6 +85,9 @@ type DseDatacenterSpec struct {
 	Parked bool `json:"parked,omitempty"`
 	// Container image for the DSE config builder init container, with host, path, and tag
 	ConfigBuilderImage string `json:"configBuilderImage,omitempty"`
+	// Indicates DSE configuration and container image changes should only be pushed to
+	// the first rack of the datacenter
+	CanaryUpgrade bool `json:"canaryUpgrade,omitempty"`
 }
 
 // GetRacks is a getter for the DseRack slice in the spec
