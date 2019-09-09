@@ -7,6 +7,7 @@ FROM golang:1.12-stretch as builder_base
 
 # Disable cgo - this makes static binaries that will work on an Alpine image
 ENV CGO_ENABLED=0
+ENV GOPROXY=https://gocenter.io
 
 # Target os and arch
 ENV GOOS linux
