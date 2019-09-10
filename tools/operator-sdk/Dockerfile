@@ -11,6 +11,7 @@ FROM golang:1.12-stretch
 # docker run -v /Users/jim/datastax/dse-operator:/go/src/github.com/riptano/dse-operator ...
 
 ENV OP_SDK_VERSION=v0.9.0
+ENV GOPROXY=https://gocenter.io
 
 WORKDIR /usr/bin
 
