@@ -1,6 +1,6 @@
-FROM golang:1.12-stretch
+FROM golang:1.13-stretch
 
-# This Dockerfile sets up a clean go 1.12 environment with operator-sdk installed and tested.
+# This Dockerfile sets up a clean go 1.13 environment with operator-sdk installed and tested.
 #
 # It is not part of any DSE operator build system, but rather exists to serve as reference clean
 # install of operator-sdk (pinned to a released version), their example project, and the kubernetes
@@ -11,7 +11,7 @@ FROM golang:1.12-stretch
 # docker run -v /Users/jim/datastax/dse-operator:/go/src/github.com/riptano/dse-operator ...
 
 ENV OP_SDK_VERSION=v0.9.0
-ENV GOPROXY=https://gocenter.io
+ENV GOPROXY=https://gocenter.io,direct
 
 WORKDIR /usr/bin
 
@@ -64,6 +64,8 @@ RUN chmod 700 generate-groups.sh
 WORKDIR $GOPATH/src/github.com/example-inc/memcached-operator
 
 RUN sed -i 's|.*type Memcached struct.*|// +genclient\n&|' pkg/apis/memcached/v1alpha1/memcached_types.go
+
+RUN cd $GOPATH/src/k8s.io/code-generator && go mod init
 
 RUN GO111MODULE=on $GOPATH/src/k8s.io/code-generator/generate-groups.sh \
     client,lister,informer \
