@@ -140,6 +140,20 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"canaryUpgrade": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Indicates DSE configuration and container image changes should only be pushed to the first rack of the datacenter",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"allowMultipleNodesPerWorker": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Turning this option on allows multiple DSE pods to be created on a k8s worker node. By default the operator creates just one DSE pod per k8s worker node using k8s podAntiAffinity and requiredDuringSchedulingIgnoredDuringExecution.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"size", "dseClusterName"},
 			},

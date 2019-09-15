@@ -128,6 +128,14 @@ func newStatefulSetForDseDatacenter(
 	var dseVolumeMounts []corev1.VolumeMount
 	initContainerImage := dseDatacenter.GetConfigBuilderImage()
 
+	racks := dseDatacenter.Spec.GetRacks()
+	var zone string
+	for _, rack := range racks {
+		if rack.Name == rackName {
+			zone = rack.Zone
+		}
+	}
+
 	dseConfigVolumeMount := corev1.VolumeMount{
 		Name:      "dse-config",
 		MountPath: "/config",
@@ -189,56 +197,9 @@ func newStatefulSetForDseDatacenter(
 					Labels: labels,
 				},
 				Spec: corev1.PodSpec{
-					// Keep the pods of a statefulset within the same zone but off the same node. We don't want multiple pods
-					// on the same node just in case something goes wrong but we do want to contain all pods within a statefulset
-					// to the same zone to limit the need for cross zone communication.
 					Affinity: &corev1.Affinity{
-						PodAffinity: &corev1.PodAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
-								Weight: 100,
-								PodAffinityTerm: corev1.PodAffinityTerm{
-									LabelSelector: &metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											datastaxv1alpha1.RackLabel:       rackName,
-											datastaxv1alpha1.DatacenterLabel: dseDatacenter.Name,
-											datastaxv1alpha1.ClusterLabel:    dseDatacenter.Spec.DseClusterName,
-										},
-									},
-									TopologyKey: "failure-domain.beta.kubernetes.io/zone",
-								},
-							}},
-						},
-						PodAntiAffinity: &corev1.PodAntiAffinity{
-							PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
-								{
-									Weight: 100,
-									PodAffinityTerm: corev1.PodAffinityTerm{
-										LabelSelector: &metav1.LabelSelector{
-											MatchLabels: map[string]string{
-												datastaxv1alpha1.RackLabel:       rackName,
-												datastaxv1alpha1.DatacenterLabel: dseDatacenter.Name,
-												datastaxv1alpha1.ClusterLabel:    dseDatacenter.Spec.DseClusterName,
-											},
-										},
-										TopologyKey: "kubernetes.io/hostname",
-									},
-								},
-								{
-									Weight: 100,
-									PodAffinityTerm: corev1.PodAffinityTerm{
-										LabelSelector: &metav1.LabelSelector{
-											MatchExpressions: []metav1.LabelSelectorRequirement{
-												{
-													Key:      datastaxv1alpha1.RackLabel,
-													Operator: metav1.LabelSelectorOpNotIn,
-													Values:   []string{rackName},
-												},
-											},
-										},
-										TopologyKey: "failure-domain.beta.kubernetes.io/zone",
-									},
-								}},
-						},
+						NodeAffinity:    calculateNodeAffinity(zone),
+						PodAntiAffinity: calculatePodAntiAffinity(dseDatacenter.Spec.AllowMultipleNodesPerWorker),
 					},
 					// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
 					SecurityContext: &corev1.PodSecurityContext{
@@ -395,4 +356,56 @@ func addOperatorProgressLabel(
 	}
 
 	return nil
+}
+
+// calculateNodeAffinity provides a way to pin all pods within a statefulset to the same zone
+func calculateNodeAffinity(zone string) *corev1.NodeAffinity {
+	if zone == "" {
+		return nil
+	}
+	return &corev1.NodeAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+			NodeSelectorTerms: []corev1.NodeSelectorTerm{
+				{
+					MatchExpressions: []corev1.NodeSelectorRequirement{
+						{
+							Key:      "failure-domain.beta.kubernetes.io/zone",
+							Operator: corev1.NodeSelectorOpIn,
+							Values:   []string{zone},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+// calculatePodAntiAffinity provides a way to keep the dse pods of a statefulset away from other dse pods
+func calculatePodAntiAffinity(allowMultipleNodesPerWorker bool) *corev1.PodAntiAffinity {
+	if allowMultipleNodesPerWorker {
+		return nil
+	}
+	return &corev1.PodAntiAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: []corev1.PodAffinityTerm{
+			{
+				LabelSelector: &metav1.LabelSelector{
+					MatchExpressions: []metav1.LabelSelectorRequirement{
+						{
+							Key:      datastaxv1alpha1.ClusterLabel,
+							Operator: metav1.LabelSelectorOpExists,
+						},
+						{
+							Key:      datastaxv1alpha1.DatacenterLabel,
+							Operator: metav1.LabelSelectorOpExists,
+						},
+						{
+							Key:      datastaxv1alpha1.RackLabel,
+							Operator: metav1.LabelSelectorOpExists,
+						},
+					},
+				},
+				TopologyKey: "kubernetes.io/hostname",
+			},
+		},
+	}
 }

@@ -88,6 +88,10 @@ type DseDatacenterSpec struct {
 	// Indicates DSE configuration and container image changes should only be pushed to
 	// the first rack of the datacenter
 	CanaryUpgrade bool `json:"canaryUpgrade,omitempty"`
+	// Turning this option on allows multiple DSE pods to be created on a k8s worker node.
+	// By default the operator creates just one DSE pod per k8s worker node using k8s
+	// podAntiAffinity and requiredDuringSchedulingIgnoredDuringExecution.
+	AllowMultipleNodesPerWorker bool `json:"allowMultipleNodesPerWorker,omitempty"`
 }
 
 // GetRacks is a getter for the DseRack slice in the spec
@@ -107,6 +111,8 @@ func (s *DseDatacenterSpec) GetRacks() []DseRack {
 type DseRack struct {
 	// The rack name
 	Name string `json:"name"`
+	// Zone name to pin the rack, using node affinity
+	Zone string `json:"zone,omitempty"`
 }
 
 // DseStorageClaim ...

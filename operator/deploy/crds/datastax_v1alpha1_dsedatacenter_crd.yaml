@@ -27,6 +27,15 @@ spec:
           type: object
         spec:
           properties:
+            allowMultipleNodesPerWorker:
+              description: Turning this option on allows multiple DSE pods to be created
+                on a k8s worker node. By default the operator creates just one DSE
+                pod per k8s worker node using k8s podAntiAffinity and requiredDuringSchedulingIgnoredDuringExecution.
+              type: boolean
+            canaryUpgrade:
+              description: Indicates DSE configuration and container image changes
+                should only be pushed to the first rack of the datacenter
+              type: boolean
             configBuilderImage:
               description: Container image for the DSE config builder init container,
                 with host, path, and tag
@@ -52,6 +61,9 @@ spec:
                 properties:
                   name:
                     description: The rack name
+                    type: string
+                  zone:
+                    description: Zone name to pin the rack, using node affinity
                     type: string
                 required:
                 - name
