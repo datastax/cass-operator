@@ -3,7 +3,9 @@ kind: DseDatacenter
 metadata:
   name: dtcntr
 spec:
-  clusterName: clstr
+  dseClusterName: clstr
+  dseImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-KO-14-dns-with-management-apis-20190809231145-b303270
+  dseVersion: 6.8.0
   size: 2
   resources:
     requests:
@@ -21,7 +23,3 @@ spec:
     cassandra-yaml:
       authenticator: AllowAllAuthenticator
       batch_size_fail_threshold_in_kb: 1280
-  repository: datastax-docker.jfrog.io/datastax/dse-server
-  # we will want to update this once the management api branch has the
-  # KO-14 changes
-  version: 6.8.0-KO-14-dns-with-management-apis-20190809231145-b303270

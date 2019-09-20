@@ -122,7 +122,7 @@ func newStatefulSetForDseDatacenter(
 
 	replicaCountInt32 := int32(replicaCount)
 	labels := dseDatacenter.GetRackLabels(rackName)
-	dseVersion := dseDatacenter.GetDseVersion()
+	dseVersion := dseDatacenter.Spec.DseVersion
 	var userID int64 = 999
 	var volumeCaimTemplates []corev1.PersistentVolumeClaim
 	var dseVolumeMounts []corev1.VolumeMount
@@ -172,6 +172,10 @@ func newStatefulSetForDseDatacenter(
 	}
 
 	ports, err := dseDatacenter.GetContainerPorts()
+	if err != nil {
+		return nil, err
+	}
+	dseImage, err := dseDatacenter.GetServerImage()
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +256,7 @@ func newStatefulSetForDseDatacenter(
 					Containers: []corev1.Container{{
 						// TODO FIXME
 						Name:      "dse",
-						Image:     dseDatacenter.GetServerImage(),
+						Image:     dseImage,
 						Resources: dseDatacenter.Spec.Resources,
 						Env: []corev1.EnvVar{
 							{

@@ -10,94 +10,126 @@ import (
 )
 
 func Test_makeImage(t *testing.T) {
-	type args struct {
-		repo    string
-		version string
-	}
-	tests := []struct {
-		name string
-		args args
-		want string
-	}{
-		{
-			name: "test empty inputs",
-			args: args{
-				repo:    "",
-				version: "",
-			},
-			want: "datastaxlabs/dse-k8s-server:6.8.0-20190822",
-		},
-		{
-			name: "test different public version",
-			args: args{
-				repo:    "",
-				version: "6.8",
-			},
-			want: "datastaxlabs/dse-k8s-server:6.8",
-		},
-		{
-			name: "test private repo server",
-			args: args{
-				repo:    "datastax.jfrog.io/secret-debug-image/dse-server",
-				version: "",
-			},
-			want: "datastax.jfrog.io/secret-debug-image/dse-server:6.8.0-20190822",
-		},
-		{
-			name: "test fully custom params",
-			args: args{
-				repo:    "jfrog.io:6789/dse-server-team/dse-server",
-				version: "master.20190605.123abc",
-			},
-			want: "jfrog.io:6789/dse-server-team/dse-server:master.20190605.123abc",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := makeImage(tt.args.repo, tt.args.version); got != tt.want {
-				t.Errorf("makeImage() = %v, want %v", got, tt.want)
+        type args struct {
+                dseImage   string
+                dseVersion string
+        }
+        tests := []struct {
+                name string
+                args args
+                want string
+		errString string
+        }{
+                {
+                        name: "test empty image",
+                        args: args{
+                                dseImage:    "",
+                                dseVersion: "6.8.0",
+                        },
+                        want: "datastaxlabs/dse-k8s-server:6.8.0-20190822",
+			errString: "",
+                },
+                {
+                        name: "test private repo server",
+                        args: args{
+                                dseImage:   "datastax.jfrog.io/secret-debug-image/dse-server:6.8.0-test123",
+                                dseVersion: "6.8.0",
+                        },
+                        want: "datastax.jfrog.io/secret-debug-image/dse-server:6.8.0-test123",
+			errString: "",
+                },
+                {
+                        name: "test unknown version",
+                        args: args{
+                                dseImage:    "",
+                                dseVersion: "6.7.0",
+                        },
+                        want: "",
+			errString: "The specified DSE version 6.7.0 does not map to a known container image.",
+                },
+        }
+        for _, tt := range tests {
+                t.Run(tt.name, func(t *testing.T) {
+                        got, err := makeImage(tt.args.dseVersion, tt.args.dseImage)
+			if got != tt.want {
+                                t.Errorf("makeImage() = %v, want %v", got, tt.want)
 			}
-		})
-	}
+			if err == nil {
+				if tt.errString != "" {
+					t.Errorf("makeImage() err = %v, want %v", err, tt.errString)
+				}
+			} else {
+				if err.Error() != tt.errString {
+					t.Errorf("makeImage() err = %v, want %v", err, tt.errString)
+				}
+			}
+                })
+        }
 }
 
 func TestDseDatacenter_GetServerImage(t *testing.T) {
-	type fields struct {
-		TypeMeta   metav1.TypeMeta
-		ObjectMeta metav1.ObjectMeta
-		Spec       DseDatacenterSpec
-		Status     DseDatacenterStatus
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   string
-	}{
-		{
-			name: "simple test",
-			fields: fields{
-				Spec: DseDatacenterSpec{
-					Repository: "jfrog.io:6789/dse-server-team/dse-server",
-					Version:    "master.20190605.123abc",
-				},
-			},
-			want: "jfrog.io:6789/dse-server-team/dse-server:master.20190605.123abc",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dc := &DseDatacenter{
-				TypeMeta:   tt.fields.TypeMeta,
-				ObjectMeta: tt.fields.ObjectMeta,
-				Spec:       tt.fields.Spec,
-				Status:     tt.fields.Status,
+        type fields struct {
+                TypeMeta   metav1.TypeMeta
+                ObjectMeta metav1.ObjectMeta
+                Spec       DseDatacenterSpec
+
+               Status     DseDatacenterStatus
+        }
+        tests := []struct {
+                name      string
+                fields    fields
+                want      string
+		errString string
+        }{
+                {
+                        name: "explicit DSE image specified",
+                        fields: fields{
+                                Spec: DseDatacenterSpec{
+                                        DseImage:   "jfrog.io:6789/dse-server-team/dse-server:6.8.0-123",
+                                        DseVersion: "6.8.0",
+                                },
+                        },
+                        want: "jfrog.io:6789/dse-server-team/dse-server:6.8.0-123",
+			errString: "",
+                },
+                {
+                        name: "invalid version specified",
+                        fields: fields{
+                                Spec: DseDatacenterSpec{
+                                        DseImage:   "",
+                                        DseVersion: "9000",
+                                },
+                        },
+                        want: "",
+			errString: "The specified DSE version 9000 does not map to a known container image.",
+                },
+        }
+        for _, tt := range tests {
+                t.Run(tt.name, func(t *testing.T) {
+                        dc := &DseDatacenter{
+                                TypeMeta:   tt.fields.TypeMeta,
+                                ObjectMeta: tt.fields.ObjectMeta,
+                                Spec:       tt.fields.Spec,
+                                Status:     tt.fields.Status,
+                        }
+                        got, err := dc.GetServerImage()
+			if got != tt.want {
+                                t.Errorf("DseDatacenter.GetServerImage() = %v, want %v", got, tt.want)
 			}
-			if got := dc.GetServerImage(); got != tt.want {
-				t.Errorf("DseDatacenter.GetServerImage() = %v, want %v", got, tt.want)
+			if err == nil {
+				if tt.errString != "" {
+					t.Errorf("DseDatacenter.GetServerImage() err = %v, want %v", err, tt.errString)
+				}
+			} else {
+				if err.Error() != tt.errString {
+					t.Errorf("DseDatacenter.GetServerImage() err = %v, want %v", err, tt.errString)
+				}
 			}
-		})
-	}
-}
+
+
+                })
+        }
+ }
 
 func TestDseDatacenter_GetSeedList(t *testing.T) {
 	type fields struct {
@@ -251,41 +283,6 @@ func TestDseDatacenter_GetSeedList(t *testing.T) {
 	}
 }
 
-func TestDseDatacenterSpec_GetDseVersion(t *testing.T) {
-	tests := []struct {
-		name        string
-		fullVersion string
-		want        string
-	}{
-		{
-			name:        "A development version",
-			fullVersion: "6.8.0-DSP-18785-management-api-20190624102615-180cc39",
-			want:        "6.8.0",
-		},
-		{
-			name:        "A normal version",
-			fullVersion: "6.8.0-1",
-			want:        "6.8.0",
-		},
-		{
-			name:        "A version without a dash suffix",
-			fullVersion: "4.8.0",
-			want:        "4.8.0",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			s := &DseDatacenter{
-				Spec: DseDatacenterSpec{
-					Version: tt.fullVersion,
-				},
-			}
-			if got := s.GetDseVersion(); got != tt.want {
-				t.Errorf("DseDatacenterSpec.GetDseVersion() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
 func Test_GenerateBaseConfigString(t *testing.T) {
 	tests := []struct {

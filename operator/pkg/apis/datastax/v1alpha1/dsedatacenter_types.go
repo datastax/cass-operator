@@ -3,7 +3,6 @@ package v1alpha1
 import (
 	"encoding/json"
 	"fmt"
-	"regexp"
 
 	"github.com/Jeffail/gabs"
 	"github.com/pkg/errors"
@@ -36,6 +35,19 @@ const (
 	DseOperatorProgressLabel = "com.datastax.dse.operator.progress"
 )
 
+// getDseImageFromVersion tries to look up a known DSE image
+// from a DSE version number.
+//
+// In the event that no image is found, an error is returned
+func getDseImageFromVersion(version string) (string, error) {
+	switch version {
+	case "6.8.0":
+		return "datastaxlabs/dse-k8s-server:6.8.0-20190822", nil
+	}
+	msg := fmt.Sprintf("The specified DSE version %s does not map to a known container image.", version)
+	return "", errors.New(msg)
+}
+
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
@@ -61,10 +73,11 @@ const (
 type DseDatacenterSpec struct {
 	// Desired number of DSE server nodes
 	Size int32 `json:"size"`
-	// DSE container image tag
-	Version string `json:"version,omitempty"`
-	// DSE container image repository, with host and path
-	Repository string `json:"repository,omitempty"`
+	// DSE version number
+	DseVersion string `json:"dseVersion"`
+	// DSE container image name.
+	// More info: https://kubernetes.io/docs/concepts/containers/images
+	DseImage string `json:"dseImage,omitempty"`
 	// Config for DSE, in YAML format
 	Config json.RawMessage `json:"config,omitempty"`
 	// Kubernetes resource requests and limits, per DSE pod
@@ -184,12 +197,6 @@ func init() {
 	SchemeBuilder.Register(&DseDatacenter{}, &DseDatacenterList{})
 }
 
-// GetServerImage combines the Repository and Version into a fully qualified image to pull
-// If they aren't specified the default is datastax/dse-server:6.7.3 from docker hub
-func (dc *DseDatacenter) GetServerImage() string {
-	return makeImage(dc.Spec.Repository, dc.Spec.Version)
-}
-
 func (dc *DseDatacenter) GetConfigBuilderImage() string {
 	if dc.Spec.ConfigBuilderImage == "" {
 		return defaultConfigBuilderImage
@@ -197,34 +204,28 @@ func (dc *DseDatacenter) GetConfigBuilderImage() string {
 	return dc.Spec.ConfigBuilderImage
 }
 
-// GetDseVersion returns a simple string version of the DSE version.
-// Example:
-//   If the Spec.Version is:    6.8.0-DSP-18785-management-api-20190624102615-180cc39
-//   GetDseVersion will return: 6.8.0
-func (dc *DseDatacenter) GetDseVersion() string {
-	// Match from the start of the string until the first dash
-	re := regexp.MustCompile(`^([^-]+)`)
-
-	version := dc.Spec.Version
-	if version == "" {
-		version = defaultDseVersion
-	}
-	return re.FindString(version)
+// GetServerImage produces a fully qualified container image to pull
+// based on either the DSE version, or an explicitly specified DSE image
+//
+// In the event that no valid image could be retrieved from the specified DSE version,
+// an error is returned.
+func (dc *DseDatacenter) GetServerImage() (string, error) {
+	return makeImage(dc.Spec.DseVersion, dc.Spec.DseImage)
 }
 
-// makeImage takes the repository and version information from the spec, and returns DSE docker image
-// repo should be an empty string, or [hostname[:port]/][path/with/repo]
-// if repo is empty we use "datastax/dse-server" as a default
-// version should be a tag on the image path pointed to by the repo
-// if version is empty we use "6.7.3" as a default
-func makeImage(repo, version string) string {
-	if repo == "" {
-		repo = defaultDseRepository
+// makeImage takes the DSE version and DSE image information from the spec,
+// and returns a fully qualified DSE container image
+//
+// dseVersion should be a semver-like string
+// dseImage should be an empty string, or [hostname[:port]/][path/with/repo]:[DSE container img tag]
+//
+// If dseImage is empty, we attempt to find an appropriate container image based on the dseVersion
+// In the event that no image is found, an error is returned
+func makeImage(dseVersion, dseImage string) (string, error) {
+	if dseImage == "" {
+		return getDseImageFromVersion(dseVersion)
 	}
-	if version == "" {
-		version = defaultDseVersion
-	}
-	return repo + ":" + version
+	return dseImage, nil
 }
 
 // GetRackLabels ...

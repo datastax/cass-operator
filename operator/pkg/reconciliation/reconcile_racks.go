@@ -143,12 +143,18 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 			return &res, err
 		}
 
-		updatePodSpec := shouldUpdatePodSpec(r.ReconcileContext.DseDatacenter, statefulSet, currentConfig, desiredConfig)
+		desiredDseImage, err := r.ReconcileContext.DseDatacenter.GetServerImage()
+		if err != nil {
+			r.ReconcileContext.ReqLogger.Error(err, "Unable to retrieve DSE container image")
+			res := reconcile.Result{Requeue: false}
+			return &res, err
+		}
+
+		updatePodSpec := shouldUpdatePodSpec(r.ReconcileContext.DseDatacenter, statefulSet, currentConfig, desiredConfig, desiredDseImage)
 
 		if updatePodSpec {
 			// TODO double check that index zero is the right container
 			currentDseImage := statefulSet.Spec.Template.Spec.Containers[0].Image
-			desiredDseImage := r.ReconcileContext.DseDatacenter.GetServerImage()
 
 			// TODO double check that index zero is the right container
 			currentConfigBuilderImage := statefulSet.Spec.Template.Spec.InitContainers[0].Image
@@ -841,11 +847,11 @@ func shouldUpdatePodSpec(
 	dseDatacenter *datastaxv1alpha1.DseDatacenter,
 	statefulSet *appsv1.StatefulSet,
 	currentConfig string,
-	desiredConfig string) bool {
+	desiredConfig string,
+	desiredDseImage string) bool {
 
 	// TODO double check that index zero is the right container
 	currentDseImage := statefulSet.Spec.Template.Spec.Containers[0].Image
-	desiredDseImage := dseDatacenter.GetServerImage()
 
 	// TODO double check that index zero is the right container
 	currentConfigBuilderImage := statefulSet.Spec.Template.Spec.InitContainers[0].Image

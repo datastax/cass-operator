@@ -62,6 +62,7 @@ func CreateMockReconciliationContext(
 		Spec: datastaxv1alpha1.DseDatacenterSpec{
 			Size:           size,
 			DseClusterName: clusterName,
+			DseVersion: "6.8.0",
 		},
 	}
 

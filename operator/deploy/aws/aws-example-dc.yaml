@@ -3,7 +3,9 @@ kind: DseDatacenter
 metadata:
   name: example-dsedatacenter
 spec:
-  clusterName: example-cluster
+  dseClusterName: example-cluster
+  dseImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-KO-14-dns-with-management-apis-20190809231145-b303270
+  dseVersion: 6.8.0
   size: 3
   storageclaim:
     storageclassname: gp2
@@ -18,5 +20,3 @@ spec:
     cassandra-yaml:
       authenticator: AllowAllAuthenticator
       batch_size_fail_threshold_in_kb: 1280
-  repository: datastax-docker.jfrog.io/datastax/dse-server
-  version: 6.8.0-KO-14-dns-with-management-apis-20190809231145-b303270

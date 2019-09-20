@@ -2,7 +2,6 @@ module github.com/riptano/dse-operator/operator
 
 require (
 	github.com/Jeffail/gabs v1.4.0
-	github.com/NYTimes/gziphandler v1.0.1 // indirect
 	github.com/go-logr/logr v0.1.0
 	github.com/google/uuid v1.1.1
 	github.com/operator-framework/operator-sdk v0.9.1-0.20190722205349-ce367cbcb726

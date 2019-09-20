@@ -73,16 +73,16 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 							Format:      "int32",
 						},
 					},
-					"version": {
+					"dseVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DSE container image tag",
+							Description: "DSE version number",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
-					"repository": {
+					"dseImage": {
 						SchemaProps: spec.SchemaProps{
-							Description: "DSE container image repository, with host and path",
+							Description: "DSE container image name. More info: https://kubernetes.io/docs/concepts/containers/images",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -155,7 +155,7 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 						},
 					},
 				},
-				Required: []string{"size", "dseClusterName"},
+				Required: []string{"size", "dseVersion", "dseClusterName"},
 			},
 		},
 		Dependencies: []string{
