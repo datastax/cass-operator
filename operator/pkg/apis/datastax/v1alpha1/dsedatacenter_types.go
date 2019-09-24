@@ -33,6 +33,9 @@ const (
 
 	// RackLabel is the DSE operator's label for the DSE rack name
 	DseOperatorProgressLabel = "com.datastax.dse.operator.progress"
+
+	// DseNodeState
+	DseNodeState = "com.datastax.dse.node.state"
 )
 
 // getDseImageFromVersion tries to look up a known DSE image
@@ -153,35 +156,6 @@ type DseDatacenter struct {
 
 	Spec   DseDatacenterSpec   `json:"spec,omitempty"`
 	Status DseDatacenterStatus `json:"status,omitempty"`
-}
-
-// GetSeedList will create a list of seed nodes to satisfy the conditions of
-// 1. Assign one seed for each datacenter / rack combination
-// 2. Then ensure that each Datacenter has at least 2 seeds
-//
-// In the event that no seeds are found, an empty list will be returned.
-func (dc *DseDatacenter) GetSeedList() []string {
-	var seeds []string
-	nodeServicePattern := "%s-%s-%s-sts-%d.%s-%s-service.%s.svc.cluster.local" // e.g. "example-cluster-example-dsedatacenter-default-sts-0.example-cluster-example-dsedatacenter-service.default.svc.cluster.local"
-
-	if dc.Spec.Size == 0 {
-		return []string{}
-	}
-
-	for _, dseRack := range dc.Spec.GetRacks() {
-		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, dc.Spec.DseClusterName, dc.Name, dseRack.Name, 0, dc.Spec.DseClusterName, dc.Name, dc.Namespace))
-	}
-
-	// ensure that each Datacenter has at least 2 seeds
-	if len(dc.Spec.GetRacks()) == 1 && dc.Spec.Size > 1 {
-		seeds = append(seeds, fmt.Sprintf(nodeServicePattern, dc.Spec.DseClusterName, dc.Name, dc.Spec.GetRacks()[0].Name, 1, dc.Spec.DseClusterName, dc.Name, dc.Namespace))
-	}
-
-	if seeds == nil {
-		return []string{}
-	}
-
-	return seeds
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

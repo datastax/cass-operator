@@ -195,7 +195,7 @@ func newStatefulSetForDseDatacenter(
 			},
 			Replicas:            &replicaCountInt32,
 			ServiceName:         dseDatacenter.Spec.DseClusterName + "-" + dseDatacenter.Name + "-service",
-			PodManagementPolicy: appsv1.OrderedReadyPodManagement,
+			PodManagementPolicy: appsv1.ParallelPodManagement,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: labels,
@@ -266,6 +266,14 @@ func newStatefulSetForDseDatacenter(
 							{
 								Name:  "DSE_AUTO_CONF_OFF",
 								Value: "all",
+							},
+							{
+								Name:  "USE_MGMT_API",
+								Value: "true",
+							},
+							{
+								Name:  "DSE_MGMT_EXPLICIT_START",
+								Value: "true",
 							},
 						},
 						Ports: ports,

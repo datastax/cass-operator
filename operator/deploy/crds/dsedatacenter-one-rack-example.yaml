@@ -4,7 +4,7 @@ metadata:
   name: dtcntr
 spec:
   dseClusterName: clstr
-  dseImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-KO-14-dns-with-management-apis-20190809231145-b303270
+  dseImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-master-20190923204409-d9e0344
   dseVersion: 6.8.0
   size: 2
   resources:

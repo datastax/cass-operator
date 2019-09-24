@@ -4,7 +4,7 @@ metadata:
   name: dtcntr
 spec:
   dseClusterName: clstr
-  dseImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-DSP-18785-management-api-20190722175849-6c130dc
+  dseImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-master-20190923204409-d9e0344
   dseVersion: 6.8.0
   size: 2
   storageClaim:

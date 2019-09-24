@@ -50,7 +50,8 @@ func CallNodeMgmtEndpoint(logger logr.Logger, request NodeMgmtRequest) error {
 		return err
 	}
 
-	if res.StatusCode != http.StatusOK {
+	goodStatus := res.StatusCode >= 200 && res.StatusCode < 300
+	if !goodStatus {
 		logger.Info("incorrect status code when calling DSE Node Management Endpoint",
 			"statusCode", res.StatusCode,
 			"pod", request.Host)

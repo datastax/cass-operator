@@ -83,10 +83,11 @@ func refreshSeeds(rc *dsereconciliation.ReconciliationContext, client httphelper
 
 	selector := map[string]string{
 		datastaxv1alpha1.ClusterLabel: rc.DseDatacenter.Spec.DseClusterName,
+		datastaxv1alpha1.DseNodeState: "Started",
 	}
 	podList, err := listPods(rc, selector)
 	if err != nil {
-		rc.ReqLogger.Error(err, "No pods found for DseDatacenter")
+		rc.ReqLogger.Error(err, "No started pods found for DseDatacenter")
 		return err
 	}
 
