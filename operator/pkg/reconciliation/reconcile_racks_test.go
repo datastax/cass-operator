@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
@@ -879,6 +880,7 @@ func makeMockReadyStartedPod() *corev1.Pod {
 	pod.Labels = make(map[string]string)
 	pod.Labels[datastaxv1alpha1.DseNodeState] = "Started"
 	pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
+		Name:  "dse",
 		Ready: true,
 	}}
 	return pod
@@ -943,10 +945,96 @@ func TestReconcileRacks_countReadyAndStarted(t *testing.T) {
 			}
 			ready, started := r.countReadyAndStarted(tt.args.podList)
 			if ready != tt.wantReady {
-				t.Errorf("ReconcileRacks.countReadyAndStarted() got = %v, want %v", ready, tt.wantReady)
+				t.Errorf("ReconcileRacks.countReadyAndStarted() ready = %v, want %v", ready, tt.wantReady)
 			}
 			if started != tt.wantStarted {
-				t.Errorf("ReconcileRacks.countReadyAndStarted() got1 = %v, want %v", started, tt.wantStarted)
+				t.Errorf("ReconcileRacks.countReadyAndStarted() started = %v, want %v", started, tt.wantStarted)
+			}
+		})
+	}
+}
+
+func Test_isDseReady(t *testing.T) {
+	type args struct {
+		pod *corev1.Pod
+	}
+	podThatHasNoDse := makeMockReadyStartedPod()
+	podThatHasNoDse.Status.ContainerStatuses[0].Name = "nginx"
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "check a ready dse pod",
+			args: args{
+				pod: makeMockReadyStartedPod(),
+			},
+			want: true,
+		},
+		{
+			name: "check a ready non-dse pod",
+			args: args{
+				pod: podThatHasNoDse,
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isDseReady(tt.args.pod); got != tt.want {
+				t.Errorf("isDseReady() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_isMgmtApiRunning(t *testing.T) {
+	type args struct {
+		pod *corev1.Pod
+	}
+	readyDseContainer := makeMockReadyStartedPod()
+	readyDseContainer.Status.ContainerStatuses[0].State.Running =
+		&corev1.ContainerStateRunning{StartedAt: metav1.Date(2019, time.July, 4, 12, 12, 12, 0, time.UTC)}
+
+	veryFreshDseContainer := makeMockReadyStartedPod()
+	veryFreshDseContainer.Status.ContainerStatuses[0].State.Running =
+		&corev1.ContainerStateRunning{StartedAt: metav1.Now()}
+
+	podThatHasNoDse := makeMockReadyStartedPod()
+	podThatHasNoDse.Status.ContainerStatuses[0].Name = "nginx"
+
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "check a ready dse pod",
+			args: args{
+				pod: readyDseContainer,
+			},
+			want: true,
+		},
+		{
+			name: "check a ready dse pod that started as recently as possible",
+			args: args{
+				pod: veryFreshDseContainer,
+			},
+			want: false,
+		},
+		{
+			name: "check a ready dse pod that started as recently as possible",
+			args: args{
+				pod: podThatHasNoDse,
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isMgmtApiRunning(tt.args.pod); got != tt.want {
+				t.Errorf("isMgmtApiRunning() = %v, want %v", got, tt.want)
 			}
 		})
 	}

@@ -30,6 +30,7 @@ func CallNodeMgmtEndpoint(logger logr.Logger, request NodeMgmtRequest) error {
 		logger.Error(err, "unable to create request for DSE Node Management Endpoint")
 		return err
 	}
+	req.Close = true
 
 	res, err := request.Client.Do(req)
 	if err != nil {

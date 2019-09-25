@@ -310,11 +310,16 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 		return nil, nil
 	}
 
-	var err error
+	// all errors in this function we're going to treat as likely ephemeral problems that would resolve
+	// so we use ResultShouldRequeueSoon to check again soon
+
+	// successes where we want to end this reconcile loop, we generally also want to wait a bit
+	// because stuff is happening concurrently in k8s (getting pods from pending to running)
+	// or dse (getting a node bootstrapped and ready), so we use ResultShouldRequeueSoon to try again soon
 
 	podList, err := listPods(r.ReconcileContext, r.ReconcileContext.DseDatacenter.GetDatacenterLabels())
 	if err != nil {
-		return &ResultShouldNotRequeue, err
+		return &ResultShouldRequeueSoon, err
 	}
 
 	// step 1 - see if any nodes are already coming up
@@ -322,7 +327,7 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 	nodeIsStarting, err := r.findStartingNodes(podList)
 
 	if err != nil {
-		return &ResultShouldNotRequeue, nil
+		return &ResultShouldRequeueSoon, err
 	}
 	if nodeIsStarting {
 		return &ResultShouldRequeueSoon, nil
@@ -333,7 +338,7 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 	rackWaitingForASeed, err := r.startOneSeedPerRack()
 
 	if err != nil {
-		return &ResultShouldNotRequeue, nil
+		return &ResultShouldRequeueSoon, err
 	}
 	if rackWaitingForASeed != "" {
 		return &ResultShouldRequeueSoon, nil
@@ -349,11 +354,11 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 		return &ResultShouldRequeueSoon, nil
 	}
 
-	nodeIsStarting, err = r.startAllNodes(podList)
+	needsMoreNodes, err := r.startAllNodes(podList)
 	if err != nil {
-		return &ResultShouldNotRequeue, nil
+		return &ResultShouldRequeueSoon, err
 	}
-	if nodeIsStarting {
+	if needsMoreNodes {
 		return &ResultShouldRequeueSoon, nil
 	}
 
@@ -365,7 +370,8 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 	if desiredSize == readyPodCount && desiredSize == startedLabelCount {
 		return nil, nil
 	} else {
-		return &ResultShouldNotRequeue, fmt.Errorf("sanity checks failed desired:%d, ready:%d, started:%d", desiredSize, readyPodCount, startedLabelCount)
+		err := fmt.Errorf("sanity checks failed desired:%d, ready:%d, started:%d", desiredSize, readyPodCount, startedLabelCount)
+		return &ResultShouldNotRequeue, err
 	}
 }
 
@@ -933,18 +939,20 @@ func (r *ReconcileRacks) labelDsePodStarted(pod *corev1.Pod) error {
 func (r *ReconcileRacks) callNodeManagementStart(pod *corev1.Pod) error {
 	rc := r.ReconcileContext
 
-	rc.ReqLogger.Info(
-		"calling /api/v0/lifecycle/start on DSE Node Management API",
-		"pod", pod.Name)
-
 	// talk to the pod via IP because we are dialing up a pod that isn't ready,
 	// so it won't be reachable via the service and pod DNS
 	podIP := pod.Status.PodIP
 
+	rc.ReqLogger.Info(
+		"calling /api/v0/lifecycle/start on DSE Node Management API",
+		"pod", pod.Name,
+		"podIP", podIP,
+	)
+
 	request := httphelper.NodeMgmtRequest{
 		Endpoint: "/api/v0/lifecycle/start",
 		Host:     podIP,
-		Client:   http.DefaultClient,
+		Client:   &http.Client{Timeout: time.Second * 10},
 		Method:   http.MethodPost,
 	}
 
@@ -954,18 +962,23 @@ func (r *ReconcileRacks) callNodeManagementStart(pod *corev1.Pod) error {
 }
 
 func (r *ReconcileRacks) findStartingNodes(podList *corev1.PodList) (bool, error) {
+	r.ReconcileContext.ReqLogger.Info("reconcile_racks::findStartingNodes")
+
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
 		if pod.Labels[datastaxv1alpha1.DseNodeState] == "Starting" {
-			statuses := pod.Status.ContainerStatuses
-			if len(statuses) > 0 && statuses[0].Ready {
+			if isDseReady(pod) {
 				if err := r.labelDsePodStarted(pod); err != nil {
 					return false, err
 				}
 			} else {
-				if err := r.callNodeManagementStart(pod); err != nil {
-					return false, err
-				}
+				// TODO Calling start again on the pod seemed like a good defensive practice
+				// TODO but was making problems w/ overloading management API
+				// TODO Use a label to hold state and request starting no more than once per minute?
+
+				// if err := r.callNodeManagementStart(pod); err != nil {
+				// 	return false, err
+				// }
 				return true, nil
 			}
 		}
@@ -973,7 +986,10 @@ func (r *ReconcileRacks) findStartingNodes(podList *corev1.PodList) (bool, error
 	return false, nil
 }
 
+// returns the name of one rack without any ready seed node
 func (r *ReconcileRacks) startOneSeedPerRack() (string, error) {
+	r.ReconcileContext.ReqLogger.Info("reconcile_racks::startOneSeedPerRack")
+
 	seedNodeSelector := r.ReconcileContext.DseDatacenter.GetDatacenterLabels()
 	seedNodeSelector[datastaxv1alpha1.SeedNodeLabel] = "true"
 	seedPodList, err := listPods(r.ReconcileContext, seedNodeSelector)
@@ -988,15 +1004,15 @@ func (r *ReconcileRacks) startOneSeedPerRack() (string, error) {
 
 	for idx := range seedPodList.Items {
 		pod := &seedPodList.Items[idx]
-		statuses := pod.Status.ContainerStatuses
 		rackName := pod.Labels[datastaxv1alpha1.RackLabel]
-		if len(statuses) > 0 && statuses[0].Ready {
+
+		if isDseReady(pod) {
 			rackReadySeedCount[rackName]++
-		} else {
-			if err = r.labelDsePodStarting(pod); err != nil {
+		} else if isMgmtApiRunning(pod) {
+			if err = r.callNodeManagementStart(pod); err != nil {
 				return "", err
 			}
-			if err = r.callNodeManagementStart(pod); err != nil {
+			if err = r.labelDsePodStarting(pod); err != nil {
 				return "", err
 			}
 			return rackName, nil
@@ -1017,20 +1033,36 @@ func (r *ReconcileRacks) startOneSeedPerRack() (string, error) {
 	return "", nil
 }
 
+// returns whether one or more DSE nodes is not running or ready
 func (r *ReconcileRacks) startAllNodes(podList *corev1.PodList) (bool, error) {
+	r.ReconcileContext.ReqLogger.Info("reconcile_racks::startAllNodes")
+
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
-		statuses := pod.Status.ContainerStatuses
-		if len(statuses) > 0 && !statuses[0].Ready {
-			if err := r.labelDsePodStarting(pod); err != nil {
+		if isMgmtApiRunning(pod) && !isDseReady(pod) {
+			if err := r.callNodeManagementStart(pod); err != nil {
 				return false, err
 			}
-			if err := r.callNodeManagementStart(pod); err != nil {
+			if err := r.labelDsePodStarting(pod); err != nil {
 				return false, err
 			}
 			return true, nil
 		}
 	}
+
+	// this extra pass only does anything when we have a combination of
+	// ready DSE pods and pods that are not running - possibly stuck pending
+	for idx := range podList.Items {
+		pod := &podList.Items[idx]
+		if !isMgmtApiRunning(pod) {
+			r.ReconcileContext.ReqLogger.Info(
+				"management api is not running on pod",
+				"pod", pod.Name,
+			)
+			return true, nil
+		}
+	}
+
 	return false, nil
 }
 
@@ -1039,8 +1071,7 @@ func (r *ReconcileRacks) countReadyAndStarted(podList *corev1.PodList) (int, int
 	started := 0
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
-		statuses := pod.Status.ContainerStatuses
-		if len(statuses) > 0 && statuses[0].Ready {
+		if isDseReady(pod) {
 			ready++
 			r.ReconcileContext.ReqLogger.Info(
 				"found a ready pod",
@@ -1061,4 +1092,34 @@ func (r *ReconcileRacks) countReadyAndStarted(podList *corev1.PodList) (int, int
 		}
 	}
 	return ready, started
+}
+
+func isMgmtApiRunning(pod *corev1.Pod) bool {
+	podStatus := pod.Status
+	statuses := podStatus.ContainerStatuses
+	for _, status := range statuses {
+		if status.Name != "dse" {
+			continue
+		}
+		state := status.State
+		runInfo := state.Running
+		if runInfo != nil {
+			// give management API ten seconds to come up
+			tenSecondsAgo := time.Now().Add(time.Second * -10)
+			return runInfo.StartedAt.Time.Before(tenSecondsAgo)
+		}
+	}
+	return false
+}
+
+func isDseReady(pod *corev1.Pod) bool {
+	status := pod.Status
+	statuses := status.ContainerStatuses
+	for _, status := range statuses {
+		if status.Name != "dse" {
+			continue
+		}
+		return status.Ready
+	}
+	return false
 }
