@@ -154,6 +154,13 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"dseSuperuserSecret": {
+						SchemaProps: spec.SchemaProps{
+							Description: "This secret defines the username and password for the DSE superuser.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"size", "dseVersion", "dseClusterName"},
 			},

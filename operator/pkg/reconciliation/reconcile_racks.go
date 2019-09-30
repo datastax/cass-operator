@@ -437,6 +437,64 @@ func (r *ReconcileRacks) CheckRackPodLabels() (*reconcile.Result, error) {
 	return nil, nil
 }
 
+func (r *ReconcileRacks) CreateSuperuser() (*reconcile.Result, error) {
+	r.ReconcileContext.ReqLogger.Info("reconcile_racks::CreateSuperuser")
+	rc := r.ReconcileContext
+
+	// Get the secret
+
+	if rc.DseDatacenter.Spec.DseSuperuserSecret == "" {
+		rc.ReqLogger.Info("dseSuperuserSecret not specified for DseDatacenter.  Skipping superuser creation.")
+		return nil, nil
+	}
+
+	secret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      rc.DseDatacenter.Spec.DseSuperuserSecret,
+			Namespace: rc.DseDatacenter.Namespace,
+		},
+	}
+	err := r.ReconcileContext.Client.Get(
+		r.ReconcileContext.Ctx,
+		types.NamespacedName{
+			Name:      rc.DseDatacenter.Spec.DseSuperuserSecret,
+			Namespace: rc.DseDatacenter.Namespace},
+		secret)
+	if err != nil {
+		rc.ReqLogger.Error(err, "error retrieving dseSuperuserSecret for DseDatacenter.")
+		return &ResultShouldNotRequeue, err
+	}
+
+	// We will call mgmt API on the first pod
+
+	selector := map[string]string{
+		datastaxv1alpha1.ClusterLabel: rc.DseDatacenter.Spec.DseClusterName,
+	}
+	podList, err := listPods(rc, selector)
+	if err != nil {
+		rc.ReqLogger.Error(err, "no pods found for DseDatacenter")
+		return &ResultShouldNotRequeue, err
+	}
+
+	pod := podList.Items[0]
+
+	err = httphelper.CallCreateRoleEndpoint(
+		r.ReconcileContext.ReqLogger,
+		pod,
+		string(secret.Data["username"]),
+		string(secret.Data["password"]))
+	if err != nil {
+		rc.ReqLogger.Error(err, "error creating superuser")
+		return &ResultShouldNotRequeue, err
+	}
+
+	return nil, nil
+}
+
 // Apply reconcileRacks determines if a rack needs to be reconciled.
 func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::Apply")
@@ -482,6 +540,11 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 	}
 
 	recResult, err = r.CheckRackPodLabels()
+	if recResult != nil || err != nil {
+		return *recResult, err
+	}
+
+	recResult, err = r.CreateSuperuser()
 	if recResult != nil || err != nil {
 		return *recResult, err
 	}

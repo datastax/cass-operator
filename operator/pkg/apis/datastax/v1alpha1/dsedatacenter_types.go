@@ -108,6 +108,8 @@ type DseDatacenterSpec struct {
 	// By default the operator creates just one DSE pod per k8s worker node using k8s
 	// podAntiAffinity and requiredDuringSchedulingIgnoredDuringExecution.
 	AllowMultipleNodesPerWorker bool `json:"allowMultipleNodesPerWorker,omitempty"`
+	// This secret defines the username and password for the DSE superuser.
+	DseSuperuserSecret string `json:"dseSuperuserSecret,omitempty"`
 }
 
 // GetRacks is a getter for the DseRack slice in the spec

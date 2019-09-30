@@ -2,10 +2,13 @@ package httphelper
 
 import (
 	"fmt"
+	"github.com/go-logr/logr"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 
-	"github.com/go-logr/logr"
+	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type NodeMgmtRequest struct {
@@ -15,10 +18,41 @@ type NodeMgmtRequest struct {
 	Method   string
 }
 
+func BuildPodHostFromPod(pod corev1.Pod) string {
+	return GetPodHost(
+		pod.Name,
+		pod.Labels[datastaxv1alpha1.ClusterLabel],
+		pod.Labels[datastaxv1alpha1.DatacenterLabel],
+		pod.Namespace)
+}
+
 func GetPodHost(podName, clusterName, dcName, namespace string) string {
 	nodeServicePattern := "%s.%s-%s-service.%s"
 
 	return fmt.Sprintf(nodeServicePattern, podName, clusterName, dcName, namespace)
+}
+
+// Create a new superuser with the given username and password
+func CallCreateRoleEndpoint(logger logr.Logger, pod corev1.Pod, username string, password string) error {
+	logger.Info("client::callCreateRoleEndpoint")
+
+	postData := url.Values{}
+	postData.Set("username", username)
+	postData.Set("password", password)
+	postData.Set("can_login", "true")
+	postData.Set("is_superuser", "true")
+
+	request := NodeMgmtRequest{
+		Endpoint: fmt.Sprintf("/api/v0/ops/auth/role?%s", postData.Encode()),
+		Host:     BuildPodHostFromPod(pod),
+		Client:   http.DefaultClient,
+		Method:   http.MethodPost,
+	}
+	if err := CallNodeMgmtEndpoint(logger, request); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func CallNodeMgmtEndpoint(logger logr.Logger, request NodeMgmtRequest) error {

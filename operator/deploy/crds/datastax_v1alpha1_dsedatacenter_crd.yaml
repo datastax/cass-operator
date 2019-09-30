@@ -49,6 +49,10 @@ spec:
             dseImage:
               description: 'DSE container image name. More info: https://kubernetes.io/docs/concepts/containers/images'
               type: string
+            dseSuperuserSecret:
+              description: This secret defines the username and password for the DSE
+                superuser.
+              type: string
             dseVersion:
               description: DSE version number
               type: string
