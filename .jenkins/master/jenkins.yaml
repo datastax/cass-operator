@@ -1,0 +1,168 @@
+jenkins:
+  agentProtocols:
+  - "JNLP4-connect"
+  - "Ping"
+  authorizationStrategy:
+    roleBased:
+      roles:
+        global:
+        - assignments:
+          - "sg-container-tooling"
+          - "sg-engops"
+          name: "admin"
+          pattern: ".*"
+          permissions:
+          - "Job/Build"
+          - "Credentials/Delete"
+          - "Agent/Configure"
+          - "Job/Read"
+          - "Credentials/Update"
+          - "Agent/Create"
+          - "Job/Delete"
+          - "Agent/Build"
+          - "View/Configure"
+          - "Agent/Provision"
+          - "Job/Create"
+          - "Job/Discover"
+          - "Credentials/View"
+          - "Agent/Connect"
+          - "Agent/Delete"
+          - "Agent/Disconnect"
+          - "Run/Delete"
+          - "Job/Cancel"
+          - "Overall/Read"
+          - "Run/Update"
+          - "Credentials/Create"
+          - "Overall/Administer"
+          - "View/Delete"
+          - "Job/Configure"
+          - "Job/Workspace"
+          - "View/Read"
+        - assignments:
+          - "anonymous"
+          name: "anonymous"
+          pattern: ".*"
+          permissions:
+          - "Overall/Read"
+  clouds:
+  - openstack:
+      # There exists a system account that can log into openstack/nebula called 'shared-openstack-container-tooling'.
+      # The Jenkins master uses this account to provision IaaS instances for dynamic runners.
+      # As a pre-requisite to applying this JCasC for the first time on a brand new Jenkins master,
+      # these credentials must also be entered manually into the Jenkins master with the id
+      # 'shared-openstack-container-tooling--container-tooling-automation' as documented at
+      # https://datastax.jira.com/wiki/spaces/EN/pages/939491410/Jenkins+dynamic+slaves+with+openstack+plugin#Jenkinsdynamicslaveswithopenstackplugin-SetupcredentialsforNebulaauth
+      # Lococo has access to these credentials, should they need to be re-entered.
+      credentialsId: "shared-openstack-container-tooling--container-tooling-automation"
+      endPointUrl: "https://cloud-keystone.sjc.dsinternal.org:5000/v3/"
+      ignoreSsl: false
+      name: "Container Tooling Openstack Nebula Cloud"
+      slaveOptions:
+        bootSource:
+          image:
+            name: "bionic-server-cloudimg-amd64-20190918"
+        fsRoot: "/home/jenkins"
+        hardwareId: "12b39708-5f2b-4848-8a1e-4197f2b456bf"
+        # There exists an SSH keypair used to log into dynamic runner IaaS instances.
+        # As a pre-requisite to applying this JCasC for the first time on a brand new Jenkins master,
+        # the public half of this keypair must be manually added to OpenStack/Nebula while logged
+        # in as 'shared-openstack-container-tooling'
+        # Lococo has access to these credentials should they need to be reentered."
+        keyPairName: "jenkins-container-tooling master pubkey"
+        launcherFactory:
+          ssh:
+            # The private half of the previously mentioned ssh key pair must be manually
+            # added to the Jenkins Master with the id 'jenkins-slave-ssh-nebula'.
+            # Lococo has access to these credentials should they need to be reentered.
+            credentialsId: "jenkins-slave-ssh-nebula"
+        networkId: "cloud_main"
+        userDataId: "test-user-data-file"
+      templates:
+      - labels: "test"
+        name: "nebula-slave-image-test"
+        slaveOptions:
+          hardwareId: "18179e65-1117-47ce-960b-9d02d0c0e2e8"
+          instanceCap: 3
+          instancesMin: 1
+          numExecutors: 8
+      zone: "SJC"
+  crumbIssuer:
+    standard:
+      excludeClientIPFromCrumb: true
+  disableRememberMe: false
+  markupFormatter: "plainText"
+  mode: NORMAL
+  myViewsTabBar: "standard"
+  numExecutors: 0
+  primaryView:
+    all:
+      name: "all"
+  projectNamingStrategy: "standard"
+  quietPeriod: 5
+  remotingSecurity:
+    enabled: true
+  scmCheckoutRetryCount: 0
+  securityRealm:
+    saml:
+      advancedConfiguration:
+        forceAuthn: false
+        spEntityId: "Jenkins-users"
+      binding: "urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect"
+      displayNameAttributeName: "http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name"
+      groupsAttributeName: "Group"
+      idpMetadataConfiguration:
+        period: 0
+        xml: |
+          <?xml version="1.0" encoding="UTF-8"?><md:EntityDescriptor entityID="http://www.okta.com/exk1fx2wxqfG4nTGQ1d8" xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"><md:IDPSSODescriptor WantAuthnRequestsSigned="false" protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol"><md:KeyDescriptor use="signing"><ds:KeyInfo xmlns:ds="http://www.w3.org/2000/09/xmldsig#"><ds:X509Data><ds:X509Certificate>MIIDoDCCAoigAwIBAgIGAV2m69woMA0GCSqGSIb3DQEBCwUAMIGQMQswCQYDVQQGEwJVUzETMBEGA1UECAwKQ2FsaWZvcm5pYTEWMBQGA1UEBwwNU2FuIEZyYW5jaXNjbzENMAsGA1UECgwET2t0YTEUMBIGA1UECwwLU1NPUHJvdmlkZXIxETAPBgNVBAMMCGRhdGFzdGF4MRwwGgYJKoZIhvcNAQkBFg1pbmZvQG9rdGEuY29tMB4XDTE3MDgwMzA3MDY0MVoXDTI3MDgwMzA3MDc0MFowgZAxCzAJBgNVBAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRYwFAYDVQQHDA1TYW4gRnJhbmNpc2NvMQ0wCwYDVQQKDARPa3RhMRQwEgYDVQQLDAtTU09Qcm92aWRlcjERMA8GA1UEAwwIZGF0YXN0YXgxHDAaBgkqhkiG9w0BCQEWDWluZm9Ab2t0YS5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCw7g7/hEPom73ZevqvVuXViZ4HgxjARPUbkbJLZkSvq12lC9o/wAzTzcGG16RJ9gvb7gJn0tsZTg5mUmmLYsBhuDMrLp1LJdBGNK3+GJDMlugUnssQRhj8TiaG9l/T2BOgt6GKXIIfY1eC49YZSifZFIc1euROkLHlI7Gihvg4Ry1Lw9YX9UgUGV1N3Mpj3ft3yYelcL1gJVhCaCNzf5zkMMwWm+o/cUmXT+fzWiiiGjLP/tR4ZbQP09mP1tK9R6XZvDB7MSdgQUvwZ0NqJaSMZUxp3H5qgYIPP+8puVIr7qwH0dVzKLXA3olelGTK/2ZPYwS/28656u0gw8obdHzLAgMBAAEwDQYJKoZIhvcNAQELBQADggEBAD0oWis1/uzdeFQ+fYYp5vIyB+vE0U6CYi7rJj/phzKR1/OIDZ4xScl3sKzbQM2f4dOwHHRNt0+39IAOqfC8f2reIvxbneC4mYrKnA4aKttdZmHyQAn1gshPKrunAPuFmtW82wPbGsL7AFdWi4e4rs1EPdWLcX4uSqYgoz4bcpzvkDrbR45gih0xg/Zb48KxaT0YnclvaLYoMMndP0eSCd92oGnuE3wgSLxMI8jgqTz4QHfcy4rrPT4z9x9VsSu8IulUw+Ek0VsLZHwBu24DQwaRHvNsj4I4uR984xH4bs8tMM4+IlvbzcyRZ3b5bpcd/Nayp1Q9SVEkJn5Yd4GU7Yo=</ds:X509Certificate></ds:X509Data></ds:KeyInfo></md:KeyDescriptor><md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified</md:NameIDFormat><md:NameIDFormat>urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress</md:NameIDFormat><md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST" Location="https://datastax.okta.com/app/datastax_jenkinscontainertooling_1/exk1fx2wxqfG4nTGQ1d8/sso/saml"/><md:SingleSignOnService Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect" Location="https://datastax.okta.com/app/datastax_jenkinscontainertooling_1/exk1fx2wxqfG4nTGQ1d8/sso/saml"/></md:IDPSSODescriptor></md:EntityDescriptor>
+      maximumAuthenticationLifetime: 86400
+      usernameCaseConversion: "none"
+  slaveAgentPort: 50000
+  systemMessage: "Welcome to the container tooling build server"
+  updateCenter:
+    sites:
+    - id: "default"
+      url: "https://updates.jenkins.io/update-center.json"
+  views:
+  - all:
+      name: "all"
+  viewsTabBar: "standard"
+security:
+  apiToken:
+    creationOfLegacyTokenEnabled: false
+    tokenGenerationOnCreationEnabled: false
+    usageStatisticsEnabled: true
+  downloadSettings:
+    useBrowser: false
+  globalJobDslSecurityConfiguration:
+    useScriptSecurity: false
+  sSHD:
+    port: -1
+unclassified:
+  globalConfigFiles:
+    configs:
+    - openstackUserData:
+        content: "#!/bin/sh -xe\n \nsudo sed -i \"2i127.0.0.1 $(hostname)\" /etc/hosts\n\
+          \ \n######################### change to use internal repo #########################\n\
+          sudo sed -i 's/nova.clouds.archive.ubuntu.com/repomirror.datastax.lan/g'\
+          \ /etc/apt/sources.list\nsudo sed -i 's/us.archive.ubuntu.com/repomirror.datastax.lan/g'\
+          \ /etc/apt/sources.list\nsudo sed -i 's/security.ubuntu.com/repomirror.datastax.lan/g'\
+          \ /etc/apt/sources.list\n \nexport DEBIAN_FRONTEND=noninteractive\napt-get\
+          \ update\napt-get install openjdk-8-jdk -y\n# put your code here\n \n \n\
+          \ \n#THIS SHOULD ALWAYS BE THE LAST PART AS JENKINS WILL BE ABLE TO SSH\
+          \ IN NOW\n#add Jenkins user\n#copy ssh key added used by Nebula\necho 'jenkins\
+          \ ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers.d/90-cloud-init-users\necho 'Defaults:jenkins\
+          \ !requiretty' >> /etc/sudoers.d/90-cloud-init-users\nuseradd -m -d /home/jenkins\
+          \ -k /home/ubuntu -u 2000 -s /bin/bash jenkins"
+        id: "test-user-data-file"
+        name: "test-user-data-file"
+        providerId: "jenkins.plugins.openstack.compute.UserDataConfig"
+  location:
+    adminAddress: "address not configured yet <nobody@nowhere>"
+    url: "https://jenkins-container-tooling.build.dsinternal.org/"
+  mailer:
+    charset: "UTF-8"
+    defaultSuffix: "@datastax.com"
+    smtpHost: "smtp.sjc.dsinternal.org"
+    useSsl: false
+  pollSCM:
+    pollingThreadCount: 10
