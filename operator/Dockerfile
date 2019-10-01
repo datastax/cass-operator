@@ -2,8 +2,9 @@
 # NOTE: When building this image, there is an assumption that you are in the top level directory of the repository.
 # $ docker build . -f operator/Dockerfile -t operator
 ##########
-# "builder_base" compiles and tests the code
-FROM golang:1.12-stretch as builder_base
+# "builder" compiles and tests the code
+# This stage name is important to the Cloud Platform CI/CD infrastructure, and should be preserved
+FROM golang:1.12-stretch as builder
 
 # Disable cgo - this makes static binaries that will work on an Alpine image
 ENV CGO_ENABLED=0
@@ -33,9 +34,7 @@ RUN go build -v ./...
 RUN go build -v -o /go/bin/dse-operator-linux-amd64 cmd/manager/main.go
 
 # Second stage
-# "builder" copies in the code for a smaller image
-FROM builder_base AS builder
-
+# Produce a smaller image than the one used to build the code
 FROM alpine:3.9
 
 ENV GOPATH=/root/go
