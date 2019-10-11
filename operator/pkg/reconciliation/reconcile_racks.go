@@ -438,6 +438,11 @@ func (r *ReconcileRacks) CheckRackPodLabels() (*reconcile.Result, error) {
 }
 
 func (r *ReconcileRacks) CreateSuperuser() (*reconcile.Result, error) {
+	if r.ReconcileContext.DseDatacenter.Spec.Parked {
+		r.ReconcileContext.ReqLogger.Info("cluster is parked, skipping CreateSuperuser")
+		return nil, nil
+	}
+
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::CreateSuperuser")
 	rc := r.ReconcileContext
 
