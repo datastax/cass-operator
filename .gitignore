@@ -98,3 +98,5 @@ operator/vendor
 .idea
 .project
 .settings/
+
+*/build

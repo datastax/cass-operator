@@ -1,0 +1,49 @@
+pipeline {
+    agent any
+    environment {
+        GOPATH = '/go'
+        PATH = "/go/bin:${PATH}"
+        GITHUB_TOKEN = credentials('github-api-token')
+        FALLOUT_OAUTH_TOKEN = credentials('fallout-test-oauth')
+    }
+    parameters {
+        string(name: 'M_FTEST', defaultValue: '', description: 'Specific test yaml file to run. Leave empty to run all.')
+    }
+    stages {
+        stage('Queue Tests') {
+            steps {
+                sh 'mage -d fallout queue'
+            }
+        }
+        stage('Monitor Tests') {
+            steps {
+                sh "mage -d fallout -compile ./build/fallout_mage"
+                script {
+                    env.WORKSPACE = pwd()
+                    def staticMage = "./build/fallout_mage"
+                    def testRuns = readFile "${env.WORKSPACE}/fallout/build/queuedruns.txt"
+                    def monitorStages = [:]
+                    for (f in testRuns.tokenize(",")) {
+                        def mruns = f.trim()
+                        def runTokens = mruns.tokenize(":")
+                        def tname = runTokens[0]
+                        def tid = runTokens[1]
+                        monitorStages["${tname}"] = {
+                            dir('fallout') {
+                                try {
+                                    stage("Wait for test: ${tname}") {
+                                        sh "M_RUNS=${mruns} ${staticMage} wait"
+                                    }
+                                } finally {
+                                    sh "M_RUNS=${mruns} ${staticMage} artifacts"
+                                    archiveArtifacts "build/*/${tname}/${tid}/**/*"
+                                }
+                            }
+                        }
+                    }
+                    parallel monitorStages
+                }
+            }
+        }
+    }
+}
