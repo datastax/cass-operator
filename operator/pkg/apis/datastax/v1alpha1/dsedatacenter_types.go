@@ -110,6 +110,8 @@ type DseDatacenterSpec struct {
 	AllowMultipleNodesPerWorker bool `json:"allowMultipleNodesPerWorker,omitempty"`
 	// This secret defines the username and password for the DSE superuser.
 	DseSuperuserSecret string `json:"dseSuperuserSecret,omitempty"`
+	// The k8s service account to use for DSE pods
+	ServiceAccount string `json:"serviceAccount,omitempty"`
 }
 
 // GetRacks is a getter for the DseRack slice in the spec

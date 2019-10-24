@@ -161,6 +161,13 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 							Format:      "",
 						},
 					},
+					"serviceAccount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The k8s service account to use for DSE pods",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"size", "dseVersion", "dseClusterName"},
 			},

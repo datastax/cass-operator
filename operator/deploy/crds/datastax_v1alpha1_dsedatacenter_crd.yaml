@@ -82,6 +82,9 @@ spec:
             resources:
               description: Kubernetes resource requests and limits, per DSE pod
               type: object
+            serviceAccount:
+              description: The k8s service account to use for DSE pods
+              type: string
             size:
               description: Desired number of DSE server nodes
               format: int32

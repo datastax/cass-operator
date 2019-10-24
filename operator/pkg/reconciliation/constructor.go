@@ -180,6 +180,11 @@ func newStatefulSetForDseDatacenter(
 		return nil, err
 	}
 
+	serviceAccount := "default"
+	if dseDatacenter.Spec.ServiceAccount != "" {
+		serviceAccount = dseDatacenter.Spec.ServiceAccount
+	}
+
 	nsName := newNamespacedNameForStatefulSet(dseDatacenter, rackName)
 
 	result := &appsv1.StatefulSet{
@@ -252,7 +257,7 @@ func newStatefulSetForDseDatacenter(
 							},
 						},
 					}},
-					ServiceAccountName: "dse-operator",
+					ServiceAccountName: serviceAccount,
 					Containers: []corev1.Container{{
 						// TODO FIXME
 						Name:      "dse",
