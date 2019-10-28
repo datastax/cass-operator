@@ -1,3 +1,6 @@
+// Variable to hold serialized test run info
+mRuns = ""
+
 pipeline {
     agent any
     environment {
@@ -13,35 +16,45 @@ pipeline {
         stage('Queue Tests') {
             steps {
                 sh 'mage -d fallout queue'
+                script {
+                    env.WORKSPACE = pwd()
+                    mRuns = readFile("${env.WORKSPACE}/fallout/build/queuedruns.txt").trim()
+                }
             }
         }
         stage('Monitor Tests') {
             steps {
                 sh "mage -d fallout -compile ./build/fallout_mage"
                 script {
-                    env.WORKSPACE = pwd()
                     def staticMage = "./build/fallout_mage"
-                    def testRuns = readFile "${env.WORKSPACE}/fallout/build/queuedruns.txt"
                     def monitorStages = [:]
-                    for (f in testRuns.tokenize(",")) {
-                        def mruns = f.trim()
-                        def runTokens = mruns.tokenize(":")
+                    for (f in mRuns.tokenize(",")) {
+                        def runTokens = mRuns.tokenize(":")
                         def tname = runTokens[0]
                         def tid = runTokens[1]
                         monitorStages["${tname}"] = {
                             dir('fallout') {
                                 try {
                                     stage("Wait for test: ${tname}") {
-                                        sh "M_RUNS=${mruns} ${staticMage} wait"
+                                        sh "M_RUNS=${mRuns} ${staticMage} wait"
                                     }
                                 } finally {
-                                    sh "M_RUNS=${mruns} ${staticMage} artifacts"
+                                    sh "M_RUNS=${mRuns} ${staticMage} artifacts"
                                     archiveArtifacts "build/*/${tname}/${tid}/**/*"
                                 }
                             }
                         }
                     }
                     parallel monitorStages
+                }
+            }
+        }
+    }
+    post {
+        aborted {
+            script {
+                if (mRuns != "") {
+                    sh "M_RUNS=${mRuns} mage -d fallout abort"
                 }
             }
         }
