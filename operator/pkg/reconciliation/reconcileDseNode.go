@@ -1,7 +1,9 @@
 package reconciliation
 
 import (
+	"fmt"
 	"net/http"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -64,7 +66,7 @@ func (r *ReconcileDseNode) Reconcile(request reconcile.Request) (reconcile.Resul
 	}
 
 	if err := refreshSeeds(rc, r.httpClient); err != nil {
-		return reconcile.Result{Requeue: true}, err
+		return reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}, err
 	}
 
 	return reconcile.Result{}, nil
@@ -72,6 +74,10 @@ func (r *ReconcileDseNode) Reconcile(request reconcile.Request) (reconcile.Resul
 
 func refreshSeeds(rc *dsereconciliation.ReconciliationContext, client httphelper.HttpClient) error {
 	rc.ReqLogger.Info("reconcileDseNode::refreshSeeds")
+	if rc.DseDatacenter.Spec.Parked {
+		rc.ReqLogger.Info("cluster is parked, skipping refreshSeeds")
+		return nil
+	}
 
 	selector := map[string]string{
 		datastaxv1alpha1.ClusterLabel: rc.DseDatacenter.Spec.DseClusterName,
@@ -79,7 +85,13 @@ func refreshSeeds(rc *dsereconciliation.ReconciliationContext, client httphelper
 	}
 	podList, err := listPods(rc, selector)
 	if err != nil {
-		rc.ReqLogger.Error(err, "No started pods found for DseDatacenter")
+		rc.ReqLogger.Error(err, "error listing pods during refreshSeeds")
+		return err
+	}
+
+	if len(podList.Items) == 0 {
+		err = fmt.Errorf("No started pods found for DseDatacenter")
+		rc.ReqLogger.Error(err, "error during refreshSeeds")
 		return err
 	}
 
