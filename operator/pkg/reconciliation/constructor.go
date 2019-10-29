@@ -9,6 +9,7 @@ import (
 
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
+	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 
 	"github.com/riptano/dse-operator/operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
@@ -187,6 +188,120 @@ func newStatefulSetForDseDatacenter(
 
 	nsName := newNamespacedNameForStatefulSet(dseDatacenter, rackName)
 
+	template := corev1.PodTemplateSpec{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: labels,
+		},
+		Spec: corev1.PodSpec{
+			Affinity: &corev1.Affinity{
+				NodeAffinity:    calculateNodeAffinity(zone),
+				PodAntiAffinity: calculatePodAntiAffinity(dseDatacenter.Spec.AllowMultipleNodesPerWorker),
+			},
+			// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
+			SecurityContext: &corev1.PodSecurityContext{
+				RunAsUser:  &userID,
+				RunAsGroup: &userID,
+				FSGroup:    &userID,
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "dse-config",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+			InitContainers: []corev1.Container{{
+				Name:  "dse-config-init",
+				Image: initContainerImage,
+				VolumeMounts: []corev1.VolumeMount{
+					dseConfigVolumeMount,
+				},
+				Env: []corev1.EnvVar{
+					{
+						Name:  "CONFIG_FILE_DATA",
+						Value: configData,
+					},
+					{
+						Name: "POD_IP",
+						ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{
+								FieldPath: "status.podIP",
+							},
+						},
+					},
+					{
+						Name: "RACK_NAME",
+						ValueFrom: &corev1.EnvVarSource{
+							FieldRef: &corev1.ObjectFieldSelector{
+								FieldPath: fmt.Sprintf("metadata.labels['%s']", datastaxv1alpha1.RackLabel),
+							},
+						},
+					},
+					{
+						Name:  "DSE_VERSION",
+						Value: dseVersion,
+					},
+				},
+			}},
+			ServiceAccountName: serviceAccount,
+			Containers: []corev1.Container{{
+				// TODO FIXME
+				Name:      "dse",
+				Image:     dseImage,
+				Resources: dseDatacenter.Spec.Resources,
+				Env: []corev1.EnvVar{
+					{
+						Name:  "DS_LICENSE",
+						Value: "accept",
+					},
+					{
+						Name:  "DSE_AUTO_CONF_OFF",
+						Value: "all",
+					},
+					{
+						Name:  "USE_MGMT_API",
+						Value: "true",
+					},
+					{
+						Name:  "DSE_MGMT_EXPLICIT_START",
+						Value: "true",
+					},
+				},
+				Ports: ports,
+				LivenessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Port: intstr.FromInt(8080),
+							Path: "/api/v0/probes/liveness",
+						},
+					},
+					// TODO expose config for these?
+					InitialDelaySeconds: 15,
+					PeriodSeconds:       15,
+				},
+				ReadinessProbe: &corev1.Probe{
+					Handler: corev1.Handler{
+						HTTPGet: &corev1.HTTPGetAction{
+							Port: intstr.FromInt(8080),
+							Path: "/api/v0/probes/readiness",
+						},
+					},
+					// TODO expose config for these?
+					InitialDelaySeconds: 20,
+					PeriodSeconds:       10,
+				},
+				VolumeMounts: dseVolumeMounts,
+			}},
+			// TODO We can document that the user installing the operator put the imagePullSecret
+			// into the service account, and the process for that is documented here:
+			// https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account
+			// ImagePullSecrets: []corev1.LocalObjectReference{{}},
+		},
+	}
+
+	httphelper.AddManagementApiServerSecurity(dseDatacenter, &template)
+
 	result := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nsName.Name,
@@ -201,117 +316,7 @@ func newStatefulSetForDseDatacenter(
 			Replicas:            &replicaCountInt32,
 			ServiceName:         dseDatacenter.Spec.DseClusterName + "-" + dseDatacenter.Name + "-service",
 			PodManagementPolicy: appsv1.ParallelPodManagement,
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-				Spec: corev1.PodSpec{
-					Affinity: &corev1.Affinity{
-						NodeAffinity:    calculateNodeAffinity(zone),
-						PodAntiAffinity: calculatePodAntiAffinity(dseDatacenter.Spec.AllowMultipleNodesPerWorker),
-					},
-					// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
-					SecurityContext: &corev1.PodSecurityContext{
-						RunAsUser:  &userID,
-						RunAsGroup: &userID,
-						FSGroup:    &userID,
-					},
-					Volumes: []corev1.Volume{
-						{
-							Name: "dse-config",
-							VolumeSource: corev1.VolumeSource{
-								EmptyDir: &corev1.EmptyDirVolumeSource{},
-							},
-						},
-					},
-					InitContainers: []corev1.Container{{
-						Name:  "dse-config-init",
-						Image: initContainerImage,
-						VolumeMounts: []corev1.VolumeMount{
-							dseConfigVolumeMount,
-						},
-						Env: []corev1.EnvVar{
-							{
-								Name:  "CONFIG_FILE_DATA",
-								Value: configData,
-							},
-							{
-								Name: "POD_IP",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: "status.podIP",
-									},
-								},
-							},
-							{
-								Name: "RACK_NAME",
-								ValueFrom: &corev1.EnvVarSource{
-									FieldRef: &corev1.ObjectFieldSelector{
-										FieldPath: fmt.Sprintf("metadata.labels['%s']", datastaxv1alpha1.RackLabel),
-									},
-								},
-							},
-							{
-								Name:  "DSE_VERSION",
-								Value: dseVersion,
-							},
-						},
-					}},
-					ServiceAccountName: serviceAccount,
-					Containers: []corev1.Container{{
-						// TODO FIXME
-						Name:      "dse",
-						Image:     dseImage,
-						Resources: dseDatacenter.Spec.Resources,
-						Env: []corev1.EnvVar{
-							{
-								Name:  "DS_LICENSE",
-								Value: "accept",
-							},
-							{
-								Name:  "DSE_AUTO_CONF_OFF",
-								Value: "all",
-							},
-							{
-								Name:  "USE_MGMT_API",
-								Value: "true",
-							},
-							{
-								Name:  "DSE_MGMT_EXPLICIT_START",
-								Value: "true",
-							},
-						},
-						Ports: ports,
-						LivenessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
-								HTTPGet: &corev1.HTTPGetAction{
-									Port: intstr.FromInt(8080),
-									Path: "/api/v0/probes/liveness",
-								},
-							},
-							// TODO expose config for these?
-							InitialDelaySeconds: 15,
-							PeriodSeconds:       15,
-						},
-						ReadinessProbe: &corev1.Probe{
-							Handler: corev1.Handler{
-								HTTPGet: &corev1.HTTPGetAction{
-									Port: intstr.FromInt(8080),
-									Path: "/api/v0/probes/readiness",
-								},
-							},
-							// TODO expose config for these?
-							InitialDelaySeconds: 20,
-							PeriodSeconds:       10,
-						},
-						VolumeMounts: dseVolumeMounts,
-					}},
-					// TODO We can document that the user installing the operator put the imagePullSecret
-					// into the service account, and the process for that is documented here:
-					// https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account
-					// ImagePullSecrets: []corev1.LocalObjectReference{{}},
-				},
-			},
+			Template: template,
 			VolumeClaimTemplates: volumeCaimTemplates,
 		},
 	}

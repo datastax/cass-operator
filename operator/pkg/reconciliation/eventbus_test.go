@@ -38,6 +38,9 @@ func TestReconcile(t *testing.T) {
 			Namespace: namespace,
 		},
 		Spec: datastaxv1alpha1.DseDatacenterSpec{
+            ManagementApiAuth: datastaxv1alpha1.ManagementApiAuthConfig{
+                Insecure: &datastaxv1alpha1.ManagementApiAuthInsecureConfig{},
+            },
 			Size: size,
 		},
 	}
@@ -93,6 +96,9 @@ func TestReconcile_NotFound(t *testing.T) {
 			Namespace: namespace,
 		},
 		Spec: datastaxv1alpha1.DseDatacenterSpec{
+            ManagementApiAuth: datastaxv1alpha1.ManagementApiAuthConfig{
+                Insecure: &datastaxv1alpha1.ManagementApiAuthInsecureConfig{},
+            },
 			Size: size,
 		},
 	}
@@ -145,6 +151,9 @@ func TestReconcile_Error(t *testing.T) {
 			Namespace: namespace,
 		},
 		Spec: datastaxv1alpha1.DseDatacenterSpec{
+            ManagementApiAuth: datastaxv1alpha1.ManagementApiAuthConfig{
+                Insecure: &datastaxv1alpha1.ManagementApiAuthInsecureConfig{},
+            },
 			Size: size,
 		},
 	}
@@ -200,6 +209,9 @@ func TestReconcile_DseDatacenterToBeDeleted(t *testing.T) {
 			Finalizers:        nil,
 		},
 		Spec: datastaxv1alpha1.DseDatacenterSpec{
+            ManagementApiAuth: datastaxv1alpha1.ManagementApiAuthConfig{
+                Insecure: &datastaxv1alpha1.ManagementApiAuthInsecureConfig{},
+            },
 			Size: size,
 		},
 	}

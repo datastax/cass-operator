@@ -13,6 +13,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/riptano/dse-operator/operator/pkg/httphelper"
+
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 )
 
@@ -22,6 +24,7 @@ type ReconciliationContext struct {
 	Client        client.Client
 	Scheme        *runtime.Scheme
 	DseDatacenter *datastaxv1alpha1.DseDatacenter
+	NodeMgmtClient httphelper.NodeMgmtClient
 	// Note that logr.Logger is an interface,
 	// so we do not want to store a pointer to it
 	// see: https://stackoverflow.com/a/44372954
@@ -60,9 +63,25 @@ func CreateReconciliationContext(
 	}
 	rc.DseDatacenter = dseDatacenter
 
+	httpClient, err := httphelper.BuildManagementApiHttpClient(dseDatacenter, client, rc.Ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	rc.ReqLogger = rc.ReqLogger.
 		WithValues("dseDatacenterName", dseDatacenter.Name).
 		WithValues("dseDatacenterClusterName", dseDatacenter.Spec.DseClusterName)
+
+	protocol, err := httphelper.GetManagementApiProtocol(dseDatacenter)
+	if err != nil {
+		return nil, err
+	}
+
+	rc.NodeMgmtClient = httphelper.NodeMgmtClient{
+		Client: httpClient,
+		Log: rc.ReqLogger,
+		Protocol: protocol,
+	}
 
 	return rc, nil
 }

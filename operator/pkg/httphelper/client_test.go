@@ -12,7 +12,7 @@ import (
 )
 
 func Test_BuildPodHostFromPod(t *testing.T) {
-	pod := corev1.Pod{
+	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod-foo",
 			Namespace: "somenamespace",

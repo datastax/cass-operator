@@ -2,7 +2,6 @@ package reconciliation
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -16,7 +15,6 @@ import (
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation/reconcileriface"
-	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
 
@@ -487,9 +485,8 @@ func (r *ReconcileRacks) CreateSuperuser() (*reconcile.Result, error) {
 
 	pod := podList.Items[0]
 
-	err = httphelper.CallCreateRoleEndpoint(
-		r.ReconcileContext.ReqLogger,
-		pod,
+	err = rc.NodeMgmtClient.CallCreateRoleEndpoint(
+		&pod,
 		string(secret.Data["username"]),
 		string(secret.Data["password"]))
 	if err != nil {
@@ -577,17 +574,8 @@ func isClusterHealthy(rc *dsereconciliation.ReconciliationContext) bool {
 	}
 
 	for _, pod := range podList.Items {
-		rc.ReqLogger.Info("requesting Cluster Health status from DSE Node Management API",
-			"pod", pod.Name)
-
-		request := httphelper.NodeMgmtRequest{
-			Endpoint: fmt.Sprintf("/api/v0/probes/cluster?consistency_level=LOCAL_QUORUM&rf_per_dc=%d", len(rc.DseDatacenter.Spec.Racks)),
-			Host:     httphelper.GetPodHost(pod.Name, rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name, rc.DseDatacenter.Namespace),
-			Client:   http.DefaultClient,
-			Method:   http.MethodGet,
-		}
-
-		if err := httphelper.CallNodeMgmtEndpoint(rc.ReqLogger, request); err != nil {
+		err := rc.NodeMgmtClient.CallProbeClusterEndpoint(&pod, "LOCAL_QUORUM", len(rc.DseDatacenter.Spec.Racks))
+		if err != nil {
 			return false
 		}
 	}
@@ -1005,26 +993,8 @@ func (r *ReconcileRacks) labelDsePodStarted(pod *corev1.Pod) error {
 }
 
 func (r *ReconcileRacks) callNodeManagementStart(pod *corev1.Pod) error {
-	rc := r.ReconcileContext
-
-	// talk to the pod via IP because we are dialing up a pod that isn't ready,
-	// so it won't be reachable via the service and pod DNS
-	podIP := pod.Status.PodIP
-
-	rc.ReqLogger.Info(
-		"calling /api/v0/lifecycle/start on DSE Node Management API",
-		"pod", pod.Name,
-		"podIP", podIP,
-	)
-
-	request := httphelper.NodeMgmtRequest{
-		Endpoint: "/api/v0/lifecycle/start",
-		Host:     podIP,
-		Client:   &http.Client{Timeout: time.Second * 10},
-		Method:   http.MethodPost,
-	}
-
-	err := httphelper.CallNodeMgmtEndpoint(rc.ReqLogger, request)
+	mgmtClient := r.ReconcileContext.NodeMgmtClient
+	err := mgmtClient.CallLifecycleStartEndpoint(pod)
 
 	return err
 }

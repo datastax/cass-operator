@@ -2,7 +2,6 @@ package reconciliation
 
 import (
 	"fmt"
-	"net/http"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -34,7 +33,7 @@ type ReconcileDseNode struct {
 func NewDseNodeReconciler(mgr manager.Manager, client httphelper.HttpClient) reconcile.Reconciler {
 	return &ReconcileDseNode{
 		client:     mgr.GetClient(),
-		httpClient: http.DefaultClient,
+		httpClient: client,
 	}
 }
 
@@ -96,17 +95,7 @@ func refreshSeeds(rc *dsereconciliation.ReconciliationContext, client httphelper
 	}
 
 	for _, pod := range podList.Items {
-		rc.ReqLogger.Info("reloading seeds for pod from DSE Node Management API",
-			"pod", pod.Name)
-
-		request := httphelper.NodeMgmtRequest{
-			Endpoint: "/api/v0/ops/seeds/reload",
-			Host:     httphelper.BuildPodHostFromPod(pod),
-			Client:   client,
-			Method:   http.MethodPost,
-		}
-
-		if err := httphelper.CallNodeMgmtEndpoint(rc.ReqLogger, request); err != nil {
+		if err := rc.NodeMgmtClient.CallReloadSeedsEndpoint(&pod); err != nil {
 			return err
 		}
 	}

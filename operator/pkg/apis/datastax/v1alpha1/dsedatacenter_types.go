@@ -83,6 +83,8 @@ type DseDatacenterSpec struct {
 	DseImage string `json:"dseImage,omitempty"`
 	// Config for DSE, in YAML format
 	Config json.RawMessage `json:"config,omitempty"`
+	// Config for DSE Management API certificates
+	ManagementApiAuth ManagementApiAuthConfig `json:"managementApiAuth,omitempty"`
 	// Kubernetes resource requests and limits, per DSE pod
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// A list of the named racks in the datacenter, representing independent failure domains. The
@@ -160,6 +162,21 @@ type DseDatacenter struct {
 
 	Spec   DseDatacenterSpec   `json:"spec,omitempty"`
 	Status DseDatacenterStatus `json:"status,omitempty"`
+}
+
+type ManagementApiAuthManualConfig struct {
+	ClientSecretName string `json:"clientSecretName"`
+	ServerSecretName string `json:"serverSecretName"`
+}
+
+type ManagementApiAuthInsecureConfig struct {
+
+}
+
+type ManagementApiAuthConfig struct {
+	Insecure *ManagementApiAuthInsecureConfig `json:"insecure,omitempty"`
+	Manual *ManagementApiAuthManualConfig `json:"manual,omitempty"`
+	// other strategy configs (e.g. Cert Manager) go here
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
