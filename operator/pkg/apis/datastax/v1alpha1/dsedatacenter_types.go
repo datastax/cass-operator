@@ -149,6 +149,10 @@ type DseStorageClaim struct {
 type DseDatacenterStatus struct {
 	// The number of the DSE server nodes
 	Nodes int32 `json:"nodes"`
+
+	// The timestamp at which CQL superuser credentials
+	// were last upserted to the DSE management API
+	SuperUserUpserted metav1.Time `json:"superUserUpserted"`
 }
 
 // +genclient
@@ -156,6 +160,7 @@ type DseDatacenterStatus struct {
 
 // DseDatacenter is the Schema for the dsedatacenters API
 // +k8s:openapi-gen=true
+// +kubebuilder:subresource:status
 type DseDatacenter struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

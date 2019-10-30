@@ -190,10 +190,17 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterStatus(ref common.ReferenceC
 							Format:      "int32",
 						},
 					},
+					"superUserUpserted": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The timestamp at which CQL superuser credentials were last upserted to the DSE management API",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
 				},
-				Required: []string{"nodes"},
+				Required: []string{"nodes", "superUserUpserted"},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }

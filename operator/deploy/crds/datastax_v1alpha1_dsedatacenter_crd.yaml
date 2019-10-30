@@ -10,6 +10,8 @@ spec:
     plural: dsedatacenters
     singular: dsedatacenter
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       properties:
@@ -111,8 +113,14 @@ spec:
               description: The number of the DSE server nodes
               format: int32
               type: integer
+            superUserUpserted:
+              description: The timestamp at which CQL superuser credentials were last
+                upserted to the DSE management API
+              format: date-time
+              type: string
           required:
           - nodes
+          - superUserUpserted
           type: object
   version: v1alpha1
   versions:

@@ -435,14 +435,26 @@ func (r *ReconcileRacks) CheckRackPodLabels() (*reconcile.Result, error) {
 	return nil, nil
 }
 
+func shouldUpsertSuperUser(dseDc datastaxv1alpha1.DseDatacenter) bool {
+	lastCreated := dseDc.Status.SuperUserUpserted
+	return time.Now().After(lastCreated.Add(time.Minute * 4))
+}
+
 func (r *ReconcileRacks) CreateSuperuser() (*reconcile.Result, error) {
 	if r.ReconcileContext.DseDatacenter.Spec.Parked {
 		r.ReconcileContext.ReqLogger.Info("cluster is parked, skipping CreateSuperuser")
 		return nil, nil
 	}
 
-	r.ReconcileContext.ReqLogger.Info("reconcile_racks::CreateSuperuser")
 	rc := r.ReconcileContext
+
+	//Skip upsert if already did so recently
+	if !shouldUpsertSuperUser(*rc.DseDatacenter) {
+		rc.ReqLogger.Info(fmt.Sprintf("The CQL superuser was last upserted at %v, skipping upsert", rc.DseDatacenter.Status.SuperUserUpserted))
+		return nil, nil
+	}
+
+	rc.ReqLogger.Info("reconcile_racks::CreateSuperuser")
 
 	// Get the secret
 
@@ -491,6 +503,12 @@ func (r *ReconcileRacks) CreateSuperuser() (*reconcile.Result, error) {
 		string(secret.Data["password"]))
 	if err != nil {
 		rc.ReqLogger.Error(err, "error creating superuser")
+		return &ResultShouldNotRequeue, err
+	}
+
+	rc.DseDatacenter.Status.SuperUserUpserted = metav1.NewTime(time.Now())
+	if err = rc.Client.Status().Update(rc.Ctx, rc.DseDatacenter); err != nil {
+		rc.ReqLogger.Error(err, "error updating the CQL superuser upsert timestamp")
 		return &ResultShouldNotRequeue, err
 	}
 
