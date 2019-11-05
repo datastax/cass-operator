@@ -4,6 +4,7 @@ require (
 	github.com/Jeffail/gabs v1.4.0
 	github.com/go-logr/logr v0.1.0
 	github.com/google/uuid v1.1.1
+	github.com/magefile/mage v1.9.0
 	github.com/operator-framework/operator-sdk v0.9.1-0.20190722205349-ce367cbcb726
 	github.com/pkg/errors v0.8.1
 	github.com/spf13/pflag v1.0.3
