@@ -307,10 +307,42 @@ func (provider *ManualManagementApiSecurityProvider) BuildHttpClient(client clie
 		RootCAs: caCertPool,
         // TODO: ...we should probably verify something here...
 		InsecureSkipVerify: true,
+		VerifyPeerCertificate: buildVerifyPeerCertificateNoHostCheck(caCertPool),
 	}
 	tlsConfig.BuildNameToCertificate()
 	transport := &http.Transport{TLSClientConfig: tlsConfig}
 	httpClient := &http.Client{Transport: transport}
 
 	return httpClient, nil
+}
+
+// Below implementation modified from:
+//
+// https://go-review.googlesource.com/c/go/+/193620/5/src/crypto/tls/example_test.go#210
+//
+func buildVerifyPeerCertificateNoHostCheck(RootCAs *x509.CertPool) func([][]byte, [][]*x509.Certificate) error {
+	f := func(certificates [][]byte, _ [][]*x509.Certificate) error {
+		certs := make([]*x509.Certificate, len(certificates))
+		for i, asn1Data := range certificates {
+			cert, err := x509.ParseCertificate(asn1Data)
+			if err != nil {
+				return err
+			}
+			certs[i] = cert
+		}
+
+		opts := x509.VerifyOptions{
+			Roots:         RootCAs,
+			// Setting the DNSName to the empty string will cause
+			// Certificate.Verify() to skip hostname checking
+			DNSName:       "",
+			Intermediates: x509.NewCertPool(),
+		}
+		for _, cert := range certs[1:] {
+			opts.Intermediates.AddCert(cert)
+		}
+		_, err := certs[0].Verify(opts)
+		return err
+	}
+	return f
 }
