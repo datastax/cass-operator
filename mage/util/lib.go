@@ -2,8 +2,9 @@ package mageutil
 
 import (
 	"fmt"
-	"github.com/magefile/mage/sh"
 	"os"
+
+	"github.com/magefile/mage/sh"
 )
 
 // Internal datastax DNS addresses

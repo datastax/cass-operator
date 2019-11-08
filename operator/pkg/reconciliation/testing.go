@@ -212,12 +212,12 @@ func k8sMockClientList(mockClient *mocks.Client, returnArg interface{}) *mock.Ca
 				return ctx != nil
 			}),
 		mock.MatchedBy(
-			func(opts *client.ListOptions) bool {
-				return opts != nil
-			}),
-		mock.MatchedBy(
 			func(obj runtime.Object) bool {
 				return obj != nil
+			}),
+		mock.MatchedBy(
+			func(opts *client.ListOptions) bool {
+				return opts != nil
 			})).
 		Return(returnArg).
 		Once()

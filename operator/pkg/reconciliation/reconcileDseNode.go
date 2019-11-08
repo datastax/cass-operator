@@ -118,5 +118,5 @@ func listPods(rc *dsereconciliation.ReconciliationContext, selector map[string]s
 		},
 	}
 
-	return podList, rc.Client.List(rc.Ctx, listOptions, podList)
+	return podList, rc.Client.List(rc.Ctx, podList, listOptions)
 }

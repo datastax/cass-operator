@@ -115,5 +115,5 @@ func (r *ReconcileDatacenter) listPVCs() (*corev1.PersistentVolumeClaimList, err
 		},
 	}
 
-	return persistentVolumeClaimList, r.ReconcileContext.Client.List(r.ReconcileContext.Ctx, listOptions, persistentVolumeClaimList)
+	return persistentVolumeClaimList, r.ReconcileContext.Client.List(r.ReconcileContext.Ctx, persistentVolumeClaimList, listOptions)
 }

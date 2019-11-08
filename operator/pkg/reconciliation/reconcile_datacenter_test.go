@@ -23,7 +23,7 @@ func TestDeletePVCs(t *testing.T) {
 
 	k8sMockClientList(mockClient, nil).
 		Run(func(args mock.Arguments) {
-			arg := args.Get(2).(*v1.PersistentVolumeClaimList)
+			arg := args.Get(1).(*v1.PersistentVolumeClaimList)
 			arg.Items = []v1.PersistentVolumeClaim{{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "pvc-1",
@@ -52,7 +52,7 @@ func TestDeletePVCs_FailedToList(t *testing.T) {
 
 	k8sMockClientList(mockClient, fmt.Errorf("failed to list PVCs for dseDatacenter")).
 		Run(func(args mock.Arguments) {
-			arg := args.Get(2).(*v1.PersistentVolumeClaimList)
+			arg := args.Get(1).(*v1.PersistentVolumeClaimList)
 			arg.Items = []v1.PersistentVolumeClaim{{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "pvc-1",
@@ -82,7 +82,7 @@ func TestDeletePVCs_PVCsNotFound(t *testing.T) {
 
 	k8sMockClientList(mockClient, errors.NewNotFound(schema.GroupResource{}, "name")).
 		Run(func(args mock.Arguments) {
-			arg := args.Get(2).(*v1.PersistentVolumeClaimList)
+			arg := args.Get(1).(*v1.PersistentVolumeClaimList)
 			arg.Items = []v1.PersistentVolumeClaim{{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "pvc-1",
@@ -109,7 +109,7 @@ func TestDeletePVCs_FailedToDelete(t *testing.T) {
 
 	k8sMockClientList(mockClient, nil).
 		Run(func(args mock.Arguments) {
-			arg := args.Get(2).(*v1.PersistentVolumeClaimList)
+			arg := args.Get(1).(*v1.PersistentVolumeClaimList)
 			arg.Items = []v1.PersistentVolumeClaim{{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "pvc-1",

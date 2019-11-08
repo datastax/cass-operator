@@ -4,11 +4,11 @@
 ##########
 # "builder" compiles and tests the code
 # This stage name is important to the Cloud Platform CI/CD infrastructure, and should be preserved
-FROM golang:1.12-stretch as builder
+FROM golang:1.13-stretch as builder
 
 # Disable cgo - this makes static binaries that will work on an Alpine image
 ENV CGO_ENABLED=0
-ENV GOPROXY=https://gocenter.io
+ENV GOPROXY=https://proxy.golang.org,https://gocenter.io,direct
 
 # Target os and arch
 ENV GOOS linux
@@ -19,6 +19,7 @@ WORKDIR /dse-operator/operator
 
 # Grab the dependencies
 COPY ./operator/go.mod ./operator/go.sum ./
+
 RUN go mod download
 
 # Copy in source

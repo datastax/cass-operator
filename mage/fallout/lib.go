@@ -1,6 +1,4 @@
-// +build mage
-
-package main
+package fallout
 
 import (
 	"fmt"
@@ -9,21 +7,21 @@ import (
 	"path/filepath"
 	"strings"
 
-	"../mage"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
+	"github.com/riptano/dse-operator/mage/util"
 )
 
 const (
 	imageName       = "fallout_dse_operator"
 	testMount       = "/tests"
 	buildMount      = "/build"
-	testDir         = "tests"
+	testDir         = "fallout/tests"
+	buildDir        = "fallout/build"
 	envTestFile     = "M_FTEST"
 	envTestRuns     = "M_RUNS"
 	envGithubToken  = "GITHUB_TOKEN"
 	envFalloutToken = "FALLOUT_OAUTH_TOKEN"
-	buildDir        = "build"
 	queuedRunsFile  = "queuedruns.txt"
 )
 
@@ -327,7 +325,7 @@ func Build() {
 	fmt.Println("- Building image:", imageName)
 	github_token := mageutil.RequireEnv(envGithubToken)
 	dockerArgs := []string{
-		"build", ".", "-t", imageName, "--build-arg", "GITHUB_TOKEN=" + github_token,
+		"build", "./fallout", "-t", imageName, "--build-arg", "GITHUB_TOKEN=" + github_token,
 	}
 	err := sh.Run("docker", dockerArgs...)
 	if err != nil {

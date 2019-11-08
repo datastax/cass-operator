@@ -10,7 +10,7 @@ ext {
 
 golang {
     packagePath = 'github.com/riptano/dse-operator/operator'
-    goVersion = '1.12.5'
+    goVersion = '1.13.4'
     goExecutable = 'IGNORE_LOCAL'
 }
 import com.github.blindpirate.gogradle.crossplatform.Arch

@@ -5,7 +5,7 @@ pipeline {
     agent any
     environment {
         GOPATH = '/go'
-        PATH = "/go/bin:${PATH}"
+        PATH = "/go/bin:/snap/bin:${PATH}"
         GITHUB_TOKEN = credentials('github-api-token')
         FALLOUT_OAUTH_TOKEN = credentials('fallout-test-oauth')
     }
@@ -15,7 +15,7 @@ pipeline {
     stages {
         stage('Queue Tests') {
             steps {
-                sh 'mage -d fallout queue'
+                sh 'mage fallout:queue'
                 script {
                     env.WORKSPACE = pwd()
                     mRuns = readFile("${env.WORKSPACE}/fallout/build/queuedruns.txt").trim()
@@ -24,24 +24,22 @@ pipeline {
         }
         stage('Monitor Tests') {
             steps {
-                sh "mage -d fallout -compile ./build/fallout_mage"
+                sh "mage -compile ./fallout/build/fallout_mage"
                 script {
-                    def staticMage = "./build/fallout_mage"
+                    def staticMage = "./fallout/build/fallout_mage"
                     def monitorStages = [:]
                     for (f in mRuns.tokenize(",")) {
                         def runTokens = mRuns.tokenize(":")
                         def tname = runTokens[0]
                         def tid = runTokens[1]
                         monitorStages["${tname}"] = {
-                            dir('fallout') {
-                                try {
-                                    stage("Wait for test: ${tname}") {
-                                        sh "M_RUNS=${mRuns} ${staticMage} wait"
-                                    }
-                                } finally {
-                                    sh "M_RUNS=${mRuns} ${staticMage} artifacts"
-                                    archiveArtifacts "build/*/${tname}/${tid}/**/*"
+                            try {
+                                stage("Wait for test: ${tname}") {
+                                    sh "M_RUNS=${mRuns} ${staticMage} fallout:wait"
                                 }
+                            } finally {
+                                sh "M_RUNS=${mRuns} ${staticMage} fallout:artifacts"
+                                archiveArtifacts "fallout/build/*/${tname}/${tid}/**/*"
                             }
                         }
                     }
@@ -54,7 +52,7 @@ pipeline {
         aborted {
             script {
                 if (mRuns != "") {
-                    sh "M_RUNS=${mRuns} mage -d fallout abort"
+                    sh "M_RUNS=${mRuns} mage fallout:abort"
                 }
             }
         }

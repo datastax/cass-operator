@@ -10,8 +10,8 @@ FROM golang:1.13-stretch
 # inside the container. Something like...
 # docker run -v /Users/jim/datastax/dse-operator:/go/src/github.com/riptano/dse-operator ...
 
-ENV OP_SDK_VERSION=v0.9.0
-ENV GOPROXY=https://gocenter.io,direct
+ENV OP_SDK_VERSION=v0.12.0
+ENV GOPROXY=https://proxy.golang.org,https://gocenter.io,direct
 
 WORKDIR /usr/bin
 
@@ -46,18 +46,20 @@ RUN { \
     echo '        _ "k8s.io/code-generator/cmd/lister-gen"'; \
     echo '        _ "k8s.io/gengo/args"'; \
     echo '        _ "k8s.io/kube-openapi/cmd/openapi-gen"'; \
-    echo '        _ "sigs.k8s.io/controller-tools/pkg/crd/generator"'; \
+    echo '        _ "sigs.k8s.io/controller-tools/pkg/crd"'; \
     echo ')'; \
     } > $GOPATH/src/github.com/example-inc/memcached-operator/tools.go
 
-RUN GO111MODULE=on go mod vendor
+RUN GO111MODULE=on go mod tidy
+RUN GO111MODULE=on go mod download
 RUN GO111MODULE=on operator-sdk generate k8s
 RUN GO111MODULE=on operator-sdk generate openapi
 
 # The next steps use the kubernetes code-generator to make a client
 
 WORKDIR $GOPATH/src/k8s.io
-RUN cp -r "/go/pkg/mod/k8s.io/code-generator@v0.0.0-20181203235156-f8cba74510f3" "code-generator"
+RUN cp -r "/go/pkg/mod/k8s.io/code-generator@v0.0.0-20190612205613-18da4a14b22b" "code-generator"
+
 WORKDIR $GOPATH/src/k8s.io/code-generator
 RUN chmod 700 generate-groups.sh
 
@@ -65,7 +67,7 @@ WORKDIR $GOPATH/src/github.com/example-inc/memcached-operator
 
 RUN sed -i 's|.*type Memcached struct.*|// +genclient\n&|' pkg/apis/memcached/v1alpha1/memcached_types.go
 
-RUN cd $GOPATH/src/k8s.io/code-generator && go mod init
+RUN cd $GOPATH/src/k8s.io/code-generator
 
 RUN GO111MODULE=on $GOPATH/src/k8s.io/code-generator/generate-groups.sh \
     client,lister,informer \

@@ -10,7 +10,7 @@ ensemble:
                 machine.type: n1-standard-1
                 create.extra_args: |
                         --no-enable-basic-auth \
-                        --cluster-version "1.13.10-gke.0" \
+                        --cluster-version "1.13.11-gke.9" \
                         --image-type "COS" \
                         --disk-type "pd-ssd" \
                         --disk-size "50" \

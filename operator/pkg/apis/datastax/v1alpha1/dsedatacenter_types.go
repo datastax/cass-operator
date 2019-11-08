@@ -59,11 +59,21 @@ func getDseImageFromVersion(version string) (string, error) {
 // the engineering team in this block comment.
 
 // Config
-// Definition file config
-// Note that k8s will populate Spec.Config with a json version of the contents
-// of this field.  Somehow k8s converts the yaml fragment to json, which is bizarre
-// but useful for us.  We can use []byte(dseDatacenter.Spec.Config) to make
-// the data accessible for parsing.
+// The configuration to be passed to the configBuilder instance in the init-container
+// for DSE pods. The schema for this field is dynamic, as it depends on the DSE
+// version being run. It's not possible to represent and validate dynamic schema in
+// openAPI v3, so we define this as a json.RawMessage.
+//
+// A human writing a dseDatacenter resource based on this spec will enter normal
+// indented yaml under the config key, k8s will convert the yaml fragment
+// under the config key to json and make that available to the operator via
+// Spec.Config, usable via []byte(dseDatacenter.Spec.Config)
+//
+// The operator SDK boilerplate generators are not quite smart enough to
+// understand what we're doing with this field, so we post-process the CRD yaml
+// to remove the config field and enable preservation of unknown fields. See the
+// UpdateGeneratedFiles() mage target for details, specifically the
+// postProcessCrd() function.
 
 // Racks
 // Racks is an exported field, BUT it is highly recommended that GetRacks()

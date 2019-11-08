@@ -6,6 +6,8 @@ spec:
   dseClusterName: clstr
   dseImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-master-20190923204409-d9e0344
   dseVersion: 6.8.0
+  managementApiAuth:
+    insecure: {}
   size: 2
   resources:
     requests:
