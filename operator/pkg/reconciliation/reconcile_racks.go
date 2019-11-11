@@ -1064,7 +1064,7 @@ func (r *ReconcileRacks) startOneSeedPerRack() (string, error) {
 
 		if isDseReady(pod) {
 			rackReadySeedCount[rackName]++
-		} else if isMgmtApiRunning(pod) {
+		} else if isMgmtApiRunning(pod) && !isDseStarted(pod) {
 			if err = r.callNodeManagementStart(pod); err != nil {
 				return "", err
 			}
@@ -1095,7 +1095,7 @@ func (r *ReconcileRacks) startAllNodes(podList *corev1.PodList) (bool, error) {
 
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
-		if isMgmtApiRunning(pod) && !isDseReady(pod) {
+		if isMgmtApiRunning(pod) && !isDseReady(pod) && !isDseStarted(pod) {
 			if err := r.callNodeManagementStart(pod); err != nil {
 				return false, err
 			}
@@ -1138,7 +1138,7 @@ func (r *ReconcileRacks) countReadyAndStarted(podList *corev1.PodList) (int, int
 	}
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
-		if pod.Labels[datastaxv1alpha1.DseNodeState] == "Started" {
+		if isDseStarted(pod) {
 			started++
 			r.ReconcileContext.ReqLogger.Info(
 				"found a pod we labeled Started",
@@ -1166,6 +1166,10 @@ func isMgmtApiRunning(pod *corev1.Pod) bool {
 		}
 	}
 	return false
+}
+
+func isDseStarted(pod *corev1.Pod) bool {
+	return pod.Labels[datastaxv1alpha1.DseNodeState] == "Started"
 }
 
 func isDseReady(pod *corev1.Pod) bool {
