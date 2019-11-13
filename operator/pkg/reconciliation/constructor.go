@@ -123,6 +123,9 @@ func newStatefulSetForDseDatacenter(
 
 	replicaCountInt32 := int32(replicaCount)
 	labels := dseDatacenter.GetRackLabels(rackName)
+
+	labels[datastaxv1alpha1.DseNodeState] = "Ready-to-Start"
+
 	dseVersion := dseDatacenter.Spec.DseVersion
 	var userID int64 = 999
 	var volumeCaimTemplates []corev1.PersistentVolumeClaim

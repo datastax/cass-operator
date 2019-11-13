@@ -324,25 +324,28 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 
 	nodeIsStarting, err := r.findStartingNodes(podList)
 
-	if err != nil {
+	if err != nil || nodeIsStarting {
 		return &ResultShouldRequeueSoon, err
-	}
-	if nodeIsStarting {
-		return &ResultShouldRequeueSoon, nil
 	}
 
 	// step 2 - get one seed node up per rack
 
 	rackWaitingForASeed, err := r.startOneSeedPerRack()
 
-	if err != nil {
+	if err != nil || rackWaitingForASeed != "" {
 		return &ResultShouldRequeueSoon, err
 	}
-	if rackWaitingForASeed != "" {
-		return &ResultShouldRequeueSoon, nil
+
+	// step 3 - see if any nodes lost their readiness
+	// or gained it back
+
+	nodeStartedNotReady, err := r.findStartedNotReadyNodes(podList)
+
+	if err != nil || nodeStartedNotReady {
+		return &ResultShouldRequeueSoon, err
 	}
 
-	// step 3 - get all nodes up
+	// step 4 - get all nodes up
 
 	// if the cluster isn't healthy, that's ok, but go back to step 1
 	if !isClusterHealthy(r.ReconcileContext) {
@@ -1010,6 +1013,12 @@ func (r *ReconcileRacks) labelDsePodStarted(pod *corev1.Pod) error {
 	return err
 }
 
+func (r *ReconcileRacks) labelDsePodStartedNotReady(pod *corev1.Pod) error {
+	pod.Labels[datastaxv1alpha1.DseNodeState] = "Started-not-Ready"
+	err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, pod)
+	return err
+}
+
 func (r *ReconcileRacks) callNodeManagementStart(pod *corev1.Pod) error {
 	mgmtClient := r.ReconcileContext.NodeMgmtClient
 	err := mgmtClient.CallLifecycleStartEndpoint(pod)
@@ -1036,6 +1045,31 @@ func (r *ReconcileRacks) findStartingNodes(podList *corev1.PodList) (bool, error
 				// 	return false, err
 				// }
 				return true, nil
+			}
+		}
+	}
+	return false, nil
+}
+
+func (r *ReconcileRacks) findStartedNotReadyNodes(podList *corev1.PodList) (bool, error) {
+	r.ReconcileContext.ReqLogger.Info("reconcile_racks::findStartedNotReadyNodes")
+
+	for idx := range podList.Items {
+		pod := &podList.Items[idx]
+		if pod.Labels[datastaxv1alpha1.DseNodeState] == "Started" {
+			if !isDseReady(pod) {
+				if err := r.labelDsePodStartedNotReady(pod); err != nil {
+					return false, err
+				}
+				return true, nil
+			}
+		}
+		if pod.Labels[datastaxv1alpha1.DseNodeState] == "Started-not-Ready" {
+			if isDseReady(pod) {
+				if err := r.labelDsePodStarted(pod); err != nil {
+					return false, err
+				}
+				return false, nil
 			}
 		}
 	}
@@ -1169,7 +1203,8 @@ func isMgmtApiRunning(pod *corev1.Pod) bool {
 }
 
 func isDseStarted(pod *corev1.Pod) bool {
-	return pod.Labels[datastaxv1alpha1.DseNodeState] == "Started"
+	return pod.Labels[datastaxv1alpha1.DseNodeState] == "Started" ||
+		pod.Labels[datastaxv1alpha1.DseNodeState] == "Started-not-Ready"
 }
 
 func isDseReady(pod *corev1.Pod) bool {
