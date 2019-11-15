@@ -10,6 +10,24 @@ function log_err() {
     echo "$@" 1>&2
 }
 
+function assert_ecr_creds() {
+    local errors=0
+    if [[ -z "${DS_ECR_USER}" ]]; then
+        log_err "DS_ECR_USER must be set to a user for registry.cloud-tools.datastax.com."
+        errors=1
+    fi
+
+    if [[ -z "{DS_ECR_PASS}" ]]; then
+        log_err "DS_ECR_PASS must be set to a password for registry.cloud-tools.datastax.com."
+        errors=1
+    fi
+
+    if [[ "$errors" -ne 0 ]]; then
+        log_err "Artifactory credentials check failed. Exiting."
+        exit "$errors"
+    fi
+}
+
 function assert_artifactory_creds() {
     local errors=0
     if [[ -z "${DS_REPO_USER}" ]]; then
@@ -196,6 +214,18 @@ function kubectl() {
     return "$status"
 }
 
+function create_ecr_secret() {
+    local namespace="$1"
+    local user="$2"
+    local pass="$3"
+    kubectl create secret docker-registry dse-operator-ecr-secret \
+        --namespace="$namespace" \
+        --docker-server="registry.cloud-tools.datastax.com" \
+        --docker-username="$user" \
+        --docker-password="$pass" \
+        || echo "Skipping secret"
+}
+
 function create_secret() {
     local namespace="$1"
     local user="$2"
@@ -213,6 +243,7 @@ function deploy_operator() {
     local operator_image="$2"
 
     create_secret "$namespace" "$DS_REPO_USER" "$DS_REPO_PASS"
+    create_ecr_secret "$namespace" "$DS_ECR_USER" "$DS_ECR_PASS"
 
     kubectl apply \
         --wait \
@@ -236,7 +267,7 @@ function deploy_operator() {
     kubectl apply \
         --wait \
         --namespace "$namespace" \
-        --filename "$DEPLOY_BASE_PATH/crds/datastax_v1alpha1_dsedatacenter_crd.yaml"
+        --filename "$DEPLOY_BASE_PATH/crds/datastax.com_dsedatacenters_crd.yaml"
 
     kubectl apply \
         --wait \
@@ -407,6 +438,16 @@ function do_deploy() {
                 DS_REPO_USER="$1"
                 shift
                 ;;
+            --ecr-token)
+                shift
+                DS_ECR_PASS="$1"
+                shift
+                ;;
+            --ecr-user)
+                shift
+                DS_ECR_USER="$1"
+                shift
+                ;;
             -*|--*)
                 log_arg_err "Unexpected argument: $1"
                 return $?
@@ -429,6 +470,7 @@ function do_deploy() {
 
     load_artifactory_creds
     assert_artifactory_creds
+    assert_ecr_creds
 
     local branch_name=
 
@@ -437,7 +479,7 @@ function do_deploy() {
             branch_name="master"
         fi
         local revision="$(git rev-parse HEAD)"
-        image="$(echo "datastax-docker.jfrog.io/dse-operator/operator:${branch_name}.${revision}")"
+        image="$(echo "registry.cloud-tools.datastax.com/dse-operator/operator:${branch_name}.${revision}")"
     fi
 
     KUBECONFIG_CONTENT="$(retrieve_kubectl_config "$kubespray_cluster_name" "$k8s_cluster_name")"

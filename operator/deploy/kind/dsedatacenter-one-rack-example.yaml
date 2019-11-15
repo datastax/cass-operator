@@ -4,11 +4,11 @@ metadata:
   name: dtcntr
 spec:
   dseClusterName: clstr
-  dseImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-master-20190923204409-d9e0344
+  dseImage: datastaxlabs/dse-k8s-server:6.8.0-20191113
   dseVersion: 6.8.0
   managementApiAuth:
     insecure: {}
-  configBuilderImage: datastax-docker.jfrog.io/datastax/dse-server-config-builder:6.8.0-38aadce
+  configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.4.0-20191113
   size: 2
   dseSuperuserSecret: dse-superuser-secret
   storageClaim:

@@ -25,7 +25,7 @@ func Test_makeImage(t *testing.T) {
 				dseImage:   "",
 				dseVersion: "6.8.0",
 			},
-			want:      "datastaxlabs/dse-k8s-server:6.8.0-20190822",
+			want:      "datastaxlabs/dse-k8s-server:6.8.0-20191113",
 			errString: "",
 		},
 		{

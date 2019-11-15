@@ -233,7 +233,7 @@ ensemble:
                             serviceAccountName: dse-operator
                             containers:
                               - name: dse-operator
-                                image: datastax-docker.jfrog.io/dse-operator/operator:master.b1fb345b503c225869cc69c621f3ffe581d247e0
+                                image: datastax-docker.jfrog.io/dse-operator/operator:ko-121-new-image-defaults.dd37a85b824c022ce3239842b029d057daa07c7b
                                 imagePullPolicy: IfNotPresent
                                 env:
                                   - name: WATCH_NAMESPACE
@@ -271,8 +271,8 @@ ensemble:
                       spec:
                         dseClusterName: gke-c1
                         serviceAccount: dse-operator
-                        configBuilderImage: datastax-docker.jfrog.io/datastax/dse-server-config-builder:6.8.0-38aadce
-                        dseImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0.57-master-20191015195850-b67975e
+                        configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.4.0-20191113
+                        dseImage: datastaxlabs/dse-k8s-server:6.8.0-20191113
                         dseVersion: 6.8.0
                         size: 3
                         storageclaim:

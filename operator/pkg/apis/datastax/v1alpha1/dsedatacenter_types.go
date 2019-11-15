@@ -15,9 +15,9 @@ import (
 
 const (
 	defaultDseRepository = "datastaxlabs/dse-k8s-server"
-	defaultDseVersion    = "6.8.0-20190822"
+	defaultDseVersion    = "6.8.0-20191113"
 
-	defaultConfigBuilderImage = "datastaxlabs/dse-k8s-config-builder:0.3.0-20190822"
+	defaultConfigBuilderImage = "datastaxlabs/dse-k8s-config-builder:0.4.0-20191113"
 
 	// ClusterLabel is the DSE operator's label for the DSE cluster name
 	ClusterLabel = "com.datastax.dse.cluster"
@@ -45,7 +45,7 @@ const (
 func getDseImageFromVersion(version string) (string, error) {
 	switch version {
 	case "6.8.0":
-		return "datastaxlabs/dse-k8s-server:6.8.0-20190822", nil
+		return fmt.Sprintf("%s:%s", defaultDseRepository, defaultDseVersion), nil
 	}
 	msg := fmt.Sprintf("The specified DSE version %s does not map to a known container image.", version)
 	return "", errors.New(msg)
