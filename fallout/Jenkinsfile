@@ -4,8 +4,6 @@ mRuns = ""
 pipeline {
     agent any
     environment {
-        GOPATH = '/go'
-        PATH = "/go/bin:/snap/bin:${PATH}"
         GITHUB_TOKEN = credentials('github-api-token')
         FALLOUT_OAUTH_TOKEN = credentials('fallout-test-oauth')
     }
