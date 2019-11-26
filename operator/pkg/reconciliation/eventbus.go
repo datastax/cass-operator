@@ -96,11 +96,7 @@ func (r *ReconcileDseDatacenter) Reconcile(
 		ReconcileContext: rc,
 	}
 
-	reconcileSeedServices := ReconcileSeedServices{
-		ReconcileContext: rc,
-	}
-
-	return calculateReconciliationActions(rc, reconcileDatacenter, reconcileRacks, reconcileServices, reconcileSeedServices, r)
+	return calculateReconciliationActions(rc, reconcileDatacenter, reconcileRacks, reconcileServices, r)
 }
 
 func (r *ReconcileDseDatacenter) addFinalizer(rc *dsereconciliation.ReconciliationContext) error {

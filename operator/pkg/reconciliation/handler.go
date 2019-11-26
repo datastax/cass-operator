@@ -26,7 +26,6 @@ func calculateReconciliationActions(
 	reconcileDatacenter ReconcileDatacenter,
 	reconcileRacks ReconcileRacks,
 	reconcileServices ReconcileServices,
-	reconcileSeedServices ReconcileSeedServices,
 	reconciler *ReconcileDseDatacenter) (reconcile.Result, error) {
 
 	rc.ReqLogger.Info("handler::calculateReconciliationActions")
@@ -48,8 +47,7 @@ func calculateReconciliationActions(
 
 	// order of this list matters!
 	reconcilers := []reconcileFun{
-		reconcileServices.ReconcileHeadlessService,
-		reconcileSeedServices.ReconcileHeadlessSeedService,
+		reconcileServices.ReconcileHeadlessServices,
 		reconcileRacks.CalculateRackInformation}
 
 	for _, fun := range reconcilers {

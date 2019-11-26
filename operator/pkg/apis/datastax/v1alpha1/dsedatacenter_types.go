@@ -185,12 +185,11 @@ type ManagementApiAuthManualConfig struct {
 }
 
 type ManagementApiAuthInsecureConfig struct {
-
 }
 
 type ManagementApiAuthConfig struct {
 	Insecure *ManagementApiAuthInsecureConfig `json:"insecure,omitempty"`
-	Manual *ManagementApiAuthManualConfig `json:"manual,omitempty"`
+	Manual   *ManagementApiAuthManualConfig   `json:"manual,omitempty"`
 	// other strategy configs (e.g. Cert Manager) go here
 }
 
@@ -260,7 +259,7 @@ func (dc *DseDatacenter) GetDatacenterLabels() map[string]string {
 	return labels
 }
 
-// GetClusterLabels ...
+// GetClusterLabels returns a new map with the cluster label key and DSE cluster name value
 func (dc *DseDatacenter) GetClusterLabels() map[string]string {
 	return map[string]string{
 		ClusterLabel: dc.Spec.DseClusterName,
@@ -269,6 +268,14 @@ func (dc *DseDatacenter) GetClusterLabels() map[string]string {
 
 func (dc *DseDatacenter) GetSeedServiceName() string {
 	return dc.Spec.DseClusterName + "-seed-service"
+}
+
+func (dc *DseDatacenter) GetAllPodsServiceName() string {
+	return dc.Spec.DseClusterName + "-" + dc.Name + "-all-pods-service"
+}
+
+func (dc *DseDatacenter) GetDseDatacenterServiceName() string {
+	return dc.Spec.DseClusterName + "-" + dc.Name + "-service"
 }
 
 // GetConfigAsJSON gets a JSON-encoded string suitable for passing to configBuilder

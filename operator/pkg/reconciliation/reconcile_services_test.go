@@ -19,7 +19,7 @@ func TestReconcileHeadlessService(t *testing.T) {
 	reconcileServices := ReconcileServices{
 		ReconcileContext: rc,
 	}
-	rec, err := reconcileServices.ReconcileHeadlessService()
+	rec, err := reconcileServices.ReconcileHeadlessServices()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.NotNil(t, rec, "Reconciler should not be nil")
 }
@@ -31,15 +31,22 @@ func TestReconcileHeadlessService_UpdateLabels(t *testing.T) {
 	mockClient := &mocks.Client{}
 	rc.Client = mockClient
 
-	k8sMockClientGet(mockClient, nil)
-	k8sMockClientUpdate(mockClient, nil)
+	k8sMockClientGet(mockClient, nil).
+		Run(func(args mock.Arguments) {
+			arg := args.Get(2).(*corev1.Service)
+			arg.SetLabels(make(map[string]string))
+		}).
+		Return(nil).
+		Times(3)
+	k8sMockClientUpdate(mockClient, nil).
+		Times(3)
 
 	service.SetLabels(make(map[string]string))
 
 	reconcileServices := ReconcileServices{
 		ReconcileContext: rc,
 	}
-	rec, err := reconcileServices.ReconcileHeadlessService()
+	rec, err := reconcileServices.ReconcileHeadlessServices()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.Nil(t, rec, "Reconciler should be nil")
 }
@@ -50,7 +57,7 @@ func TestCreateHeadlessService(t *testing.T) {
 
 	reconcileServices := ReconcileServices{
 		ReconcileContext: rc,
-		Service:          svc,
+		Services:         []*corev1.Service{svc},
 	}
 	result, err := reconcileServices.Apply()
 	assert.NoErrorf(t, err, "Should not have returned an error")
@@ -69,89 +76,9 @@ func TestCreateHeadlessService_ClientReturnsError(t *testing.T) {
 
 	reconcileServices := ReconcileServices{
 		ReconcileContext: rc,
-		Service:          svc,
+		Services:         []*corev1.Service{svc},
 	}
 	result, err := reconcileServices.Apply()
-	assert.Errorf(t, err, "Should have returned an error")
-	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
-
-	mockClient.AssertExpectations(t)
-}
-
-func TestReconcileHeadlessSeedService_GetServiceError(t *testing.T) {
-	rc, _, cleanupMockScr := setupTest()
-	defer cleanupMockScr()
-
-	mockClient := &mocks.Client{}
-	rc.Client = mockClient
-
-	k8sMockClientGet(mockClient, fmt.Errorf(""))
-
-	reconcileSeedServices := ReconcileSeedServices{
-		ReconcileContext: rc,
-	}
-	rec, err := reconcileSeedServices.ReconcileHeadlessSeedService()
-	assert.Errorf(t, err, "Should have returned an error")
-	assert.Nil(t, rec, "Reconciler should be nil")
-
-	mockClient.AssertExpectations(t)
-}
-
-func TestReconcileHeadlessSeedService_UpdateLabels(t *testing.T) {
-	rc, _, cleanupMockScr := setupTest()
-	defer cleanupMockScr()
-
-	mockClient := &mocks.Client{}
-	rc.Client = mockClient
-
-	k8sMockClientGet(mockClient, nil).
-		Run(func(args mock.Arguments) {
-			arg := args.Get(2).(*corev1.Service)
-			arg.SetLabels(make(map[string]string))
-		}).
-		Return(nil).
-		Once()
-
-	k8sMockClientUpdate(mockClient, nil)
-
-	reconcileSeedServices := ReconcileSeedServices{
-		ReconcileContext: rc,
-	}
-	rec, err := reconcileSeedServices.ReconcileHeadlessSeedService()
-	assert.NoErrorf(t, err, "Should not have returned an error")
-	assert.Nil(t, rec, "Reconciler should not be nil")
-
-	mockClient.AssertExpectations(t)
-}
-
-func TestCreateHeadlessSeedService(t *testing.T) {
-	rc, svc, cleanupMockScr := setupTest()
-	defer cleanupMockScr()
-
-	reconcileSeedServices := ReconcileSeedServices{
-		ReconcileContext: rc,
-		Service:          svc,
-	}
-	result, err := reconcileSeedServices.Apply()
-	assert.NoErrorf(t, err, "Should not have returned an error")
-	assert.Equal(t, reconcile.Result{}, result, "Should requeue request")
-}
-
-func TestCreateHeadlessSeedService_ClientReturnsError(t *testing.T) {
-	rc, svc, cleanupMockScr := setupTest()
-	defer cleanupMockScr()
-
-	mockClient := &mocks.Client{}
-	rc.Client = mockClient
-
-	k8sMockClientCreate(mockClient, fmt.Errorf(""))
-	k8sMockClientUpdate(mockClient, nil).Times(1)
-
-	reconcileSeedServices := ReconcileSeedServices{
-		ReconcileContext: rc,
-		Service:          svc,
-	}
-	result, err := reconcileSeedServices.Apply()
 	assert.Errorf(t, err, "Should have returned an error")
 	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 

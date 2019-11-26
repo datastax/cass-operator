@@ -1,6 +1,8 @@
 package reconciliation
 
 import (
+	"reflect"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -13,187 +15,116 @@ import (
 // ReconcileServices ...
 type ReconcileServices struct {
 	ReconcileContext *dsereconciliation.ReconciliationContext
-	Service          *corev1.Service
-}
-
-// ReconcileSeedServices ...
-type ReconcileSeedServices struct {
-	ReconcileContext *dsereconciliation.ReconciliationContext
-	Service          *corev1.Service
+	Services         []*corev1.Service
 }
 
 // Apply ...
 func (r *ReconcileServices) Apply() (reconcile.Result, error) {
-	r.ReconcileContext.ReqLogger.Info(
-		"Creating a new headless service",
-		"serviceNamespace",
-		r.Service.Namespace,
-		"serviceName",
-		r.Service.Name)
+	// unpacking
+	recCtx := r.ReconcileContext
+	logger := recCtx.ReqLogger
+	client := recCtx.Client
 
-	if err := addOperatorProgressLabel(r.ReconcileContext, updating); err != nil {
-		return reconcile.Result{Requeue: true}, err
-	}
+	for idx := range r.Services {
+		service := r.Services[idx]
 
-	err := r.ReconcileContext.Client.Create(
-		r.ReconcileContext.Ctx,
-		r.Service)
-	if err != nil {
-		r.ReconcileContext.ReqLogger.Error(
-			err,
-			"Could not create headless service")
+		logger.Info(
+			"Creating a new headless service",
+			"serviceNamespace", service.Namespace,
+			"serviceName", service.Name)
 
-		return reconcile.Result{Requeue: true}, err
+		if err := addOperatorProgressLabel(recCtx, updating); err != nil {
+			return reconcile.Result{Requeue: true}, err
+		}
+
+		if err := client.Create(recCtx.Ctx, service); err != nil {
+			logger.Error(
+				err, "Could not create headless service")
+
+			return reconcile.Result{Requeue: true}, err
+		}
 	}
 
 	return reconcile.Result{Requeue: true}, nil
 }
 
 // ReconcileHeadlessService ...
-func (r *ReconcileServices) ReconcileHeadlessService() (reconcileriface.Reconciler, error) {
-	r.ReconcileContext.ReqLogger.Info("reconcile_services::reconcileHeadlessService")
+func (r *ReconcileServices) ReconcileHeadlessServices() (reconcileriface.Reconciler, error) {
+	// unpacking
+	recCtx := r.ReconcileContext
+	logger := recCtx.ReqLogger
+	dseDatacenter := recCtx.DseDatacenter
+	client := recCtx.Client
 
-	desiredService := newServiceForDseDatacenter(r.ReconcileContext.DseDatacenter)
+	logger.Info("reconcile_services::ReconcileHeadlessServices")
 
-	// Set DseDatacenter dseDatacenter as the owner and controller
-	err := setControllerReference(
-		r.ReconcileContext.DseDatacenter,
-		desiredService,
-		r.ReconcileContext.Scheme)
-	if err != nil {
-		r.ReconcileContext.ReqLogger.Error(
-			err,
-			"Could not set controller reference for headless service")
-		return nil, err
-	}
+	// Check if there is a headless service for the cluster
 
-	currentService := &corev1.Service{}
-	err = r.ReconcileContext.Client.Get(
-		r.ReconcileContext.Ctx,
-		types.NamespacedName{
-			Name:      desiredService.Name,
-			Namespace: desiredService.Namespace},
-		currentService)
+	cqlService := newServiceForDseDatacenter(dseDatacenter)
+	seedService := newSeedServiceForDseDatacenter(dseDatacenter)
+	allPodsService := newAllDsePodsServiceForDseDatacenter(dseDatacenter)
 
-	if err != nil && errors.IsNotFound(err) {
-		return &ReconcileServices{
-			ReconcileContext: r.ReconcileContext,
-			Service:          desiredService,
-		}, nil
-	} else if err != nil {
-		r.ReconcileContext.ReqLogger.Error(
-			err,
-			"Could not get headless seed service")
+	services := []*corev1.Service{cqlService, seedService, allPodsService}
 
-		return nil, err
-	}
+	var reconciler ReconcileServices
+	reconciler.ReconcileContext = recCtx
 
-	svcLabels := currentService.GetLabels()
-	shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForDatacenterResource(svcLabels, r.ReconcileContext.DseDatacenter)
+	createNeeded := []*corev1.Service{}
 
-	if shouldUpdateLabels {
-		r.ReconcileContext.ReqLogger.Info("Updating labels",
-			"service", currentService,
-			"current", svcLabels,
-			"desired", updatedLabels)
-		currentService.SetLabels(updatedLabels)
+	for idx := range services {
+		desiredSvc := services[idx]
 
-		if err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, currentService); err != nil {
-			r.ReconcileContext.ReqLogger.Info("Unable to update service with labels",
-				"service",
-				currentService)
+		// Set DseDatacenter dseDatacenter as the owner and controller
+		err := setControllerReference(dseDatacenter, desiredSvc, recCtx.Scheme)
+		if err != nil {
+			logger.Error(
+				err, "Could not set controller reference for headless service")
+			return nil, err
+		}
+
+		// See if the service already exists
+		nsName := types.NamespacedName{Name: desiredSvc.Name, Namespace: desiredSvc.Namespace}
+		currentService := &corev1.Service{}
+		err = client.Get(recCtx.Ctx, nsName, currentService)
+
+		if err != nil && errors.IsNotFound(err) {
+			// if it's not found, put the service in the slice to be created when Apply is called
+			createNeeded = append(createNeeded, desiredSvc)
+
+		} else if err != nil {
+			// if we hit a k8s error, log it and error out
+			logger.Error(
+				err, "Could not get headless seed service",
+				"name", nsName,
+			)
+			return nil, err
+
+		} else {
+			// if we found the service already, check if the labels are right
+			currentLabels := currentService.GetLabels()
+			desiredLabels := desiredSvc.GetLabels()
+			shouldUpdateLabels := !reflect.DeepEqual(currentLabels, desiredLabels)
+			if shouldUpdateLabels {
+				logger.Info("Updating labels",
+					"service", currentService,
+					"current", currentLabels,
+					"desired", desiredLabels)
+				currentService.SetLabels(desiredLabels)
+
+				if err := client.Update(recCtx.Ctx, currentService); err != nil {
+					logger.Error(err, "Unable to update service with labels",
+						"service", currentService)
+					return nil, err
+				}
+			}
 		}
 	}
 
-	return nil, nil
-}
-
-// Apply create a headless service for this datacenter.
-func (r *ReconcileSeedServices) Apply() (reconcile.Result, error) {
-	r.ReconcileContext.ReqLogger.Info(
-		"Creating a new headless seed service",
-		"serviceNamespace", r.Service.Namespace,
-		"serviceName", r.Service.Name)
-
-	if err := addOperatorProgressLabel(r.ReconcileContext, updating); err != nil {
-		return reconcile.Result{Requeue: true}, err
+	if len(createNeeded) > 0 {
+		reconciler.Services = createNeeded
+		return &reconciler, nil
 	}
-
-	err := r.ReconcileContext.Client.Create(
-		r.ReconcileContext.Ctx,
-		r.Service)
-	if err != nil {
-		r.ReconcileContext.ReqLogger.Error(
-			err,
-			"Could not create headless service")
-
-		return reconcile.Result{Requeue: true}, err
-	}
-
-	return reconcile.Result{}, nil
-}
-
-// ReconcileHeadlessSeedService ...
-func (r *ReconcileSeedServices) ReconcileHeadlessSeedService() (reconcileriface.Reconciler, error) {
-
-	r.ReconcileContext.ReqLogger.Info("reconcile_services::reconcileHeadlessSeedService")
 
 	//
-	// Check if there is a headless seed service for the cluster
-	//
-
-	desiredService := newSeedServiceForDseDatacenter(r.ReconcileContext.DseDatacenter)
-
-	// Set DseDatacenter dseDatacenter as the owner and controller
-	err := setControllerReference(
-		r.ReconcileContext.DseDatacenter,
-		desiredService,
-		r.ReconcileContext.Scheme)
-	if err != nil {
-		r.ReconcileContext.ReqLogger.Error(
-			err,
-			"Could not set controller reference for headless seed service")
-		return nil, err
-	}
-
-	currentService := &corev1.Service{}
-
-	err = r.ReconcileContext.Client.Get(
-		r.ReconcileContext.Ctx,
-		types.NamespacedName{
-			Name:      desiredService.Name,
-			Namespace: desiredService.Namespace},
-		currentService)
-
-	if err != nil && errors.IsNotFound(err) {
-		return &ReconcileSeedServices{
-			ReconcileContext: r.ReconcileContext,
-			Service:          desiredService,
-		}, nil
-	} else if err != nil {
-		r.ReconcileContext.ReqLogger.Error(
-			err,
-			"Could not get headless seed service")
-
-		return nil, err
-	}
-
-	svcLabels := currentService.GetLabels()
-	shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForDatacenterResource(svcLabels, r.ReconcileContext.DseDatacenter)
-
-	if shouldUpdateLabels {
-		r.ReconcileContext.ReqLogger.Info("Updating labels",
-			"service", currentService,
-			"current", svcLabels,
-			"desired", updatedLabels)
-		currentService.SetLabels(updatedLabels)
-
-		if err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, currentService); err != nil {
-			r.ReconcileContext.ReqLogger.Info("Unable to update service with labels",
-				"service",
-				currentService)
-		}
-	}
-
 	return nil, nil
 }

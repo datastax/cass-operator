@@ -62,7 +62,7 @@ func CreateMockReconciliationContext(
 		Spec: datastaxv1alpha1.DseDatacenterSpec{
 			Size:           size,
 			DseClusterName: clusterName,
-			DseVersion: "6.8.0",
+			DseVersion:     "6.8.0",
 		},
 	}
 
@@ -125,7 +125,7 @@ func setupTest() (*dsereconciliation.ReconciliationContext, *corev1.Service, fun
 	return rc, service, cleanupMockScr
 }
 
-func getReconcilers(rc *dsereconciliation.ReconciliationContext) (ReconcileDatacenter, ReconcileRacks, ReconcileServices, ReconcileSeedServices) {
+func getReconcilers(rc *dsereconciliation.ReconciliationContext) (ReconcileDatacenter, ReconcileRacks, ReconcileServices) {
 	reconcileDatacenter := ReconcileDatacenter{
 		ReconcileContext: rc,
 	}
@@ -138,11 +138,7 @@ func getReconcilers(rc *dsereconciliation.ReconciliationContext) (ReconcileDatac
 		ReconcileContext: rc,
 	}
 
-	reconcileSeedServices := ReconcileSeedServices{
-		ReconcileContext: rc,
-	}
-
-	return reconcileDatacenter, reconcileRacks, reconcileServices, reconcileSeedServices
+	return reconcileDatacenter, reconcileRacks, reconcileServices
 }
 
 func k8sMockClientGet(mockClient *mocks.Client, returnArg interface{}) *mock.Call {

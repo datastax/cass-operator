@@ -18,9 +18,9 @@ func TestCalculateReconciliationActions(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	datacenterReconcile, reconcileRacks, reconcileServices, reconcileSeedServices := getReconcilers(rc)
+	datacenterReconcile, reconcileRacks, reconcileServices := getReconcilers(rc)
 
-	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, reconcileSeedServices, &ReconcileDseDatacenter{client: rc.Client})
+	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileDseDatacenter{client: rc.Client})
 	assert.NoErrorf(t, err, "Should not have returned an error while calculating reconciliation actions")
 	assert.NotNil(t, result, "Result should not be nil")
 
@@ -29,7 +29,7 @@ func TestCalculateReconciliationActions(t *testing.T) {
 	fakeClient, _ := fakeClientWithService(rc.DseDatacenter)
 	rc.Client = *fakeClient
 
-	result, err = calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, reconcileSeedServices, &ReconcileDseDatacenter{client: rc.Client})
+	result, err = calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileDseDatacenter{client: rc.Client})
 	assert.NoErrorf(t, err, "Should not have returned an error while calculating reconciliation actions")
 	assert.NotNil(t, result, "Result should not be nil")
 }
@@ -44,9 +44,9 @@ func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
 	k8sMockClientGet(mockClient, fmt.Errorf(""))
 	k8sMockClientUpdate(mockClient, nil).Times(1)
 
-	datacenterReconcile, reconcileRacks, reconcileServices, reconcileSeedServices := getReconcilers(rc)
+	datacenterReconcile, reconcileRacks, reconcileServices := getReconcilers(rc)
 
-	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, reconcileSeedServices, &ReconcileDseDatacenter{client: rc.Client})
+	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileDseDatacenter{client: rc.Client})
 	assert.Errorf(t, err, "Should have returned an error while calculating reconciliation actions")
 	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 
@@ -62,8 +62,8 @@ func TestCalculateReconciliationActions_FailedUpdate(t *testing.T) {
 
 	k8sMockClientUpdate(mockClient, fmt.Errorf("failed to update DseDatacenter with removed finalizers"))
 
-	datacenterReconcile, reconcileRacks, reconcileServices, reconcileSeedServices := getReconcilers(rc)
-	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, reconcileSeedServices, &ReconcileDseDatacenter{client: rc.Client})
+	datacenterReconcile, reconcileRacks, reconcileServices := getReconcilers(rc)
+	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileDseDatacenter{client: rc.Client})
 	assert.Errorf(t, err, "Should have returned an error while calculating reconciliation actions")
 	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 
@@ -93,8 +93,8 @@ func TestProcessDeletion_FailedDelete(t *testing.T) {
 	now := metav1.Now()
 	rc.DseDatacenter.SetDeletionTimestamp(&now)
 
-	datacenterReconcile, reconcileRacks, reconcileServices, reconcileSeedServices := getReconcilers(rc)
-	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, reconcileSeedServices, &ReconcileDseDatacenter{client: rc.Client})
+	datacenterReconcile, reconcileRacks, reconcileServices := getReconcilers(rc)
+	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileDseDatacenter{client: rc.Client})
 	assert.Errorf(t, err, "Should have returned an error while calculating reconciliation actions")
 	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 

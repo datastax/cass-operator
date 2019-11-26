@@ -11,7 +11,6 @@ import (
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 
-	"github.com/riptano/dse-operator/operator/pkg/utils"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
@@ -20,50 +19,26 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// Creates a headless service object for the DSE Datacenter.
-func newServiceForDseDatacenter(
-	dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
-	// TODO adjust labels
-	labels := dseDatacenter.GetDatacenterLabels()
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      dseDatacenter.Spec.DseClusterName + "-" + dseDatacenter.Name + "-service",
-			Namespace: dseDatacenter.Namespace,
-			Labels:    labels,
+// Creates a headless service object for the DSE Datacenter, for clients wanting to
+// reach out to a ready DSE node for either CQL or mgmt API
+func newServiceForDseDatacenter(dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
+	svcName := dseDatacenter.GetDseDatacenterServiceName()
+	service := makeGenericHeadlessService(dseDatacenter)
+	service.ObjectMeta.Name = svcName
+	service.Spec.Ports = []corev1.ServicePort{
+		// Note: Port Names cannot be more than 15 characters
+		{
+			Name: "native", Port: 9042, TargetPort: intstr.FromInt(9042),
 		},
-		Spec: corev1.ServiceSpec{
-			// This MUST match a template pod label in the statefulset
-			Selector:  labels,
-			Type:      "ClusterIP",
-			ClusterIP: "None",
-			Ports: []corev1.ServicePort{
-				// Note: Port Names cannot be more than 15 characters
-				{
-					Name:       "native",
-					Port:       9042,
-					TargetPort: intstr.FromInt(9042),
-				},
-				{
-					Name:       "mgmt-api",
-					Port:       8080,
-					TargetPort: intstr.FromInt(8080),
-				},
-				// I don't believe we need to expose any of
-				//     jmx-port:7199
-				//     inter-node-msg:8609
-				//     intra-node:7000
-				//     tls-intra-node:7001
-				// with this load balancer
-			},
+		{
+			Name: "mgmt-api", Port: 8080, TargetPort: intstr.FromInt(8080),
 		},
 	}
+	return service
 }
 
 func buildLabelSelectorForSeedService(dseDatacenter *datastaxv1alpha1.DseDatacenter) map[string]string {
-	// copy the labels, don't assume we own the return value of a getter
-	clusterLabels := dseDatacenter.GetClusterLabels()
-	labels := make(map[string]string)
-	utils.MergeMap(&labels, clusterLabels)
+	labels := dseDatacenter.GetClusterLabels()
 
 	// narrow selection to just the seed nodes
 	labels[datastaxv1alpha1.SeedNodeLabel] = "true"
@@ -75,31 +50,38 @@ func buildLabelSelectorForSeedService(dseDatacenter *datastaxv1alpha1.DseDatacen
 // nodes in the cluster
 func newSeedServiceForDseDatacenter(
 	dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
-
 	selectorLabels := buildLabelSelectorForSeedService(dseDatacenter)
 	labels := dseDatacenter.GetClusterLabels()
+	service := makeGenericHeadlessService(dseDatacenter)
+	service.ObjectMeta.Name = dseDatacenter.GetSeedServiceName()
+	service.ObjectMeta.Labels = labels
+	service.Spec.Selector = selectorLabels
+	service.Spec.PublishNotReadyAddresses = true
+	return service
+}
 
-	return &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      dseDatacenter.GetSeedServiceName(),
-			Namespace: dseDatacenter.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.ServiceSpec{
-			Ports: nil,
-			// This MUST match a template pod label in the statefulset
-			Selector:  selectorLabels,
-			ClusterIP: "None",
-			Type:      "ClusterIP",
-			// Make sure addresses are provided from the beginning so that we don't have to go back and reload seeds
-			PublishNotReadyAddresses: true,
-			SessionAffinityConfig: &corev1.SessionAffinityConfig{
-				ClientIP: &corev1.ClientIPConfig{
-					TimeoutSeconds: nil,
-				},
-			},
-		},
-	}
+// newAllDsePodsServiceForDseDatacenter creates a headless service owned by the DseDatacenter,
+// which covers all DSE pods in the datacenter, whether they are ready or not
+func newAllDsePodsServiceForDseDatacenter(dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
+	service := makeGenericHeadlessService(dseDatacenter)
+	service.ObjectMeta.Name = dseDatacenter.GetAllPodsServiceName()
+	service.Spec.PublishNotReadyAddresses = true
+	return service
+}
+
+// makeGenericHeadlessService returns a fresh k8s headless (aka ClusterIP equals "None") Service
+// struct that has the same namespace as the DseDatacenter argument, and proper labels for the DC.
+// The caller needs to fill in the ObjectMeta.Name value, at a minimum, before it can be created
+// inside the k8s cluster.
+func makeGenericHeadlessService(dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
+	labels := dseDatacenter.GetDatacenterLabels()
+	var service corev1.Service
+	service.ObjectMeta.Namespace = dseDatacenter.Namespace
+	service.ObjectMeta.Labels = labels
+	service.Spec.Selector = labels
+	service.Spec.Type = "ClusterIP"
+	service.Spec.ClusterIP = "None"
+	return &service
 }
 
 func newNamespacedNameForStatefulSet(
@@ -316,10 +298,10 @@ func newStatefulSetForDseDatacenter(
 			Selector: &metav1.LabelSelector{
 				MatchLabels: labels,
 			},
-			Replicas:            &replicaCountInt32,
-			ServiceName:         dseDatacenter.Spec.DseClusterName + "-" + dseDatacenter.Name + "-service",
-			PodManagementPolicy: appsv1.ParallelPodManagement,
-			Template: template,
+			Replicas:             &replicaCountInt32,
+			ServiceName:          dseDatacenter.GetDseDatacenterServiceName(),
+			PodManagementPolicy:  appsv1.ParallelPodManagement,
+			Template:             template,
 			VolumeClaimTemplates: volumeCaimTemplates,
 		},
 	}
