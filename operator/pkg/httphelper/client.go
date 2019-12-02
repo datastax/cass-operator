@@ -1,20 +1,21 @@
 package httphelper
 
 import (
+	"context"
 	"fmt"
-	"time"
 	"github.com/go-logr/logr"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"time"
 
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
 
 type NodeMgmtClient struct {
-	Client HttpClient
-	Log logr.Logger
+	Client   HttpClient
+	Log      logr.Logger
 	Protocol string
 }
 
@@ -22,6 +23,7 @@ type nodeMgmtRequest struct {
 	endpoint string
 	host     string
 	method   string
+	timeout  time.Duration
 }
 
 func BuildPodHostFromPod(pod *corev1.Pod) string {
@@ -84,15 +86,11 @@ func (client *NodeMgmtClient) CallLifecycleStartEndpoint(pod *corev1.Pod) error 
 		"podIP", podIP,
 	)
 
-	// Get client by value to create a shallow copy of the struct
-	var httpClient http.Client = *(client.Client.(*http.Client))
-	// Update the timeout appropriately
-	httpClient.Timeout = time.Second * 10
-
 	request := nodeMgmtRequest{
 		endpoint: "/api/v0/lifecycle/start",
 		host:     podIP,
 		method:   http.MethodPost,
+		timeout:  10 * time.Second,
 	}
 
 	return callNodeMgmtEndpoint(client, request)
@@ -121,6 +119,16 @@ func callNodeMgmtEndpoint(client *NodeMgmtClient, request nodeMgmtRequest) error
 		return err
 	}
 	req.Close = true
+
+	if request.timeout == 0 {
+		request.timeout = 60 * time.Second
+	}
+
+	if request.timeout > 0 {
+		ctx, cancel := context.WithTimeout(context.Background(), request.timeout)
+		defer cancel()
+		req = req.WithContext(ctx)
+	}
 
 	res, err := client.Client.Do(req)
 	if err != nil {
