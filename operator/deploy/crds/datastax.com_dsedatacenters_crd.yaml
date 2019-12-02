@@ -71,6 +71,8 @@ spec:
                       type: string
                     serverSecretName:
                       type: string
+                    skipSecretValidation:
+                      type: boolean
                   required:
                   - clientSecretName
                   - serverSecretName

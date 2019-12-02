@@ -7,6 +7,7 @@ package reconciliation
 
 import (
 	"time"
+	"context"
 
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -16,7 +17,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
+	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
+	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 )
 
 //
@@ -84,6 +87,13 @@ func (r *ReconcileDseDatacenter) Reconcile(
 		return reconcile.Result{Requeue: true}, err
 	}
 
+	if ok, err := r.isValid(rc.DseDatacenter); !ok {
+		rc.ReqLogger.Error(err, "DseDatacenter resource is invalid.")
+		// No reason to requeue if the resource is invalid as the user will need
+		// to fix it before we can do anything further.
+		return reconcile.Result{Requeue: false}, err
+	}
+
 	reconcileDatacenter := ReconcileDatacenter{
 		ReconcileContext: rc,
 	}
@@ -112,6 +122,20 @@ func (r *ReconcileDseDatacenter) addFinalizer(rc *dsereconciliation.Reconciliati
 		}
 	}
 	return nil
+}
+
+func (r *ReconcileDseDatacenter) isValid(dseDatacenter *datastaxv1alpha1.DseDatacenter) (bool, error) {
+	ctx := context.Background()
+
+	// Basic validation up here
+
+	// Validate Management API config
+	errs := httphelper.ValidateManagementApiConfig(dseDatacenter, r.client, ctx)
+	if errs != nil && len(errs) > 0 {
+		return false, errs[0]
+	}
+
+	return true, nil
 }
 
 // NewReconciler returns a new reconcile.Reconciler

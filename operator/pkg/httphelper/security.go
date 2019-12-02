@@ -3,9 +3,12 @@ package httphelper
 import (
 	"context"
 	"fmt"
+	"strings"
+	"errors"
 	"net/http"
 	"crypto/x509"
 	"crypto/tls"
+	"encoding/pem"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -68,12 +71,22 @@ func BuildManagmenetApiSecurityProvider(dseDatacenter *datastaxv1alpha1.DseDatac
 	return selectedProvider, nil
 }
 
+func ValidateManagementApiConfig(dseDatacenter *datastaxv1alpha1.DseDatacenter, client client.Client, ctx context.Context) []error {
+	provider, err := BuildManagmenetApiSecurityProvider(dseDatacenter)
+
+	if err != nil {
+		return []error{err}
+	}
+
+	return provider.ValidateConfig(client, ctx)
+}
 
 // SPI for adding new mechanisms for securing the management API
 type ManagementApiSecurityProvider interface {
 	BuildHttpClient(client client.Client, ctx context.Context) (HttpClient, error)
 	AddServerSecurity(dsePod *corev1.PodTemplateSpec) error
 	GetProtocol() string
+	ValidateConfig(client client.Client, ctx context.Context) []error
 }
 
 type InsecureManagementApiSecurityProvider struct {
@@ -97,6 +110,10 @@ func (provider *InsecureManagementApiSecurityProvider) BuildHttpClient(client cl
 
 func (provider *InsecureManagementApiSecurityProvider) AddServerSecurity(dsePod *corev1.PodTemplateSpec) error {
 	return nil
+}
+
+func (provider *InsecureManagementApiSecurityProvider) ValidateConfig(client client.Client, ctx context.Context) []error {
+	return []error{}
 }
 
 type ManualManagementApiSecurityProvider struct {
@@ -238,11 +255,235 @@ func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(dsePod *c
 	return nil
 }
 
-func validateSecret(secret *corev1.Secret) error {
+func validatePrivateKey(data []byte) []error {
+	const privateKeyExpect = "Private key should be unencrypted PKCS#8 format using PEM encoding with preamble 'PRIVATE KEY'"
+	var validationErrors []error
+	var block *pem.Block
+	var rest []byte = data
+	foundBlocks := false
+
+	for {
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+
+		foundBlocks = true
+
+		if block.Type != "PRIVATE KEY" {
+			if block.Type == "RSA PRIVATE KEY" {
+				validationErrors = append(
+					validationErrors,
+					fmt.Errorf("%s, but found PKCS#1 format using preamble '%s'.", privateKeyExpect, block.Type))
+			} else if block.Type == "CERTIFICATE" {
+				validationErrors = append(
+					validationErrors,
+					fmt.Errorf("%s, but found certificate using preamble '%s'.", privateKeyExpect, block.Type))
+			} else if strings.Contains(block.Type, "ENCRYPTED") {
+				validationErrors = append(
+					validationErrors,
+					fmt.Errorf("%s, but found certificate using preamble '%s'.", privateKeyExpect, block.Type))
+			} else {
+				validationErrors = append(
+					validationErrors,
+					fmt.Errorf("%s, but found preamble '%s'", privateKeyExpect, block.Type))
+			}
+		} else { // block.Type == "PRIVATE_KEY"
+			// but is it _really_ a PKCS#8 key?
+			_, err := x509.ParsePKCS8PrivateKey(block.Bytes)
+			if err != nil {
+				validationErrors = append(
+					validationErrors,
+					// TODO: Switch %v to %w when golang version updated
+					fmt.Errorf("%s, correct preamble was found but does not appear to be in PKCS#8 format. %w", privateKeyExpect, err))
+			}
+		}
+	}
+
+	if !foundBlocks {
+		validationErrors = append(
+			validationErrors,
+			fmt.Errorf("%s, but provided key does not appear to be PEM encoded.", privateKeyExpect))
+	}
+
+	return validationErrors
+}
+
+func validateCertificate(data []byte) []error {
+	var validationErrors []error
+	foundBlocks := false
+
+	for rest := data; ; {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+
+		foundBlocks = true
+
+		if block.Type != "CERTIFICATE" {
+			validationErrors = append(
+				validationErrors,
+				fmt.Errorf("Certificate should be PEM encoded with preamble 'CERTIFIACATE', but found preamble '%s'.", block.Type))
+		} else {
+			_, err := x509.ParseCertificates(block.Bytes)
+			if err != nil {
+				validationErrors = append(
+					validationErrors,
+					fmt.Errorf("Found PEM block with correct preamble of 'CERTIFICATE', but content does not appear to be a valid certificate. %w", err))
+			}
+		}
+	}
+
+	if !foundBlocks {
+		validationErrors = append(
+			validationErrors,
+			fmt.Errorf("Did not find any certificates."))
+	}
+
+	return validationErrors
+}
+
+func validateKeyAndCertificate(certificate []byte, privateKey []byte, caCertificate []byte) []error {
+	var validationErrors []error
+
+	privateKeyValidationErrors := validatePrivateKey(privateKey)
+	certificateValidationErrors := validateCertificate(certificate)
+	caValidationErrors := validateCertificate(caCertificate)
+
+	validationErrors = append(
+		validationErrors,
+		privateKeyValidationErrors...)
+
+	validationErrors = append(
+		validationErrors,
+		certificateValidationErrors...)
+
+	validationErrors = append(
+		caValidationErrors,
+		certificateValidationErrors...)
+
+	// This will catch errors with the certificate and check whether it matches
+	// the private key.
+	_, err := tls.X509KeyPair(
+		certificate,
+		privateKey)
+
+	if err != nil {
+		validationErrors = append(
+			validationErrors,
+			fmt.Errorf("Could not load x509 key pair. %w", err))
+	}
+
+	return validationErrors
+}
+
+func pemToCertificateChain(certificate []byte) ([]*x509.Certificate, error) {
+	certs := []*x509.Certificate{}
+	rest := certificate
+	var block *pem.Block
+
+	for {
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+
+		if block.Type == "CERTIFICATE" {
+			parsedCerts, err := x509.ParseCertificates(block.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			certs = append(certs, parsedCerts...)
+		}
+	}
+	return certs, nil
+}
+
+func validateCertificateChain(chain []*x509.Certificate) error {
+	for i := 0; i < len(chain) - 1; i = i + 1 {
+		certificateA := chain[i]
+		certificateB := chain[i+1]
+		err := certificateA.CheckSignatureFrom(certificateB)
+		if err != nil {
+			fmt.Errorf(
+				"Failed to validate chain, certificate %s not signed by certificate %s. %w",
+				certificateA.Subject.CommonName, certificateB.Subject.CommonName, err)
+			break
+		}
+	}
+	return nil
+}
+
+func validatePeerACertificateSignedByPeerBCa(peerACertificate []byte, peerACa []byte, peerBCa []byte) error {
+	// In order for the certificate of peer A (`peerACertificate`) to be
+	// properly signed, it must be possible to construct a chain of trust from
+	// peer A's certificate and peer A's CA (`peerACA`) to peer B's CA
+	// (`peerBCa`).
+
+	// Load the certificate chain for peerA
+	peerACertificateChain, err := pemToCertificateChain(peerACertificate)
+	if err != nil {
+		return err
+	}
+
+	// Make sure the certificate chain is valid (i.e. that it is a sequence of
+	// certificates for which each certificate in chain has signed the one
+	// preceeding it)
+	err = validateCertificateChain(peerACertificateChain)
+	if err != nil {
+		return err
+	}
+
+	// Now we need to construct candidate chains to test against peer B's CA
+	// pool
+	candidateChains := [][]*x509.Certificate{}
+
+	// One such chain is peer A's certificate chain as it may have all that is
+	// needed for to tie it to one of peer B's CAs
+	candidateChains = append(candidateChains, peerACertificateChain)
+
+	// It might be the case that there are some intermediate CAs in peer A's CA
+	// pool, so we find all such chains.
+	peerACaCertPool := x509.NewCertPool()
+	peerACaCertPool.AppendCertsFromPEM(peerACa)
+	chainsUsingPeerACAs, err := verifyPeerCertificateNoHostCheck(peerACertificateChain, peerACaCertPool)
+	if err == nil {
+		// we found some chains, add them to our candidates
+		candidateChains = append(candidateChains, chainsUsingPeerACAs...)
+	}
+
+	// Now we see if any of our candidate chains will work with peer B's CA
+	// pool.
+	peerBCaCertPool := x509.NewCertPool()
+	peerBCaCertPool.AppendCertsFromPEM(peerBCa)
+	var lastVerifyCertificateError error = nil
+	for _, candidateChain := range candidateChains {
+		_, lastVerifyCertificateError = verifyPeerCertificateNoHostCheck(candidateChain, peerBCaCertPool)
+		if lastVerifyCertificateError == nil {
+			// We found a valid chain, success!
+			return nil
+		}
+	}
+
+	if lastVerifyCertificateError == nil {
+		// This should not ever happen because we will always have at least one
+		// chain to test which means we should either return above or have an
+		// error here. But it would cause an insidious bug if the logic above
+		// was broken and we didn't do this check.
+		lastVerifyCertificateError = errors.New("No candidate chains found to check.")
+	}
+
+	return lastVerifyCertificateError
+}
+
+func validateSecretStructure(secret *corev1.Secret) error {
 	secretNamespacedName := types.NamespacedName{
 		Name:      secret.ObjectMeta.Name,
 		Namespace: secret.ObjectMeta.Namespace,}
 
+	// Check secret type
 	if secret.Type != "kubernetes.io/tls" {
 		// Not the right type
 		err := fmt.Errorf("Expected Secret %s to have type 'kubernetes.io/tls' but was '%s'",
@@ -251,6 +492,7 @@ func validateSecret(secret *corev1.Secret) error {
 		return err
 	}
 
+	// Ensure all keys are present
 	for _, key := range []string{"ca.crt", "tls.crt", "tls.key"} {
 		if _, ok := secret.Data[key]; !ok {
 			err := fmt.Errorf("Expected Secret %s to have data key '%s' but was not found",
@@ -261,6 +503,124 @@ func validateSecret(secret *corev1.Secret) error {
 	}
 
 	return nil
+}
+
+func loadSecret(client client.Client, ctx context.Context, namespace string, name string) (*corev1.Secret, error) {
+	secretNamespacedName := types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,}
+
+	secret := &corev1.Secret{}
+	err := client.Get(
+		ctx,
+		secretNamespacedName,
+		secret)
+
+	if err != nil {
+		// Couldn't get the secret
+		return nil, err
+	}
+
+	return secret, nil
+}
+
+func validateSecret(secret *corev1.Secret) []error {
+	var validationErrors []error
+
+	err := validateSecretStructure(secret)
+	if err != nil {
+		validationErrors = append(
+			validationErrors,
+			err)
+		return validationErrors
+	}
+
+	keyAndCertificateErrors := validateKeyAndCertificate(secret.Data["tls.crt"], secret.Data["tls.key"], secret.Data["ca.crt"])
+	validationErrors = append(validationErrors, keyAndCertificateErrors...)
+
+	return validationErrors
+}
+
+func (provider *ManualManagementApiSecurityProvider) ValidateConfig(client client.Client, ctx context.Context) []error {
+	var validationErrors []error
+
+	if provider.Config.SkipSecretValidation {
+		return validationErrors
+	}
+
+	var clientSecret *corev1.Secret
+	var serverSecret *corev1.Secret
+
+	clientSecretName := provider.Config.ClientSecretName
+	serverSecretName := provider.Config.ServerSecretName
+
+	secretChecks := []struct{
+		secretName   string
+		secretPtrPtr **corev1.Secret // everyone likes a pointer to a pointer
+		configKey    string
+	}{
+		{
+			secretName: clientSecretName,
+			secretPtrPtr: &clientSecret,
+			configKey: ".managementApiAuth.manual.clientSecretName",
+		},
+		{
+			secretName: serverSecretName,
+			secretPtrPtr: &serverSecret,
+			configKey: ".managementApiAuth.manual.serverSecretName",
+		},
+	}
+
+	for _, check := range secretChecks {
+		var err error
+		*check.secretPtrPtr, err = loadSecret(client, ctx, provider.Namespace, check.secretName)
+		if err != nil {
+			validationErrors = append(
+				validationErrors,
+				fmt.Errorf("Failed to load Management API secret specified at %s with value '%s'. %w",
+					check.configKey, check.secretName, err))
+			return validationErrors
+		}
+
+		errs := validateSecret(*check.secretPtrPtr)
+		for _, err := range errs {
+			validationErrors = append(
+				validationErrors,
+				fmt.Errorf("Loaded Management API secret specified at %s with value '%s' is not valid. %w",
+					check.configKey, check.secretName, err))
+		}
+	}
+
+	certificateSigningChecks := []struct {
+		peerAsecret *corev1.Secret
+		peerBsecret *corev1.Secret
+		configKey   string
+	}{
+		{
+			peerAsecret: clientSecret,
+			peerBsecret: serverSecret,
+			configKey: ".managementApiAuth.manual.clientSecretName",
+
+		},
+		{
+			peerAsecret: serverSecret,
+			peerBsecret: clientSecret,
+			configKey: ".managementApiAuth.manual.serverSecretName",
+		},
+	}
+
+	for _, check := range certificateSigningChecks {
+		var err error
+		secretName := check.peerAsecret.ObjectMeta.Name
+		err = validatePeerACertificateSignedByPeerBCa(check.peerAsecret.Data["tls.crt"], check.peerAsecret.Data["ca.crt"], check.peerBsecret.Data["ca.crt"])
+		if err != nil {
+			validationErrors = append(
+				validationErrors,
+				fmt.Errorf("Loaded Management API client secret specified at %s with value '%s' is not properly signed. %w", check.configKey, secretName, err))
+		}
+	}
+
+	return validationErrors
 }
 
 func (provider *ManualManagementApiSecurityProvider) BuildHttpClient(client client.Client, ctx context.Context) (HttpClient, error) {
@@ -280,7 +640,7 @@ func (provider *ManualManagementApiSecurityProvider) BuildHttpClient(client clie
 		return nil, err
 	}
 
-	err = validateSecret(secret)
+	err = validateSecretStructure(secret)
 	if err != nil {
 		// Secret didn't look the way we expect
 		return nil, err
@@ -320,7 +680,7 @@ func (provider *ManualManagementApiSecurityProvider) BuildHttpClient(client clie
 //
 // https://go-review.googlesource.com/c/go/+/193620/5/src/crypto/tls/example_test.go#210
 //
-func buildVerifyPeerCertificateNoHostCheck(RootCAs *x509.CertPool) func([][]byte, [][]*x509.Certificate) error {
+func buildVerifyPeerCertificateNoHostCheck(rootCAs *x509.CertPool) func([][]byte, [][]*x509.Certificate) error {
 	f := func(certificates [][]byte, _ [][]*x509.Certificate) error {
 		certs := make([]*x509.Certificate, len(certificates))
 		for i, asn1Data := range certificates {
@@ -331,18 +691,23 @@ func buildVerifyPeerCertificateNoHostCheck(RootCAs *x509.CertPool) func([][]byte
 			certs[i] = cert
 		}
 
-		opts := x509.VerifyOptions{
-			Roots:         RootCAs,
-			// Setting the DNSName to the empty string will cause
-			// Certificate.Verify() to skip hostname checking
-			DNSName:       "",
-			Intermediates: x509.NewCertPool(),
-		}
-		for _, cert := range certs[1:] {
-			opts.Intermediates.AddCert(cert)
-		}
-		_, err := certs[0].Verify(opts)
+		_, err := verifyPeerCertificateNoHostCheck(certs, rootCAs)
 		return err
 	}
 	return f
+}
+
+func verifyPeerCertificateNoHostCheck(certificates []*x509.Certificate, rootCAs *x509.CertPool) ([][]*x509.Certificate, error) {
+	opts := x509.VerifyOptions{
+		Roots:         rootCAs,
+		// Setting the DNSName to the empty string will cause
+		// Certificate.Verify() to skip hostname checking
+		DNSName:       "",
+		Intermediates: x509.NewCertPool(),
+	}
+	for _, cert := range certificates[1:] {
+		opts.Intermediates.AddCert(cert)
+	}
+	chains, err := certificates[0].Verify(opts)
+	return chains, err
 }

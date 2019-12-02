@@ -180,8 +180,10 @@ type DseDatacenter struct {
 }
 
 type ManagementApiAuthManualConfig struct {
-	ClientSecretName string `json:"clientSecretName"`
-	ServerSecretName string `json:"serverSecretName"`
+	ClientSecretName     string `json:"clientSecretName"`
+	ServerSecretName     string `json:"serverSecretName"`
+	// +optional
+	SkipSecretValidation bool   `json:"skipSecretValidation,omitempty"`
 }
 
 type ManagementApiAuthInsecureConfig struct {
