@@ -33,6 +33,24 @@ func RunDocker(imageName string, volumes []string, dnsAddrs []string, env []stri
 	return sh.Output("docker", args...)
 }
 
+func BuildDocker(contextDir string, dockerFilePath string, namesAndTags []string, buildArgs []string) (string, error) {
+	args := []string{"build", contextDir}
+
+	if dockerFilePath != "" {
+		args = append(args, "-f")
+		args = append(args, dockerFilePath)
+	}
+	for _, x := range namesAndTags {
+		args = append(args, "-t")
+		args = append(args, x)
+	}
+	for _, x := range buildArgs {
+		args = append(args, "--build-arg")
+		args = append(args, x)
+	}
+	return sh.Output("docker", args...)
+}
+
 func RequireEnv(s string) string {
 	val := os.Getenv(s)
 	if val == "" {

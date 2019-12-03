@@ -4,7 +4,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"regexp"
+	"runtime"
+	"strings"
 
+	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
 	"github.com/riptano/dse-operator/mage/util"
 	"gopkg.in/yaml.v2"
@@ -14,7 +18,29 @@ const (
 	buildDir                   = "operator/build"
 	operatorSdkImage           = "operator-sdk-binary"
 	generatedDseDataCentersCrd = "operator/deploy/crds/datastax.com_dsedatacenters_crd.yaml"
+	packagePath                = "github.com/riptano/dse-operator/operator"
+	buildSettings              = "buildsettings.yaml"
+
+	errorUnstagedPreGenerate   = `
+  Unstaged changes detected.
+  - Please clean your working tree of
+    uncommitted changes before running this target.`
+
+	errorUnstagedPostGenerate = `
+  Unstaged changes found after running "operator-sdk generate"
+  - This indicates that the operator-sdk
+    updated some boilerplate in your working tree.
+  - You may be able commit these changes if you have
+    intentionally modified a resource spec and wish
+    to update the sdk boilerplate, but be careful
+    with backwards compatibility.`
 )
+
+func panicOnError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
 
 func runGoModVendor() {
 	os.Setenv("GO111MODULE", "on")
@@ -25,7 +51,7 @@ func runGoModVendor() {
 
 // Generate operator-sdk-binary docker image
 func createSdkDockerImage() {
-	sh.RunV("docker", "build", "-t", operatorSdkImage, "tools/operator-sdk")
+	sh.Run("docker", "build", "-t", operatorSdkImage, "tools/operator-sdk")
 }
 
 // generate the files and clean up afterwards
@@ -37,9 +63,9 @@ func generateK8sAndOpenApi() {
 		"export GO111MODULE=on; cd ../../riptano/dse-operator/operator && operator-sdk generate k8s && operator-sdk generate openapi && rm -rf build"}
 	volumes := []string{fmt.Sprintf("%s:/go/src/github.com/riptano/dse-operator", cwd)}
 	out, err := mageutil.RunDocker(operatorSdkImage, volumes, nil, nil, runArgs, execArgs)
-	fmt.Println(out)
-	if err != nil {
-		panic(err)
+	panicOnError(err)
+	if out != "" {
+		fmt.Println(out)
 	}
 }
 
@@ -132,32 +158,23 @@ func postProcessCrd() {
 
 	var data map[interface{}]interface{}
 	d, err := ioutil.ReadFile(generatedDseDataCentersCrd)
-	if err != nil {
-		panic(err)
-	}
+	panicOnError(err)
+
 	err = yaml.Unmarshal(d, &data)
-	if err != nil {
-		panic(err)
-	}
+	panicOnError(err)
+
 	w1 := ensurePreserveUnknownFields(data)
-	if w1.err != nil {
-		panic(w1.err)
-	}
+	panicOnError(w1.err)
 
 	w2 := removeConfigSection(data)
-	if w2.err != nil {
-		panic(w2.err)
-	}
+	panicOnError(w2.err)
 
 	if w1.editsMade || w2.editsMade {
 		updated, err := yaml.Marshal(data)
-		if err != nil {
-			panic(err)
-		}
+		panicOnError(err)
+
 		err = ioutil.WriteFile(generatedDseDataCentersCrd, updated, os.ModePerm)
-		if err != nil {
-			panic(err)
-		}
+		panicOnError(err)
 	}
 }
 
@@ -175,8 +192,16 @@ func doSdkGenerate() {
 	postProcessCrd()
 }
 
-func assertCleanGitDiff() error {
-    return sh.Run("git", "diff", "--quiet")
+func hasUnstagedChanges() bool {
+	out, err := sh.Output("git", "diff")
+	panicOnError(err)
+	return strings.TrimSpace(out) != ""
+}
+
+func hasStagedChanges() bool {
+	out, err := sh.Output("git", "diff", "--staged")
+	panicOnError(err)
+	return strings.TrimSpace(out) != ""
 }
 
 // Generate files with the operator-sdk.
@@ -207,21 +232,190 @@ func SdkGenerate() {
 // working directory afterward.
 func TestSdkGenerate() {
 	fmt.Println("- Asserting that generated files are already up to date")
-	if err := assertCleanGitDiff(); err != nil {
-		fmt.Println("Failed to get a success response from git diff.")
-		fmt.Println("Please clean your working tree of uncommitted changes before running this target.")
+	if hasUnstagedChanges() {
+		err := fmt.Errorf(errorUnstagedPreGenerate)
 		panic(err)
 	}
 	createSdkDockerImage()
 	doSdkGenerate()
-	if err := assertCleanGitDiff(); err != nil {
-		fmt.Println("Failed to get a success response from git diff.")
-		fmt.Println("- This is indicates that `operator-sdk generate` tried")
-		fmt.Println("  to update some boilerplate in your working tree.")
-		fmt.Println("- You may be able commit these changes if you have")
-		fmt.Println("  intentionally modified a resource spec and wish")
-		fmt.Println("  to update the sdk boilerplate, but be careful")
-		fmt.Println("  with backwards compatibility.")
+	if hasUnstagedChanges() {
+		err := fmt.Errorf(errorUnstagedPostGenerate)
 		panic(err)
 	}
+}
+
+type Version struct {
+	Major      int    `yaml:"major"`
+	Minor      int    `yaml:"minor"`
+	Patch      int    `yaml:"patch"`
+	Prerelease string `yaml:"prerelease"`
+}
+
+func (v Version) String() string {
+	version := fmt.Sprintf("%v.%v.%v", v.Major, v.Minor, v.Patch)
+	if v.Prerelease != "" {
+		r := regexp.MustCompile("[^A-z0-9]")
+		pre := r.ReplaceAllString(v.Prerelease, ".")
+		version = fmt.Sprintf("%v-%v", version, pre)
+	}
+	return version
+}
+
+type BuildSettings struct {
+	Version Version `yaml:"version"`
+}
+
+type GitData struct {
+	Branch             string
+	ShortHash          string
+	HasStagedChanges   bool
+	HasUnstagedChanges bool
+}
+
+func getGitBranch() string {
+	branch, err := sh.Output("git", "rev-parse", "--abbrev-ref", "HEAD")
+	panicOnError(err)
+	return strings.TrimSpace(branch)
+}
+
+func getGitShortHash() string {
+	hash, err := sh.Output("git", "rev-parse", "--short", "HEAD")
+	panicOnError(err)
+	return strings.TrimSpace(hash)
+}
+
+func getGitData() GitData {
+	return GitData{
+		Branch:             getGitBranch(),
+		HasStagedChanges:   hasStagedChanges(),
+		HasUnstagedChanges: hasUnstagedChanges(),
+		ShortHash:          getGitShortHash(),
+	}
+
+}
+
+func readBuildSettings() BuildSettings {
+	var settings BuildSettings
+	d, err := ioutil.ReadFile(buildSettings)
+	panicOnError(err)
+
+	err = yaml.Unmarshal(d, &settings)
+	panicOnError(err)
+
+	return settings
+}
+
+func versionSuffix(git GitData) string {
+	suffix := ""
+	if git.Branch != "master" {
+		suffix = fmt.Sprintf("%s.", git.Branch)
+	}
+	if git.HasUnstagedChanges || git.HasStagedChanges {
+		suffix = fmt.Sprintf("%suncommitted.", suffix)
+	}
+	suffix = fmt.Sprintf("%s%s", suffix, git.ShortHash)
+	r := regexp.MustCompile("[^A-z0-9]")
+	return r.ReplaceAllString(suffix, ".")
+}
+
+func calcFullVersion(settings BuildSettings, git GitData) string {
+	suffix := versionSuffix(git)
+	var fullVersion string
+	if settings.Version.Prerelease != "" {
+		fullVersion = fmt.Sprintf("%v.%s", settings.Version, suffix)
+	} else {
+		fullVersion = fmt.Sprintf("%v-%s", settings.Version, suffix)
+	}
+	return fullVersion
+}
+
+func runDockerBuild(version string) {
+	tags := []string{
+		"datastax/dse-operator:latest",
+		fmt.Sprintf("datastax/dse-operator:%s", version),
+	}
+	_, err := mageutil.BuildDocker(".", "./operator/Dockerfile", tags, nil)
+	panicOnError(err)
+	fmt.Println("Docker image built with tags:")
+	for _, t := range tags {
+		fmt.Printf("\t%s\n", t)
+	}
+}
+
+func runGoBuild(version string) {
+	os.Chdir("./operator")
+	binaryPath := fmt.Sprintf("../build/bin/dse-operator-%s-%s", runtime.GOOS, runtime.GOARCH)
+	goArgs := []string{
+		"build", "-o", binaryPath,
+		"-ldflags", fmt.Sprintf("-X main.version=%s", version),
+		fmt.Sprintf("%s/cmd/manager", packagePath),
+	}
+	sh.Run("go", goArgs...)
+	os.Chdir("..")
+}
+
+// Builds operator go code.
+//
+// A version will be calculate based on the state of
+// your git working tree and then it will be stamped
+// into binary.
+func BuildGo() {
+	mg.Deps(Clean)
+	fmt.Println("- Building operator go module")
+	settings := readBuildSettings()
+	git := getGitData()
+	version := calcFullVersion(settings, git)
+	runGoBuild(version)
+}
+
+// Runs unit tests for operator go code.
+func TestGo() {
+	fmt.Println("- Running go unit tests")
+	os.Chdir("./operator")
+	goArgs := []string{"test", "./..."}
+	sh.Run("go", goArgs...)
+	os.Chdir("..")
+}
+
+// Runs unit tests for operator mage library.
+//
+// Since we have a good amount of logic around building
+// and versioning the operator, we want to make sure that
+// the logic is sound.
+func TestMage() {
+	fmt.Println("- Running operator mage unit tests")
+	os.Chdir("./mage/operator")
+	goArgs := []string{"test"}
+	sh.Run("go", goArgs...)
+	os.Chdir("../../")
+}
+
+// Builds Docker image for the operator.
+//
+// This step will also build and test the operator go code.
+// The docker image will be tagged based on the state
+// of your git working tree.
+func BuildDocker() {
+	fmt.Println("- Building operator docker image")
+	settings := readBuildSettings()
+	git := getGitData()
+	version := calcFullVersion(settings, git)
+	runDockerBuild(version)
+}
+
+// Alias for buildDocker target
+func Build() {
+	mg.Deps(BuildDocker)
+}
+
+// Run all automated test targets
+func Test() {
+	mg.Deps(TestMage)
+	mg.Deps(TestGo)
+	mg.Deps(TestSdkGenerate)
+}
+
+// Remove the build directory
+func Clean() {
+	os.RemoveAll("./build")
 }

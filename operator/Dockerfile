@@ -13,35 +13,46 @@ ENV GOPROXY=https://proxy.golang.org,https://gocenter.io,direct
 # Target os and arch
 ENV GOOS linux
 ENV GOARCH amd64
+ENV GOPATH=/go
 
-# Copy in source code
-WORKDIR /dse-operator/operator
 
-# Grab the dependencies
-COPY ./operator/go.mod ./operator/go.sum ./
+WORKDIR /dse-operator
 
+# Grab mage files
+COPY mage ./mage
+COPY magefile.go go.mod go.sum ./
+
+# Copy in source code and deps
+# We need the .git folder in order to figure out parts of our image tag
+COPY .git ./.git
+COPY buildsettings.yaml ./
+COPY operator ./operator
+
+# Download go deps (including mage)
 RUN go mod download
 
-# Copy in source
-COPY operator ./
+# Install mage
+# The new go module system will put the version number in the path, so we
+# need to wildcard here to work with whatever version we are pinned to
+RUN cd $GOPATH/pkg/mod/github.com/magefile/mage* && go run bootstrap.go
+
+# Copy in source code
+WORKDIR /dse-operator
 
 # Run the tests
-RUN go test -short -v ./...
+RUN mage operator:testGo
 
 # Build any code not touched by tests (the generated client)
-RUN go build -v ./...
-
-# Install package
-RUN go build -v -o /go/bin/dse-operator-linux-amd64 cmd/manager/main.go
+RUN mage operator:buildGo
 
 # Second stage
 # Produce a smaller image than the one used to build the code
 FROM alpine:3.9
 
-ENV GOPATH=/root/go
-WORKDIR /root/go
+ENV GOPATH=/go
+WORKDIR /go
 
 # All we need from the builder image is operator executable
-COPY --from=builder /go/bin/dse-operator-linux-amd64 bin/operator
+COPY --from=builder /dse-operator/build/bin/dse-operator-linux-amd64 bin/operator
 
-CMD [ "/root/go/bin/operator" ]
+CMD [ "/go/bin/operator" ]
