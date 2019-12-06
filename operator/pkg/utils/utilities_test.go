@@ -7,102 +7,137 @@ import (
 
 func Test_mergeMap(t *testing.T) {
 	type args struct {
-		destination *map[string]string
-		source      map[string]string
+		destination map[string]string
+		sources     []map[string]string
 	}
 	tests := []struct {
 		name string
 		args args
-		want *map[string]string
+		want map[string]string
 	}{
 		{
 			name: "Same Map",
 			args: args{
-				destination: &map[string]string{
+				destination: map[string]string{
 					"foo": "bar",
 				},
-				source: map[string]string{
-					"foo": "bar",
+				sources: []map[string]string{
+					{
+						"foo": "bar",
+					},
 				},
 			},
-			want: &map[string]string{
+			want: map[string]string{
 				"foo": "bar",
 			},
 		}, {
 			name: "Source missing key",
 			args: args{
-				destination: &map[string]string{
+				destination: map[string]string{
 					"foo": "bar",
 				},
-				source: map[string]string{
-					"foo": "bar",
-					"key": "value",
+				sources: []map[string]string{
+					{
+						"foo": "bar",
+						"key": "value",
+					},
 				},
 			},
-			want: &map[string]string{
+			want: map[string]string{
 				"foo": "bar",
 				"key": "value",
 			},
 		}, {
 			name: "Destination missing key",
 			args: args{
-				destination: &map[string]string{
+				destination: map[string]string{
 					"foo": "bar",
 					"key": "value",
 				},
-				source: map[string]string{
-					"foo": "bar",
+				sources: []map[string]string{
+					{
+						"foo": "bar",
+					},
 				},
 			},
-			want: &map[string]string{
+			want: map[string]string{
 				"foo": "bar",
 				"key": "value",
 			},
 		}, {
 			name: "Empty Source",
 			args: args{
-				destination: &map[string]string{
+				destination: map[string]string{
 					"foo": "bar",
 					"key": "value",
 				},
-				source: map[string]string{},
+				sources: []map[string]string{},
 			},
-			want: &map[string]string{
+			want: map[string]string{
 				"foo": "bar",
 				"key": "value",
 			},
 		}, {
 			name: "Empty Destination",
 			args: args{
-				destination: &map[string]string{},
-				source: map[string]string{
-					"foo": "bar",
+				destination: map[string]string{},
+				sources: []map[string]string{
+					{
+						"foo": "bar",
+					},
 				},
 			},
-			want: &map[string]string{
+			want: map[string]string{
 				"foo": "bar",
 			},
 		}, {
 			name: "Differing values for key",
 			args: args{
-				destination: &map[string]string{
+				destination: map[string]string{
 					"foo": "bar",
 					"key": "value",
 				},
-				source: map[string]string{
-					"foo": "bar",
-					"key": "value2",
+				sources: []map[string]string{
+					{
+						"foo": "bar",
+						"key": "value2",
+					},
 				},
 			},
-			want: &map[string]string{
+			want: map[string]string{
 				"foo": "bar",
 				"key": "value2",
+			},
+		}, {
+			name: "Multiple source maps",
+			args: args{
+				destination: map[string]string{
+					"foo": "bar",
+					"baz": "foobar",
+				},
+				sources: []map[string]string{
+					{
+						"foo": "qux",
+						"waldo": "fred",
+
+					},
+					{
+						"foo": "quux",
+						"quuz": "flob",
+					},
+				},
+			},
+			want: map[string]string{
+				"foo": "quux",
+				"baz": "foobar",
+				"waldo": "fred",
+				"quuz": "flob",
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			MergeMap(tt.args.destination, tt.args.source)
+			MergeMap(tt.args.destination, tt.args.sources...)
 
 			eq := reflect.DeepEqual(tt.args.destination, tt.want)
 			if !eq {

@@ -11,6 +11,7 @@ import (
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
+	"github.com/riptano/dse-operator/operator/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	appsv1 "k8s.io/api/apps/v1"
@@ -1035,6 +1036,149 @@ func Test_isMgmtApiRunning(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := isMgmtApiRunning(tt.args.pod); got != tt.want {
 				t.Errorf("isMgmtApiRunning() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
+	clusterName := "dsedatacenter-example-cluster"
+	dcName := "dsedatacenter-example"
+	rackName := "rack1"
+	dseDatacenter := &datastaxv1alpha1.DseDatacenter{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      dcName,
+			Namespace: "default",
+		},
+		Spec: datastaxv1alpha1.DseDatacenterSpec{
+			DseClusterName: clusterName,
+		},
+	}
+
+	goodRackLabels := map[string]string{
+		datastaxv1alpha1.ClusterLabel: clusterName,
+		datastaxv1alpha1.DatacenterLabel: dcName,
+		datastaxv1alpha1.RackLabel: rackName,
+	}
+
+	type args struct {
+		resourceLabels map[string]string
+	}
+
+	type result struct {
+		changed   bool
+		labels map[string]string
+	}
+
+	// cases where label updates are made
+	tests := []struct {
+		name string
+		args args
+		want result
+	}{
+		{
+			name: "Cluster name different",
+			args: args{
+				resourceLabels: map[string]string{
+					datastaxv1alpha1.ClusterLabel: "some-other-cluster",
+					datastaxv1alpha1.DatacenterLabel: dcName,
+					datastaxv1alpha1.RackLabel: rackName,
+				},
+			},
+			want: result{
+				changed: true,
+				labels: goodRackLabels,
+			},
+		},
+		{
+			name: "Rack name different",
+			args: args{
+				resourceLabels: map[string]string{
+					datastaxv1alpha1.ClusterLabel: clusterName,
+					datastaxv1alpha1.DatacenterLabel: dcName,
+					datastaxv1alpha1.RackLabel: "some-other-rack",
+				},
+			},
+			want: result{
+				changed: true,
+				labels: goodRackLabels,
+			},
+		},
+		{
+			name: "Rack name different plus other labels",
+			args: args{
+				resourceLabels: map[string]string{
+					datastaxv1alpha1.ClusterLabel: clusterName,
+					datastaxv1alpha1.DatacenterLabel: dcName,
+					datastaxv1alpha1.RackLabel: "some-other-rack",
+					"foo": "bar",
+				},
+			},
+			want: result{
+				changed: true,
+				labels: utils.MergeMap(
+					map[string]string{},
+					goodRackLabels,
+					map[string]string{"foo": "bar"}),
+			},
+		},
+		{
+			name: "No labels",
+			args: args{
+				resourceLabels: map[string]string{},
+			},
+			want: result{
+				changed: true,
+				labels: goodRackLabels,
+			},
+		},
+		{
+			name: "Correct labels",
+			args: args{
+				resourceLabels: map[string]string{
+					datastaxv1alpha1.ClusterLabel: clusterName,
+					datastaxv1alpha1.DatacenterLabel: dcName,
+					datastaxv1alpha1.RackLabel: rackName,
+				},
+			},
+			want: result{
+				changed: false,
+			},
+		},
+		{
+			name: "Correct labels with some additional labels",
+			args: args{
+				resourceLabels: map[string]string{
+					datastaxv1alpha1.ClusterLabel: clusterName,
+					datastaxv1alpha1.DatacenterLabel: dcName,
+					datastaxv1alpha1.RackLabel: rackName,
+					"foo": "bar",
+				},
+			},
+			want: result{
+				changed: false,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.want.changed {
+				changed, newLabels := shouldUpdateLabelsForRackResource(tt.args.resourceLabels, dseDatacenter, rackName)
+				if !changed || !reflect.DeepEqual(newLabels, tt.want.labels) {
+					t.Errorf("shouldUpdateLabelsForRackResource() = (%v, %v), want (%v, %v)", changed, newLabels, true, tt.want)
+				}
+			} else {
+				// when the labels aren't supposed to be changed, we want to
+				// make sure that the map returned *is* the map passed in and
+				// that it is unchanged.
+				resourceLabelsCopy := utils.MergeMap(map[string]string{}, tt.args.resourceLabels)
+				changed, newLabels := shouldUpdateLabelsForRackResource(tt.args.resourceLabels, dseDatacenter, rackName)
+				if changed || !reflect.DeepEqual(resourceLabelsCopy, newLabels) {
+					t.Errorf("shouldUpdateLabelsForRackResource() = (%v, %v), want (%v, %v)", changed, newLabels, true, tt.want)
+				} else if reflect.ValueOf(tt.args.resourceLabels).Pointer() != reflect.ValueOf(newLabels).Pointer() {
+					t.Error("shouldUpdateLabelsForRackResource() did not return original map")
+				}
 			}
 		})
 	}

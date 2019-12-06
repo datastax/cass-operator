@@ -10,6 +10,7 @@ import (
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
+	"github.com/riptano/dse-operator/operator/pkg/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -104,9 +105,15 @@ func newStatefulSetForDseDatacenter(
 	replicaCount int) (*appsv1.StatefulSet, error) {
 
 	replicaCountInt32 := int32(replicaCount)
-	labels := dseDatacenter.GetRackLabels(rackName)
 
-	labels[datastaxv1alpha1.DseNodeState] = "Ready-to-Start"
+	podLabels := utils.MergeMap(
+		map[string]string{
+			datastaxv1alpha1.DseNodeState: "Ready-to-Start",
+		},
+		dseDatacenter.GetRackLabels(rackName))
+	pvClaimLabels := dseDatacenter.GetRackLabels(rackName)
+	statefulSetLabels := dseDatacenter.GetRackLabels(rackName)
+	statefulSetSelectorLabels := dseDatacenter.GetRackLabels(rackName)
 
 	dseVersion := dseDatacenter.Spec.DseVersion
 	var userID int64 = 999
@@ -144,7 +151,7 @@ func newStatefulSetForDseDatacenter(
 		})
 		volumeCaimTemplates = []corev1.PersistentVolumeClaim{{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels: labels,
+				Labels: pvClaimLabels,
 				Name:   pvName,
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
@@ -175,7 +182,7 @@ func newStatefulSetForDseDatacenter(
 
 	template := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: labels,
+			Labels: podLabels,
 		},
 		Spec: corev1.PodSpec{
 			Affinity: &corev1.Affinity{
@@ -291,12 +298,12 @@ func newStatefulSetForDseDatacenter(
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      nsName.Name,
 			Namespace: nsName.Namespace,
-			Labels:    labels,
+			Labels:    statefulSetLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
 			// TODO adjust this
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: statefulSetSelectorLabels,
 			},
 			Replicas:             &replicaCountInt32,
 			ServiceName:          dseDatacenter.GetDseDatacenterServiceName(),

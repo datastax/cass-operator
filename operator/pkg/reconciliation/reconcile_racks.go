@@ -3,6 +3,7 @@ package reconciliation
 import (
 	"fmt"
 	"time"
+	"reflect"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -889,62 +890,32 @@ func (r *ReconcileRacks) ReconcilePods(statefulSet *appsv1.StatefulSet) error {
 	return nil
 }
 
+func mergeInLabelsIfDifferent(existingLabels, newLabels map[string]string) (bool, map[string]string) {
+	updatedLabels := utils.MergeMap(map[string]string{}, existingLabels, newLabels)
+	if reflect.DeepEqual(existingLabels, updatedLabels) {
+		return false, existingLabels
+	} else {
+		return true, updatedLabels
+	}
+}
+
 // shouldUpdateLabelsForClusterResource will compare the labels passed in with what the labels should be for a cluster level
 // resource. It will return the updated map and a boolean denoting whether the resource needs to be updated with the new labels.
 func shouldUpdateLabelsForClusterResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter) (bool, map[string]string) {
-	labelsUpdated := false
-
-	if resourceLabels == nil {
-		resourceLabels = make(map[string]string)
-	}
-
-	if _, ok := resourceLabels[datastaxv1alpha1.ClusterLabel]; !ok {
-		labelsUpdated = true
-	} else if resourceLabels[datastaxv1alpha1.ClusterLabel] != dseDatacenter.Spec.DseClusterName {
-		labelsUpdated = true
-	}
-
-	if labelsUpdated {
-		utils.MergeMap(&resourceLabels, dseDatacenter.GetClusterLabels())
-	}
-
-	return labelsUpdated, resourceLabels
+	return mergeInLabelsIfDifferent(resourceLabels, dseDatacenter.GetClusterLabels())
 }
 
 // shouldUpdateLabelsForRackResource will compare the labels passed in with what the labels should be for a rack level
 // resource. It will return the updated map and a boolean denoting whether the resource needs to be updated with the new labels.
 func shouldUpdateLabelsForRackResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter, rackName string) (bool, map[string]string) {
-	labelsUpdated, resourceLabels := shouldUpdateLabelsForDatacenterResource(resourceLabels, dseDatacenter)
-
-	if _, ok := resourceLabels[datastaxv1alpha1.RackLabel]; !ok {
-		labelsUpdated = true
-	} else if resourceLabels[datastaxv1alpha1.RackLabel] != rackName {
-		labelsUpdated = true
-	}
-
-	if labelsUpdated {
-		utils.MergeMap(&resourceLabels, dseDatacenter.GetRackLabels(rackName))
-	}
-
-	return labelsUpdated, resourceLabels
+	return mergeInLabelsIfDifferent(resourceLabels, dseDatacenter.GetRackLabels(rackName))
 }
+
 
 // shouldUpdateLabelsForDatacenterResource will compare the labels passed in with what the labels should be for a datacenter level
 // resource. It will return the updated map and a boolean denoting whether the resource needs to be updated with the new labels.
 func shouldUpdateLabelsForDatacenterResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter) (bool, map[string]string) {
-	labelsUpdated, resourceLabels := shouldUpdateLabelsForClusterResource(resourceLabels, dseDatacenter)
-
-	if _, ok := resourceLabels[datastaxv1alpha1.DatacenterLabel]; !ok {
-		labelsUpdated = true
-	} else if resourceLabels[datastaxv1alpha1.DatacenterLabel] != dseDatacenter.Name {
-		labelsUpdated = true
-	}
-
-	if labelsUpdated {
-		utils.MergeMap(&resourceLabels, dseDatacenter.GetDatacenterLabels())
-	}
-
-	return labelsUpdated, resourceLabels
+	return mergeInLabelsIfDifferent(resourceLabels, dseDatacenter.GetDatacenterLabels())
 }
 
 // getConfigsForRackResource return the desired and current configs for a statefulset

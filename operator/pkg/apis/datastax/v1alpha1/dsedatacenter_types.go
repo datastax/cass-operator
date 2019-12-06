@@ -245,7 +245,7 @@ func (dc *DseDatacenter) GetRackLabels(rackName string) map[string]string {
 		RackLabel: rackName,
 	}
 
-	utils.MergeMap(&labels, dc.GetDatacenterLabels())
+	utils.MergeMap(labels, dc.GetDatacenterLabels())
 
 	return labels
 }
@@ -256,7 +256,7 @@ func (dc *DseDatacenter) GetDatacenterLabels() map[string]string {
 		DatacenterLabel: dc.Name,
 	}
 
-	utils.MergeMap(&labels, dc.GetClusterLabels())
+	utils.MergeMap(labels, dc.GetClusterLabels())
 
 	return labels
 }
