@@ -59,3 +59,25 @@ func RequireEnv(s string) string {
 	}
 	return val
 }
+
+func PanicOnError(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// Wraps sh.Run, which only redirects output
+// to your shell when running mage with -v flag
+// Also automatically panics on error
+func Run(cmd string, args ...string) {
+	err := sh.Run(cmd, args...)
+	PanicOnError(err)
+}
+
+// Wraps sh.RunV, which always redirects output
+// to your shell
+// Also automatically panics on error
+func RunV(cmd string, args ...string) {
+	err := sh.RunV(cmd, args...)
+	PanicOnError(err)
+}

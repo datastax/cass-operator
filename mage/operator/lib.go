@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -15,13 +16,14 @@ import (
 )
 
 const (
-	buildDir                   = "operator/build"
+	rootBuildDir               = "./build"
+	sdkBuildDir                = "operator/build"
 	operatorSdkImage           = "operator-sdk-binary"
 	generatedDseDataCentersCrd = "operator/deploy/crds/datastax.com_dsedatacenters_crd.yaml"
 	packagePath                = "github.com/riptano/dse-operator/operator"
 	buildSettings              = "buildsettings.yaml"
 
-	errorUnstagedPreGenerate   = `
+	errorUnstagedPreGenerate = `
   Unstaged changes detected.
   - Please clean your working tree of
     uncommitted changes before running this target.`
@@ -36,22 +38,26 @@ const (
     with backwards compatibility.`
 )
 
-func panicOnError(err error) {
+func writeBuildFile(fileName string, contents string) {
+	os.Mkdir(rootBuildDir, os.ModePerm)
+	outputPath := filepath.Join(rootBuildDir, fileName)
+	err := ioutil.WriteFile(outputPath, []byte(contents+"\n"), 0666)
 	if err != nil {
+		fmt.Printf("Failed to write file at %s\n", outputPath)
 		panic(err)
 	}
 }
 
 func runGoModVendor() {
 	os.Setenv("GO111MODULE", "on")
-	sh.Run("go", "mod", "tidy")
-	sh.Run("go", "mod", "download")
-	sh.Run("go", "mod", "vendor")
+	mageutil.RunV("go", "mod", "tidy")
+	mageutil.RunV("go", "mod", "download")
+	mageutil.RunV("go", "mod", "vendor")
 }
 
 // Generate operator-sdk-binary docker image
 func createSdkDockerImage() {
-	sh.Run("docker", "build", "-t", operatorSdkImage, "tools/operator-sdk")
+	mageutil.RunV("docker", "build", "-t", operatorSdkImage, "tools/operator-sdk")
 }
 
 // generate the files and clean up afterwards
@@ -63,7 +69,7 @@ func generateK8sAndOpenApi() {
 		"export GO111MODULE=on; cd ../../riptano/dse-operator/operator && operator-sdk generate k8s && operator-sdk generate openapi && rm -rf build"}
 	volumes := []string{fmt.Sprintf("%s:/go/src/github.com/riptano/dse-operator", cwd)}
 	out, err := mageutil.RunDocker(operatorSdkImage, volumes, nil, nil, runArgs, execArgs)
-	panicOnError(err)
+	mageutil.PanicOnError(err)
 	if out != "" {
 		fmt.Println(out)
 	}
@@ -158,23 +164,23 @@ func postProcessCrd() {
 
 	var data map[interface{}]interface{}
 	d, err := ioutil.ReadFile(generatedDseDataCentersCrd)
-	panicOnError(err)
+	mageutil.PanicOnError(err)
 
 	err = yaml.Unmarshal(d, &data)
-	panicOnError(err)
+	mageutil.PanicOnError(err)
 
 	w1 := ensurePreserveUnknownFields(data)
-	panicOnError(w1.err)
+	mageutil.PanicOnError(w1.err)
 
 	w2 := removeConfigSection(data)
-	panicOnError(w2.err)
+	mageutil.PanicOnError(w2.err)
 
 	if w1.editsMade || w2.editsMade {
 		updated, err := yaml.Marshal(data)
-		panicOnError(err)
+		mageutil.PanicOnError(err)
 
 		err = ioutil.WriteFile(generatedDseDataCentersCrd, updated, os.ModePerm)
-		panicOnError(err)
+		mageutil.PanicOnError(err)
 	}
 }
 
@@ -185,8 +191,8 @@ func doSdkGenerate() {
 	os.Chdir(cwd)
 
 	// This is needed for operator-sdk generate k8s to run
-	os.MkdirAll(buildDir, os.ModePerm)
-	sh.Run("touch", fmt.Sprintf("%s/Dockerfile", buildDir))
+	os.MkdirAll(sdkBuildDir, os.ModePerm)
+	mageutil.RunV("touch", fmt.Sprintf("%s/Dockerfile", sdkBuildDir))
 
 	generateK8sAndOpenApi()
 	postProcessCrd()
@@ -194,13 +200,13 @@ func doSdkGenerate() {
 
 func hasUnstagedChanges() bool {
 	out, err := sh.Output("git", "diff")
-	panicOnError(err)
+	mageutil.PanicOnError(err)
 	return strings.TrimSpace(out) != ""
 }
 
 func hasStagedChanges() bool {
 	out, err := sh.Output("git", "diff", "--staged")
-	panicOnError(err)
+	mageutil.PanicOnError(err)
 	return strings.TrimSpace(out) != ""
 }
 
@@ -274,13 +280,13 @@ type GitData struct {
 
 func getGitBranch() string {
 	branch, err := sh.Output("git", "rev-parse", "--abbrev-ref", "HEAD")
-	panicOnError(err)
+	mageutil.PanicOnError(err)
 	return strings.TrimSpace(branch)
 }
 
 func getGitShortHash() string {
 	hash, err := sh.Output("git", "rev-parse", "--short", "HEAD")
-	panicOnError(err)
+	mageutil.PanicOnError(err)
 	return strings.TrimSpace(hash)
 }
 
@@ -297,10 +303,10 @@ func getGitData() GitData {
 func readBuildSettings() BuildSettings {
 	var settings BuildSettings
 	d, err := ioutil.ReadFile(buildSettings)
-	panicOnError(err)
+	mageutil.PanicOnError(err)
 
 	err = yaml.Unmarshal(d, &settings)
-	panicOnError(err)
+	mageutil.PanicOnError(err)
 
 	return settings
 }
@@ -330,27 +336,34 @@ func calcFullVersion(settings BuildSettings, git GitData) string {
 }
 
 func runDockerBuild(version string) {
+	versionedTag := fmt.Sprintf("datastax/dse-operator:%s", version)
 	tags := []string{
 		"datastax/dse-operator:latest",
-		fmt.Sprintf("datastax/dse-operator:%s", version),
+		versionedTag,
 	}
 	_, err := mageutil.BuildDocker(".", "./operator/Dockerfile", tags, nil)
-	panicOnError(err)
+	mageutil.PanicOnError(err)
 	fmt.Println("Docker image built with tags:")
 	for _, t := range tags {
 		fmt.Printf("\t%s\n", t)
 	}
+	// Write the versioned image tag to a file in our build
+	// directory so that other targets in the build process can identify
+	// what was built. This is particularly important to know
+	// for targets that retag and deploy to external docker repositories
+	writeBuildFile("builtImage.txt", versionedTag)
 }
 
 func runGoBuild(version string) {
 	os.Chdir("./operator")
+	os.Setenv("CGO_ENABLED", "0")
 	binaryPath := fmt.Sprintf("../build/bin/dse-operator-%s-%s", runtime.GOOS, runtime.GOARCH)
 	goArgs := []string{
 		"build", "-o", binaryPath,
 		"-ldflags", fmt.Sprintf("-X main.version=%s", version),
 		fmt.Sprintf("%s/cmd/manager", packagePath),
 	}
-	sh.Run("go", goArgs...)
+	mageutil.RunV("go", goArgs...)
 	os.Chdir("..")
 }
 
@@ -372,8 +385,9 @@ func BuildGo() {
 func TestGo() {
 	fmt.Println("- Running go unit tests")
 	os.Chdir("./operator")
+	os.Setenv("CGO_ENABLED", "0")
 	goArgs := []string{"test", "./..."}
-	sh.Run("go", goArgs...)
+	mageutil.RunV("go", goArgs...)
 	os.Chdir("..")
 }
 
@@ -386,7 +400,7 @@ func TestMage() {
 	fmt.Println("- Running operator mage unit tests")
 	os.Chdir("./mage/operator")
 	goArgs := []string{"test"}
-	sh.Run("go", goArgs...)
+	mageutil.RunV("go", goArgs...)
 	os.Chdir("../../")
 }
 
