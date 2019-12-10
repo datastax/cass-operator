@@ -2,10 +2,19 @@ package mageutil
 
 import (
 	"fmt"
+	"math/rand"
 	"os"
 
 	"github.com/magefile/mage/sh"
 )
+
+// Creates and sets permissions on a directory. Idempotent.
+func EnsureDir(dir string) {
+	os.Mkdir(dir, os.ModePerm)
+	//For some reason, this step is necessary to actually
+	//get the expected permissions
+	os.Chmod(dir, os.ModePerm)
+}
 
 // Internal datastax DNS addresses
 // to use for distros (like Alpine)
@@ -80,4 +89,15 @@ func Run(cmd string, args ...string) {
 func RunV(cmd string, args ...string) {
 	err := sh.RunV(cmd, args...)
 	PanicOnError(err)
+}
+
+// Generates a (non-cryptographically) random hex string of a given length
+func RandomHex(length int) string {
+	hexRunes := []rune("0123456789ABCDEF")
+	randRunes := make([]rune, length)
+	for i := range randRunes {
+		hexIndex := rand.Intn(len(hexRunes))
+		randRunes[i] = hexRunes[hexIndex]
+	}
+	return string(randRunes)
 }

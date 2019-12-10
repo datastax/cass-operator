@@ -31,13 +31,6 @@ type testRun struct {
 	status string
 }
 
-func ensureBuildDir() {
-	os.Mkdir(buildDir, os.ModePerm)
-	//For some reason, this step is necessary to actually
-	//get the expected permissions
-	os.Chmod(buildDir, os.ModePerm)
-}
-
 func writeBuildFile(fileName string, contents string) {
 	outputPath := filepath.Join(buildDir, fileName)
 	err := ioutil.WriteFile(outputPath, []byte(contents), 0666)
@@ -86,7 +79,7 @@ func monitorTestRunChannel(c chan testRun, count int, callBack func(testRun)) []
 }
 
 func runDocker(runArgs []string, execArgs []string) (string, error) {
-	ensureBuildDir()
+	mageutil.EnsureDir(buildDir)
 	cwd, err := os.Getwd()
 	if err != nil {
 		panic(err)
@@ -363,4 +356,9 @@ func Test() {
 	}
 	queuedTests = queue(c, files)
 	wait(c, queuedTests)
+}
+
+// Remove the build directory used by fallout targets
+func Clean() {
+	os.RemoveAll(buildDir)
 }

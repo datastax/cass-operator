@@ -39,7 +39,7 @@ const (
 )
 
 func writeBuildFile(fileName string, contents string) {
-	os.Mkdir(rootBuildDir, os.ModePerm)
+	mageutil.EnsureDir(rootBuildDir)
 	outputPath := filepath.Join(rootBuildDir, fileName)
 	err := ioutil.WriteFile(outputPath, []byte(contents+"\n"), 0666)
 	if err != nil {
@@ -429,7 +429,12 @@ func Test() {
 	mg.Deps(TestSdkGenerate)
 }
 
-// Remove the build directory
+// Remove the operator build directories, and the top-level build directory.
+//
+// It's maybe a bit weird that this clean target reaches up out of it's
+// directory to clean a top level thing, but right now that top-level thing
+// holds the operator golang binary, so we clean it here.
 func Clean() {
-	os.RemoveAll("./build")
+	os.RemoveAll(sdkBuildDir)
+	os.RemoveAll(rootBuildDir)
 }
