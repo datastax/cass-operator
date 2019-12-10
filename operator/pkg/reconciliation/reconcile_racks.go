@@ -2,8 +2,8 @@ package reconciliation
 
 import (
 	"fmt"
-	"time"
 	"reflect"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -144,6 +144,7 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 			r.ReconcileContext.ReqLogger.
 				WithValues("rackName", rackName).
 				Info("Skipping rack because CanaryUpgrade is turned on")
+			return nil, nil
 		}
 		statefulSet := r.statefulSets[idx]
 		currentConfig, desiredConfig, err := getConfigsForRackResource(r.ReconcileContext.DseDatacenter, statefulSet)
@@ -160,15 +161,18 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 			return &res, err
 		}
 
+		desiredConfigBuilderImage := r.ReconcileContext.DseDatacenter.GetConfigBuilderImage()
+
 		updatePodSpec := shouldUpdatePodSpec(r.ReconcileContext.DseDatacenter, statefulSet, currentConfig, desiredConfig, desiredDseImage)
 
 		if updatePodSpec {
-			// TODO double check that index zero is the right container
-			currentDseImage := statefulSet.Spec.Template.Spec.Containers[0].Image
+			ssTemplateContainers := &statefulSet.Spec.Template.Spec.Containers
+			dseContainer, _ := findDseContainer(ssTemplateContainers)
+			currentDseImage := dseContainer.Image
 
-			// TODO double check that index zero is the right container
-			currentConfigBuilderImage := statefulSet.Spec.Template.Spec.InitContainers[0].Image
-			desiredConfigBuilderImage := r.ReconcileContext.DseDatacenter.GetConfigBuilderImage()
+			ssTemplateInitContainers := &statefulSet.Spec.Template.Spec.InitContainers
+			configBuilderContainer, _ := findConfigBuilderContainer(ssTemplateInitContainers)
+			currentConfigBuilderImage := configBuilderContainer.Image
 
 			r.ReconcileContext.ReqLogger.Info("Updating statefulset pod specs",
 				"statefulSet", statefulSet,
@@ -191,9 +195,8 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 				return &res, err
 			}
 
-			// TODO double check that index zero is the right container
-			statefulSet.Spec.Template.Spec.Containers[0].Image = desiredDseImage
-			statefulSet.Spec.Template.Spec.InitContainers[0].Image = desiredConfigBuilderImage
+			dseContainer.Image = desiredDseImage
+			configBuilderContainer.Image = desiredConfigBuilderImage
 
 			err = r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, statefulSet)
 			if err != nil {
@@ -205,14 +208,50 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 				return &res, err
 			}
 
-			// we just updated k8s and pods will be knocked out of ready state,
-			// so go back through the reconcilation loop
-			res := ResultShouldRequeueNow
+			// we just updated k8s and pods will be knocked out of ready state, so let k8s
+			// call us back when these changes are done and the new pods are back to ready
+			res := ResultShouldNotRequeue
 
-			// FIXME this is not an ideal way to fix this
-			// adding a ten second cooldown because I've seen us get back into reconciliation too quickly
-			time.Sleep(time.Second * 10)
 			return &res, err
+		} else {
+			// the pod template is right, but if any pods don't match it,
+			// or are missing, we should not move onto the next rack,
+			// because there's an upgrade in progress
+
+			rackLabel := statefulSet.Spec.Template.Labels
+			expectedSizePtr := statefulSet.Spec.Replicas
+			expectedSize := 0
+			if expectedSizePtr != nil {
+				expectedSize = int(*expectedSizePtr)
+			}
+			pods, err := listPods(r.ReconcileContext, rackLabel)
+			if err != nil {
+				r.ReconcileContext.ReqLogger.Error(
+					err, "Unable to list pods",
+					"labels", rackLabel)
+				res := ResultShouldRequeueSoon
+				return &res, err
+			}
+
+			if pods == nil || len(pods.Items) != expectedSize {
+				res := ResultShouldNotRequeue
+				return &res, nil
+			}
+
+			for _, pod := range pods.Items {
+				podDse, _ := findDseContainer(&pod.Spec.Containers)
+				podDseImage := podDse.Image
+				podConfigBuilder, _ := findConfigBuilderContainer(&pod.Spec.InitContainers)
+				podConfigBuilderImage := podConfigBuilder.Image
+				podConfig, _ := getConfigFileDataFromInitContainer(*podConfigBuilder)
+				if podDseImage != desiredDseImage ||
+					podConfigBuilderImage != desiredConfigBuilderImage ||
+					podConfig != desiredConfig {
+
+					res := ResultShouldNotRequeue
+					return &res, nil
+				}
+			}
 		}
 	}
 
@@ -911,7 +950,6 @@ func shouldUpdateLabelsForRackResource(resourceLabels map[string]string, dseData
 	return mergeInLabelsIfDifferent(resourceLabels, dseDatacenter.GetRackLabels(rackName))
 }
 
-
 // shouldUpdateLabelsForDatacenterResource will compare the labels passed in with what the labels should be for a datacenter level
 // resource. It will return the updated map and a boolean denoting whether the resource needs to be updated with the new labels.
 func shouldUpdateLabelsForDatacenterResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter) (bool, map[string]string) {
@@ -935,16 +973,26 @@ func getConfigsForRackResource(dseDatacenter *datastaxv1alpha1.DseDatacenter, st
 
 // getConfigFileData returns the current CONFIG_FILE_DATA or an error
 func getConfigFileData(statefulSet *appsv1.StatefulSet) (string, error) {
-	if "CONFIG_FILE_DATA" == statefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Name {
-		return statefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Value, nil
+	initContainers := &statefulSet.Spec.Template.Spec.InitContainers
+	configBuilderContainer, _ := findConfigBuilderContainer(initContainers)
+	return getConfigFileDataFromInitContainer(*configBuilderContainer)
+}
+
+func getConfigFileDataFromInitContainer(initContainer corev1.Container) (string, error) {
+	envKv := &initContainer.Env[0]
+	if "CONFIG_FILE_DATA" == envKv.Name {
+		return envKv.Value, nil
 	}
 	return "", fmt.Errorf("CONFIG_FILE_DATA environment variable not available in StatefulSet")
 }
 
 // setConfigFileData updates the CONFIG_FILE_DATA in a statefulset.
 func setConfigFileData(statefulSet *appsv1.StatefulSet, desiredConfig string) error {
-	if "CONFIG_FILE_DATA" == statefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Name {
-		statefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Value = desiredConfig
+	initContainers := &statefulSet.Spec.Template.Spec.InitContainers
+	configBuilderContainer, _ := findConfigBuilderContainer(initContainers)
+	envKv := &configBuilderContainer.Env[0]
+	if "CONFIG_FILE_DATA" == envKv.Name {
+		envKv.Value = desiredConfig
 		return nil
 	}
 	return fmt.Errorf("CONFIG_FILE_DATA environment variable not available in StatefulSet")
@@ -957,11 +1005,14 @@ func shouldUpdatePodSpec(
 	desiredConfig string,
 	desiredDseImage string) bool {
 
-	// TODO double check that index zero is the right container
-	currentDseImage := statefulSet.Spec.Template.Spec.Containers[0].Image
+	ssTemplateContainers := &statefulSet.Spec.Template.Spec.Containers
+	dseContainer, _ := findDseContainer(ssTemplateContainers)
+	currentDseImage := dseContainer.Image
 
-	// TODO double check that index zero is the right container
-	currentConfigBuilderImage := statefulSet.Spec.Template.Spec.InitContainers[0].Image
+	ssTemplateInitContainers := &statefulSet.Spec.Template.Spec.InitContainers
+	configBuilderContainer, _ := findConfigBuilderContainer(ssTemplateInitContainers)
+	currentConfigBuilderImage := configBuilderContainer.Image
+
 	desiredConfigBuilderImage := dseDatacenter.GetConfigBuilderImage()
 
 	updatePodSpec :=
@@ -1188,4 +1239,30 @@ func isDseReady(pod *corev1.Pod) bool {
 		return status.Ready
 	}
 	return false
+}
+
+// findDseContainer returns a pointer so that the caller can modify what's in the container
+// and then update the owner (probably a statefulset) in k8s
+func findDseContainer(containersPtr *[]corev1.Container) (*corev1.Container, error) {
+	containers := *containersPtr
+	for idx := range containers {
+		c := &containers[idx]
+		if c.Name == "dse" {
+			return c, nil
+		}
+	}
+	return nil, fmt.Errorf("dse container not found")
+}
+
+// findConfigBuilderContainer returns a pointer so that the caller can modify what's in the container
+// and then update the owner (probably a statefulset) in k8s
+func findConfigBuilderContainer(containersPtr *[]corev1.Container) (*corev1.Container, error) {
+	containers := *containersPtr
+	for idx := range containers {
+		c := &containers[idx]
+		if c.Name == "dse-config-init" {
+			return c, nil
+		}
+	}
+	return nil, fmt.Errorf("config builder container not found")
 }

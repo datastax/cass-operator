@@ -292,7 +292,7 @@ func newStatefulSetForDseDatacenter(
 		},
 	}
 
-	httphelper.AddManagementApiServerSecurity(dseDatacenter, &template)
+	_ = httphelper.AddManagementApiServerSecurity(dseDatacenter, &template)
 
 	result := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
