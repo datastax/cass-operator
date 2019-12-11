@@ -136,12 +136,13 @@ func (r *ReconcileRacks) CheckRackCreation() (*reconcile.Result, error) {
 }
 
 func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
-	r.ReconcileContext.ReqLogger.Info("Examining config of StatefulSets")
+	logger := r.ReconcileContext.ReqLogger
+	logger.Info("starting CheckRackPodTemplate()")
 
 	for idx := range r.desiredRackInformation {
+		rackName := r.desiredRackInformation[idx].RackName
 		if r.ReconcileContext.DseDatacenter.Spec.CanaryUpgrade && idx > 0 {
-			rackName := r.desiredRackInformation[idx].RackName
-			r.ReconcileContext.ReqLogger.
+			logger.
 				WithValues("rackName", rackName).
 				Info("Skipping rack because CanaryUpgrade is turned on")
 			return nil, nil
@@ -149,14 +150,14 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 		statefulSet := r.statefulSets[idx]
 		currentConfig, desiredConfig, err := getConfigsForRackResource(r.ReconcileContext.DseDatacenter, statefulSet)
 		if err != nil {
-			r.ReconcileContext.ReqLogger.Error(err, "Error examining config of StatefulSet")
+			logger.Error(err, "Error examining config of StatefulSet")
 			res := ResultShouldNotRequeue
 			return &res, err
 		}
 
 		desiredDseImage, err := r.ReconcileContext.DseDatacenter.GetServerImage()
 		if err != nil {
-			r.ReconcileContext.ReqLogger.Error(err, "Unable to retrieve DSE container image")
+			logger.Error(err, "Unable to retrieve DSE container image")
 			res := ResultShouldNotRequeue
 			return &res, err
 		}
@@ -174,7 +175,7 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 			configBuilderContainer, _ := findConfigBuilderContainer(ssTemplateInitContainers)
 			currentConfigBuilderImage := configBuilderContainer.Image
 
-			r.ReconcileContext.ReqLogger.Info("Updating statefulset pod specs",
+			logger.Info("Updating statefulset pod specs",
 				"statefulSet", statefulSet,
 				"currentConfig", currentConfig,
 				"desiredConfig", desiredConfig,
@@ -187,7 +188,7 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 			// The first env var should be the config
 			err = setConfigFileData(statefulSet, desiredConfig)
 			if err != nil {
-				r.ReconcileContext.ReqLogger.Error(
+				logger.Error(
 					err,
 					"Unable to update statefulSet PodTemplate with config",
 					"statefulSet", statefulSet)
@@ -200,7 +201,7 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 
 			err = r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, statefulSet)
 			if err != nil {
-				r.ReconcileContext.ReqLogger.Error(
+				logger.Error(
 					err,
 					"Unable to perform update on statefulset for config",
 					"statefulSet", statefulSet)
@@ -218,7 +219,7 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 			// or are missing, we should not move onto the next rack,
 			// because there's an upgrade in progress
 
-			rackLabel := statefulSet.Spec.Template.Labels
+			rackLabel := r.ReconcileContext.DseDatacenter.GetRackLabels(rackName)
 			expectedSizePtr := statefulSet.Spec.Replicas
 			expectedSize := 0
 			if expectedSizePtr != nil {
@@ -226,7 +227,7 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 			}
 			pods, err := listPods(r.ReconcileContext, rackLabel)
 			if err != nil {
-				r.ReconcileContext.ReqLogger.Error(
+				logger.Error(
 					err, "Unable to list pods",
 					"labels", rackLabel)
 				res := ResultShouldRequeueSoon
@@ -234,6 +235,12 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 			}
 
 			if pods == nil || len(pods.Items) != expectedSize {
+				log.Info(
+					"not enough pods, waiting for upgrade to finish",
+					"pods", pods,
+					"expectedSize", expectedSize,
+					"podCount", len(pods.Items),
+				)
 				res := ResultShouldNotRequeue
 				return &res, nil
 			}
@@ -247,7 +254,12 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 				if podDseImage != desiredDseImage ||
 					podConfigBuilderImage != desiredConfigBuilderImage ||
 					podConfig != desiredConfig {
-
+					log.Info(
+						"an existing pod needs to be upgraded, waiting for upgrade to finish",
+						"podName", pod.Name,
+						"podDseImage", podDseImage,
+						"podConfigBuilderImage", podConfigBuilderImage,
+					)
 					res := ResultShouldNotRequeue
 					return &res, nil
 				}
@@ -255,6 +267,7 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 		}
 	}
 
+	logger.Info("done CheckRackPodTemplate()")
 	return nil, nil
 }
 
