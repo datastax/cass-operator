@@ -3,6 +3,7 @@ package reconciliation
 import (
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -665,36 +666,47 @@ func (r *ReconcileRacks) LabelSeedPods(rackInfo *dsereconciliation.RackInformati
 	podList, err := listPods(r.ReconcileContext, rackLabels)
 	if err != nil {
 		r.ReconcileContext.ReqLogger.Error(
-			err,
-			"Unable to list pods for rack",
+			err, "Unable to list pods for rack",
 			"rackName", rackInfo.RackName)
 		return
 	}
 	for i := range podList.Items {
 		pod := &podList.Items[i]
 		podLabels := pod.GetLabels()
-		isSeed := i < rackInfo.SeedCount
-		if currentVal, ok := podLabels[datastaxv1alpha1.SeedNodeLabel]; !ok {
-			shouldUpdate := false
-			if isSeed && currentVal != "true" {
-				podLabels[datastaxv1alpha1.SeedNodeLabel] = "true"
-				shouldUpdate = true
-			} else if !isSeed && currentVal == "true" {
-				podLabels[datastaxv1alpha1.SeedNodeLabel] = ""
-				shouldUpdate = true
-			}
-			if shouldUpdate {
-				pod.SetLabels(podLabels)
-				if err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, pod); err != nil {
-					r.ReconcileContext.ReqLogger.Error(
-						err,
-						"Unable to update pod with seed label",
-						"pod", pod.Name)
-					continue
-				}
+		podName := pod.Name
+
+		isSeed := hasStsOrdinalSuffixLessThan(podName, rackInfo.SeedCount)
+		currentVal := podLabels[datastaxv1alpha1.SeedNodeLabel]
+
+		shouldUpdate := false
+		if isSeed && currentVal != "true" {
+			podLabels[datastaxv1alpha1.SeedNodeLabel] = "true"
+			shouldUpdate = true
+		} else if !isSeed && currentVal == "true" {
+			delete(podLabels, datastaxv1alpha1.SeedNodeLabel)
+			shouldUpdate = true
+		}
+
+		if shouldUpdate {
+			pod.SetLabels(podLabels)
+			if err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, pod); err != nil {
+				r.ReconcileContext.ReqLogger.Error(
+					err, "Unable to update pod with seed label",
+					"pod", pod.Name)
+				continue
 			}
 		}
 	}
+}
+
+func hasStsOrdinalSuffixLessThan(s string, n int) bool {
+	for i := 0; i < n; i++ {
+		suffix := fmt.Sprintf("-sts-%d", i)
+		if strings.HasSuffix(s, suffix) {
+			return true
+		}
+	}
+	return false
 }
 
 // GetStatefulSetForRack returns the statefulset for the rack
