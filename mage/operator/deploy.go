@@ -3,20 +3,22 @@ package operator
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 
+	"github.com/magefile/mage/sh"
 	"github.com/riptano/dse-operator/mage/util"
 )
 
 const (
-	envBuiltImage      = "MO_BUILT_IMAGE"
 	envArtifactoryUser = "MO_ART_USR"
 	envArtifactoryPw   = "MO_ART_PSW"
-	envECRUser         = "MO_ECR_USR"
-	envECRPw           = "MO_ECR_PSW"
+	envEcrId           = "MO_ECR_ID"
+	envEcrSecret       = "MO_ECR_SECRET"
+	envTags            = "MO_TAGS"
 	artifactoryRepo    = "datastax-docker.jfrog.io"
-	ecrRepo            = "registry.cloud-tools.datastax.com"
+	ecrRepo            = "237073351946.dkr.ecr.us-east-1.amazonaws.com"
 )
 
 func dockerLogin(user string, pw string, repo string) {
@@ -36,32 +38,62 @@ func dockerLogin(user string, pw string, repo string) {
 	mageutil.PanicOnError(err)
 }
 
+func dockerPanic(args ...string) {
+	argz := []string{"--config", rootBuildDir}
+	argz = append(argz, args...)
+	mageutil.RunV("docker", argz...)
+}
+
+func docker(args ...string) error {
+	argz := []string{"--config", rootBuildDir}
+	argz = append(argz, args...)
+	return sh.RunV("docker", argz...)
+}
+
 func dockerPush(path string) {
 	fmt.Printf("- Pushing image %s\n", path)
-	mageutil.RunV("docker", "--config", rootBuildDir, "push", path)
+	dockerPanic("push", path)
 }
 
 func dockerTag(src string, dest string) {
 	fmt.Println("- Re-tagging image:")
 	fmt.Printf("  %s\n", src)
 	fmt.Printf("  --> %s\n", dest)
-	mageutil.RunV("docker", "tag", src, dest)
+	dockerPanic("tag", src, dest)
 }
 
-func retagBuiltImage(newRepo string) string {
-	builtImage := mageutil.RequireEnv(envBuiltImage)
-	split := strings.Split(builtImage, ":")
+func retagImage(currentTag string, newRepo string) string {
+	newPath := fmt.Sprintf("%s/dse-operator/operator", newRepo)
+
+	// We just want to grab the version part of the tag and discard
+	// the old repo path
+	split := strings.Split(currentTag, ":")
 	versionTag := split[len(split)-1]
-	newImage := fmt.Sprintf("%s:%s", newRepo, versionTag)
-	dockerTag(builtImage, newImage)
+
+	newImage := fmt.Sprintf("%s:%s", newPath, versionTag)
+	dockerTag(currentTag, newImage)
 	return newImage
 }
 
-func retagAndPush(user string, pw string, repo string) {
-	dockerLogin(user, pw, repo)
-	newPath := fmt.Sprintf("%s/dse-operator/operator", repo)
-	newImage := retagBuiltImage(newPath)
-	dockerPush(newImage)
+func retagAndPush(tags []string, newRepo string) {
+	for _, t := range tags {
+		newTag := retagImage(strings.TrimSpace(t), ecrRepo)
+		dockerPush(newTag)
+	}
+}
+
+func awsDockerLogin(keyId string, keySecret string) {
+	os.Setenv("AWS_ACCESS_KEY_ID", keyId)
+	os.Setenv("AWS_SECRET_ACCESS_KEY", keySecret)
+	loginStr := mageutil.Output("aws", "ecr", "get-login", "--no-include-email", "--region", "us-east-1")
+	args := strings.Split(loginStr, " ")
+	err := docker(args[1:len(args)]...)
+	if err != nil {
+		// Don't print the actual error message here, because it could
+		// contain a valid ECR token that expires in 12 hours
+		e := fmt.Errorf("Failed to login to ECR via docker cli")
+		panic(e)
+	}
 }
 
 // Deploy operator image to ECR.
@@ -71,19 +103,15 @@ func retagAndPush(user string, pw string, repo string) {
 // push PR builds here to enable easy testing of work prior to merge.
 //
 // This target assumes that you have several environment variables set:
-// MO_ART_USR - ECR user
-// MO_ART_PSW - ECR password/api key
-// MO_BUILT_IMAGE - the fully qualified image path to retag and push
+// MO_ECR_ID - ECR access key ID
+// MO_ECR_SECRET - ECR secret access key
+// MO_TAGS - pipe-delimited docker tags to retag/push to ECR
 func DeployToECR() {
-	// Once we obtain creds, delete this code and uncomment
-	// the lines below
-	retagged := retagBuiltImage(ecrRepo)
-	fmt.Println("Deploy to ECR is currently on hold until we get machine creds.")
-	fmt.Printf("We would have normally pushed %s this run.\n", retagged)
-
-	//user := mageutil.RequireEnv(envECRUser)
-	//pw := mageutil.RequireEnv(envECRPw)
-	//retagAndPush(user, pw, ecrRepo)
+	keyId := mageutil.RequireEnv(envEcrId)
+	keySecret := mageutil.RequireEnv(envEcrSecret)
+	awsDockerLogin(keyId, keySecret)
+	tags := mageutil.RequireEnv(envTags)
+	retagAndPush(strings.Split(tags, "|"), ecrRepo)
 }
 
 // Deploy operator image to artifactory.
@@ -95,15 +123,11 @@ func DeployToECR() {
 // This target assumes that you have several environment variables set:
 // MO_ART_USR - artifactory user
 // MO_ART_PSW - artifactory password/api key
-// MO_BUILT_IMAGE - the fully qualified image path to retag and push
+// MO_TAGS - pipe-delimited docker tags to retag/push to Artifactory
 func DeployToArtifactory() {
-	// Once we obtain creds, delete this code and uncomment
-	// the lines below
-	retagged := retagBuiltImage(ecrRepo)
-	fmt.Println("Deploy to Artifactory is currently on hold until we get machine creds.")
-	fmt.Printf("We would have normally pushed %s this run.\n", retagged)
-
-	//user := mageutil.RequireEnv(envArtifactoryUser)
-	//pw := mageutil.RequireEnv(envArtifactoryPw)
-	//retagAndPush(user, pw, artifactoryRepo)
+	user := mageutil.RequireEnv(envArtifactoryUser)
+	pw := mageutil.RequireEnv(envArtifactoryPw)
+	dockerLogin(user, pw, artifactoryRepo)
+	tags := mageutil.RequireEnv(envTags)
+	retagAndPush(strings.Split(tags, "|"), artifactoryRepo)
 }

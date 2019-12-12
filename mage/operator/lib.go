@@ -260,8 +260,7 @@ type Version struct {
 func (v Version) String() string {
 	version := fmt.Sprintf("%v.%v.%v", v.Major, v.Minor, v.Patch)
 	if v.Prerelease != "" {
-		r := regexp.MustCompile("[^A-z0-9]")
-		pre := r.ReplaceAllString(v.Prerelease, ".")
+		pre := ensureAlphaNumericDash(v.Prerelease)
 		version = fmt.Sprintf("%v-%v", version, pre)
 	}
 	return version
@@ -272,32 +271,35 @@ type BuildSettings struct {
 }
 
 type GitData struct {
-	Branch             string
-	ShortHash          string
-	HasStagedChanges   bool
-	HasUnstagedChanges bool
+	Branch                string
+	LongHash              string
+	HasUncommittedChanges bool
 }
 
 func getGitBranch() string {
-	branch, err := sh.Output("git", "rev-parse", "--abbrev-ref", "HEAD")
-	mageutil.PanicOnError(err)
+	var branch string
+	if b := os.Getenv("MO_BRANCH"); b != "" {
+		branch = b
+	} else {
+		head, err := sh.Output("git", "rev-parse", "--abbrev-ref", "HEAD")
+		mageutil.PanicOnError(err)
+		branch = head
+	}
 	return strings.TrimSpace(branch)
 }
 
-func getGitShortHash() string {
-	hash, err := sh.Output("git", "rev-parse", "--short", "HEAD")
+func getGitLongHash() string {
+	hash, err := sh.Output("git", "rev-parse", "HEAD")
 	mageutil.PanicOnError(err)
 	return strings.TrimSpace(hash)
 }
 
 func getGitData() GitData {
 	return GitData{
-		Branch:             getGitBranch(),
-		HasStagedChanges:   hasStagedChanges(),
-		HasUnstagedChanges: hasUnstagedChanges(),
-		ShortHash:          getGitShortHash(),
+		Branch:                getGitBranch(),
+		HasUncommittedChanges: hasStagedChanges() || hasUnstagedChanges(),
+		LongHash:              getGitLongHash(),
 	}
-
 }
 
 func readBuildSettings() BuildSettings {
@@ -311,56 +313,77 @@ func readBuildSettings() BuildSettings {
 	return settings
 }
 
-func versionSuffix(git GitData) string {
-	suffix := ""
-	if git.Branch != "master" {
-		suffix = fmt.Sprintf("%s.", git.Branch)
-	}
-	if git.HasUnstagedChanges || git.HasStagedChanges {
-		suffix = fmt.Sprintf("%suncommitted.", suffix)
-	}
-	suffix = fmt.Sprintf("%s%s", suffix, git.ShortHash)
-	r := regexp.MustCompile("[^A-z0-9]")
-	return r.ReplaceAllString(suffix, ".")
+func ensureAlphaNumericDash(str string) string {
+	r := regexp.MustCompile("[^A-z0-9\\-]")
+	return r.ReplaceAllString(str, "-")
 }
 
-func calcFullVersion(settings BuildSettings, git GitData) string {
-	suffix := versionSuffix(git)
-	var fullVersion string
-	if settings.Version.Prerelease != "" {
-		fullVersion = fmt.Sprintf("%v.%s", settings.Version, suffix)
+type FullVersion struct {
+	Core        Version
+	Branch      string
+	Uncommitted bool
+	Hash        string
+}
+
+func trimFullVersionBranch(v FullVersion) FullVersion {
+	str := v.String()
+	overflow := len(str) - 128
+	if overflow > 0 {
+		v.Branch = v.Branch[:len(v.Branch)-overflow]
+	}
+	return v
+}
+
+func (v FullVersion) String() string {
+	str := fmt.Sprintf("%v", v.Core)
+	if v.Core.Prerelease != "" {
+		str = fmt.Sprintf("%s.", str)
 	} else {
-		fullVersion = fmt.Sprintf("%v-%s", settings.Version, suffix)
+		str = fmt.Sprintf("%s-", str)
 	}
-	return fullVersion
+	if v.Branch != "master" {
+		sanitized := ensureAlphaNumericDash(v.Branch)
+		str = fmt.Sprintf("%s%s.", str, sanitized)
+	}
+	if v.Uncommitted {
+		str = fmt.Sprintf("%suncommitted.", str)
+	}
+	str = fmt.Sprintf("%s%s", str, v.Hash)
+	return str
 }
 
-func runDockerBuild(version string) {
-	versionedTag := fmt.Sprintf("datastax/dse-operator:%s", version)
-	tags := []string{
-		"datastax/dse-operator:latest",
-		versionedTag,
+func calcFullVersion(settings BuildSettings, git GitData) FullVersion {
+	return FullVersion{
+		Core:        settings.Version,
+		Branch:      getGitBranch(),
+		Uncommitted: git.HasUncommittedChanges,
+		Hash:        git.LongHash,
 	}
+}
+
+func runDockerBuild(version FullVersion) []string {
+	versionedTag := fmt.Sprintf("datastax/dse-operator:%v", version)
+	tagsToPush := []string{
+		versionedTag,
+		fmt.Sprintf("datastax/dse-operator:%s", version.Hash),
+	}
+	tags := append(tagsToPush, "datastax/dse-operator:latest")
 	_, err := mageutil.BuildDocker(".", "./operator/Dockerfile", tags, nil)
 	mageutil.PanicOnError(err)
 	fmt.Println("Docker image built with tags:")
 	for _, t := range tags {
 		fmt.Printf("\t%s\n", t)
 	}
-	// Write the versioned image tag to a file in our build
-	// directory so that other targets in the build process can identify
-	// what was built. This is particularly important to know
-	// for targets that retag and deploy to external docker repositories
-	writeBuildFile("builtImage.txt", versionedTag)
+	return tagsToPush
 }
 
-func runGoBuild(version string) {
+func runGoBuild(version FullVersion) {
 	os.Chdir("./operator")
 	os.Setenv("CGO_ENABLED", "0")
 	binaryPath := fmt.Sprintf("../build/bin/dse-operator-%s-%s", runtime.GOOS, runtime.GOARCH)
 	goArgs := []string{
 		"build", "-o", binaryPath,
-		"-ldflags", fmt.Sprintf("-X main.version=%s", version),
+		"-ldflags", fmt.Sprintf("-X main.version=%s", version.String()),
 		fmt.Sprintf("%s/cmd/manager", packagePath),
 	}
 	mageutil.RunV("go", goArgs...)
@@ -414,7 +437,13 @@ func BuildDocker() {
 	settings := readBuildSettings()
 	git := getGitData()
 	version := calcFullVersion(settings, git)
-	runDockerBuild(version)
+	tags := runDockerBuild(version)
+	// Write the versioned image tags to a file in our build
+	// directory so that other targets in the build process can identify
+	// what was built. This is particularly important to know
+	// for targets that retag and deploy to external docker repositories
+	outputText := strings.Join(tags, "|")
+	writeBuildFile("tagsToPush.txt", outputText)
 }
 
 // Alias for buildDocker target

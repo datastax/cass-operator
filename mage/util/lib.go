@@ -101,3 +101,9 @@ func RandomHex(length int) string {
 	}
 	return string(randRunes)
 }
+
+func Output(cmd string, args ...string) string {
+	out, err := sh.Output(cmd, args...)
+	PanicOnError(err)
+	return out
+}
