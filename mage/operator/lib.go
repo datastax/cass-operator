@@ -22,6 +22,7 @@ const (
 	generatedDseDataCentersCrd = "operator/deploy/crds/datastax.com_dsedatacenters_crd.yaml"
 	packagePath                = "github.com/riptano/dse-operator/operator"
 	buildSettings              = "buildsettings.yaml"
+	envVersionString           = "MO_VERSION"
 
 	errorUnstagedPreGenerate = `
   Unstaged changes detected.
@@ -368,39 +369,36 @@ func runDockerBuild(version FullVersion) []string {
 		fmt.Sprintf("datastax/dse-operator:%s", version.Hash),
 	}
 	tags := append(tagsToPush, "datastax/dse-operator:latest")
-	_, err := mageutil.BuildDocker(".", "./operator/Dockerfile", tags, nil)
-	mageutil.PanicOnError(err)
-	fmt.Println("Docker image built with tags:")
-	for _, t := range tags {
-		fmt.Printf("\t%s\n", t)
-	}
+	buildArgs := []string{fmt.Sprintf("VERSION_STAMP=%s", versionedTag)}
+	mageutil.BuildDocker(".", "./operator/Dockerfile", tags, buildArgs)
 	return tagsToPush
 }
 
-func runGoBuild(version FullVersion) {
+func runGoBuild(version string) {
 	os.Chdir("./operator")
 	os.Setenv("CGO_ENABLED", "0")
 	binaryPath := fmt.Sprintf("../build/bin/dse-operator-%s-%s", runtime.GOOS, runtime.GOARCH)
 	goArgs := []string{
 		"build", "-o", binaryPath,
-		"-ldflags", fmt.Sprintf("-X main.version=%s", version.String()),
+		"-ldflags", fmt.Sprintf("-X main.version=%s", version),
 		fmt.Sprintf("%s/cmd/manager", packagePath),
 	}
 	mageutil.RunV("go", goArgs...)
 	os.Chdir("..")
+
 }
 
 // Builds operator go code.
 //
-// A version will be calculate based on the state of
-// your git working tree and then it will be stamped
-// into binary.
+// By default, a dev version will be stamped into
+// the binary.
+//
+// Set env variable MO_VERSION to specify a specific
+// version to stamp.
 func BuildGo() {
 	mg.Deps(Clean)
 	fmt.Println("- Building operator go module")
-	settings := readBuildSettings()
-	git := getGitData()
-	version := calcFullVersion(settings, git)
+	version := mageutil.EnvOrDefault(envVersionString, "DEV")
 	runGoBuild(version)
 }
 

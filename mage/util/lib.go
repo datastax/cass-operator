@@ -42,7 +42,7 @@ func RunDocker(imageName string, volumes []string, dnsAddrs []string, env []stri
 	return sh.Output("docker", args...)
 }
 
-func BuildDocker(contextDir string, dockerFilePath string, namesAndTags []string, buildArgs []string) (string, error) {
+func BuildDocker(contextDir string, dockerFilePath string, namesAndTags []string, buildArgs []string) {
 	args := []string{"build", contextDir}
 
 	if dockerFilePath != "" {
@@ -57,14 +57,22 @@ func BuildDocker(contextDir string, dockerFilePath string, namesAndTags []string
 		args = append(args, "--build-arg")
 		args = append(args, x)
 	}
-	return sh.Output("docker", args...)
+	RunV("docker", args...)
 }
 
-func RequireEnv(s string) string {
-	val := os.Getenv(s)
+func RequireEnv(key string) string {
+	val := os.Getenv(key)
 	if val == "" {
-		msg := fmt.Errorf("%s is a required environment variable\n", s)
+		msg := fmt.Errorf("%s is a required environment variable\n", key)
 		panic(msg)
+	}
+	return val
+}
+
+func EnvOrDefault(key string, def string) string {
+	val := os.Getenv(key)
+	if val == "" {
+		val = def
 	}
 	return val
 }

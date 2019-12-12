@@ -19,17 +19,22 @@ ENV GOPATH=/go
 WORKDIR /dse-operator
 
 # Grab mage files
-COPY mage ./mage
-COPY magefile.go go.mod go.sum ./
-
-# Copy in source code and deps
-# We need the .git folder in order to figure out parts of our image tag
-COPY .git ./.git
-COPY buildsettings.yaml ./
-COPY operator ./operator
+COPY go.mod go.sum ./
+COPY mage/go.mod mage/go.sum ./mage/
 
 # Download go deps (including mage)
 RUN go mod download
+
+# We have to run go mod download in the ./operator
+# dir specifically, but not under ./mage. This is likely
+# because the root go.mod directly references the ./mage tree
+COPY operator/go.mod operator/go.sum ./operator/
+RUN cd operator && go mod download
+
+# At this point, we have the top level go.mod, the ./mage level go.mod,
+# and the ./operator level go.mod without copying any of the source code yet.
+# This means that the dependencies should be nicely without having
+# to rerun every time we modify our lib code
 
 # Install mage
 # The new go module system will put the version number in the path, so we
@@ -37,13 +42,17 @@ RUN go mod download
 RUN cd $GOPATH/pkg/mod/github.com/magefile/mage* && go run bootstrap.go
 
 # Copy in source code
-WORKDIR /dse-operator
+COPY magefile.go ./
+COPY mage ./mage
+COPY operator ./operator
 
 # Run the tests
 RUN mage operator:testGo
 
+ARG VERSION_STAMP=DEV
+
 # Build any code not touched by tests (the generated client)
-RUN mage operator:buildGo
+RUN MO_VERSION=${VERSION_STAMP} mage operator:buildGo
 
 # Second stage
 # Produce a smaller image than the one used to build the code
