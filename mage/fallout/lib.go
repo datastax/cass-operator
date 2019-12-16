@@ -8,7 +8,8 @@ import (
 	"strings"
 
 	"github.com/magefile/mage/mg"
-	"github.com/magefile/mage/sh"
+	"github.com/riptano/dse-operator/mage/docker"
+	"github.com/riptano/dse-operator/mage/sh"
 	"github.com/riptano/dse-operator/mage/util"
 )
 
@@ -78,12 +79,10 @@ func monitorTestRunChannel(c chan testRun, count int, callBack func(testRun)) []
 	return tests
 }
 
-func runDocker(runArgs []string, execArgs []string) (string, error) {
+func runDocker(runArgs []string, execArgs []string) string {
 	mageutil.EnsureDir(buildDir)
 	cwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
+	mageutil.PanicOnError(err)
 
 	localTestDir := fmt.Sprintf("%s/%s", cwd, testDir)
 	localBuildDir := fmt.Sprintf("%s/%s", cwd, buildDir)
@@ -95,7 +94,7 @@ func runDocker(runArgs []string, execArgs []string) (string, error) {
 
 	fallout_token := mageutil.RequireEnv(envFalloutToken)
 	env := []string{fmt.Sprintf("FALLOUT_OAUTH_TOKEN=%s", fallout_token)}
-	return mageutil.RunDocker(imageName, volumes, mageutil.DatastaxDns, env, runArgs, execArgs)
+	return dockerutil.Run(imageName, volumes, dockerutil.DatastaxDns, env, runArgs, execArgs).OutputPanic()
 }
 
 func discoverTests() []string {
@@ -119,10 +118,7 @@ func queueTest(c chan testRun, fileName string) {
 	execArgs := []string{
 		"fallout", "create-testrun", testName,
 	}
-	out, err := runDocker([]string{}, execArgs)
-	if err != nil {
-		panic(err)
-	}
+	out := runDocker([]string{}, execArgs)
 	data := strings.Fields(out)
 	c <- testRun{name: data[0], id: data[1]}
 }
@@ -153,10 +149,7 @@ func waitForTestToFinish(c chan testRun, test testRun) {
 		"--wait",
 		"--testrun=" + test.id,
 		test.name}
-	out, err := runDocker([]string{}, execArgs)
-	if err != nil {
-		panic(err)
-	}
+	out := runDocker([]string{}, execArgs)
 	data := strings.Fields(out)
 	c <- testRun{name: data[0], id: data[1], status: data[2]}
 }
@@ -199,10 +192,7 @@ func loadTest(fileName string) {
 		"fallout", "create-test",
 		fmt.Sprintf("%s/%s", testMount, fileName),
 	}
-	_, err := runDocker([]string{}, execArgs)
-	if err != nil {
-		panic(err)
-	}
+	runDocker([]string{}, execArgs)
 }
 
 func loadTests(files []string) {
@@ -219,12 +209,8 @@ func abortTest(test testRun) {
 		"fallout", "abort-testrun",
 		"--testrun=" + test.id,
 		test.name}
-	_, err := runDocker([]string{}, execArgs)
-	if err != nil {
-		fmt.Printf("Failed to abort: %s (%s).\n", test.name, test.id)
-		panic(err)
-	}
-	fmt.Printf("Aborted: %s (%s)\n", test.name, test.id)
+	fmt.Printf("Aborting: %s (%s)\n", test.name, test.id)
+	runDocker([]string{}, execArgs)
 }
 
 //---------- Artifacts
@@ -236,10 +222,7 @@ func downloadArtifactForRun(run testRun) {
 		"--testrun=" + run.id,
 		run.name,
 	}
-	_, err := runDocker([]string{}, execArgs)
-	if err != nil {
-		panic(err)
-	}
+	runDocker([]string{}, execArgs)
 
 	pattern := filepath.Join(buildDir, "*", run.name, run.id)
 	matches, err := filepath.Glob(pattern)
@@ -320,10 +303,7 @@ func Build() {
 	dockerArgs := []string{
 		"build", "./fallout", "-t", imageName, "--build-arg", "GITHUB_TOKEN=" + github_token,
 	}
-	err := sh.Run("docker", dockerArgs...)
-	if err != nil {
-		panic(err)
-	}
+	shutil.RunVPanic("docker", dockerArgs...)
 	fmt.Println("Success")
 }
 

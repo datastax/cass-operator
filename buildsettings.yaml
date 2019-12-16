@@ -3,3 +3,15 @@ version:
   minor: 5
   patch: 0
   prerelease: "snapshot"
+jenkins:
+  master:
+    plugins:
+      - configuration-as-code
+      - job-dsl
+      - plain-credentials
+      - github
+      - blueocean
+      - openstack-cloud
+      - pipeline-githubnotify-step
+      - timestamper
+      - simple-theme-plugin

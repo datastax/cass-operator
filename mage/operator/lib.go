@@ -5,12 +5,14 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"runtime"
 	"strings"
 
 	"github.com/magefile/mage/mg"
-	"github.com/magefile/mage/sh"
+	"github.com/riptano/dse-operator/mage/config"
+	"github.com/riptano/dse-operator/mage/docker"
+	"github.com/riptano/dse-operator/mage/git"
+	"github.com/riptano/dse-operator/mage/sh"
 	"github.com/riptano/dse-operator/mage/util"
 	"gopkg.in/yaml.v2"
 )
@@ -21,8 +23,9 @@ const (
 	operatorSdkImage           = "operator-sdk-binary"
 	generatedDseDataCentersCrd = "operator/deploy/crds/datastax.com_dsedatacenters_crd.yaml"
 	packagePath                = "github.com/riptano/dse-operator/operator"
-	buildSettings              = "buildsettings.yaml"
+	envGitBranch               = "MO_BRANCH"
 	envVersionString           = "MO_VERSION"
+	envGitHash                 = "MO_HASH"
 
 	errorUnstagedPreGenerate = `
   Unstaged changes detected.
@@ -51,14 +54,14 @@ func writeBuildFile(fileName string, contents string) {
 
 func runGoModVendor() {
 	os.Setenv("GO111MODULE", "on")
-	mageutil.RunV("go", "mod", "tidy")
-	mageutil.RunV("go", "mod", "download")
-	mageutil.RunV("go", "mod", "vendor")
+	shutil.RunVPanic("go", "mod", "tidy")
+	shutil.RunVPanic("go", "mod", "download")
+	shutil.RunVPanic("go", "mod", "vendor")
 }
 
 // Generate operator-sdk-binary docker image
 func createSdkDockerImage() {
-	mageutil.RunV("docker", "build", "-t", operatorSdkImage, "tools/operator-sdk")
+	shutil.RunVPanic("docker", "build", "-t", operatorSdkImage, "tools/operator-sdk")
 }
 
 // generate the files and clean up afterwards
@@ -69,11 +72,7 @@ func generateK8sAndOpenApi() {
 		"/bin/bash", "-c",
 		"export GO111MODULE=on; cd ../../riptano/dse-operator/operator && operator-sdk generate k8s && operator-sdk generate openapi && rm -rf build"}
 	volumes := []string{fmt.Sprintf("%s:/go/src/github.com/riptano/dse-operator", cwd)}
-	out, err := mageutil.RunDocker(operatorSdkImage, volumes, nil, nil, runArgs, execArgs)
-	mageutil.PanicOnError(err)
-	if out != "" {
-		fmt.Println(out)
-	}
+	dockerutil.Run(operatorSdkImage, volumes, nil, nil, runArgs, execArgs).ExecVPanic()
 }
 
 type yamlWalker struct {
@@ -193,22 +192,10 @@ func doSdkGenerate() {
 
 	// This is needed for operator-sdk generate k8s to run
 	os.MkdirAll(sdkBuildDir, os.ModePerm)
-	mageutil.RunV("touch", fmt.Sprintf("%s/Dockerfile", sdkBuildDir))
+	shutil.RunVPanic("touch", fmt.Sprintf("%s/Dockerfile", sdkBuildDir))
 
 	generateK8sAndOpenApi()
 	postProcessCrd()
-}
-
-func hasUnstagedChanges() bool {
-	out, err := sh.Output("git", "diff")
-	mageutil.PanicOnError(err)
-	return strings.TrimSpace(out) != ""
-}
-
-func hasStagedChanges() bool {
-	out, err := sh.Output("git", "diff", "--staged")
-	mageutil.PanicOnError(err)
-	return strings.TrimSpace(out) != ""
 }
 
 // Generate files with the operator-sdk.
@@ -239,36 +226,16 @@ func SdkGenerate() {
 // working directory afterward.
 func TestSdkGenerate() {
 	fmt.Println("- Asserting that generated files are already up to date")
-	if hasUnstagedChanges() {
+	if gitutil.HasUnstagedChanges() {
 		err := fmt.Errorf(errorUnstagedPreGenerate)
 		panic(err)
 	}
 	createSdkDockerImage()
 	doSdkGenerate()
-	if hasUnstagedChanges() {
+	if gitutil.HasUnstagedChanges() {
 		err := fmt.Errorf(errorUnstagedPostGenerate)
 		panic(err)
 	}
-}
-
-type Version struct {
-	Major      int    `yaml:"major"`
-	Minor      int    `yaml:"minor"`
-	Patch      int    `yaml:"patch"`
-	Prerelease string `yaml:"prerelease"`
-}
-
-func (v Version) String() string {
-	version := fmt.Sprintf("%v.%v.%v", v.Major, v.Minor, v.Patch)
-	if v.Prerelease != "" {
-		pre := ensureAlphaNumericDash(v.Prerelease)
-		version = fmt.Sprintf("%v-%v", version, pre)
-	}
-	return version
-}
-
-type BuildSettings struct {
-	Version Version `yaml:"version"`
 }
 
 type GitData struct {
@@ -277,50 +244,16 @@ type GitData struct {
 	HasUncommittedChanges bool
 }
 
-func getGitBranch() string {
-	var branch string
-	if b := os.Getenv("MO_BRANCH"); b != "" {
-		branch = b
-	} else {
-		head, err := sh.Output("git", "rev-parse", "--abbrev-ref", "HEAD")
-		mageutil.PanicOnError(err)
-		branch = head
-	}
-	return strings.TrimSpace(branch)
-}
-
-func getGitLongHash() string {
-	hash, err := sh.Output("git", "rev-parse", "HEAD")
-	mageutil.PanicOnError(err)
-	return strings.TrimSpace(hash)
-}
-
 func getGitData() GitData {
 	return GitData{
-		Branch:                getGitBranch(),
-		HasUncommittedChanges: hasStagedChanges() || hasUnstagedChanges(),
-		LongHash:              getGitLongHash(),
+		Branch:                gitutil.GetBranch(envGitBranch),
+		HasUncommittedChanges: gitutil.HasStagedChanges() || gitutil.HasUnstagedChanges(),
+		LongHash:              gitutil.GetLongHash(envGitHash),
 	}
-}
-
-func readBuildSettings() BuildSettings {
-	var settings BuildSettings
-	d, err := ioutil.ReadFile(buildSettings)
-	mageutil.PanicOnError(err)
-
-	err = yaml.Unmarshal(d, &settings)
-	mageutil.PanicOnError(err)
-
-	return settings
-}
-
-func ensureAlphaNumericDash(str string) string {
-	r := regexp.MustCompile("[^A-z0-9\\-]")
-	return r.ReplaceAllString(str, "-")
 }
 
 type FullVersion struct {
-	Core        Version
+	Core        cfgutil.Version
 	Branch      string
 	Uncommitted bool
 	Hash        string
@@ -343,7 +276,7 @@ func (v FullVersion) String() string {
 		str = fmt.Sprintf("%s-", str)
 	}
 	if v.Branch != "master" {
-		sanitized := ensureAlphaNumericDash(v.Branch)
+		sanitized := cfgutil.EnsureAlphaNumericDash(v.Branch)
 		str = fmt.Sprintf("%s%s.", str, sanitized)
 	}
 	if v.Uncommitted {
@@ -353,10 +286,10 @@ func (v FullVersion) String() string {
 	return str
 }
 
-func calcFullVersion(settings BuildSettings, git GitData) FullVersion {
+func calcFullVersion(settings cfgutil.BuildSettings, git GitData) FullVersion {
 	return FullVersion{
 		Core:        settings.Version,
-		Branch:      getGitBranch(),
+		Branch:      git.Branch,
 		Uncommitted: git.HasUncommittedChanges,
 		Hash:        git.LongHash,
 	}
@@ -370,7 +303,7 @@ func runDockerBuild(version FullVersion) []string {
 	}
 	tags := append(tagsToPush, "datastax/dse-operator:latest")
 	buildArgs := []string{fmt.Sprintf("VERSION_STAMP=%s", versionedTag)}
-	mageutil.BuildDocker(".", "./operator/Dockerfile", tags, buildArgs)
+	dockerutil.Build(".", "./operator/Dockerfile", tags, buildArgs).ExecVPanic()
 	return tagsToPush
 }
 
@@ -383,9 +316,8 @@ func runGoBuild(version string) {
 		"-ldflags", fmt.Sprintf("-X main.version=%s", version),
 		fmt.Sprintf("%s/cmd/manager", packagePath),
 	}
-	mageutil.RunV("go", goArgs...)
+	shutil.RunVPanic("go", goArgs...)
 	os.Chdir("..")
-
 }
 
 // Builds operator go code.
@@ -408,7 +340,7 @@ func TestGo() {
 	os.Chdir("./operator")
 	os.Setenv("CGO_ENABLED", "0")
 	goArgs := []string{"test", "./..."}
-	mageutil.RunV("go", goArgs...)
+	shutil.RunVPanic("go", goArgs...)
 	os.Chdir("..")
 }
 
@@ -419,9 +351,10 @@ func TestGo() {
 // the logic is sound.
 func TestMage() {
 	fmt.Println("- Running operator mage unit tests")
+	os.Setenv("CGO_ENABLED", "0")
 	os.Chdir("./mage/operator")
 	goArgs := []string{"test"}
-	mageutil.RunV("go", goArgs...)
+	shutil.RunVPanic("go", goArgs...)
 	os.Chdir("../../")
 }
 
@@ -432,7 +365,7 @@ func TestMage() {
 // of your git working tree.
 func BuildDocker() {
 	fmt.Println("- Building operator docker image")
-	settings := readBuildSettings()
+	settings := cfgutil.ReadBuildSettings()
 	git := getGitData()
 	version := calcFullVersion(settings, git)
 	tags := runDockerBuild(version)

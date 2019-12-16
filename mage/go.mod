@@ -6,6 +6,7 @@ require (
 	github.com/magefile/mage v1.9.0
 	github.com/otiai10/copy v1.0.2
 	github.com/pkg/errors v0.8.1 // indirect
+	github.com/stretchr/testify v1.4.0
 	gopkg.in/yaml.v2 v2.2.5
 	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.0.0-20191121015604-11707872ac1c // indirect

@@ -3,11 +3,12 @@ package operator
 import (
 	"testing"
 
-	"gotest.tools/assert"
+	"github.com/riptano/dse-operator/mage/config"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMageOperator_trimFullVersionBranch_ok(t *testing.T) {
-	v := Version{
+	v := cfgutil.Version{
 		Major:      1,
 		Minor:      2,
 		Patch:      3,
@@ -24,7 +25,7 @@ func TestMageOperator_trimFullVersionBranch_ok(t *testing.T) {
 	assert.Equal(t, got, want)
 }
 func TestMageOperator_trimFullVersionBranch_overflow(t *testing.T) {
-	v := Version{
+	v := cfgutil.Version{
 		Major:      1,
 		Minor:      2,
 		Patch:      3,
@@ -43,7 +44,7 @@ func TestMageOperator_trimFullVersionBranch_overflow(t *testing.T) {
 }
 
 func TestMageOperator_fullVersion_string_simple(t *testing.T) {
-	v := Version{
+	v := cfgutil.Version{
 		Major:      9,
 		Minor:      3,
 		Patch:      7,
@@ -62,7 +63,7 @@ func TestMageOperator_fullVersion_string_simple(t *testing.T) {
 }
 
 func TestMageOperator_fullVersion_string_prerelease(t *testing.T) {
-	v := Version{
+	v := cfgutil.Version{
 		Major:      9,
 		Minor:      3,
 		Patch:      7,
@@ -81,7 +82,7 @@ func TestMageOperator_fullVersion_string_prerelease(t *testing.T) {
 }
 
 func TestMageOperator_fullVersion_string_uncommitted(t *testing.T) {
-	v := Version{
+	v := cfgutil.Version{
 		Major:      9,
 		Minor:      3,
 		Patch:      7,
@@ -100,7 +101,7 @@ func TestMageOperator_fullVersion_string_uncommitted(t *testing.T) {
 }
 
 func TestMageOperator_fullVersion_string_prerelease_uncommitted(t *testing.T) {
-	v := Version{
+	v := cfgutil.Version{
 		Major:      9,
 		Minor:      3,
 		Patch:      7,
@@ -119,7 +120,7 @@ func TestMageOperator_fullVersion_string_prerelease_uncommitted(t *testing.T) {
 }
 
 func TestMageOperator_fullVersion_string_master(t *testing.T) {
-	v := Version{
+	v := cfgutil.Version{
 		Major:      9,
 		Minor:      3,
 		Patch:      7,
@@ -138,7 +139,7 @@ func TestMageOperator_fullVersion_string_master(t *testing.T) {
 }
 
 func TestMageOperator_fullVersion_string_master_prerelease(t *testing.T) {
-	v := Version{
+	v := cfgutil.Version{
 		Major:      9,
 		Minor:      3,
 		Patch:      7,

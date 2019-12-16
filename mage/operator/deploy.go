@@ -7,7 +7,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/magefile/mage/sh"
+	"github.com/riptano/dse-operator/mage/docker"
+	"github.com/riptano/dse-operator/mage/sh"
 	"github.com/riptano/dse-operator/mage/util"
 )
 
@@ -38,28 +39,11 @@ func dockerLogin(user string, pw string, repo string) {
 	mageutil.PanicOnError(err)
 }
 
-func dockerPanic(args ...string) {
-	argz := []string{"--config", rootBuildDir}
-	argz = append(argz, args...)
-	mageutil.RunV("docker", argz...)
-}
-
-func docker(args ...string) error {
-	argz := []string{"--config", rootBuildDir}
-	argz = append(argz, args...)
-	return sh.RunV("docker", argz...)
-}
-
-func dockerPush(path string) {
-	fmt.Printf("- Pushing image %s\n", path)
-	dockerPanic("push", path)
-}
-
-func dockerTag(src string, dest string) {
+func dockerTag(src string, target string) {
 	fmt.Println("- Re-tagging image:")
 	fmt.Printf("  %s\n", src)
-	fmt.Printf("  --> %s\n", dest)
-	dockerPanic("tag", src, dest)
+	fmt.Printf("  --> %s\n", target)
+	dockerutil.Tag(src, target).ExecVPanic()
 }
 
 func retagImage(currentTag string, newRepo string) string {
@@ -67,6 +51,10 @@ func retagImage(currentTag string, newRepo string) string {
 
 	// We just want to grab the version part of the tag and discard
 	// the old repo path
+	// For example:
+	// datastax/dse-operator:someversion
+	// ^ only keep 'someversion'
+	// so that we can put a new repo path in front of it
 	split := strings.Split(currentTag, ":")
 	versionTag := split[len(split)-1]
 
@@ -78,16 +66,17 @@ func retagImage(currentTag string, newRepo string) string {
 func retagAndPush(tags []string, newRepo string) {
 	for _, t := range tags {
 		newTag := retagImage(strings.TrimSpace(t), newRepo)
-		dockerPush(newTag)
+		fmt.Printf("- Pushing image %s\n", newTag)
+		dockerutil.Push(newTag).WithCfg(rootBuildDir).ExecVPanic()
 	}
 }
 
 func awsDockerLogin(keyId string, keySecret string) {
 	os.Setenv("AWS_ACCESS_KEY_ID", keyId)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", keySecret)
-	loginStr := mageutil.Output("aws", "ecr", "get-login", "--no-include-email", "--region", "us-east-1")
+	loginStr := shutil.OutputPanic("aws", "ecr", "get-login", "--no-include-email", "--region", "us-east-1")
 	args := strings.Split(loginStr, " ")
-	err := docker(args[1:len(args)]...)
+	err := dockerutil.FromArgs(args[1:len(args)]).WithCfg(rootBuildDir).ExecV()
 	if err != nil {
 		// Don't print the actual error message here, because it could
 		// contain a valid ECR token that expires in 12 hours
