@@ -77,7 +77,7 @@ func retagImage(currentTag string, newRepo string) string {
 
 func retagAndPush(tags []string, newRepo string) {
 	for _, t := range tags {
-		newTag := retagImage(strings.TrimSpace(t), ecrRepo)
+		newTag := retagImage(strings.TrimSpace(t), newRepo)
 		dockerPush(newTag)
 	}
 }
