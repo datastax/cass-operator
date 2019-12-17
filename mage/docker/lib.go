@@ -48,11 +48,12 @@ func exec(cmd DockerCmd,
 	withoutInput func(string, ...string) error) error {
 
 	var err error
+	args := cmd.toCliArgs()
 	if cmd.Input != "" {
-		err = withInput("docker", cmd.Input, cmd.Args...)
+		err = withInput("docker", cmd.Input, args...)
 
 	} else {
-		err = withoutInput("docker", cmd.Args...)
+		err = withoutInput("docker", args...)
 	}
 	return err
 }
@@ -63,11 +64,12 @@ func output(cmd DockerCmd,
 
 	var err error
 	var out string
+	args := cmd.toCliArgs()
 	if cmd.Input != "" {
-		out, err = withInput("docker", cmd.Input, cmd.Args...)
+		out, err = withInput("docker", cmd.Input, args...)
 
 	} else {
-		out, err = withoutInput("docker", cmd.Args...)
+		out, err = withoutInput("docker", args...)
 	}
 	return out, err
 }

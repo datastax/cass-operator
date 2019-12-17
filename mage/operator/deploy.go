@@ -1,10 +1,8 @@
 package operator
 
 import (
-	"bytes"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 
 	"github.com/riptano/dse-operator/mage/docker"
@@ -21,23 +19,6 @@ const (
 	artifactoryRepo    = "datastax-docker.jfrog.io"
 	ecrRepo            = "237073351946.dkr.ecr.us-east-1.amazonaws.com"
 )
-
-func dockerLogin(user string, pw string, repo string) {
-	fmt.Printf("- Logging into repo %s\n", repo)
-	cmd := exec.Command(
-		"docker", "--config", rootBuildDir,
-		"login", "-u", user, "--password-stdin", repo)
-
-	buffer := bytes.Buffer{}
-	buffer.Write([]byte(pw))
-	cmd.Stdin = &buffer
-
-	out, err := cmd.Output()
-	if msg := string(out); msg != "" {
-		fmt.Println(msg)
-	}
-	mageutil.PanicOnError(err)
-}
 
 func dockerTag(src string, target string) {
 	fmt.Println("- Re-tagging image:")
@@ -116,7 +97,8 @@ func DeployToECR() {
 func DeployToArtifactory() {
 	user := mageutil.RequireEnv(envArtifactoryUser)
 	pw := mageutil.RequireEnv(envArtifactoryPw)
-	dockerLogin(user, pw, artifactoryRepo)
+	dockerutil.Login(rootBuildDir, user, pw, artifactoryRepo).
+		WithCfg(rootBuildDir).ExecVPanic()
 	tags := mageutil.RequireEnv(envTags)
 	retagAndPush(strings.Split(tags, "|"), artifactoryRepo)
 }

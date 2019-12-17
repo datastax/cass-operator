@@ -80,6 +80,7 @@ func RunWithInput(cmd string, in string, args ...string) error {
 	if mg.Verbose() {
 		output = os.Stdout
 	}
+	c.Stderr = os.Stderr
 	c.Stdout = output
 	return c.Run()
 }
@@ -87,6 +88,8 @@ func RunWithInput(cmd string, in string, args ...string) error {
 
 func RunVWithInput(cmd string, in string, args ...string) error {
 	c := cmdWithStdIn(cmd, in, args...)
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
 	return c.Run()
 }
 
