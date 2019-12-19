@@ -11,6 +11,8 @@ import (
 	"github.com/riptano/dse-operator/mage/fallout"
 	// mage:import operator
 	"github.com/riptano/dse-operator/mage/operator"
+	// mage:import kind
+	_ "github.com/riptano/dse-operator/mage/kind"
 )
 
 // Clean all build artifacts, does not clean up old docker images.

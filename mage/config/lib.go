@@ -2,8 +2,8 @@ package cfgutil
 
 import (
 	"fmt"
-	"regexp"
 	"io/ioutil"
+	"regexp"
 
 	"github.com/riptano/dse-operator/mage/util"
 	"gopkg.in/yaml.v2"
@@ -42,9 +42,15 @@ type Jenkins struct {
 	Master Master `yaml:"master"`
 }
 
+type Dev struct {
+	DseImage           string `yaml:"dseImage"`
+	ConfigBuilderImage string `yaml:"configBuilderImage"`
+}
+
 type BuildSettings struct {
 	Version Version `yaml:"version"`
 	Jenkins Jenkins `yaml:"jenkins"`
+	Dev     Dev     `yaml:"dev"`
 }
 
 func ReadBuildSettings() BuildSettings {

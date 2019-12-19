@@ -1,6 +1,9 @@
 package dockerutil
 
 import (
+	"encoding/json"
+	"strings"
+
 	"github.com/riptano/dse-operator/mage/sh"
 	"github.com/riptano/dse-operator/mage/util"
 )
@@ -97,6 +100,28 @@ func (cmd DockerCmd) OutputPanic() string {
 	return out
 }
 
+func Exec(containerId string, env []string, privileged bool, user string, workDir string, exec []string) DockerCmd {
+	args := []string{"exec"}
+
+	for _, x := range env {
+		args = append(args, "--env")
+		args = append(args, x)
+	}
+	if privileged {
+
+		args = append(args, "--privileged")
+	}
+	if user != "" {
+		args = append(args, "--user", user)
+	}
+	if workDir != "" {
+		args = append(args, "--workdir", workDir)
+	}
+	args = append(args, containerId)
+	args = append(args, exec...)
+	return FromArgs(args)
+}
+
 func Run(imageName string, volumes []string, dnsAddrs []string, env []string, runArgs []string, execArgs []string) DockerCmd {
 	args := []string{"run", "--rm"}
 
@@ -153,4 +178,44 @@ func Push(tag string) DockerCmd {
 func Tag(src string, target string) DockerCmd {
 	args := []string{"tag", src, target}
 	return FromArgs(args)
+}
+
+type Container struct {
+	Id           string `json:"ID"`
+	Image        string `json:"Image"`
+	Command      string `json:"Command"`
+	CreatedAt    string `json:"CreatedAt"`
+	RunningFor   string `json:"RunningFor"`
+	Status       string `json:"Status"`
+	Size         string `json:"Size"`
+	Names        string `json:"Names"`
+	Labels       string `json:"Labels"`
+	Mounts       string `json:"Mounts"`
+	Networks     string `json:"Networks"`
+	Ports        string `json:"Ports"`
+	LocalVolumes string `json:"LocalVolumes"`
+}
+
+func LsContainers(format string) DockerCmd {
+	args := []string{
+		"container", "ls",
+		"--format", format,
+		"--no-trunc",
+	}
+	return FromArgs(args)
+}
+
+func GetAllContainersPanic() []Container {
+	var containers []Container
+	format := "\"{{json .}}\""
+	rawJson := LsContainers(format).OutputPanic()
+	for _, j := range strings.Split(rawJson, "\n") {
+		var c Container
+		//trim extra quotes around the json
+		js := strings.Trim(j, "\"")
+		err := json.Unmarshal([]byte(strings.TrimSpace(js)), &c)
+		mageutil.PanicOnError(err)
+		containers = append(containers, c)
+	}
+	return containers
 }
