@@ -143,9 +143,13 @@ func Run(imageName string, volumes []string, dnsAddrs []string, env []string, ru
 	return FromArgs(args)
 }
 
-func Build(contextDir string, dockerFilePath string, namesAndTags []string, buildArgs []string) DockerCmd {
+func Build(contextDir string, targetStage string, dockerFilePath string, namesAndTags []string, buildArgs []string) DockerCmd {
 	args := []string{"build", contextDir}
 
+	if targetStage != "" {
+		args = append(args, "--target")
+		args = append(args, targetStage)
+	}
 	if dockerFilePath != "" {
 		args = append(args, "-f")
 		args = append(args, dockerFilePath)

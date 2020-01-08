@@ -1,9 +1,11 @@
 package operator
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -21,6 +23,8 @@ const (
 	rootBuildDir               = "./build"
 	sdkBuildDir                = "operator/build"
 	operatorSdkImage           = "operator-sdk-binary"
+	testSdkImage               = "operator-sdk-binary-tester"
+	genClientImage             = "operator-gen-client"
 	generatedDseDataCentersCrd = "operator/deploy/crds/datastax.com_dsedatacenters_crd.yaml"
 	packagePath                = "github.com/riptano/dse-operator/operator"
 	envGitBranch               = "MO_BRANCH"
@@ -32,7 +36,7 @@ const (
   - Please clean your working tree of
     uncommitted changes before running this target.`
 
-	errorUnstagedPostGenerate = `
+	errorUnstagedPostSdkGenerate = `
   Unstaged changes found after running "operator-sdk generate"
   - This indicates that the operator-sdk
     updated some boilerplate in your working tree.
@@ -40,6 +44,16 @@ const (
     intentionally modified a resource spec and wish
     to update the sdk boilerplate, but be careful
     with backwards compatibility.`
+
+	errorUnstagedPostClientGenerate = `
+  Unstaged changes found after running the generate-groups.sh
+  script from the k8s code-generator.
+  - This indicates that the code-generator
+    updated some boilerplate in your working tree.
+  - You may be able commit these changes if you have
+    intentionally modified something that caused a
+    client change and wish to update the client boilerplate,
+    but be careful with backwards compatibility.`
 )
 
 func writeBuildFile(fileName string, contents string) {
@@ -61,17 +75,26 @@ func runGoModVendor() {
 
 // Generate operator-sdk-binary docker image
 func createSdkDockerImage() {
-	shutil.RunVPanic("docker", "build", "-t", operatorSdkImage, "tools/operator-sdk")
+	dockerutil.Build("./", "install-operator-sdk", "tools/operator-sdk/Dockerfile",
+		[]string{operatorSdkImage}, nil).ExecVPanic()
+}
+
+// Generate operator-sdk-binary-tester docker image
+func createTestSdkDockerImage() {
+	dockerutil.Build("./", "test-operator-sdk", "tools/operator-sdk/Dockerfile",
+		[]string{testSdkImage}, nil).ExecVPanic()
 }
 
 // generate the files and clean up afterwards
 func generateK8sAndOpenApi() {
 	cwd, _ := os.Getwd()
-	runArgs := []string{"-t"}
+	runArgs := []string{"-t", "--rm"}
+	repoPath := "/go/src/github.com/riptano/dse-operator"
 	execArgs := []string{
 		"/bin/bash", "-c",
-		"export GO111MODULE=on; cd ../../riptano/dse-operator/operator && operator-sdk generate k8s && operator-sdk generate openapi && rm -rf build"}
-	volumes := []string{fmt.Sprintf("%s:/go/src/github.com/riptano/dse-operator", cwd)}
+		fmt.Sprintf("export GO111MODULE=on; cd %s/operator && operator-sdk generate k8s && operator-sdk generate openapi && rm -rf build", repoPath),
+	}
+	volumes := []string{fmt.Sprintf("%s:%s", cwd, repoPath)}
 	dockerutil.Run(operatorSdkImage, volumes, nil, nil, runArgs, execArgs).ExecVPanic()
 }
 
@@ -233,9 +256,19 @@ func TestSdkGenerate() {
 	createSdkDockerImage()
 	doSdkGenerate()
 	if gitutil.HasUnstagedChanges() {
-		err := fmt.Errorf(errorUnstagedPostGenerate)
+		err := fmt.Errorf(errorUnstagedPostSdkGenerate)
 		panic(err)
 	}
+}
+
+// Tests the operator-sdk itself.
+//
+// Uses the example project and kubernetes CLI tools. This
+// does not test the DSE operator code in any way.
+func TestSdk() {
+	fmt.Println("- Testing the operator-sdk itself")
+	createSdkDockerImage()
+	createTestSdkDockerImage()
 }
 
 type GitData struct {
@@ -303,7 +336,7 @@ func runDockerBuild(version FullVersion) []string {
 	}
 	tags := append(tagsToPush, "datastax/dse-operator:latest")
 	buildArgs := []string{fmt.Sprintf("VERSION_STAMP=%s", versionedTag)}
-	dockerutil.Build(".", "./operator/Dockerfile", tags, buildArgs).ExecVPanic()
+	dockerutil.Build(".", "", "./operator/Dockerfile", tags, buildArgs).ExecVPanic()
 	return tagsToPush
 }
 
@@ -377,6 +410,70 @@ func BuildDocker() {
 	writeBuildFile("tagsToPush.txt", outputText)
 }
 
+func buildCodeGeneratorDockerImage() {
+	// Use the version of code-generator that we are pinned to
+	// in operator/go.mod.
+	var genVersion string
+	f, err := os.Open("operator/go.mod")
+	mageutil.PanicOnError(err)
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		txt := scanner.Text()
+		if strings.Contains(txt, "code-generator =>") {
+			versionIdx := strings.LastIndex(txt, " ")
+			genVersion = txt[versionIdx+1:]
+			break
+		}
+	}
+	mageutil.PanicOnError(scanner.Err())
+	fmt.Println(genVersion)
+	dockerutil.Build("./", "", "./tools/k8s-code-generator/Dockerfile",
+		[]string{genClientImage}, []string{fmt.Sprintf("CODEGEN_VERSION=%s", genVersion)}).ExecVPanic()
+
+}
+
+func doGenerateClient() {
+	cwd, _ := os.Getwd()
+	usr, err := user.Current()
+	mageutil.PanicOnError(err)
+	runArgs := []string{"-t", "--rm", "-u", fmt.Sprintf("%s:%s", usr.Uid, usr.Gid)}
+	execArgs := []string{"client", "github.com/riptano/dse-operator/operator/pkg/generated",
+		"github.com/riptano/dse-operator/operator/pkg/apis", "datastax:v1alpha1"}
+	volumes := []string{fmt.Sprintf("%s/operator:/go/src/github.com/riptano/dse-operator/operator", cwd)}
+	dockerutil.Run(genClientImage, volumes, nil, nil, runArgs, execArgs).ExecVPanic()
+}
+
+// Gen operator client code.
+//
+// Uses k8s code-generator to generate client code that
+// resides in the operator/pkg/generated/clientset/ directory.
+func GenerateClient() {
+	buildCodeGeneratorDockerImage()
+	doGenerateClient()
+}
+
+// Asserts that generated client boilerplate files are up to date.
+//
+// Note: this test WILL UPDATE YOUR WORKING DIRECTORY if it fails.
+// There is no dry run mode for code-generation, so this test simply
+// tries to do it and fails if there are uncommitted changes to your
+// working directory afterward.
+func TestGenerateClient() {
+	fmt.Println("- Asserting that generated client files are already up to date")
+	if gitutil.HasUnstagedChanges() {
+		err := fmt.Errorf(errorUnstagedPreGenerate)
+		panic(err)
+	}
+
+	buildCodeGeneratorDockerImage()
+	doGenerateClient()
+	if gitutil.HasUnstagedChanges() {
+		err := fmt.Errorf(errorUnstagedPostClientGenerate)
+		panic(err)
+	}
+}
+
 // Alias for buildDocker target
 func Build() {
 	mg.Deps(BuildDocker)
@@ -386,7 +483,9 @@ func Build() {
 func Test() {
 	mg.Deps(TestMage)
 	mg.Deps(TestGo)
+	mg.Deps(TestSdk)
 	mg.Deps(TestSdkGenerate)
+	mg.Deps(TestGenerateClient)
 }
 
 // Remove the operator build directories, and the top-level build directory.

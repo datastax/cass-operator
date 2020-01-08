@@ -28,8 +28,6 @@ import (
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	DatastaxV1alpha1() datastaxv1alpha1.DatastaxV1alpha1Interface
-	// Deprecated: please explicitly pick a version if possible.
-	Datastax() datastaxv1alpha1.DatastaxV1alpha1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -41,12 +39,6 @@ type Clientset struct {
 
 // DatastaxV1alpha1 retrieves the DatastaxV1alpha1Client
 func (c *Clientset) DatastaxV1alpha1() datastaxv1alpha1.DatastaxV1alpha1Interface {
-	return c.datastaxV1alpha1
-}
-
-// Deprecated: Datastax retrieves the default version of DatastaxClient.
-// Please explicitly pick a version.
-func (c *Clientset) Datastax() datastaxv1alpha1.DatastaxV1alpha1Interface {
 	return c.datastaxV1alpha1
 }
 

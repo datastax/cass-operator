@@ -8,3 +8,5 @@ require (
 )
 
 replace github.com/riptano/dse-operator/mage => ./mage
+
+replace github.com/riptano/dse-operator/operator => ./operator

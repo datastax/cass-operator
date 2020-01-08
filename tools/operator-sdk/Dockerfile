@@ -1,4 +1,10 @@
-FROM golang:1.13-stretch
+##############################################
+#
+# Stage 1: Installing the operator-sdk
+#
+##############################################
+
+FROM golang:1.13-stretch as install-operator-sdk
 
 # This Dockerfile sets up a clean go 1.13 environment with operator-sdk installed and tested.
 #
@@ -15,17 +21,30 @@ ENV GOPROXY=https://proxy.golang.org,https://gocenter.io,direct
 
 WORKDIR /usr/bin
 
+# Download the specific operator-sdk we are pinned to
+# and assign permissions
 RUN curl -OJL https://github.com/operator-framework/operator-sdk/releases/download/${OP_SDK_VERSION}/operator-sdk-${OP_SDK_VERSION}-x86_64-linux-gnu
 RUN mv operator-sdk-${OP_SDK_VERSION}-x86_64-linux-gnu operator-sdk
 RUN chmod 700 operator-sdk
 
-# This git configuration is required to run "operator-sdk new"
 
+##############################################
+#
+# Stage 2: Testing the operator-sdk
+#
+##############################################
+
+FROM install-operator-sdk as test-operator-sdk
+
+# This stage exists to test the operator-sdk itself using their example project,
+# and the kubernetes CLI tools, including the client-go code generator.
+
+# This git configuration is required to run "operator-sdk new"
 RUN git config --global user.email "you@example.com"
 RUN git config --global user.name "Your Name"
 
 # The next steps follow the operator-sdk getting started tutorial
-
+# located at: https://github.com/operator-framework/operator-sdk#create-and-deploy-an-app-operator
 WORKDIR $GOPATH/src/github.com/example-inc/
 RUN GO111MODULE=on operator-sdk new memcached-operator
 
@@ -56,7 +75,10 @@ RUN GO111MODULE=on operator-sdk generate k8s
 RUN GO111MODULE=on operator-sdk generate openapi
 
 # The next steps use the kubernetes code-generator to make a client
-
+# The code-generator currently needs to exist in the
+# pre-module style path of $GOPATH/src/...
+# So we copy the specific version that this operator-sdk pulled down and move it
+# into the required path.
 WORKDIR $GOPATH/src/k8s.io
 RUN cp -r "/go/pkg/mod/k8s.io/code-generator@v0.0.0-20190612205613-18da4a14b22b" "code-generator"
 
