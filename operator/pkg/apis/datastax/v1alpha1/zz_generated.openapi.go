@@ -205,8 +205,14 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterStatus(ref common.ReferenceC
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
+					"lastDseNodeStarted": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The timestamp when the operator last started a DSE node with the management API",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
 				},
-				Required: []string{"nodes", "superUserUpserted"},
+				Required: []string{"nodes"},
 			},
 		},
 		Dependencies: []string{

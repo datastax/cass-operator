@@ -8,6 +8,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -20,10 +21,10 @@ import (
 
 // ReconciliationContext contains all of the input necessary to calculate a list of ReconciliationActions
 type ReconciliationContext struct {
-	Request       *reconcile.Request
-	Client        client.Client
-	Scheme        *runtime.Scheme
-	DseDatacenter *datastaxv1alpha1.DseDatacenter
+	Request        *reconcile.Request
+	Client         client.Client
+	Scheme         *runtime.Scheme
+	DseDatacenter  *datastaxv1alpha1.DseDatacenter
 	NodeMgmtClient httphelper.NodeMgmtClient
 	// Note that logr.Logger is an interface,
 	// so we do not want to store a pointer to it
@@ -63,6 +64,14 @@ func CreateReconciliationContext(
 	}
 	rc.DseDatacenter = dseDatacenter
 
+	// workaround for kubernetes having problems with zero-value and nil Times
+	if rc.DseDatacenter.Status.SuperUserUpserted.IsZero() {
+		rc.DseDatacenter.Status.SuperUserUpserted = metav1.Unix(1, 0)
+	}
+	if rc.DseDatacenter.Status.LastDseNodeStarted.IsZero() {
+		rc.DseDatacenter.Status.LastDseNodeStarted = metav1.Unix(1, 0)
+	}
+
 	httpClient, err := httphelper.BuildManagementApiHttpClient(dseDatacenter, client, rc.Ctx)
 	if err != nil {
 		return nil, err
@@ -78,8 +87,8 @@ func CreateReconciliationContext(
 	}
 
 	rc.NodeMgmtClient = httphelper.NodeMgmtClient{
-		Client: httpClient,
-		Log: rc.ReqLogger,
+		Client:   httpClient,
+		Log:      rc.ReqLogger,
 		Protocol: protocol,
 	}
 

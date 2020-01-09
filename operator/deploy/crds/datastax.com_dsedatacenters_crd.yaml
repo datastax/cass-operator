@@ -161,6 +161,11 @@ spec:
         status:
           description: DseDatacenterStatus defines the observed state of DseDatacenter
           properties:
+            lastDseNodeStarted:
+              description: The timestamp when the operator last started a DSE node
+                with the management API
+              format: date-time
+              type: string
             nodes:
               description: The number of the DSE server nodes
               format: int32
@@ -172,7 +177,6 @@ spec:
               type: string
           required:
           - nodes
-          - superUserUpserted
           type: object
       type: object
       x-kubernetes-preserve-unknown-fields: true

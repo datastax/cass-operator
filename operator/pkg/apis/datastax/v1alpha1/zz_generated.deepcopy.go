@@ -108,6 +108,7 @@ func (in *DseDatacenterSpec) DeepCopy() *DseDatacenterSpec {
 func (in *DseDatacenterStatus) DeepCopyInto(out *DseDatacenterStatus) {
 	*out = *in
 	in.SuperUserUpserted.DeepCopyInto(&out.SuperUserUpserted)
+	in.LastDseNodeStarted.DeepCopyInto(&out.LastDseNodeStarted)
 	return
 }
 

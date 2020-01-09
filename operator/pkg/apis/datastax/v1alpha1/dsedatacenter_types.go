@@ -162,7 +162,13 @@ type DseDatacenterStatus struct {
 
 	// The timestamp at which CQL superuser credentials
 	// were last upserted to the DSE management API
-	SuperUserUpserted metav1.Time `json:"superUserUpserted"`
+	// +optional
+	SuperUserUpserted metav1.Time `json:"superUserUpserted,omitempty"`
+
+	// The timestamp when the operator last started a DSE node
+	// with the management API
+	// +optional
+	LastDseNodeStarted metav1.Time `json:"lastDseNodeStarted,omitempty"`
 }
 
 // +genclient
@@ -180,10 +186,10 @@ type DseDatacenter struct {
 }
 
 type ManagementApiAuthManualConfig struct {
-	ClientSecretName     string `json:"clientSecretName"`
-	ServerSecretName     string `json:"serverSecretName"`
+	ClientSecretName string `json:"clientSecretName"`
+	ServerSecretName string `json:"serverSecretName"`
 	// +optional
-	SkipSecretValidation bool   `json:"skipSecretValidation,omitempty"`
+	SkipSecretValidation bool `json:"skipSecretValidation,omitempty"`
 }
 
 type ManagementApiAuthInsecureConfig struct {

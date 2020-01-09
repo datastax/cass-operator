@@ -6,20 +6,21 @@ package reconciliation
 //
 
 import (
-	"time"
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	"github.com/riptano/dse-operator/operator/pkg/httphelper"
-	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
+	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 )
 
 //
@@ -55,7 +56,7 @@ func (r *ReconcileDseDatacenter) Reconcile(
 
 	startReconcile := time.Now()
 
-	ReqLogger := log.
+	logger := log.
 		WithValues("requestNamespace", request.Namespace).
 		WithValues("requestName", request.Name).
 		// loopID is used to tie all events together that are spawned by the same reconciliation loop
@@ -63,35 +64,44 @@ func (r *ReconcileDseDatacenter) Reconcile(
 
 	defer func() {
 		reconcileDuration := time.Since(startReconcile).Seconds()
-		ReqLogger.Info("Reconcile loop completed",
+		logger.Info("Reconcile loop completed",
 			"duration", reconcileDuration)
 	}()
 
-	ReqLogger.Info("======== handler::Reconcile has been called")
+	logger.Info("======== handler::Reconcile has been called")
 
 	rc, err := dsereconciliation.CreateReconciliationContext(
 		&request,
 		r.client,
 		r.scheme,
-		ReqLogger)
+		logger)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			ReqLogger.Info("DseDatacenter resource not found. Ignoring since object must be deleted.")
+			logger.Info("DseDatacenter resource not found. Ignoring since object must be deleted.")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		ReqLogger.Error(err, "Failed to get DseDatacenter.")
+		logger.Error(err, "Failed to get DseDatacenter.")
 		return reconcile.Result{Requeue: true}, err
 	}
 
 	if ok, err := r.isValid(rc.DseDatacenter); !ok {
-		rc.ReqLogger.Error(err, "DseDatacenter resource is invalid.")
+		logger.Error(err, "DseDatacenter resource is invalid.")
 		// No reason to requeue if the resource is invalid as the user will need
 		// to fix it before we can do anything further.
 		return reconcile.Result{Requeue: false}, err
+	}
+
+	twentySecsAgo := metav1.Now().Add(time.Second * -20)
+	lastNodeStart := rc.DseDatacenter.Status.LastDseNodeStarted
+	dseRecentlyStarted := lastNodeStart.After(twentySecsAgo)
+
+	if dseRecentlyStarted {
+		logger.Info("Ending reconciliation early because a DSE node was recently started")
+		return reconcile.Result{}, nil
 	}
 
 	reconcileDatacenter := ReconcileDatacenter{

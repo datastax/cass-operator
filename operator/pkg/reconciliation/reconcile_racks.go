@@ -563,7 +563,7 @@ func (r *ReconcileRacks) CreateSuperuser() (*reconcile.Result, error) {
 		return &ResultShouldNotRequeue, err
 	}
 
-	rc.DseDatacenter.Status.SuperUserUpserted = metav1.NewTime(time.Now())
+	rc.DseDatacenter.Status.SuperUserUpserted = metav1.Now()
 	if err = rc.Client.Status().Update(rc.Ctx, rc.DseDatacenter); err != nil {
 		rc.ReqLogger.Error(err, "error updating the CQL superuser upsert timestamp")
 		return &ResultShouldNotRequeue, err
@@ -1049,8 +1049,16 @@ func shouldUpdatePodSpec(
 }
 
 func (r *ReconcileRacks) labelDsePodStarting(pod *corev1.Pod) error {
+	client := r.ReconcileContext.Client
+	ctx := r.ReconcileContext.Ctx
+	dseDc := r.ReconcileContext.DseDatacenter
 	pod.Labels[datastaxv1alpha1.DseNodeState] = "Starting"
-	err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, pod)
+	err := client.Update(ctx, pod)
+	if err != nil {
+		return err
+	}
+	dseDc.Status.LastDseNodeStarted = metav1.Now()
+	err = client.Status().Update(ctx, dseDc)
 	return err
 }
 
