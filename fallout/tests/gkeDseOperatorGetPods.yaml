@@ -1,3 +1,6 @@
+operator_image: DOES_NOT_EXIST # Parameter value provided by mage (defaults to image for current HEAD)
+dse_image: datastaxlabs/dse-k8s-server:6.8.0-20191113
+---
 # happy path test to stand up a few pods and make sure we can communicate with them
 ensemble:
     server:
@@ -10,7 +13,7 @@ ensemble:
                 machine.type: n1-standard-1
                 create.extra_args: |
                         --no-enable-basic-auth \
-                        --cluster-version "1.13.11-gke.9" \
+                        --cluster-version "1.15" \
                         --image-type "COS" \
                         --disk-type "pd-ssd" \
                         --disk-size "50" \
@@ -88,9 +91,7 @@ ensemble:
                         resources:
                         - poddisruptionbudgets
                         verbs:
-                        - get
-                        - list
-                        - watch
+                        - '*'
                       ---
                       kind: RoleBinding
                       apiVersion: rbac.authorization.k8s.io/v1
@@ -122,9 +123,12 @@ ensemble:
                           listKind: DseDatacenterList
                           plural: dsedatacenters
                           singular: dsedatacenter
-                        scope: Namespaced
+                        scope: ""
+                        subresources:
+                          status: {}
                         validation:
                           openAPIV3Schema:
+                            description: DseDatacenter is the Schema for the dsedatacenters API
                             properties:
                               apiVersion:
                                 description: 'APIVersion defines the versioned schema of this representation
@@ -139,7 +143,17 @@ ensemble:
                               metadata:
                                 type: object
                               spec:
+                                description: DseDatacenterSpec defines the desired state of DseDatacenter
                                 properties:
+                                  allowMultipleNodesPerWorker:
+                                    description: Turning this option on allows multiple DSE pods to be created
+                                      on a k8s worker node. By default the operator creates just one DSE
+                                      pod per k8s worker node using k8s podAntiAffinity and requiredDuringSchedulingIgnoredDuringExecution.
+                                    type: boolean
+                                  canaryUpgrade:
+                                    description: Indicates DSE configuration and container image changes
+                                      should only be pushed to the first rack of the datacenter
+                                    type: boolean
                                   configBuilderImage:
                                     description: Container image for the DSE config builder init container,
                                       with host, path, and tag
@@ -150,6 +164,34 @@ ensemble:
                                       in the same Kubernetes namespace, they will join together in a multi-datacenter
                                       DSE cluster.
                                     type: string
+                                  dseImage:
+                                    description: 'DSE container image name. More info: https://kubernetes.io/docs/concepts/containers/images'
+                                    type: string
+                                  dseSuperuserSecret:
+                                    description: This secret defines the username and password for the DSE
+                                      superuser.
+                                    type: string
+                                  dseVersion:
+                                    description: DSE version number
+                                    type: string
+                                  managementApiAuth:
+                                    description: Config for DSE Management API certificates
+                                    properties:
+                                      insecure:
+                                        type: object
+                                      manual:
+                                        properties:
+                                          clientSecretName:
+                                            type: string
+                                          serverSecretName:
+                                            type: string
+                                          skipSecretValidation:
+                                            type: boolean
+                                        required:
+                                        - clientSecretName
+                                        - serverSecretName
+                                        type: object
+                                    type: object
                                   parked:
                                     description: Indicates no DSE nodes should run, like powering down bare
                                       metal servers. Volume resources will be left intact in Kubernetes
@@ -162,19 +204,35 @@ ensemble:
                                       replication factor in the keyspaces you plan to create, and the number
                                       of racks cannot easily be changed once a datacenter is deployed.
                                     items:
+                                      description: DseRack ...
                                       properties:
                                         name:
                                           description: The rack name
+                                          type: string
+                                        zone:
+                                          description: Zone name to pin the rack, using node affinity
                                           type: string
                                       required:
                                       - name
                                       type: object
                                     type: array
-                                  repository:
-                                    description: DSE container image repository, with host and path
-                                    type: string
                                   resources:
                                     description: Kubernetes resource requests and limits, per DSE pod
+                                    properties:
+                                      limits:
+                                        additionalProperties:
+                                          type: string
+                                        description: 'Limits describes the maximum amount of compute resources
+                                          allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                        type: object
+                                      requests:
+                                        additionalProperties:
+                                          type: string
+                                        description: 'Requests describes the minimum amount of compute resources
+                                          required. If Requests is omitted for a container, it defaults
+                                          to Limits if that is explicitly specified, otherwise to an implementation-defined
+                                          value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                        type: object
                                     type: object
                                   serviceAccount:
                                     description: The k8s service account to use for DSE pods
@@ -188,28 +246,50 @@ ensemble:
                                     properties:
                                       resources:
                                         description: Resource requirements
+                                        properties:
+                                          limits:
+                                            additionalProperties:
+                                              type: string
+                                            description: 'Limits describes the maximum amount of compute
+                                              resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                            type: object
+                                          requests:
+                                            additionalProperties:
+                                              type: string
+                                            description: 'Requests describes the minimum amount of compute
+                                              resources required. If Requests is omitted for a container,
+                                              it defaults to Limits if that is explicitly specified, otherwise
+                                              to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                                            type: object
                                         type: object
                                       storageclassname:
                                         type: string
                                     required:
                                     - storageclassname
                                     type: object
-                                  version:
-                                    description: DSE container image tag
-                                    type: string
                                 required:
-                                - size
                                 - dseClusterName
+                                - dseVersion
+                                - size
                                 type: object
                               status:
+                                description: DseDatacenterStatus defines the observed state of DseDatacenter
                                 properties:
                                   nodes:
                                     description: The number of the DSE server nodes
                                     format: int32
                                     type: integer
+                                  superUserUpserted:
+                                    description: The timestamp at which CQL superuser credentials were last
+                                      upserted to the DSE management API
+                                    format: date-time
+                                    type: string
                                 required:
                                 - nodes
+                                - superUserUpserted
                                 type: object
+                            type: object
+                            x-kubernetes-preserve-unknown-fields: true
                         version: v1alpha1
                         versions:
                         - name: v1alpha1
@@ -233,7 +313,7 @@ ensemble:
                             serviceAccountName: dse-operator
                             containers:
                               - name: dse-operator
-                                image: datastax-docker.jfrog.io/dse-operator/operator:ko-121-new-image-defaults.dd37a85b824c022ce3239842b029d057daa07c7b
+                                image: {{ operator_image }}
                                 imagePullPolicy: IfNotPresent
                                 env:
                                   - name: WATCH_NAMESPACE
@@ -272,14 +352,11 @@ ensemble:
                         dseClusterName: gke-c1
                         serviceAccount: dse-operator
                         configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.4.0-20191113
-                        dseImage: datastaxlabs/dse-k8s-server:6.8.0-20191113
+                        dseImage: {{ dse_image }}
                         dseVersion: 6.8.0
                         size: 3
-                        storageclaim:
-                          storageclassname: gce-ssd
-                          resources:
-                            requests:
-                              storage: 50Gi
+                        managementApiAuth:
+                            insecure: {}
                         racks:
                           - name: r1
                           - name: r2

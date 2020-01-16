@@ -10,20 +10,23 @@ import (
 	"github.com/magefile/mage/mg"
 	"github.com/riptano/dse-operator/mage/docker"
 	"github.com/riptano/dse-operator/mage/sh"
+	"github.com/riptano/dse-operator/mage/git"
 	"github.com/riptano/dse-operator/mage/util"
 )
 
 const (
-	imageName       = "fallout_dse_operator"
-	testMount       = "/tests"
-	buildMount      = "/build"
-	testDir         = "fallout/tests"
-	buildDir        = "fallout/build"
-	envTestFile     = "M_FTEST"
-	envTestRuns     = "M_RUNS"
-	envGithubToken  = "GITHUB_TOKEN"
-	envFalloutToken = "FALLOUT_OAUTH_TOKEN"
-	queuedRunsFile  = "queuedruns.txt"
+	imageName        = "fallout_dse_operator"
+	testMount        = "/tests"
+	buildMount       = "/build"
+	testDir          = "fallout/tests"
+	buildDir         = "fallout/build"
+	envOperatorImage = "M_OPERATOR_IMAGE"
+	envDseImage      = "M_DSE_IMAGE"
+	envTestFile      = "M_FTEST"
+	envTestRuns      = "M_RUNS"
+	envGithubToken   = "GITHUB_TOKEN"
+	envFalloutToken  = "FALLOUT_OAUTH_TOKEN"
+	queuedRunsFile   = "queuedruns.txt"
 )
 
 type testRun struct {
@@ -112,12 +115,30 @@ func discoverTests() []string {
 	return tests
 }
 
+func getImageForHead() string {
+	hash := gitutil.GetLongHash("")
+	return fmt.Sprintf("datastax-docker.jfrog.io/dse-operator/operator:%s", hash)
+}
+
 //---------- Queueing tests
 func queueTest(c chan testRun, fileName string) {
+	image := os.Getenv(envOperatorImage)
+
+	if len(image) == 0 {
+		image = getImageForHead()
+	}
+
+	dseImage := os.Getenv(envDseImage)
+
 	testName := stripExtension(fileName)
 	execArgs := []string{
-		"fallout", "create-testrun", testName,
+		"fallout", "create-testrun", testName, fmt.Sprintf("operator_image=%s", image),
 	}
+
+	if len(dseImage) > 0 {
+		execArgs = append(execArgs, fmt.Sprintf("dse_image=%s", dseImage))
+	}
+
 	out := runDocker([]string{}, execArgs)
 	data := strings.Fields(out)
 	c <- testRun{name: data[0], id: data[1]}
