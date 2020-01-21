@@ -7,6 +7,11 @@ import (
 	"github.com/riptano/dse-operator/mage/util"
 )
 
+func GetUnstagedChanges() string {
+	out := shutil.OutputPanic("git", "--no-pager", "diff")
+	return strings.TrimSpace(out)
+}
+
 func HasUnstagedChanges() bool {
 	out := shutil.OutputPanic("git", "diff")
 	return strings.TrimSpace(out) != ""

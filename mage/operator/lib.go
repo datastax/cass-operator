@@ -56,6 +56,14 @@ const (
     but be careful with backwards compatibility.`
 )
 
+// check unstaged changes and exit with the changes if they are present
+func checkForUnstagedChanges(message string) {
+	if unstagedChanges := gitutil.GetUnstagedChanges(); unstagedChanges != "" {
+		err := fmt.Errorf(message + "\n\n" + unstagedChanges)
+		panic(err)
+	}
+}
+
 func writeBuildFile(fileName string, contents string) {
 	mageutil.EnsureDir(rootBuildDir)
 	outputPath := filepath.Join(rootBuildDir, fileName)
@@ -249,16 +257,10 @@ func SdkGenerate() {
 // working directory afterward.
 func TestSdkGenerate() {
 	fmt.Println("- Asserting that generated files are already up to date")
-	if gitutil.HasUnstagedChanges() {
-		err := fmt.Errorf(errorUnstagedPreGenerate)
-		panic(err)
-	}
+	checkForUnstagedChanges(errorUnstagedPreGenerate)
 	createSdkDockerImage()
 	doSdkGenerate()
-	if gitutil.HasUnstagedChanges() {
-		err := fmt.Errorf(errorUnstagedPostSdkGenerate)
-		panic(err)
-	}
+	checkForUnstagedChanges(errorUnstagedPostSdkGenerate)
 }
 
 // Tests the operator-sdk itself.
@@ -461,17 +463,10 @@ func GenerateClient() {
 // working directory afterward.
 func TestGenerateClient() {
 	fmt.Println("- Asserting that generated client files are already up to date")
-	if gitutil.HasUnstagedChanges() {
-		err := fmt.Errorf(errorUnstagedPreGenerate)
-		panic(err)
-	}
-
+	checkForUnstagedChanges(errorUnstagedPreGenerate)
 	buildCodeGeneratorDockerImage()
 	doGenerateClient()
-	if gitutil.HasUnstagedChanges() {
-		err := fmt.Errorf(errorUnstagedPostClientGenerate)
-		panic(err)
-	}
+	checkForUnstagedChanges(errorUnstagedPostClientGenerate)
 }
 
 // Alias for buildDocker target
