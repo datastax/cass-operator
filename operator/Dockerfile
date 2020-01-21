@@ -46,9 +46,6 @@ COPY magefile.go ./
 COPY mage ./mage
 COPY operator ./operator
 
-# Run the tests
-RUN mage operator:testGo
-
 ARG VERSION_STAMP=DEV
 
 # Build any code not touched by tests (the generated client)

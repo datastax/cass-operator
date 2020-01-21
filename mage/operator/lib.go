@@ -497,3 +497,8 @@ func Clean() {
 	os.RemoveAll(sdkBuildDir)
 	os.RemoveAll(rootBuildDir)
 }
+
+// Run go tests and build a docker image if they pass
+func TestAndBuild() {
+	mg.SerialDeps(TestGo, BuildDocker)
+}
