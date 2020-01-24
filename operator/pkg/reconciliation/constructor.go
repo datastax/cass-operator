@@ -136,6 +136,12 @@ func newStatefulSetForDseDatacenter(
 
 	dseVolumeMounts = append(dseVolumeMounts, dseConfigVolumeMount)
 
+	dseVolumeMounts = append(dseVolumeMounts,
+		corev1.VolumeMount{
+			Name:      "dse-logs",
+			MountPath: "/var/log/cassandra",
+		})
+
 	configData, err := dseDatacenter.GetConfigAsJSON()
 	if err != nil {
 		return nil, err
@@ -159,7 +165,7 @@ func newStatefulSetForDseDatacenter(
 					corev1.ReadWriteOnce,
 				},
 				Resources:        storageClaim.Resources,
-				StorageClassName: &(storageClaim.StorageClassName),
+				StorageClassName: &storageClaim.StorageClassName,
 			},
 		}}
 	}
@@ -202,6 +208,12 @@ func newStatefulSetForDseDatacenter(
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
+				{
+					Name: "dse-logs",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
 			},
 			InitContainers: []corev1.Container{{
 				Name:  "dse-config-init",
@@ -237,58 +249,66 @@ func newStatefulSetForDseDatacenter(
 				},
 			}},
 			ServiceAccountName: serviceAccount,
-			Containers: []corev1.Container{{
-				// TODO FIXME
-				Name:      "dse",
-				Image:     dseImage,
-				Resources: dseDatacenter.Spec.Resources,
-				Env: []corev1.EnvVar{
-					{
-						Name:  "DS_LICENSE",
-						Value: "accept",
-					},
-					{
-						Name:  "DSE_AUTO_CONF_OFF",
-						Value: "all",
-					},
-					{
-						Name:  "USE_MGMT_API",
-						Value: "true",
-					},
-					{
-						Name:  "DSE_MGMT_EXPLICIT_START",
-						Value: "true",
-					},
-				},
-				Ports: ports,
-				LivenessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Port: intstr.FromInt(8080),
-							Path: "/api/v0/probes/liveness",
+			Containers: []corev1.Container{
+				{
+					Name:      "dse",
+					Image:     dseImage,
+					Resources: dseDatacenter.Spec.Resources,
+					Env: []corev1.EnvVar{
+						{
+							Name:  "DS_LICENSE",
+							Value: "accept",
+						},
+						{
+							Name:  "DSE_AUTO_CONF_OFF",
+							Value: "all",
+						},
+						{
+							Name:  "USE_MGMT_API",
+							Value: "true",
+						},
+						{
+							Name:  "DSE_MGMT_EXPLICIT_START",
+							Value: "true",
 						},
 					},
-					// TODO expose config for these?
-					InitialDelaySeconds: 15,
-					PeriodSeconds:       15,
+					Ports: ports,
+					LivenessProbe: &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Port: intstr.FromInt(8080),
+								Path: "/api/v0/probes/liveness",
+							},
+						},
+						InitialDelaySeconds: 15,
+						PeriodSeconds:       15,
+					},
+					ReadinessProbe: &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Port: intstr.FromInt(8080),
+								Path: "/api/v0/probes/readiness",
+							},
+						},
+						InitialDelaySeconds: 20,
+						PeriodSeconds:       10,
+					},
+					VolumeMounts: dseVolumeMounts,
 				},
-				ReadinessProbe: &corev1.Probe{
-					Handler: corev1.Handler{
-						HTTPGet: &corev1.HTTPGetAction{
-							Port: intstr.FromInt(8080),
-							Path: "/api/v0/probes/readiness",
+				{
+					Name:  "dse-system-logger",
+					Image: "busybox",
+					Args: []string{
+						"/bin/sh", "-c", "tail -n+1 -F /var/log/cassandra/system.log",
+					},
+					VolumeMounts: []corev1.VolumeMount{
+						corev1.VolumeMount{
+							Name:      "dse-logs",
+							MountPath: "/var/log/cassandra",
 						},
 					},
-					// TODO expose config for these?
-					InitialDelaySeconds: 20,
-					PeriodSeconds:       10,
 				},
-				VolumeMounts: dseVolumeMounts,
-			}},
-			// TODO We can document that the user installing the operator put the imagePullSecret
-			// into the service account, and the process for that is documented here:
-			// https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#add-imagepullsecrets-to-a-service-account
-			// ImagePullSecrets: []corev1.LocalObjectReference{{}},
+			},
 		},
 	}
 
