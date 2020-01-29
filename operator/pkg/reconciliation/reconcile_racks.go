@@ -621,6 +621,13 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 		return *recResult, err
 	}
 
+	// TODO this needs improvement, we can skip calling this if we didn't just
+	// call start on a new seed node
+	err = refreshSeeds(r.ReconcileContext)
+	if err != nil {
+		return ResultShouldRequeueNow, err
+	}
+
 	recResult, err = r.CreateSuperuser()
 	if recResult != nil || err != nil {
 		return *recResult, err
