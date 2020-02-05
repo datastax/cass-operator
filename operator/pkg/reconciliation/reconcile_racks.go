@@ -3,7 +3,7 @@ package reconciliation
 import (
 	"fmt"
 	"reflect"
-	"strings"
+	"sort"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -343,15 +343,19 @@ func (r *ReconcileRacks) CheckRackParkedState() (*reconcile.Result, error) {
 	return nil, nil
 }
 
-// CheckSeedLabels loops over all racks and makes sure that the proper pods are labelled as seeds.
-// Always returns nil, nil to match the usual contract of these rack checking functions.
-func (r *ReconcileRacks) CheckSeedLabels() (*reconcile.Result, error) {
+// checkSeedLabels loops over all racks and makes sure that the proper pods are labelled as seeds.
+func (r *ReconcileRacks) checkSeedLabels() (int, error) {
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::CheckSeedLabels")
+	seedCount := 0
 	for idx := range r.desiredRackInformation {
 		rackInfo := r.desiredRackInformation[idx]
-		r.LabelSeedPods(rackInfo)
+		n, err := r.labelSeedPods(rackInfo)
+		seedCount += n
+		if err != nil {
+			return 0, err
+		}
 	}
-	return nil, nil
+	return seedCount, nil
 }
 
 // CheckPodsReady loops over all the DSE pods and starts them
@@ -374,6 +378,17 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 		return &ResultShouldRequeueSoon, err
 	}
 
+	// step 0 - get the nodes labelled as seeds before we start any nodes
+
+	seedCount, err := r.checkSeedLabels()
+	if err != nil {
+		return &ResultShouldRequeueSoon, err
+	}
+	err = refreshSeeds(r.ReconcileContext)
+	if err != nil {
+		return &ResultShouldRequeueSoon, err
+	}
+
 	// step 1 - see if any nodes are already coming up
 
 	nodeIsStarting, err := r.findStartingNodes(podList)
@@ -382,11 +397,11 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 		return &ResultShouldRequeueSoon, err
 	}
 
-	// step 2 - get one seed node up per rack
+	// step 2 - get one node up per rack
 
-	rackWaitingForASeed, err := r.startOneSeedPerRack()
+	rackWaitingForANode, err := r.startOneNodePerRack(seedCount)
 
-	if err != nil || rackWaitingForASeed != "" {
+	if err != nil || rackWaitingForANode != "" {
 		return &ResultShouldRequeueSoon, err
 	}
 
@@ -596,11 +611,6 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 		return *recResult, err
 	}
 
-	recResult, err = r.CheckSeedLabels()
-	if recResult != nil || err != nil {
-		return *recResult, err
-	}
-
 	recResult, err = r.CheckPodsReady()
 	if recResult != nil || err != nil {
 		return *recResult, err
@@ -619,13 +629,6 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 	recResult, err = r.CheckRackPodLabels()
 	if recResult != nil || err != nil {
 		return *recResult, err
-	}
-
-	// TODO this needs improvement, we can skip calling this if we didn't just
-	// call start on a new seed node
-	err = refreshSeeds(r.ReconcileContext)
-	if err != nil {
-		return ResultShouldRequeueNow, err
 	}
 
 	recResult, err = r.CreateSuperuser()
@@ -665,25 +668,33 @@ func isClusterHealthy(rc *dsereconciliation.ReconciliationContext) bool {
 	return true
 }
 
-// LabelSeedPods will iterate over all seed node pods for a statefulset and if the pod exists
-// and is not already labeled will add the dse-seed=true label to the pod so that its picked
-// up by the headless seed service
-func (r *ReconcileRacks) LabelSeedPods(rackInfo *dsereconciliation.RackInformation) {
+// labelSeedPods iterates over all pods for a statefulset and makes sure the right number of
+// ready pods are labelled as DSE seeds, so that they are picked up by the headless seed service
+// Returns the number of ready seeds.
+func (r *ReconcileRacks) labelSeedPods(rackInfo *dsereconciliation.RackInformation) (int, error) {
 	rackLabels := r.ReconcileContext.DseDatacenter.GetRackLabels(rackInfo.RackName)
 	podList, err := listPods(r.ReconcileContext, rackLabels)
 	if err != nil {
 		r.ReconcileContext.ReqLogger.Error(
 			err, "Unable to list pods for rack",
 			"rackName", rackInfo.RackName)
-		return
+		return 0, err
 	}
-	for i := range podList.Items {
-		pod := &podList.Items[i]
+	pods := podList.Items
+	sort.SliceStable(pods, func(i, j int) bool {
+		return pods[i].Name < pods[j].Name
+	})
+	count := 0
+	for idx := range pods {
+		pod := &pods[idx]
 		podLabels := pod.GetLabels()
-		podName := pod.Name
+		ready := isDseReady(pod)
 
-		isSeed := hasStsOrdinalSuffixLessThan(podName, rackInfo.SeedCount)
+		isSeed := ready && count < rackInfo.SeedCount
 		currentVal := podLabels[datastaxv1alpha1.SeedNodeLabel]
+		if isSeed {
+			count++
+		}
 
 		shouldUpdate := false
 		if isSeed && currentVal != "true" {
@@ -700,20 +711,11 @@ func (r *ReconcileRacks) LabelSeedPods(rackInfo *dsereconciliation.RackInformati
 				r.ReconcileContext.ReqLogger.Error(
 					err, "Unable to update pod with seed label",
 					"pod", pod.Name)
-				continue
+				return 0, err
 			}
 		}
 	}
-}
-
-func hasStsOrdinalSuffixLessThan(s string, n int) bool {
-	for i := 0; i < n; i++ {
-		suffix := fmt.Sprintf("-sts-%d", i)
-		if strings.HasSuffix(s, suffix) {
-			return true
-		}
-	}
-	return false
+	return count, nil
 }
 
 // GetStatefulSetForRack returns the statefulset for the rack
@@ -1138,47 +1140,56 @@ func (r *ReconcileRacks) findStartedNotReadyNodes(podList *corev1.PodList) (bool
 	return false, nil
 }
 
-// returns the name of one rack without any ready seed node
-func (r *ReconcileRacks) startOneSeedPerRack() (string, error) {
-	r.ReconcileContext.ReqLogger.Info("reconcile_racks::startOneSeedPerRack")
+// returns the name of one rack without any ready node
+func (r *ReconcileRacks) startOneNodePerRack(readySeeds int) (string, error) {
+	r.ReconcileContext.ReqLogger.Info("reconcile_racks::startOneNodePerRack")
 
-	seedNodeSelector := r.ReconcileContext.DseDatacenter.GetDatacenterLabels()
-	seedNodeSelector[datastaxv1alpha1.SeedNodeLabel] = "true"
-	seedPodList, err := listPods(r.ReconcileContext, seedNodeSelector)
+	selector := r.ReconcileContext.DseDatacenter.GetDatacenterLabels()
+	podList, err := listPods(r.ReconcileContext, selector)
 	if err != nil {
 		return "", err
 	}
 
-	rackReadySeedCount := map[string]int{}
+	rackReadyCount := map[string]int{}
 	for _, rackInfo := range r.desiredRackInformation {
-		rackReadySeedCount[rackInfo.RackName] = 0
+		rackReadyCount[rackInfo.RackName] = 0
 	}
 
-	for idx := range seedPodList.Items {
-		pod := &seedPodList.Items[idx]
+	for idx := range podList.Items {
+		pod := &podList.Items[idx]
 		rackName := pod.Labels[datastaxv1alpha1.RackLabel]
-
 		if isDseReady(pod) {
-			rackReadySeedCount[rackName]++
-		} else if isMgmtApiRunning(pod) && !isDseStarted(pod) {
-			if err = r.callNodeManagementStart(pod); err != nil {
-				return "", err
-			}
-			if err = r.labelDsePodStarting(pod); err != nil {
-				return "", err
-			}
-			return rackName, nil
+			rackReadyCount[rackName]++
 		}
 	}
 
-	for rackName, count := range rackReadySeedCount {
-		if count == 0 {
-			// go back to labelling seeds and starting pods
-			r.ReconcileContext.ReqLogger.Info(
-				"one or more racks have no seeds started",
-				"rackName", rackName,
-			)
-			return rackName, nil
+	// if the DC has no ready seeds, label a pod as a seed before we start DSE on it
+	labelSeedBeforeStart := readySeeds == 0
+
+	for rackName, readyCount := range rackReadyCount {
+		if readyCount > 0 {
+			continue
+		}
+		for idx := range podList.Items {
+			pod := &podList.Items[idx]
+			podRack := pod.Labels[datastaxv1alpha1.RackLabel]
+			if podRack == rackName {
+				if labelSeedBeforeStart {
+					pod.Labels[datastaxv1alpha1.SeedNodeLabel] = "true"
+					if err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, pod); err != nil {
+						return "", err
+					}
+					// sleeping five seconds for DNS paranoia
+					time.Sleep(5 * time.Second)
+				}
+				if err = r.callNodeManagementStart(pod); err != nil {
+					return "", err
+				}
+				if err = r.labelDsePodStarting(pod); err != nil {
+					return "", err
+				}
+				return rackName, nil
+			}
 		}
 	}
 

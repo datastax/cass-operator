@@ -1,8 +1,6 @@
 package reconciliation
 
 import (
-	"fmt"
-
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -19,19 +17,12 @@ func refreshSeeds(rc *dsereconciliation.ReconciliationContext) error {
 		return nil
 	}
 
-	selector := map[string]string{
-		datastaxv1alpha1.ClusterLabel: rc.DseDatacenter.Spec.DseClusterName,
-		datastaxv1alpha1.DseNodeState: "Started",
-	}
+	selector := rc.DseDatacenter.GetClusterLabels()
+	selector[datastaxv1alpha1.DseNodeState] = "Started"
+
 	podList, err := listPods(rc, selector)
 	if err != nil {
 		rc.ReqLogger.Error(err, "error listing pods during refreshSeeds")
-		return err
-	}
-
-	if len(podList.Items) == 0 {
-		err = fmt.Errorf("No started pods found for DseDatacenter")
-		rc.ReqLogger.Error(err, "error during refreshSeeds")
 		return err
 	}
 

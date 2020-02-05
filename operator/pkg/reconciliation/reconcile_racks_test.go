@@ -154,6 +154,12 @@ func TestReconcileRacks_ReconcilePods(t *testing.T) {
 		rc.DseDatacenter,
 	}
 
+	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name)
+	for idx := range mockPods {
+		mp := mockPods[idx]
+		trackObjects = append(trackObjects, mp)
+	}
+
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
 	nextRack := &dsereconciliation.RackInformation{}
@@ -404,6 +410,25 @@ func TestReconcileRacks(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
+	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
+		"default",
+		rc.DseDatacenter,
+		2)
+	assert.NoErrorf(t, err, "error occurred creating statefulset")
+
+	trackObjects := []runtime.Object{
+		desiredStatefulSet,
+		rc.DseDatacenter,
+	}
+
+	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name)
+	for idx := range mockPods {
+		mp := mockPods[idx]
+		trackObjects = append(trackObjects, mp)
+	}
+
+	rc.Client = fake.NewFakeClient(trackObjects...)
+
 	var rackInfo []*dsereconciliation.RackInformation
 
 	nextRack := &dsereconciliation.RackInformation{}
@@ -468,6 +493,12 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 
 	trackObjects := []runtime.Object{
 		desiredStatefulSet,
+	}
+
+	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name)
+	for idx := range mockPods {
+		mp := mockPods[idx]
+		trackObjects = append(trackObjects, mp)
 	}
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
@@ -542,6 +573,12 @@ func TestReconcileRacks_DoesntScaleDown(t *testing.T) {
 
 	trackObjects := []runtime.Object{
 		preExistingStatefulSet,
+	}
+
+	mockPods := mockReadyPodsForStatefulSet(preExistingStatefulSet, rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name)
+	for idx := range mockPods {
+		mp := mockPods[idx]
+		trackObjects = append(trackObjects, mp)
 	}
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
@@ -1056,9 +1093,9 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 	}
 
 	goodRackLabels := map[string]string{
-		datastaxv1alpha1.ClusterLabel: clusterName,
+		datastaxv1alpha1.ClusterLabel:    clusterName,
 		datastaxv1alpha1.DatacenterLabel: dcName,
-		datastaxv1alpha1.RackLabel: rackName,
+		datastaxv1alpha1.RackLabel:       rackName,
 	}
 
 	type args struct {
@@ -1066,8 +1103,8 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 	}
 
 	type result struct {
-		changed   bool
-		labels map[string]string
+		changed bool
+		labels  map[string]string
 	}
 
 	// cases where label updates are made
@@ -1080,38 +1117,38 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 			name: "Cluster name different",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.ClusterLabel: "some-other-cluster",
+					datastaxv1alpha1.ClusterLabel:    "some-other-cluster",
 					datastaxv1alpha1.DatacenterLabel: dcName,
-					datastaxv1alpha1.RackLabel: rackName,
+					datastaxv1alpha1.RackLabel:       rackName,
 				},
 			},
 			want: result{
 				changed: true,
-				labels: goodRackLabels,
+				labels:  goodRackLabels,
 			},
 		},
 		{
 			name: "Rack name different",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.ClusterLabel: clusterName,
+					datastaxv1alpha1.ClusterLabel:    clusterName,
 					datastaxv1alpha1.DatacenterLabel: dcName,
-					datastaxv1alpha1.RackLabel: "some-other-rack",
+					datastaxv1alpha1.RackLabel:       "some-other-rack",
 				},
 			},
 			want: result{
 				changed: true,
-				labels: goodRackLabels,
+				labels:  goodRackLabels,
 			},
 		},
 		{
 			name: "Rack name different plus other labels",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.ClusterLabel: clusterName,
+					datastaxv1alpha1.ClusterLabel:    clusterName,
 					datastaxv1alpha1.DatacenterLabel: dcName,
-					datastaxv1alpha1.RackLabel: "some-other-rack",
-					"foo": "bar",
+					datastaxv1alpha1.RackLabel:       "some-other-rack",
+					"foo":                            "bar",
 				},
 			},
 			want: result{
@@ -1129,16 +1166,16 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 			},
 			want: result{
 				changed: true,
-				labels: goodRackLabels,
+				labels:  goodRackLabels,
 			},
 		},
 		{
 			name: "Correct labels",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.ClusterLabel: clusterName,
+					datastaxv1alpha1.ClusterLabel:    clusterName,
 					datastaxv1alpha1.DatacenterLabel: dcName,
-					datastaxv1alpha1.RackLabel: rackName,
+					datastaxv1alpha1.RackLabel:       rackName,
 				},
 			},
 			want: result{
@@ -1149,10 +1186,10 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 			name: "Correct labels with some additional labels",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.ClusterLabel: clusterName,
+					datastaxv1alpha1.ClusterLabel:    clusterName,
 					datastaxv1alpha1.DatacenterLabel: dcName,
-					datastaxv1alpha1.RackLabel: rackName,
-					"foo": "bar",
+					datastaxv1alpha1.RackLabel:       rackName,
+					"foo":                            "bar",
 				},
 			},
 			want: result{

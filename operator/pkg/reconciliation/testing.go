@@ -6,6 +6,9 @@ package reconciliation
 
 import (
 	"context"
+	"io/ioutil"
+	"net/http"
+	"strings"
 
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/mock"
@@ -21,6 +24,7 @@ import (
 
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
+	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
 )
 
@@ -91,6 +95,21 @@ func CreateMockReconciliationContext(
 	rc.ReqLogger = reqLogger
 	rc.DseDatacenter = dseDatacenter
 	rc.Ctx = context.Background()
+
+	res := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       ioutil.NopCloser(strings.NewReader("OK")),
+	}
+
+	mockHttpClient := &mocks.HttpClient{}
+	mockHttpClient.On("Do",
+		mock.MatchedBy(
+			func(req *http.Request) bool {
+				return req != nil
+			})).
+		Return(res, nil)
+
+	rc.NodeMgmtClient = httphelper.NodeMgmtClient{Client: mockHttpClient, Log: reqLogger, Protocol: "http"}
 
 	return rc
 }
