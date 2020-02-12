@@ -689,6 +689,7 @@ func (r *ReconcileRacks) labelSeedPods(rackInfo *dsereconciliation.RackInformati
 		pod := &pods[idx]
 		podLabels := pod.GetLabels()
 		ready := isDseReady(pod)
+		starting := isDseStarting(pod)
 
 		isSeed := ready && count < rackInfo.SeedCount
 		currentVal := podLabels[datastaxv1alpha1.SeedNodeLabel]
@@ -696,11 +697,18 @@ func (r *ReconcileRacks) labelSeedPods(rackInfo *dsereconciliation.RackInformati
 			count++
 		}
 
+		// this is the main place we label pods as seeds / not-seeds
+		// the one exception to this is the very first node we bring up
+		// in an empty cluster, and we set that node as a seed
+		// in startOneNodePerRack()
+
 		shouldUpdate := false
 		if isSeed && currentVal != "true" {
 			podLabels[datastaxv1alpha1.SeedNodeLabel] = "true"
 			shouldUpdate = true
-		} else if !isSeed && currentVal == "true" {
+		}
+		// if this pod is starting, we should leave the seed label alone
+		if !isSeed && currentVal == "true" && !starting {
 			delete(podLabels, datastaxv1alpha1.SeedNodeLabel)
 			shouldUpdate = true
 		}
@@ -1166,14 +1174,21 @@ func (r *ReconcileRacks) startOneNodePerRack(readySeeds int) (string, error) {
 	// if the DC has no ready seeds, label a pod as a seed before we start DSE on it
 	labelSeedBeforeStart := readySeeds == 0
 
+	rackThatNeedsNode := ""
 	for rackName, readyCount := range rackReadyCount {
 		if readyCount > 0 {
 			continue
 		}
+		rackThatNeedsNode = rackName
 		for idx := range podList.Items {
 			pod := &podList.Items[idx]
+			mgmtApiUp := isMgmtApiRunning(pod)
+			if !mgmtApiUp {
+				continue
+			}
 			podRack := pod.Labels[datastaxv1alpha1.RackLabel]
 			if podRack == rackName {
+				// this is the one exception to all seed labelling happening in labelSeedPods()
 				if labelSeedBeforeStart {
 					pod.Labels[datastaxv1alpha1.SeedNodeLabel] = "true"
 					if err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, pod); err != nil {
@@ -1193,7 +1208,7 @@ func (r *ReconcileRacks) startOneNodePerRack(readySeeds int) (string, error) {
 		}
 	}
 
-	return "", nil
+	return rackThatNeedsNode, nil
 }
 
 // returns whether one or more DSE nodes is not running or ready
@@ -1273,6 +1288,10 @@ func isMgmtApiRunning(pod *corev1.Pod) bool {
 		}
 	}
 	return false
+}
+
+func isDseStarting(pod *corev1.Pod) bool {
+	return pod.Labels[datastaxv1alpha1.DseNodeState] == "Starting"
 }
 
 func isDseStarted(pod *corev1.Pod) bool {
