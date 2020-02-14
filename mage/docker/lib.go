@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 
-	"github.com/riptano/dse-operator/mage/sh"
-	"github.com/riptano/dse-operator/mage/util"
+	shutil "github.com/riptano/dse-operator/mage/sh"
+	mageutil "github.com/riptano/dse-operator/mage/util"
 )
 
 // Internal datastax DNS addresses
@@ -19,7 +19,7 @@ type DockerCmd struct {
 	Input     string
 }
 
-func (cmd DockerCmd) toCliArgs() []string {
+func (cmd DockerCmd) ToCliArgs() []string {
 	var args []string
 	if cmd.ConfigDir != "" {
 		args = append(args, "--config", cmd.ConfigDir)
@@ -51,7 +51,7 @@ func exec(cmd DockerCmd,
 	withoutInput func(string, ...string) error) error {
 
 	var err error
-	args := cmd.toCliArgs()
+	args := cmd.ToCliArgs()
 	if cmd.Input != "" {
 		err = withInput("docker", cmd.Input, args...)
 
@@ -67,7 +67,7 @@ func output(cmd DockerCmd,
 
 	var err error
 	var out string
-	args := cmd.toCliArgs()
+	args := cmd.ToCliArgs()
 	if cmd.Input != "" {
 		out, err = withInput("docker", cmd.Input, args...)
 

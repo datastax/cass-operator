@@ -1,0 +1,21 @@
+apiVersion: datastax.com/v1alpha1
+kind: DseDatacenter
+metadata:
+  name: dc1
+spec:
+  dseClusterName: gke-c1
+  serviceAccount: dse-operator
+  configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.4.0-20191113
+  dseImage: {{ dse_image }}
+  dseVersion: 6.8.0
+  size: 3
+  managementApiAuth:
+      insecure: {}
+  racks:
+    - name: r1
+    - name: r2
+    - name: r3
+  config:
+    cassandra-yaml:
+      authenticator: AllowAllAuthenticator
+      batch_size_fail_threshold_in_kb: 1280

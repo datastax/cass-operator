@@ -8,10 +8,10 @@ import (
 	"strings"
 
 	"github.com/magefile/mage/mg"
-	"github.com/riptano/dse-operator/mage/docker"
-	"github.com/riptano/dse-operator/mage/sh"
-	"github.com/riptano/dse-operator/mage/git"
-	"github.com/riptano/dse-operator/mage/util"
+	dockerutil "github.com/riptano/dse-operator/mage/docker"
+	gitutil "github.com/riptano/dse-operator/mage/git"
+	shutil "github.com/riptano/dse-operator/mage/sh"
+	mageutil "github.com/riptano/dse-operator/mage/util"
 )
 
 const (
@@ -97,42 +97,41 @@ func runDocker(runArgs []string, execArgs []string) string {
 
 	fallout_token := mageutil.RequireEnv(envFalloutToken)
 	env := []string{fmt.Sprintf("FALLOUT_OAUTH_TOKEN=%s", fallout_token)}
-	return dockerutil.Run(imageName, volumes, dockerutil.DatastaxDns, env, runArgs, execArgs).OutputPanic()
+	dockerCmd := dockerutil.Run(imageName, volumes, dockerutil.DatastaxDns, env, runArgs, execArgs)
+	fmt.Printf("Executing docker with args:\n\t%v\n", dockerCmd.ToCliArgs())
+	return dockerCmd.OutputPanic()
 }
 
+// Only discover tests directly sitting in the tests dir
 func discoverTests() []string {
 	var tests []string
-	err := filepath.Walk(testDir, func(_ string, info os.FileInfo, err error) error {
+
+	results, err := ioutil.ReadDir(testDir)
+	mageutil.PanicOnError(err)
+	for _, info := range results {
 		if !info.IsDir() && strings.HasSuffix(info.Name(), ".yaml") {
 			tests = append(tests, info.Name())
 		}
-		return nil
-	})
-	if err != nil {
-		panic(err)
 	}
 
 	return tests
 }
 
-func getImageForHead() string {
-	hash := gitutil.GetLongHash("")
-	return fmt.Sprintf("datastax-docker.jfrog.io/dse-operator/operator:%s", hash)
-}
-
 //---------- Queueing tests
 func queueTest(c chan testRun, fileName string) {
+	hash := gitutil.GetLongHash("")
 	image := os.Getenv(envOperatorImage)
-
 	if len(image) == 0 {
-		image = getImageForHead()
+		image = fmt.Sprintf("datastax-docker.jfrog.io/dse-operator/operator:%s", hash)
 	}
 
 	dseImage := os.Getenv(envDseImage)
 
 	testName := stripExtension(fileName)
 	execArgs := []string{
-		"fallout", "create-testrun", testName, fmt.Sprintf("operator_image=%s", image),
+		"fallout", "create-testrun", testName,
+		fmt.Sprintf("operator_image=%s", image),
+		fmt.Sprintf("yaml_src_branch=%s", hash),
 	}
 
 	if len(dseImage) > 0 {
