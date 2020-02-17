@@ -21,12 +21,19 @@ func deleteCluster() {
 }
 
 func createCluster() {
-	shutil.RunVPanic("kind", "create", "cluster", "--config", "operator/deploy/kind/kind-example-config.yaml")
+    // We explicitly request a kubernetes v1.15 cluster with --image
+	shutil.RunVPanic(
+        "kind",
+        "create",
+        "cluster",
+        "--config",
+        "operator/deploy/kind/kind-example-config.yaml",
+        "--image",
+        "kindest/node:v1.15.7@sha256:e2df133f80ef633c53c0200114fce2ed5e1f6947477dbc83261a6a921169488d")
 }
 
 func exportKubeConfig() {
-	path := shutil.OutputPanic("kind", "get", "kubeconfig-path", "--name=kind")
-	os.Setenv("KUBECONFIG", strings.TrimSpace(path))
+	shutil.RunVPanic("kubectl", "cluster-info", "--context", "kind-kind")
 }
 
 func loadImage(image string) {
@@ -60,7 +67,7 @@ func watchPods() {
 func Install() {
 	os.Chdir("/tmp")
 	os.Setenv("GO111MODULE", "on")
-	shutil.RunVPanic("go", "get", "sigs.k8s.io/kind@v0.5.1")
+	shutil.RunVPanic("go", "get", "sigs.k8s.io/kind@v0.7.0")
 }
 
 // Load the latest operator docker image into a runing kind cluster.
