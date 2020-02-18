@@ -33,6 +33,7 @@ type testRun struct {
 	id     string
 	name   string
 	status string
+	params []string
 }
 
 func writeBuildFile(fileName string, contents string) {
@@ -82,7 +83,7 @@ func monitorTestRunChannel(c chan testRun, count int, callBack func(testRun)) []
 	return tests
 }
 
-func runDocker(runArgs []string, execArgs []string) string {
+func fallout(args []string) string {
 	mageutil.EnsureDir(buildDir)
 	cwd, err := os.Getwd()
 	mageutil.PanicOnError(err)
@@ -97,8 +98,8 @@ func runDocker(runArgs []string, execArgs []string) string {
 
 	fallout_token := mageutil.RequireEnv(envFalloutToken)
 	env := []string{fmt.Sprintf("FALLOUT_OAUTH_TOKEN=%s", fallout_token)}
-	dockerCmd := dockerutil.Run(imageName, volumes, dockerutil.DatastaxDns, env, runArgs, execArgs)
-	fmt.Printf("Executing docker with args:\n\t%v\n", dockerCmd.ToCliArgs())
+	execArgs := append([]string{"fallout"}, args...)
+	dockerCmd := dockerutil.Run(imageName, volumes, dockerutil.DatastaxDns, env, []string{}, execArgs)
 	return dockerCmd.OutputPanic()
 }
 
@@ -117,6 +118,25 @@ func discoverTests() []string {
 	return tests
 }
 
+func getLinkToTestRun(test testRun) string {
+	// The (seemingly) only way to find out what user
+	// is associate with a testrun is to use the cli to
+	// query info on the test itself, which will spit out
+	// the test yaml + an extra set of comment headers that
+	// list the user who created it.
+	// The user is required to build out a URL to the test-run.
+	args := []string{"test-info", test.name}
+	out := fallout(args)
+	prefix := "### Created by "
+	for _, line := range strings.Split(out, "\n") {
+		if strings.HasPrefix(line, prefix) {
+			user := strings.TrimPrefix(line, prefix)
+			return fmt.Sprintf("https://fallout.sjc.dsinternal.org/tests/ui/%s/%s/%s/artifacts", user, test.name, test.id)
+		}
+	}
+	return ""
+}
+
 //---------- Queueing tests
 func queueTest(c chan testRun, fileName string) {
 	hash := gitutil.GetLongHash("")
@@ -128,19 +148,20 @@ func queueTest(c chan testRun, fileName string) {
 	dseImage := os.Getenv(envDseImage)
 
 	testName := stripExtension(fileName)
-	execArgs := []string{
-		"fallout", "create-testrun", testName,
+	params := []string{
 		fmt.Sprintf("operator_image=%s", image),
 		fmt.Sprintf("yaml_src_branch=%s", hash),
 	}
 
 	if len(dseImage) > 0 {
-		execArgs = append(execArgs, fmt.Sprintf("dse_image=%s", dseImage))
+		params = append(params, fmt.Sprintf("dse_image=%s", dseImage))
 	}
 
-	out := runDocker([]string{}, execArgs)
+	execArgs := []string{"create-testrun", testName}
+	execArgs = append(execArgs, params...)
+	out := fallout(execArgs)
 	data := strings.Fields(out)
-	c <- testRun{name: data[0], id: data[1]}
+	c <- testRun{name: data[0], id: data[1], params: params}
 }
 
 func queueMany(c chan testRun, testFiles []string) {
@@ -156,7 +177,20 @@ func queue(c chan testRun, testFiles []string) []testRun {
 	count := len(testFiles)
 	counter := 0
 	queuedTests = monitorTestRunChannel(c, count, func(t testRun) {
+		//test name and id
 		fmt.Printf("%d. %s (%s)\n", counter+1, t.name, t.id)
+		//params used (if applicable)
+		if len(t.params) > 0 {
+			fmt.Println("- Params:")
+			for _, p := range t.params {
+				fmt.Printf("\t%s\n", p)
+			}
+		}
+		//link to view the testrun on the fallout site
+		link := getLinkToTestRun(t)
+		if link != "" {
+			fmt.Printf("- Testrun Url:\n\t%s\n", link)
+		}
 		counter++
 	})
 	return queuedTests
@@ -165,11 +199,11 @@ func queue(c chan testRun, testFiles []string) []testRun {
 //---------- Waiting for tests
 func waitForTestToFinish(c chan testRun, test testRun) {
 	execArgs := []string{
-		"fallout", "testrun-info",
+		"testrun-info",
 		"--wait",
 		"--testrun=" + test.id,
 		test.name}
-	out := runDocker([]string{}, execArgs)
+	out := fallout(execArgs)
 	data := strings.Fields(out)
 	c <- testRun{name: data[0], id: data[1], status: data[2]}
 }
@@ -209,10 +243,10 @@ func wait(c chan testRun, runs []testRun) {
 //---------- Loading tests
 func loadTest(fileName string) {
 	execArgs := []string{
-		"fallout", "create-test",
+		"create-test",
 		fmt.Sprintf("%s/%s", testMount, fileName),
 	}
-	runDocker([]string{}, execArgs)
+	fallout(execArgs)
 }
 
 func loadTests(files []string) {
@@ -226,11 +260,11 @@ func loadTests(files []string) {
 //---------- Aborting tests
 func abortTest(test testRun) {
 	execArgs := []string{
-		"fallout", "abort-testrun",
+		"abort-testrun",
 		"--testrun=" + test.id,
 		test.name}
 	fmt.Printf("Aborting: %s (%s)\n", test.name, test.id)
-	runDocker([]string{}, execArgs)
+	fallout(execArgs)
 }
 
 //---------- Artifacts
@@ -238,11 +272,11 @@ func abortTest(test testRun) {
 func downloadArtifactForRun(run testRun) {
 	fmt.Printf("- Retrieving artifacts for %s (%s)\n", run.name, run.id)
 	execArgs := []string{
-		"fallout", "testrun-artifact",
+		"testrun-artifact",
 		"--testrun=" + run.id,
 		run.name,
 	}
-	runDocker([]string{}, execArgs)
+	fallout(execArgs)
 
 	pattern := filepath.Join(buildDir, "*", run.name, run.id)
 	matches, err := filepath.Glob(pattern)
