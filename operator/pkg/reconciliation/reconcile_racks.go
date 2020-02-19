@@ -17,6 +17,7 @@ import (
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation/reconcileriface"
+	"github.com/riptano/dse-operator/operator/pkg/oplabels"
 	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
 
@@ -983,19 +984,25 @@ func mergeInLabelsIfDifferent(existingLabels, newLabels map[string]string) (bool
 // shouldUpdateLabelsForClusterResource will compare the labels passed in with what the labels should be for a cluster level
 // resource. It will return the updated map and a boolean denoting whether the resource needs to be updated with the new labels.
 func shouldUpdateLabelsForClusterResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter) (bool, map[string]string) {
-	return mergeInLabelsIfDifferent(resourceLabels, dseDatacenter.GetClusterLabels())
+	desired := dseDatacenter.GetClusterLabels()
+	oplabels.AddManagedByLabel(desired)
+	return mergeInLabelsIfDifferent(resourceLabels, desired)
 }
 
 // shouldUpdateLabelsForRackResource will compare the labels passed in with what the labels should be for a rack level
 // resource. It will return the updated map and a boolean denoting whether the resource needs to be updated with the new labels.
 func shouldUpdateLabelsForRackResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter, rackName string) (bool, map[string]string) {
-	return mergeInLabelsIfDifferent(resourceLabels, dseDatacenter.GetRackLabels(rackName))
+	desired := dseDatacenter.GetRackLabels(rackName)
+	oplabels.AddManagedByLabel(desired)
+	return mergeInLabelsIfDifferent(resourceLabels, desired)
 }
 
 // shouldUpdateLabelsForDatacenterResource will compare the labels passed in with what the labels should be for a datacenter level
 // resource. It will return the updated map and a boolean denoting whether the resource needs to be updated with the new labels.
 func shouldUpdateLabelsForDatacenterResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter) (bool, map[string]string) {
-	return mergeInLabelsIfDifferent(resourceLabels, dseDatacenter.GetDatacenterLabels())
+	desired := dseDatacenter.GetDatacenterLabels()
+	oplabels.AddManagedByLabel(desired)
+	return mergeInLabelsIfDifferent(resourceLabels, desired)
 }
 
 // getConfigsForRackResource return the desired and current configs for a statefulset

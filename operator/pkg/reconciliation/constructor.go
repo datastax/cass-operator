@@ -1,8 +1,6 @@
 package reconciliation
 
-//
-// This module defines constructors for k8s objects
-//
+// This file defines constructors for k8s objects
 
 import (
 	"fmt"
@@ -10,7 +8,7 @@ import (
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
-	"github.com/riptano/dse-operator/operator/pkg/utils"
+	"github.com/riptano/dse-operator/operator/pkg/oplabels"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -49,14 +47,15 @@ func buildLabelSelectorForSeedService(dseDatacenter *datastaxv1alpha1.DseDatacen
 
 // newSeedServiceForDseDatacenter creates a headless service owned by the DseDatacenter which will attach to all seed
 // nodes in the cluster
-func newSeedServiceForDseDatacenter(
-	dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
-	selectorLabels := buildLabelSelectorForSeedService(dseDatacenter)
-	labels := dseDatacenter.GetClusterLabels()
+func newSeedServiceForDseDatacenter(dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
 	service := makeGenericHeadlessService(dseDatacenter)
 	service.ObjectMeta.Name = dseDatacenter.GetSeedServiceName()
+
+	labels := dseDatacenter.GetClusterLabels()
+	oplabels.AddManagedByLabel(labels)
 	service.ObjectMeta.Labels = labels
-	service.Spec.Selector = selectorLabels
+
+	service.Spec.Selector = buildLabelSelectorForSeedService(dseDatacenter)
 	service.Spec.PublishNotReadyAddresses = true
 	return service
 }
@@ -76,6 +75,7 @@ func newAllDsePodsServiceForDseDatacenter(dseDatacenter *datastaxv1alpha1.DseDat
 // inside the k8s cluster.
 func makeGenericHeadlessService(dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
 	labels := dseDatacenter.GetDatacenterLabels()
+	oplabels.AddManagedByLabel(labels)
 	var service corev1.Service
 	service.ObjectMeta.Namespace = dseDatacenter.Namespace
 	service.ObjectMeta.Labels = labels
@@ -106,13 +106,18 @@ func newStatefulSetForDseDatacenter(
 
 	replicaCountInt32 := int32(replicaCount)
 
-	podLabels := utils.MergeMap(
-		map[string]string{
-			datastaxv1alpha1.DseNodeState: "Ready-to-Start",
-		},
-		dseDatacenter.GetRackLabels(rackName))
-	pvClaimLabels := dseDatacenter.GetRackLabels(rackName)
+	podLabels := dseDatacenter.GetRackLabels(rackName)
+	oplabels.AddManagedByLabel(podLabels)
+	podLabels[datastaxv1alpha1.DseNodeState] = "Ready-to-Start"
+
+	// see https://github.com/kubernetes/kubernetes/pull/74941
+	// pvc labels are ignored before k8s 1.15.0
+	pvcLabels := dseDatacenter.GetRackLabels(rackName)
+	oplabels.AddManagedByLabel(pvcLabels)
+
 	statefulSetLabels := dseDatacenter.GetRackLabels(rackName)
+	oplabels.AddManagedByLabel(statefulSetLabels)
+
 	statefulSetSelectorLabels := dseDatacenter.GetRackLabels(rackName)
 
 	dseVersion := dseDatacenter.Spec.DseVersion
@@ -149,16 +154,16 @@ func newStatefulSetForDseDatacenter(
 
 	// Add storage if storage claim defined
 	if nil != dseDatacenter.Spec.StorageClaim {
-		pvName := "dse-data"
+		pvcName := "dse-data"
 		storageClaim := dseDatacenter.Spec.StorageClaim
 		dseVolumeMounts = append(dseVolumeMounts, corev1.VolumeMount{
-			Name:      pvName,
+			Name:      pvcName,
 			MountPath: "/var/lib/cassandra",
 		})
 		volumeCaimTemplates = []corev1.PersistentVolumeClaim{{
 			ObjectMeta: metav1.ObjectMeta{
-				Labels: pvClaimLabels,
-				Name:   pvName,
+				Labels: pvcLabels,
+				Name:   pvcName,
 			},
 			Spec: corev1.PersistentVolumeClaimSpec{
 				AccessModes: []corev1.PersistentVolumeAccessMode{
@@ -321,7 +326,6 @@ func newStatefulSetForDseDatacenter(
 			Labels:    statefulSetLabels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			// TODO adjust this
 			Selector: &metav1.LabelSelector{
 				MatchLabels: statefulSetSelectorLabels,
 			},
@@ -340,6 +344,8 @@ func newStatefulSetForDseDatacenter(
 func newPodDisruptionBudgetForDatacenter(dseDatacenter *datastaxv1alpha1.DseDatacenter) *policyv1beta1.PodDisruptionBudget {
 	minAvailable := intstr.FromInt(int(dseDatacenter.Spec.Size - 1))
 	labels := dseDatacenter.GetDatacenterLabels()
+	oplabels.AddManagedByLabel(labels)
+	selectorLabels := dseDatacenter.GetDatacenterLabels()
 	return &policyv1beta1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dseDatacenter.Name + "-pdb",
@@ -348,7 +354,7 @@ func newPodDisruptionBudgetForDatacenter(dseDatacenter *datastaxv1alpha1.DseData
 		},
 		Spec: policyv1beta1.PodDisruptionBudgetSpec{
 			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
+				MatchLabels: selectorLabels,
 			},
 			MinAvailable: &minAvailable,
 		},

@@ -192,11 +192,12 @@ func TestReconcile_NotFound(t *testing.T) {
 	}
 
 	// Objects to keep track of
+	trackObjects := []runtime.Object{}
 
 	s := scheme.Scheme
 	s.AddKnownTypes(datastaxv1alpha1.SchemeGroupVersion, dseDatacenter)
 
-	fakeClient := fake.NewFakeClient()
+	fakeClient := fake.NewFakeClient(trackObjects...)
 
 	r := &ReconcileDseDatacenter{
 		client: fakeClient,
@@ -215,8 +216,9 @@ func TestReconcile_NotFound(t *testing.T) {
 		t.Fatalf("Reconciliation Failure: (%v)", err)
 	}
 
-	if result != (reconcile.Result{}) {
-		t.Error("Reconcile did not return an empty result.")
+	expected := reconcile.Result{}
+	if result != expected {
+		t.Error("expected to get a zero-value reconcile.Result")
 	}
 }
 
@@ -305,7 +307,6 @@ func TestReconcile_DseDatacenterToBeDeleted(t *testing.T) {
 	}
 
 	// Objects to keep track of
-
 	trackObjects := []runtime.Object{
 		dseDatacenter,
 	}

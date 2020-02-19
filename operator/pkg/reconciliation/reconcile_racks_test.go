@@ -11,6 +11,7 @@ import (
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
+	"github.com/riptano/dse-operator/operator/pkg/oplabels"
 	"github.com/riptano/dse-operator/operator/pkg/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -53,6 +54,7 @@ func Test_validateLabelsForCluster(t *testing.T) {
 			want: true,
 			wantLabels: map[string]string{
 				datastaxv1alpha1.ClusterLabel: "dseCluster",
+				oplabels.ManagedByLabel:       oplabels.ManagedByLabelValue,
 			},
 		}, {
 			name: "Nil labels",
@@ -72,6 +74,7 @@ func Test_validateLabelsForCluster(t *testing.T) {
 			want: true,
 			wantLabels: map[string]string{
 				datastaxv1alpha1.ClusterLabel: "dseCluster",
+				oplabels.ManagedByLabel:       oplabels.ManagedByLabelValue,
 			},
 		},
 		{
@@ -79,6 +82,7 @@ func Test_validateLabelsForCluster(t *testing.T) {
 			args: args{
 				resourceLabels: map[string]string{
 					datastaxv1alpha1.ClusterLabel: "dseCluster",
+					oplabels.ManagedByLabel:       oplabels.ManagedByLabelValue,
 				},
 				rc: &dsereconciliation.ReconciliationContext{
 					DseDatacenter: &datastaxv1alpha1.DseDatacenter{
@@ -94,6 +98,7 @@ func Test_validateLabelsForCluster(t *testing.T) {
 			want: false,
 			wantLabels: map[string]string{
 				datastaxv1alpha1.ClusterLabel: "dseCluster",
+				oplabels.ManagedByLabel:       oplabels.ManagedByLabelValue,
 			},
 		}, {
 			name: "DC Label, No Cluster Label",
@@ -116,6 +121,7 @@ func Test_validateLabelsForCluster(t *testing.T) {
 			wantLabels: map[string]string{
 				datastaxv1alpha1.DatacenterLabel: "dseDC",
 				datastaxv1alpha1.ClusterLabel:    "dseCluster",
+				oplabels.ManagedByLabel:          oplabels.ManagedByLabelValue,
 			},
 		},
 	}
@@ -206,7 +212,10 @@ func TestReconcilePods(t *testing.T) {
 						DseClusterName: "dsedatacenter-example-cluster",
 					},
 				}
-				return reflect.DeepEqual(obj.GetLabels(), dseDatacenter.GetRackLabels("default"))
+				expected := dseDatacenter.GetRackLabels("default")
+				expected[oplabels.ManagedByLabel] = oplabels.ManagedByLabelValue
+
+				return reflect.DeepEqual(obj.GetLabels(), expected)
 			})).
 		Return(nil).
 		Once()
@@ -1096,6 +1105,7 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 		datastaxv1alpha1.ClusterLabel:    clusterName,
 		datastaxv1alpha1.DatacenterLabel: dcName,
 		datastaxv1alpha1.RackLabel:       rackName,
+		oplabels.ManagedByLabel:          oplabels.ManagedByLabelValue,
 	}
 
 	type args struct {
@@ -1176,6 +1186,7 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 					datastaxv1alpha1.ClusterLabel:    clusterName,
 					datastaxv1alpha1.DatacenterLabel: dcName,
 					datastaxv1alpha1.RackLabel:       rackName,
+					oplabels.ManagedByLabel:          oplabels.ManagedByLabelValue,
 				},
 			},
 			want: result{
@@ -1189,6 +1200,7 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 					datastaxv1alpha1.ClusterLabel:    clusterName,
 					datastaxv1alpha1.DatacenterLabel: dcName,
 					datastaxv1alpha1.RackLabel:       rackName,
+					oplabels.ManagedByLabel:          oplabels.ManagedByLabelValue,
 					"foo":                            "bar",
 				},
 			},

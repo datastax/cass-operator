@@ -1,10 +1,9 @@
 package dsedatacenter
 
-//
 // This file creates the DseDatacenter controller and adds it to the Manager.
-//
 
 import (
+	"github.com/riptano/dse-operator/operator/pkg/oplabels"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
@@ -47,18 +46,35 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	// Here we list all the types that we create
-	// that are owned by the primary resource.
+	// Here we list all the types that we create that are owned by the primary resource.
 	//
 	// Watch for changes to secondary resources StatefulSets, PodDisruptionBudgets, and Services and requeue the
 	// DseDatacenter that owns them.
+
+	managedByDseOperatorPredicate := predicate.Funcs{
+		CreateFunc: func(e event.CreateEvent) bool {
+			return oplabels.HasManagedByDseOperatorLabel(e.Meta.GetLabels())
+		},
+		DeleteFunc: func(e event.DeleteEvent) bool {
+			return oplabels.HasManagedByDseOperatorLabel(e.Meta.GetLabels())
+		},
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			return oplabels.HasManagedByDseOperatorLabel(e.MetaOld.GetLabels()) ||
+				oplabels.HasManagedByDseOperatorLabel(e.MetaNew.GetLabels())
+		},
+		GenericFunc: func(e event.GenericEvent) bool {
+			return oplabels.HasManagedByDseOperatorLabel(e.Meta.GetLabels())
+		},
+	}
 
 	err = c.Watch(
 		&source.Kind{Type: &appsv1.StatefulSet{}},
 		&handler.EnqueueRequestForOwner{
 			IsController: true,
 			OwnerType:    &datastaxv1alpha1.DseDatacenter{},
-		})
+		},
+		managedByDseOperatorPredicate,
+	)
 	if err != nil {
 		return err
 	}
@@ -68,7 +84,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&handler.EnqueueRequestForOwner{
 			IsController: true,
 			OwnerType:    &datastaxv1alpha1.DseDatacenter{},
-		})
+		},
+		managedByDseOperatorPredicate,
+	)
 	if err != nil {
 		return err
 	}
@@ -78,44 +96,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&handler.EnqueueRequestForOwner{
 			IsController: true,
 			OwnerType:    &datastaxv1alpha1.DseDatacenter{},
-		})
-	if err != nil {
-		return err
-	}
-
-	err = c.Watch(
-		&source.Kind{Type: &corev1.Pod{}},
-		&handler.EnqueueRequestForObject{},
-		predicate.Funcs{
-			GenericFunc: func(e event.GenericEvent) bool {
-				return isPodOwnedByDseDatacenter(e.Meta.GetLabels())
-			},
-			CreateFunc: func(e event.CreateEvent) bool {
-				return isPodOwnedByDseDatacenter(e.Meta.GetLabels())
-			},
-			UpdateFunc: func(e event.UpdateEvent) bool {
-				return isPodOwnedByDseDatacenter(e.MetaNew.GetLabels()) || isPodOwnedByDseDatacenter(e.MetaOld.GetLabels())
-			},
-			DeleteFunc: func(e event.DeleteEvent) bool {
-				return isPodOwnedByDseDatacenter(e.Meta.GetLabels())
-			},
 		},
+		managedByDseOperatorPredicate,
 	)
 	if err != nil {
 		return err
 	}
 
 	return nil
-}
-
-func isPodOwnedByDseDatacenter(podLabels map[string]string) bool {
-	// if the pod has one of those three labels then it's probably owned by a DseDatacenter
-
-	_, hasDCLabel := podLabels[datastaxv1alpha1.DatacenterLabel]
-	_, hasClusterLabel := podLabels[datastaxv1alpha1.ClusterLabel]
-	_, hasRackLabel := podLabels[datastaxv1alpha1.RackLabel]
-
-	return hasDCLabel || hasClusterLabel || hasRackLabel
 }
 
 var _ reconcile.Reconciler = &reconciliation.ReconcileDseDatacenter{}
