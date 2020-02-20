@@ -5,54 +5,38 @@ import (
 	"os"
 	"strings"
 
-	"github.com/riptano/dse-operator/mage/config"
-	"github.com/riptano/dse-operator/mage/docker"
+	"github.com/magefile/mage/mg"
+	cfgutil "github.com/riptano/dse-operator/mage/config"
+	dockerutil "github.com/riptano/dse-operator/mage/docker"
+	"github.com/riptano/dse-operator/mage/kubectl"
 	"github.com/riptano/dse-operator/mage/operator"
-	"github.com/riptano/dse-operator/mage/sh"
+	shutil "github.com/riptano/dse-operator/mage/sh"
+	mageutil "github.com/riptano/dse-operator/mage/util"
 )
 
 const (
 	operatorImage = "datastax/dse-operator:latest"
 )
 
-func deleteCluster() {
-	// Will error out if we don't already have a running cluster
-	_ = shutil.RunV("kind", "delete", "cluster")
+func deleteCluster() error {
+	return shutil.RunV("kind", "delete", "cluster")
 }
 
 func createCluster() {
-    // We explicitly request a kubernetes v1.15 cluster with --image
+	// We explicitly request a kubernetes v1.15 cluster with --image
 	shutil.RunVPanic(
-        "kind",
-        "create",
-        "cluster",
-        "--config",
-        "operator/deploy/kind/kind-example-config.yaml",
-        "--image",
-        "kindest/node:v1.15.7@sha256:e2df133f80ef633c53c0200114fce2ed5e1f6947477dbc83261a6a921169488d")
-}
-
-func exportKubeConfig() {
-	shutil.RunVPanic("kubectl", "cluster-info", "--context", "kind-kind")
+		"kind",
+		"create",
+		"cluster",
+		"--config",
+		"operator/deploy/kind/kind-example-config.yaml",
+		"--image",
+		"kindest/node:v1.15.7@sha256:e2df133f80ef633c53c0200114fce2ed5e1f6947477dbc83261a6a921169488d")
 }
 
 func loadImage(image string) {
 	fmt.Printf("Loading image in kind: %s", image)
 	shutil.RunVPanic("kind", "load", "docker-image", image)
-}
-
-func createSecret(user string, pw string) {
-	u := fmt.Sprintf("--from-literal=username=%s", user)
-	p := fmt.Sprintf("--from-literal=password=%s", pw)
-	shutil.RunVPanic("kubectl", "create", "secret", "generic", "dse-superuser-secret", u, p)
-}
-
-func applyFile(path string) {
-	shutil.RunVPanic("kubectl", "apply", "-f", path)
-}
-
-func watchPods() {
-	shutil.RunVPanic("watch", "-n1", "kubectl", "get", "pods")
 }
 
 // Install Kind.
@@ -65,9 +49,12 @@ func watchPods() {
 // To get around this, we run the go cli from the /tmp directory
 // and our project will remain untouched.
 func Install() {
+	cwd, err := os.Getwd()
+	mageutil.PanicOnError(err)
 	os.Chdir("/tmp")
 	os.Setenv("GO111MODULE", "on")
 	shutil.RunVPanic("go", "get", "sigs.k8s.io/kind@v0.7.0")
+	os.Chdir(cwd)
 }
 
 // Load the latest operator docker image into a runing kind cluster.
@@ -85,26 +72,58 @@ func ReloadOperator() {
 	fmt.Println("Finished loading new operator image into Kind.")
 }
 
-// Stand up a Kind cluster.
-//
-// Loads all necessary yaml files to get
-// a running DseDatacenter and operator
-func Setup() {
-	settings := cfgutil.ReadBuildSettings()
+/// Stand up an empty Kind cluster.
+///
+/// This will also configure kubectl to point
+/// at the new cluster.
+func SetupEmptyCluster() {
 	deleteCluster()
 	createCluster()
-	exportKubeConfig()
+	kubectl.ClusterInfoForContext("kind-kind").ExecVPanic()
+}
+
+/// Run all Ginkgo integration tests.
+func RunIntegTests() {
+	mg.Deps(SetupEmptyCluster)
+	os.Setenv("CGO_ENABLED", "0")
+
+	args := []string{"test", "-v", "./tests/..."}
+	noColor := os.Getenv("GINKGO_NOCOLOR")
+	if strings.ToLower(noColor) == "true" {
+		args = append(args, "-ginkgo.noColor")
+	}
+
+	shutil.RunVPanic("go", args...)
+
+	err := deleteCluster()
+	mageutil.PanicOnError(err)
+}
+
+// Stand up a example Kind cluster.
+//
+// Loads all necessary resources to get
+// a running DseDatacenter and operator
+func SetupExampleCluster() {
+	mg.Deps(SetupEmptyCluster)
+	settings := cfgutil.ReadBuildSettings()
 	loadImage(settings.Dev.DseImage)
 	loadImage(settings.Dev.ConfigBuilderImage)
 	operator.BuildDocker()
 	loadImage(operatorImage)
-	createSecret("devuser", "devpass")
-	applyFile("operator/deploy/kind/rancher-local-path-storage.yaml")
-	applyFile("operator/deploy/role.yaml")
-	applyFile("operator/deploy/role_binding.yaml")
-	applyFile("operator/deploy/service_account.yaml")
-	applyFile("operator/deploy/crds/datastax.com_dsedatacenters_crd.yaml")
-	applyFile("operator/deploy/operator.yaml")
-	applyFile("operator/deploy/kind/dsedatacenter-one-rack-example.yaml")
-	watchPods()
+	kubectl.CreateSecretLiteral("dse-superuser-secret", "devuser", "devpass").ExecVPanic()
+	kubectl.ApplyFiles(
+		"operator/deploy/kind/rancher-local-path-storage.yaml",
+		"operator/deploy/role.yaml",
+		"operator/deploy/role_binding.yaml",
+		"operator/deploy/service_account.yaml",
+		"operator/deploy/crds/datastax.com_dsedatacenters_crd.yaml",
+		"operator/deploy/operator.yaml",
+		"operator/deploy/kind/dsedatacenter-one-rack-example.yaml",
+	).ExecVPanic()
+	kubectl.WatchPods()
+}
+
+func DeleteCluster() {
+	err := deleteCluster()
+	mageutil.PanicOnError(err)
 }
