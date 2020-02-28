@@ -8,6 +8,7 @@ import (
 	"github.com/magefile/mage/mg"
 	cfgutil "github.com/riptano/dse-operator/mage/config"
 	dockerutil "github.com/riptano/dse-operator/mage/docker"
+	integutil "github.com/riptano/dse-operator/mage/integ-tests"
 	"github.com/riptano/dse-operator/mage/kubectl"
 	"github.com/riptano/dse-operator/mage/operator"
 	shutil "github.com/riptano/dse-operator/mage/sh"
@@ -39,8 +40,6 @@ func loadImage(image string) {
 	shutil.RunVPanic("kind", "load", "docker-image", image)
 }
 
-// Install Kind.
-//
 // Currently there is no concept of "global tool install"
 // with the go cli. With the new module system, your project's
 // go.mod and go.sum files will be updated with new dependencies
@@ -80,21 +79,17 @@ func SetupEmptyCluster() {
 	deleteCluster()
 	createCluster()
 	kubectl.ClusterInfoForContext("kind-kind").ExecVPanic()
+	kubectl.ApplyFiles("operator/deploy/kind/rancher-local-path-storage.yaml").
+		ExecVPanic()
+	//TODO make this part optional
+	operator.BuildDocker()
+	loadImage(operatorImage)
 }
 
 /// Run all Ginkgo integration tests.
 func RunIntegTests() {
 	mg.Deps(SetupEmptyCluster)
-	os.Setenv("CGO_ENABLED", "0")
-
-	args := []string{"test", "-v", "./tests/..."}
-	noColor := os.Getenv("GINKGO_NOCOLOR")
-	if strings.ToLower(noColor) == "true" {
-		args = append(args, "-ginkgo.noColor")
-	}
-
-	shutil.RunVPanic("go", args...)
-
+	integutil.RunAll()
 	err := deleteCluster()
 	mageutil.PanicOnError(err)
 }

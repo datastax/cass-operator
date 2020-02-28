@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dse-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: dse-operator
+  template:
+    metadata:
+      labels:
+        name: dse-operator
+    spec:
+      serviceAccountName: dse-operator
+      containers:
+        - name: dse-operator
+          image: datastax/dse-operator:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: WATCH_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: OPERATOR_NAME
+              value: "dse-operator"

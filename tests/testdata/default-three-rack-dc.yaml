@@ -1,0 +1,25 @@
+apiVersion: datastax.com/v1alpha1
+kind: DseDatacenter
+metadata:
+  name: dc1
+spec:
+  dseClusterName: cluster1
+  dseImage: datastaxlabs/dse-k8s-server:6.8.0-20191113
+  dseVersion: 6.8.0
+  managementApiAuth:
+    insecure: {}
+  configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.4.0-20191113
+  size: 3
+  storageclaim:
+    storageclassname: dse-storage
+    resources:
+      requests:
+        storage: 1Gi
+  racks:
+    - name: r1
+    - name: r2
+    - name: r3
+  config:
+    jvm-server-options:
+      initial_heap_size: "2g"
+      max_heap_size: "2g"

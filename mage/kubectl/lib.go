@@ -2,6 +2,8 @@ package kubectl
 
 import (
 	"fmt"
+	"os"
+	"time"
 
 	shutil "github.com/riptano/dse-operator/mage/sh"
 )
@@ -69,9 +71,19 @@ func (k KCmd) WithFlag(name string, value string) KCmd {
 	return k
 }
 
+func (k KCmd) WithLabel(label string) KCmd {
+	k.Args = append(k.Args, "-l", label)
+	return k
+}
+
 func ClusterInfoForContext(ctxt string) KCmd {
 	args := []string{"--context", ctxt}
 	return KCmd{Command: "cluster-info", Args: args}
+}
+
+func CreateNamespace(namespace string) KCmd {
+	args := []string{"namespace", namespace}
+	return KCmd{Command: "create", Args: args}
 }
 
 func CreateSecretLiteral(name string, user string, pw string) KCmd {
@@ -138,4 +150,61 @@ func ApplyFiles(paths ...string) KCmd {
 		args = append(args, "-f", path)
 	}
 	return KCmd{Command: "apply", Args: args}
+}
+
+func PatchMerge(resource string, data string) KCmd {
+	args := []string{resource, "--patch", data, "--type", "merge"}
+	return KCmd{Command: "patch", Args: args}
+}
+
+func WaitForOutput(k KCmd, expected string, seconds int) error {
+	c := make(chan string)
+	timer := time.NewTimer(time.Duration(seconds) * time.Second)
+	cquit := make(chan bool)
+	defer close(cquit)
+
+	var actual string
+	var err error
+
+	go func() {
+		for actual != expected {
+			select {
+			case <-cquit:
+				return
+			default:
+				actual, err = k.Output()
+				// Execute at most once every second
+				time.Sleep(time.Second)
+			}
+		}
+		c <- actual
+	}()
+
+	select {
+	case <-timer.C:
+		msg := fmt.Sprintf("Timed out waiting for value. Expected %s, but got %s.", expected, actual)
+		if err != nil {
+			msg = fmt.Sprintf("%s\nThe following error occured while querying k8s: %v", msg, err)
+		}
+		e := fmt.Errorf(msg)
+		return e
+	case <-c:
+		return nil
+	}
+}
+
+func DumpAllLogs(path string) KCmd {
+	//Make dir if doesn't exist
+	_ = os.MkdirAll(path, os.ModePerm)
+	args := []string{"dump", "-A"}
+	flags := map[string]string{"output-directory": path}
+	return KCmd{Command: "cluster-info", Args: args, Flags: flags}
+}
+
+func DumpLogs(path string, namespace string) KCmd {
+	//Make dir if doesn't exist
+	_ = os.MkdirAll(path, os.ModePerm)
+	args := []string{"dump", "-n", namespace}
+	flags := map[string]string{"output-directory": path}
+	return KCmd{Command: "cluster-info", Args: args, Flags: flags}
 }
