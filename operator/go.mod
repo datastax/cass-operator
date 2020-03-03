@@ -22,6 +22,7 @@ require (
 	k8s.io/gengo v0.0.0-20191010091904-7fa3014cb28f
 	k8s.io/klog v1.0.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20190918143330-0270cf2f1c1d
+	k8s.io/kubernetes v1.15.4
 	sigs.k8s.io/controller-runtime v0.3.0
 	sigs.k8s.io/controller-tools v0.2.2
 )

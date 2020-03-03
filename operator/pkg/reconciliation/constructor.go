@@ -3,7 +3,11 @@ package reconciliation
 // This file defines constructors for k8s objects
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
+
+	"k8s.io/kubernetes/pkg/util/hash"
 
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
@@ -17,6 +21,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
+
+const resourceHashAnnotationKey = "k8s.datastax.com/resource-hash"
 
 // Creates a headless service object for the DSE Datacenter, for clients wanting to
 // reach out to a ready DSE node for either CQL or mgmt API
@@ -336,6 +342,10 @@ func newStatefulSetForDseDatacenter(
 			VolumeClaimTemplates: volumeCaimTemplates,
 		},
 	}
+	result.Annotations = map[string]string{}
+
+	// add a hash here to facilitate checking if updates are needed for a large chunk of the inputs
+	result.Annotations[resourceHashAnnotationKey] = deepHashString(result)
 
 	return result, nil
 }
@@ -448,4 +458,12 @@ func calculatePodAntiAffinity(allowMultipleNodesPerWorker bool) *corev1.PodAntiA
 			},
 		},
 	}
+}
+
+func deepHashString(obj interface{}) string {
+	hasher := sha256.New()
+	hash.DeepHashObject(hasher, obj)
+	hashBytes := hasher.Sum([]byte{})
+	b64Hash := base64.StdEncoding.EncodeToString(hashBytes)
+	return b64Hash
 }

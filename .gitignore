@@ -100,3 +100,4 @@ operator/vendor
 .settings/
 
 */build
+.DS_Store
