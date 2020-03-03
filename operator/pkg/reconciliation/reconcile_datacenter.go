@@ -33,10 +33,10 @@ func (r *ReconcileDatacenter) Apply() (reconcile.Result, error) {
 	}
 
 	// Update finalizer to allow delete of DseDatacenter
-	r.ReconcileContext.DseDatacenter.SetFinalizers(nil)
+	r.ReconcileContext.Datacenter.SetFinalizers(nil)
 
 	// Update DseDatacenter
-	if err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, r.ReconcileContext.DseDatacenter); err != nil {
+	if err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, r.ReconcileContext.Datacenter); err != nil {
 		r.ReconcileContext.ReqLogger.Error(err, "Failed to update DseDatacenter with removed finalizers")
 		return reconcile.Result{Requeue: true}, err
 	}
@@ -46,7 +46,7 @@ func (r *ReconcileDatacenter) Apply() (reconcile.Result, error) {
 
 // ProcessDeletion ...
 func (r *ReconcileDatacenter) ProcessDeletion() (reconcileriface.Reconciler, error) {
-	if r.ReconcileContext.DseDatacenter.GetDeletionTimestamp() != nil {
+	if r.ReconcileContext.Datacenter.GetDeletionTimestamp() != nil {
 		return &ReconcileDatacenter{
 			ReconcileContext: r.ReconcileContext,
 		}, nil
@@ -63,28 +63,28 @@ func (r *ReconcileDatacenter) deletePVCs() error {
 		if errors.IsNotFound(err) {
 			r.ReconcileContext.ReqLogger.Info(
 				"No PVCs found for DseDatacenter",
-				"dseDatacenterNamespace", r.ReconcileContext.DseDatacenter.Namespace,
-				"dseDatacenterName", r.ReconcileContext.DseDatacenter.Name)
+				"dseDatacenterNamespace", r.ReconcileContext.Datacenter.Namespace,
+				"dseDatacenterName", r.ReconcileContext.Datacenter.Name)
 			return nil
 		}
 		r.ReconcileContext.ReqLogger.Error(err,
 			"Failed to list PVCs for dseDatacenter",
-			"dseDatacenterNamespace", r.ReconcileContext.DseDatacenter.Namespace,
-			"dseDatacenterName", r.ReconcileContext.DseDatacenter.Name)
+			"dseDatacenterNamespace", r.ReconcileContext.Datacenter.Namespace,
+			"dseDatacenterName", r.ReconcileContext.Datacenter.Name)
 		return err
 	}
 
 	r.ReconcileContext.ReqLogger.Info(
 		fmt.Sprintf("Found %d PVCs for dseDatacenter", len(persistentVolumeClaimList.Items)),
-		"dseDatacenterNamespace", r.ReconcileContext.DseDatacenter.Namespace,
-		"dseDatacenterName", r.ReconcileContext.DseDatacenter.Name)
+		"dseDatacenterNamespace", r.ReconcileContext.Datacenter.Namespace,
+		"dseDatacenterName", r.ReconcileContext.Datacenter.Name)
 
 	for _, pvc := range persistentVolumeClaimList.Items {
 		if err := r.ReconcileContext.Client.Delete(r.ReconcileContext.Ctx, &pvc); err != nil {
 			r.ReconcileContext.ReqLogger.Error(err,
 				"Failed to delete PVCs for dseDatacenter",
-				"dseDatacenterNamespace", r.ReconcileContext.DseDatacenter.Namespace,
-				"dseDatacenterName", r.ReconcileContext.DseDatacenter.Name)
+				"dseDatacenterNamespace", r.ReconcileContext.Datacenter.Namespace,
+				"dseDatacenterName", r.ReconcileContext.Datacenter.Name)
 			return err
 		}
 		r.ReconcileContext.ReqLogger.Info(
@@ -100,11 +100,11 @@ func (r *ReconcileDatacenter) listPVCs() (*corev1.PersistentVolumeClaimList, err
 	r.ReconcileContext.ReqLogger.Info("reconciler::listPVCs")
 
 	selector := map[string]string{
-		datastaxv1alpha1.DatacenterLabel: r.ReconcileContext.DseDatacenter.Name,
+		datastaxv1alpha1.DatacenterLabel: r.ReconcileContext.Datacenter.Name,
 	}
 
 	listOptions := &client.ListOptions{
-		Namespace:     r.ReconcileContext.DseDatacenter.Namespace,
+		Namespace:     r.ReconcileContext.Datacenter.Namespace,
 		LabelSelector: labels.SelectorFromSet(selector),
 	}
 

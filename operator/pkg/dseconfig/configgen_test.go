@@ -14,7 +14,7 @@ func TestGetModelValues(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want DseConfigMap
+		want NodeConfig
 	}{
 		{
 			name: "Happy Path",
@@ -23,12 +23,12 @@ func TestGetModelValues(t *testing.T) {
 				clusterName: "cluster-name",
 				dcName:      "dc-name",
 			},
-			want: DseConfigMap{
-				"cluster-info": DseConfigMap{
+			want: NodeConfig{
+				"cluster-info": NodeConfig{
 					"name":  "cluster-name",
 					"seeds": "seed0,seed1,seed2",
 				},
-				"datacenter-info": DseConfigMap{
+				"datacenter-info": NodeConfig{
 					"name": "dc-name",
 				}},
 		},
@@ -39,12 +39,12 @@ func TestGetModelValues(t *testing.T) {
 				clusterName: "cluster-name",
 				dcName:      "dc-name",
 			},
-			want: DseConfigMap{
-				"cluster-info": DseConfigMap{
+			want: NodeConfig{
+				"cluster-info": NodeConfig{
 					"name":  "cluster-name",
 					"seeds": "",
 				},
-				"datacenter-info": DseConfigMap{
+				"datacenter-info": NodeConfig{
 					"name": "dc-name",
 				}},
 		},
@@ -55,12 +55,12 @@ func TestGetModelValues(t *testing.T) {
 				clusterName: "",
 				dcName:      "dc-name",
 			},
-			want: DseConfigMap{
-				"cluster-info": DseConfigMap{
+			want: NodeConfig{
+				"cluster-info": NodeConfig{
 					"name":  "",
 					"seeds": "seed0,seed1,seed2",
 				},
-				"datacenter-info": DseConfigMap{
+				"datacenter-info": NodeConfig{
 					"name": "dc-name",
 				}},
 		},
@@ -71,12 +71,12 @@ func TestGetModelValues(t *testing.T) {
 				clusterName: "cluster-name",
 				dcName:      "",
 			},
-			want: DseConfigMap{
-				"cluster-info": DseConfigMap{
+			want: NodeConfig{
+				"cluster-info": NodeConfig{
 					"name":  "cluster-name",
 					"seeds": "seed0,seed1,seed2",
 				},
-				"datacenter-info": DseConfigMap{
+				"datacenter-info": NodeConfig{
 					"name": "",
 				}},
 		},
@@ -87,12 +87,12 @@ func TestGetModelValues(t *testing.T) {
 				clusterName: "",
 				dcName:      "",
 			},
-			want: DseConfigMap{
-				"cluster-info": DseConfigMap{
+			want: NodeConfig{
+				"cluster-info": NodeConfig{
 					"name":  "",
 					"seeds": "",
 				},
-				"datacenter-info": DseConfigMap{
+				"datacenter-info": NodeConfig{
 					"name": "",
 				}},
 		},

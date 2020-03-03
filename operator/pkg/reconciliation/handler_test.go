@@ -33,7 +33,7 @@ func TestCalculateReconciliationActions(t *testing.T) {
 
 	// Add a service and check the logic
 
-	fakeClient, _ := fakeClientWithService(rc.DseDatacenter)
+	fakeClient, _ := fakeClientWithService(rc.Datacenter)
 	rc.Client = *fakeClient
 
 	result, err = calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileDseDatacenter{client: rc.Client})
@@ -98,7 +98,7 @@ func TestProcessDeletion_FailedDelete(t *testing.T) {
 	k8sMockClientUpdate(mockClient, nil).Times(1)
 
 	now := metav1.Now()
-	rc.DseDatacenter.SetDeletionTimestamp(&now)
+	rc.Datacenter.SetDeletionTimestamp(&now)
 
 	datacenterReconcile, reconcileRacks, reconcileServices := getReconcilers(rc)
 	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileDseDatacenter{client: rc.Client})

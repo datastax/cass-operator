@@ -27,7 +27,7 @@ const resourceHashAnnotationKey = "k8s.datastax.com/resource-hash"
 // Creates a headless service object for the DSE Datacenter, for clients wanting to
 // reach out to a ready DSE node for either CQL or mgmt API
 func newServiceForDseDatacenter(dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
-	svcName := dseDatacenter.GetDseDatacenterServiceName()
+	svcName := dseDatacenter.GetDatacenterServiceName()
 	service := makeGenericHeadlessService(dseDatacenter)
 	service.ObjectMeta.Name = svcName
 	service.Spec.Ports = []corev1.ServicePort{
@@ -114,7 +114,7 @@ func newStatefulSetForDseDatacenter(
 
 	podLabels := dseDatacenter.GetRackLabels(rackName)
 	oplabels.AddManagedByLabel(podLabels)
-	podLabels[datastaxv1alpha1.DseNodeState] = "Ready-to-Start"
+	podLabels[datastaxv1alpha1.NodeState] = "Ready-to-Start"
 
 	// see https://github.com/kubernetes/kubernetes/pull/74941
 	// pvc labels are ignored before k8s 1.15.0
@@ -336,7 +336,7 @@ func newStatefulSetForDseDatacenter(
 				MatchLabels: statefulSetSelectorLabels,
 			},
 			Replicas:             &replicaCountInt32,
-			ServiceName:          dseDatacenter.GetDseDatacenterServiceName(),
+			ServiceName:          dseDatacenter.GetDatacenterServiceName(),
 			PodManagementPolicy:  appsv1.ParallelPodManagement,
 			Template:             template,
 			VolumeClaimTemplates: volumeCaimTemplates,
@@ -385,22 +385,22 @@ func addOperatorProgressLabel(
 
 	labelVal := string(status)
 
-	dcLabels := rc.DseDatacenter.GetLabels()
+	dcLabels := rc.Datacenter.GetLabels()
 	if dcLabels == nil {
 		dcLabels = make(map[string]string)
 	}
 
-	if dcLabels[datastaxv1alpha1.DseOperatorProgressLabel] == labelVal {
+	if dcLabels[datastaxv1alpha1.OperatorProgressLabel] == labelVal {
 		// early return, no need to ping k8s
 		return nil
 	}
 
 	// set the label and push it to k8s
-	dcLabels[datastaxv1alpha1.DseOperatorProgressLabel] = labelVal
-	rc.DseDatacenter.SetLabels(dcLabels)
-	if err := rc.Client.Update(rc.Ctx, rc.DseDatacenter); err != nil {
+	dcLabels[datastaxv1alpha1.OperatorProgressLabel] = labelVal
+	rc.Datacenter.SetLabels(dcLabels)
+	if err := rc.Client.Update(rc.Ctx, rc.Datacenter); err != nil {
 		rc.ReqLogger.Error(err, "error updating label",
-			"label", datastaxv1alpha1.DseOperatorProgressLabel,
+			"label", datastaxv1alpha1.OperatorProgressLabel,
 			"value", labelVal)
 		return err
 	}

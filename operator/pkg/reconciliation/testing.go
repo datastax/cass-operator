@@ -93,7 +93,7 @@ func CreateMockReconciliationContext(
 	rc.Client = fakeClient
 	rc.Scheme = s
 	rc.ReqLogger = reqLogger
-	rc.DseDatacenter = dseDatacenter
+	rc.Datacenter = dseDatacenter
 	rc.Ctx = context.Background()
 
 	res := &http.Response{
@@ -139,7 +139,7 @@ func setupTest() (*dsereconciliation.ReconciliationContext, *corev1.Service, fun
 	cleanupMockScr := MockSetControllerReference()
 
 	rc := CreateMockReconciliationContext(logger)
-	service := newServiceForDseDatacenter(rc.DseDatacenter)
+	service := newServiceForDseDatacenter(rc.Datacenter)
 
 	return rc, service, cleanupMockScr
 }

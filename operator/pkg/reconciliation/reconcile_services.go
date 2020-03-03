@@ -53,7 +53,7 @@ func (r *ReconcileServices) ReconcileHeadlessServices() (reconcileriface.Reconci
 	// unpacking
 	recCtx := r.ReconcileContext
 	logger := recCtx.ReqLogger
-	dseDatacenter := recCtx.DseDatacenter
+	dseDatacenter := recCtx.Datacenter
 	client := recCtx.Client
 
 	logger.Info("reconcile_services::ReconcileHeadlessServices")

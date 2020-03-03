@@ -139,7 +139,7 @@ func (r *ReconcileDseDatacenter) Reconcile(
 		return reconcile.Result{Requeue: true}, err
 	}
 
-	if ok, err := r.isValid(rc.DseDatacenter); !ok {
+	if ok, err := r.isValid(rc.Datacenter); !ok {
 		logger.Error(err, "DseDatacenter resource is invalid.")
 		// No reason to requeue if the resource is invalid as the user will need
 		// to fix it before we can do anything further.
@@ -147,7 +147,7 @@ func (r *ReconcileDseDatacenter) Reconcile(
 	}
 
 	twentySecsAgo := metav1.Now().Add(time.Second * -20)
-	lastNodeStart := rc.DseDatacenter.Status.LastDseNodeStarted
+	lastNodeStart := rc.Datacenter.Status.LastDseNodeStarted
 	dseRecentlyStarted := lastNodeStart.After(twentySecsAgo)
 
 	if dseRecentlyStarted {
@@ -171,12 +171,12 @@ func (r *ReconcileDseDatacenter) Reconcile(
 }
 
 func (r *ReconcileDseDatacenter) addFinalizer(rc *dsereconciliation.ReconciliationContext) error {
-	if len(rc.DseDatacenter.GetFinalizers()) < 1 && rc.DseDatacenter.GetDeletionTimestamp() == nil {
+	if len(rc.Datacenter.GetFinalizers()) < 1 && rc.Datacenter.GetDeletionTimestamp() == nil {
 		rc.ReqLogger.Info("Adding Finalizer for the DseDatacenter")
-		rc.DseDatacenter.SetFinalizers([]string{"com.datastax.dse.finalizer"})
+		rc.Datacenter.SetFinalizers([]string{"com.datastax.dse.finalizer"})
 
 		// Update CR
-		err := r.client.Update(rc.Ctx, rc.DseDatacenter)
+		err := r.client.Update(rc.Ctx, rc.Datacenter)
 		if err != nil {
 			rc.ReqLogger.Error(err, "Failed to update DseDatacenter with finalizer")
 			return err

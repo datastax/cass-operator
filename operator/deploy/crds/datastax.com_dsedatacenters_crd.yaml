@@ -90,7 +90,7 @@ spec:
                 replication factor in the keyspaces you plan to create, and the number
                 of racks cannot easily be changed once a datacenter is deployed.
               items:
-                description: DseRack ...
+                description: Rack ...
                 properties:
                   name:
                     description: The rack name

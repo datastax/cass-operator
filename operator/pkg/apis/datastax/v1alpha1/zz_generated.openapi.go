@@ -115,7 +115,7 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseRack"),
+										Ref: ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.Rack"),
 									},
 								},
 							},
@@ -124,7 +124,7 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 					"storageClaim": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Describes the persistent storage request of each DSE node",
-							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseStorageClaim"),
+							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.StorageClaim"),
 						},
 					},
 					"dseClusterName": {
@@ -181,7 +181,7 @@ func schema_pkg_apis_datastax_v1alpha1_DseDatacenterSpec(ref common.ReferenceCal
 			},
 		},
 		Dependencies: []string{
-			"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseRack", "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.DseStorageClaim", "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.ManagementApiAuthConfig", "k8s.io/api/core/v1.ResourceRequirements"},
+			"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.ManagementApiAuthConfig", "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.Rack", "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.StorageClaim", "k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 

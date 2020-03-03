@@ -3,13 +3,17 @@ package reconciliation
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
+	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
 	"github.com/riptano/dse-operator/operator/pkg/oplabels"
 	"github.com/riptano/dse-operator/operator/pkg/utils"
@@ -41,7 +45,7 @@ func Test_validateLabelsForCluster(t *testing.T) {
 			args: args{
 				resourceLabels: make(map[string]string),
 				rc: &dsereconciliation.ReconciliationContext{
-					DseDatacenter: &datastaxv1alpha1.DseDatacenter{
+					Datacenter: &datastaxv1alpha1.DseDatacenter{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "dseDC",
 						},
@@ -61,7 +65,7 @@ func Test_validateLabelsForCluster(t *testing.T) {
 			args: args{
 				resourceLabels: nil,
 				rc: &dsereconciliation.ReconciliationContext{
-					DseDatacenter: &datastaxv1alpha1.DseDatacenter{
+					Datacenter: &datastaxv1alpha1.DseDatacenter{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "dseDC",
 						},
@@ -85,7 +89,7 @@ func Test_validateLabelsForCluster(t *testing.T) {
 					oplabels.ManagedByLabel:       oplabels.ManagedByLabelValue,
 				},
 				rc: &dsereconciliation.ReconciliationContext{
-					DseDatacenter: &datastaxv1alpha1.DseDatacenter{
+					Datacenter: &datastaxv1alpha1.DseDatacenter{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "dseDC",
 						},
@@ -107,7 +111,7 @@ func Test_validateLabelsForCluster(t *testing.T) {
 					datastaxv1alpha1.DatacenterLabel: "dseDC",
 				},
 				rc: &dsereconciliation.ReconciliationContext{
-					DseDatacenter: &datastaxv1alpha1.DseDatacenter{
+					Datacenter: &datastaxv1alpha1.DseDatacenter{
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "dseDC",
 						},
@@ -127,7 +131,7 @@ func Test_validateLabelsForCluster(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := shouldUpdateLabelsForClusterResource(tt.args.resourceLabels, tt.args.rc.DseDatacenter)
+			got, got1 := shouldUpdateLabelsForClusterResource(tt.args.resourceLabels, tt.args.rc.Datacenter)
 			if got != tt.want {
 				t.Errorf("shouldUpdateLabelsForClusterResource() got = %v, want %v", got, tt.want)
 			}
@@ -148,7 +152,7 @@ func TestReconcileRacks_ReconcilePods(t *testing.T) {
 
 	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
@@ -157,10 +161,10 @@ func TestReconcileRacks_ReconcilePods(t *testing.T) {
 
 	trackObjects := []runtime.Object{
 		desiredStatefulSet,
-		rc.DseDatacenter,
+		rc.Datacenter,
 	}
 
-	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name)
+	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.Datacenter.Spec.DseClusterName, rc.Datacenter.Name)
 	for idx := range mockPods {
 		mp := mockPods[idx]
 		trackObjects = append(trackObjects, mp)
@@ -222,7 +226,7 @@ func TestReconcilePods(t *testing.T) {
 
 	statefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 	statefulSet.Status.Replicas = int32(1)
@@ -243,7 +247,7 @@ func TestReconcilePods_WithVolumes(t *testing.T) {
 
 	statefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 	statefulSet.Status.Replicas = int32(1)
@@ -303,7 +307,7 @@ func TestReconcileNextRack(t *testing.T) {
 
 	statefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
@@ -330,7 +334,7 @@ func TestReconcileNextRack_CreateError(t *testing.T) {
 
 	statefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
@@ -384,7 +388,7 @@ func TestCalculateRackInformation_MultiRack(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	rc.DseDatacenter.Spec.Racks = []v1alpha1.DseRack{{
+	rc.Datacenter.Spec.Racks = []v1alpha1.Rack{{
 		Name: "rack0",
 	}, {
 		Name: "rack1",
@@ -392,7 +396,7 @@ func TestCalculateRackInformation_MultiRack(t *testing.T) {
 		Name: "rack2",
 	}}
 
-	rc.DseDatacenter.Spec.Size = 3
+	rc.Datacenter.Spec.Size = 3
 
 	reconcileRacks := ReconcileRacks{
 		ReconcileContext: rc,
@@ -421,16 +425,16 @@ func TestReconcileRacks(t *testing.T) {
 
 	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
 	trackObjects := []runtime.Object{
 		desiredStatefulSet,
-		rc.DseDatacenter,
+		rc.Datacenter,
 	}
 
-	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name)
+	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.Datacenter.Spec.DseClusterName, rc.Datacenter.Name)
 	for idx := range mockPods {
 		mp := mockPods[idx]
 		trackObjects = append(trackObjects, mp)
@@ -496,7 +500,7 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 
 	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
@@ -504,7 +508,7 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 		desiredStatefulSet,
 	}
 
-	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name)
+	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.Datacenter.Spec.DseClusterName, rc.Datacenter.Name)
 	for idx := range mockPods {
 		mp := mockPods[idx]
 		trackObjects = append(trackObjects, mp)
@@ -540,7 +544,7 @@ func TestReconcileRacks_NeedMoreReplicas(t *testing.T) {
 
 	preExistingStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
@@ -576,7 +580,7 @@ func TestReconcileRacks_DoesntScaleDown(t *testing.T) {
 
 	preExistingStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
@@ -584,7 +588,7 @@ func TestReconcileRacks_DoesntScaleDown(t *testing.T) {
 		preExistingStatefulSet,
 	}
 
-	mockPods := mockReadyPodsForStatefulSet(preExistingStatefulSet, rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name)
+	mockPods := mockReadyPodsForStatefulSet(preExistingStatefulSet, rc.Datacenter.Spec.DseClusterName, rc.Datacenter.Name)
 	for idx := range mockPods {
 		mp := mockPods[idx]
 		trackObjects = append(trackObjects, mp)
@@ -618,20 +622,20 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 
 	preExistingStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		3)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
 	trackObjects := []runtime.Object{
 		preExistingStatefulSet,
-		rc.DseDatacenter,
+		rc.Datacenter,
 	}
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
 	var rackInfo []*dsereconciliation.RackInformation
 
-	rc.DseDatacenter.Spec.Parked = true
+	rc.Datacenter.Spec.Parked = true
 	nextRack := &dsereconciliation.RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 0
@@ -665,17 +669,17 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 
 	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		"default",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
 	desiredStatefulSet.Status.ReadyReplicas = 2
 
-	desiredPdb := newPodDisruptionBudgetForDatacenter(rc.DseDatacenter)
+	desiredPdb := newPodDisruptionBudgetForDatacenter(rc.Datacenter)
 
 	trackObjects := []runtime.Object{
 		desiredStatefulSet,
-		rc.DseDatacenter,
+		rc.Datacenter,
 		desiredPdb,
 	}
 
@@ -709,7 +713,7 @@ func TestReconcileRacks_FirstRackAlreadyReconciled(t *testing.T) {
 
 	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		"rack0",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
@@ -717,7 +721,7 @@ func TestReconcileRacks_FirstRackAlreadyReconciled(t *testing.T) {
 
 	secondDesiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		"rack1",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		1)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 	secondDesiredStatefulSet.Status.ReadyReplicas = 1
@@ -725,7 +729,7 @@ func TestReconcileRacks_FirstRackAlreadyReconciled(t *testing.T) {
 	trackObjects := []runtime.Object{
 		desiredStatefulSet,
 		secondDesiredStatefulSet,
-		rc.DseDatacenter,
+		rc.Datacenter,
 	}
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
@@ -803,7 +807,7 @@ func TestReconcileRacks_UpdateRackNodeCount(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			trackObjects := []runtime.Object{
 				tt.args.statefulSet,
-				rc.DseDatacenter,
+				rc.Datacenter,
 			}
 
 			reconcileRacks.ReconcileContext.Client = fake.NewFakeClient(trackObjects...)
@@ -826,19 +830,19 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 
 	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
 		"rack0",
-		rc.DseDatacenter,
+		rc.Datacenter,
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
 	desiredStatefulSet.Status.ReadyReplicas = 2
 
-	desiredPdb := newPodDisruptionBudgetForDatacenter(rc.DseDatacenter)
+	desiredPdb := newPodDisruptionBudgetForDatacenter(rc.Datacenter)
 
-	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.DseDatacenter.Spec.DseClusterName, rc.DseDatacenter.Name)
+	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.Datacenter.Spec.DseClusterName, rc.Datacenter.Name)
 
 	trackObjects := []runtime.Object{
 		desiredStatefulSet,
-		rc.DseDatacenter,
+		rc.Datacenter,
 		desiredPdb,
 	}
 	for idx := range mockPods {
@@ -880,7 +884,7 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 
 	configJson := []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\"}}")
 
-	rc.DseDatacenter.Spec.Config = configJson
+	rc.Datacenter.Spec.Config = configJson
 
 	reconcileRacks = ReconcileRacks{
 		ReconcileContext:       rc,
@@ -913,7 +917,7 @@ func mockReadyPodsForStatefulSet(sts *appsv1.StatefulSet, cluster, dc string) []
 		pod.Labels = make(map[string]string)
 		pod.Labels[datastaxv1alpha1.ClusterLabel] = cluster
 		pod.Labels[datastaxv1alpha1.DatacenterLabel] = dc
-		pod.Labels[datastaxv1alpha1.DseNodeState] = "Started"
+		pod.Labels[datastaxv1alpha1.NodeState] = "Started"
 		pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
 			Ready: true,
 		}}
@@ -925,7 +929,7 @@ func mockReadyPodsForStatefulSet(sts *appsv1.StatefulSet, cluster, dc string) []
 func makeMockReadyStartedPod() *corev1.Pod {
 	pod := &corev1.Pod{}
 	pod.Labels = make(map[string]string)
-	pod.Labels[datastaxv1alpha1.DseNodeState] = "Started"
+	pod.Labels[datastaxv1alpha1.NodeState] = "Started"
 	pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
 		Name:  "dse",
 		Ready: true,
@@ -1230,5 +1234,112 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func makeReloadTestPod() *corev1.Pod {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mypod",
+			Namespace: "default",
+			Labels: map[string]string{
+				datastaxv1alpha1.ClusterLabel:    "mycluster",
+				datastaxv1alpha1.DatacenterLabel: "mydc",
+			},
+		},
+	}
+	return pod
+}
+
+func Test_callPodEndpoint(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	res := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       ioutil.NopCloser(strings.NewReader("OK")),
+	}
+
+	mockHttpClient := &mocks.HttpClient{}
+	mockHttpClient.On("Do",
+		mock.MatchedBy(
+			func(req *http.Request) bool {
+				return req != nil
+			})).
+		Return(res, nil).
+		Once()
+
+	client := httphelper.NodeMgmtClient{
+		Client:   mockHttpClient,
+		Log:      rc.ReqLogger,
+		Protocol: "http",
+	}
+
+	pod := makeReloadTestPod()
+
+	if err := client.CallReloadSeedsEndpoint(pod); err != nil {
+		assert.Fail(t, "Should not have returned error")
+	}
+}
+
+func Test_callPodEndpoint_BadStatus(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	res := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Body:       ioutil.NopCloser(strings.NewReader("OK")),
+	}
+
+	mockHttpClient := &mocks.HttpClient{}
+	mockHttpClient.On("Do",
+		mock.MatchedBy(
+			func(req *http.Request) bool {
+				return req != nil
+			})).
+		Return(res, nil).
+		Once()
+
+	client := httphelper.NodeMgmtClient{
+		Client:   mockHttpClient,
+		Log:      rc.ReqLogger,
+		Protocol: "http",
+	}
+
+	pod := makeReloadTestPod()
+
+	if err := client.CallReloadSeedsEndpoint(pod); err == nil {
+		assert.Fail(t, "Should have returned error")
+	}
+}
+
+func Test_callPodEndpoint_RequestFail(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	res := &http.Response{
+		StatusCode: http.StatusInternalServerError,
+		Body:       ioutil.NopCloser(strings.NewReader("OK")),
+	}
+
+	mockHttpClient := &mocks.HttpClient{}
+	mockHttpClient.On("Do",
+		mock.MatchedBy(
+			func(req *http.Request) bool {
+				return req != nil
+			})).
+		Return(res, fmt.Errorf("")).
+		Once()
+
+	client := httphelper.NodeMgmtClient{
+		Client:   mockHttpClient,
+		Log:      rc.ReqLogger,
+		Protocol: "http",
+	}
+
+	pod := makeReloadTestPod()
+
+	if err := client.CallReloadSeedsEndpoint(pod); err == nil {
+		assert.Fail(t, "Should have returned error")
 	}
 }

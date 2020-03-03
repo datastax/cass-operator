@@ -19,23 +19,23 @@ const (
 
 	defaultConfigBuilderImage = "datastaxlabs/dse-k8s-config-builder:0.4.0-20191113"
 
-	// ClusterLabel is the DSE operator's label for the DSE cluster name
+	// ClusterLabel is the label for the cluster name
 	ClusterLabel = "com.datastax.dse.cluster"
 
-	// DatacenterLabel is the DSE operator's label for the DSE datacenter name
+	// DatacenterLabel is the label for the datacenter name
 	DatacenterLabel = "com.datastax.dse.datacenter"
 
-	// SeedNodeLabel is the DSE operator's label for the DSE seed node state
+	// SeedNodeLabel is the label for the seed node state
 	SeedNodeLabel = "com.datastax.dse.seednode"
 
-	// RackLabel is the DSE operator's label for the DSE rack name
+	// RackLabel is the label for the rack name
 	RackLabel = "com.datastax.dse.rack"
 
-	// RackLabel is the DSE operator's label for the DSE rack name
-	DseOperatorProgressLabel = "com.datastax.dse.operator.progress"
+	// OperatorProgressLabel is the label for the operator's progress on reconciling the DseDatacenter
+	OperatorProgressLabel = "com.datastax.dse.operator.progress"
 
-	// DseNodeState
-	DseNodeState = "com.datastax.dse.node.state"
+	// NodeState is the label for the state of the node - Ready-to-Start, Starting, Started, etc.
+	NodeState = "com.datastax.dse.node.state"
 )
 
 // getDseImageFromVersion tries to look up a known DSE image
@@ -100,9 +100,9 @@ type DseDatacenterSpec struct {
 	// A list of the named racks in the datacenter, representing independent failure domains. The
 	// number of racks should match the replication factor in the keyspaces you plan to create, and
 	// the number of racks cannot easily be changed once a datacenter is deployed.
-	Racks []DseRack `json:"racks,omitempty"`
+	Racks []Rack `json:"racks,omitempty"`
 	// Describes the persistent storage request of each DSE node
-	StorageClaim *DseStorageClaim `json:"storageClaim,omitempty"`
+	StorageClaim *StorageClaim `json:"storageClaim,omitempty"`
 	// The name by which CQL clients and DSE instances will know the DSE cluster. If the same
 	// cluster name is shared by multiple DseDatacenters in the same Kubernetes namespace,
 	// they will join together in a multi-datacenter DSE cluster.
@@ -126,29 +126,29 @@ type DseDatacenterSpec struct {
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 }
 
-// GetRacks is a getter for the DseRack slice in the spec
+// GetRacks is a getter for the Rack slice in the spec
 // It ensures there is always at least one rack
 // FIXME move this onto the DseDatacenter for consistency?
-func (s *DseDatacenterSpec) GetRacks() []DseRack {
+func (s *DseDatacenterSpec) GetRacks() []Rack {
 	if len(s.Racks) >= 1 {
 		return s.Racks
 	}
 
-	return []DseRack{{
+	return []Rack{{
 		Name: "default",
 	}}
 }
 
-// DseRack ...
-type DseRack struct {
+// Rack ...
+type Rack struct {
 	// The rack name
 	Name string `json:"name"`
 	// Zone name to pin the rack, using node affinity
 	Zone string `json:"zone,omitempty"`
 }
 
-// DseStorageClaim ...
-type DseStorageClaim struct {
+// StorageClaim ...
+type StorageClaim struct {
 	StorageClassName string `json:"storageclassname"`
 	// Resource requirements
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
@@ -282,7 +282,7 @@ func (dc *DseDatacenter) GetAllPodsServiceName() string {
 	return dc.Spec.DseClusterName + "-" + dc.Name + "-all-pods-service"
 }
 
-func (dc *DseDatacenter) GetDseDatacenterServiceName() string {
+func (dc *DseDatacenter) GetDatacenterServiceName() string {
 	return dc.Spec.DseClusterName + "-" + dc.Name + "-service"
 }
 

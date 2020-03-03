@@ -19,7 +19,7 @@ type ReconciliationContext struct {
 	Request        *reconcile.Request
 	Client         client.Client
 	Scheme         *runtime.Scheme
-	DseDatacenter  *datastaxv1alpha1.DseDatacenter
+	Datacenter     *datastaxv1alpha1.DseDatacenter
 	NodeMgmtClient httphelper.NodeMgmtClient
 	// Note that logr.Logger is an interface,
 	// so we do not want to store a pointer to it
@@ -56,14 +56,14 @@ func CreateReconciliationContext(
 		rc.ReqLogger.Error(err, "error in retrieveDseDatacenter")
 		return nil, err
 	}
-	rc.DseDatacenter = dseDatacenter
+	rc.Datacenter = dseDatacenter
 
 	// workaround for kubernetes having problems with zero-value and nil Times
-	if rc.DseDatacenter.Status.SuperUserUpserted.IsZero() {
-		rc.DseDatacenter.Status.SuperUserUpserted = metav1.Unix(1, 0)
+	if rc.Datacenter.Status.SuperUserUpserted.IsZero() {
+		rc.Datacenter.Status.SuperUserUpserted = metav1.Unix(1, 0)
 	}
-	if rc.DseDatacenter.Status.LastDseNodeStarted.IsZero() {
-		rc.DseDatacenter.Status.LastDseNodeStarted = metav1.Unix(1, 0)
+	if rc.Datacenter.Status.LastDseNodeStarted.IsZero() {
+		rc.Datacenter.Status.LastDseNodeStarted = metav1.Unix(1, 0)
 	}
 
 	httpClient, err := httphelper.BuildManagementApiHttpClient(dseDatacenter, client, rc.Ctx)
