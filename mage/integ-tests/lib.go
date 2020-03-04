@@ -15,7 +15,7 @@ const (
 	envGinkgoNoColor = "M_GINKGO_NOCOLOR"
 )
 
-func listTestSuiteDirs() []string {
+func getTestSuiteDirs() []string {
 	contents, err := ioutil.ReadDir("./tests")
 	mageutil.PanicOnError(err)
 	var testDirs []string
@@ -27,40 +27,57 @@ func listTestSuiteDirs() []string {
 	return testDirs
 }
 
-/// Prints a comma-delimited list of test suite dirs.
-/// This is mainly useful for a CI pipeline.
+// Prints a comma-delimited list of test suite dirs.
+// This is mainly useful for a CI pipeline.
 func List() {
-	dirs := listTestSuiteDirs()
+	dirs := getTestSuiteDirs()
 	fmt.Println(strings.Join(dirs, ","))
 }
 
-func runGinkgoTests(path string) {
+func runGinkgoTestSuite(path string) {
 	os.Setenv("CGO_ENABLED", "0")
-	args := []string{"test", "-timeout", "99999s", "-v"}
+	args := []string{
+		"test",
+		"-timeout", "99999s",
+		"-v",
+		"--ginkgo.v",
+		"--ginkgo.progress",
+	}
 	noColor := os.Getenv(envGinkgoNoColor)
 	if strings.ToLower(noColor) == "true" {
 		args = append(args, "--ginkgo.noColor")
 	}
-
 	args = append(args, path)
+
+	cwd, _ := os.Getwd()
+
+	err := os.Chdir(path)
+	mageutil.PanicOnError(err)
+
 	shutil.RunVPanic("go", args...)
 
-}
-
-/// Run all ginkgo integration tests.
-func RunAll() {
-	runGinkgoTests("./tests/...")
-}
-
-/// Run a single ginkgo integration test.
-///
-/// This target requires that the env var
-/// M_INTEG_DIR is set to the desired test
-/// suite directory name.
-func RunSingle() {
-	integDir := mageutil.RequireEnv(envIntegDir)
-	dir := fmt.Sprintf("./tests/%s", integDir)
-	err := os.Chdir(dir)
+	err = os.Chdir(cwd)
 	mageutil.PanicOnError(err)
-	runGinkgoTests("./")
+}
+
+// Run ginkgo integration tests.
+//
+// Default behavior is to discover and run
+// all test suites located under the ./tests/ directory.
+//
+// To run a single test suite, specify the name of the suite
+// directory in env var M_INTEG_DIR
+func Run() {
+	var testDirs []string
+	integDir := os.Getenv(envIntegDir)
+	if integDir != "" {
+		testDirs = []string{integDir}
+	} else {
+		testDirs = getTestSuiteDirs()
+	}
+
+	for _, dir := range testDirs {
+		path := fmt.Sprintf("./tests/%s", dir)
+		runGinkgoTestSuite(path)
+	}
 }

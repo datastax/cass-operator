@@ -30,7 +30,7 @@ func createCluster() {
 		"create",
 		"cluster",
 		"--config",
-		"operator/deploy/kind/kind-example-config.yaml",
+		"tests/testdata/kind/kind_config_6_workers.yaml",
 		"--image",
 		"kindest/node:v1.15.7@sha256:e2df133f80ef633c53c0200114fce2ed5e1f6947477dbc83261a6a921169488d")
 }
@@ -71,10 +71,10 @@ func ReloadOperator() {
 	fmt.Println("Finished loading new operator image into Kind.")
 }
 
-/// Stand up an empty Kind cluster.
-///
-/// This will also configure kubectl to point
-/// at the new cluster.
+// Stand up an empty Kind cluster.
+//
+// This will also configure kubectl to point
+// at the new cluster.
 func SetupEmptyCluster() {
 	deleteCluster()
 	createCluster()
@@ -86,10 +86,16 @@ func SetupEmptyCluster() {
 	loadImage(operatorImage)
 }
 
-/// Run all Ginkgo integration tests.
+// Bootstrap a KIND cluster, then run Ginkgo integration tests.
+//
+// Default behavior is to discover and run
+// all test suites located under the ./tests/ directory.
+//
+// To run a single test suite, specify the name of the suite
+// directory in env var M_INTEG_DIR
 func RunIntegTests() {
 	mg.Deps(SetupEmptyCluster)
-	integutil.RunAll()
+	integutil.Run()
 	err := deleteCluster()
 	mageutil.PanicOnError(err)
 }

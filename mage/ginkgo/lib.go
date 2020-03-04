@@ -2,7 +2,9 @@ package ginkgo_util
 
 import (
 	"fmt"
+	"os"
 	"regexp"
+	"strings"
 	"time"
 
 	ginkgo "github.com/onsi/ginkgo"
@@ -10,6 +12,10 @@ import (
 
 	"github.com/riptano/dse-operator/mage/kubectl"
 	mageutil "github.com/riptano/dse-operator/mage/util"
+)
+
+const (
+	envNoCleanup = "M_NO_CLEANUP"
 )
 
 // Wrapper type to make it simpler to
@@ -67,6 +73,24 @@ func (k *NsWrapper) countStep() int {
 	n := k.stepCounter
 	k.stepCounter++
 	return n
+}
+
+func (k NsWrapper) Terminate() error {
+	noCleanup := os.Getenv(envNoCleanup)
+	if strings.ToLower(noCleanup) == "true" {
+		fmt.Println("Skipping namespace cleanup and deletion.")
+		return nil
+	}
+
+	fmt.Println("Cleaning up and deleting namespace.")
+	// Always try to delete the dc that was used in the test
+	// incase the test failed out before a delete step.
+	//
+	// This is important because deleting the namespace itself
+	// can hang if this step is skipped.
+	kcmd := kubectl.Delete("dsedatacenter", "--all")
+	_ = k.ExecV(kcmd)
+	return kubectl.DeleteByTypeAndName("namespace", k.Namespace).ExecV()
 }
 
 //===================================

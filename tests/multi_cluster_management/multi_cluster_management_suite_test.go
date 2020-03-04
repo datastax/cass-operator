@@ -1,4 +1,4 @@
-package lifecycle_park_terminate
+package multi_cluster_management
 
 import (
 	"fmt"
@@ -12,13 +12,11 @@ import (
 )
 
 var (
-	testName         = "Park and Terminate"
-	dcName           = "dc1"
-	dcYaml           = "../testdata/default-three-rack-dc.yaml"
+	testName         = "Multi-cluster Management"
+	namespace        = "multi-cluster-management"
+	dcNames          = [2]string{"dc1", "dc2"}
+	dcYamls          = [2]string{"../testdata/default-three-rack-three-node-dc.yaml", "../testdata/default-single-rack-single-node-dc.yaml"}
 	operatorYaml     = "../testdata/operator.yaml"
-	dcResource       = fmt.Sprintf("DseDatacenter/%s", dcName)
-	dcLabel          = fmt.Sprintf("com.datastax.dse.datacenter=%s", dcName)
-	namespace        = "park-and-terminate"
 	ns               = ginkgo_util.NewWrapper(testName, namespace)
 	defaultResources = []string{
 		"../../operator/deploy/role.yaml",
@@ -28,11 +26,20 @@ var (
 	}
 )
 
+func dcResourceForName(dcName string) string {
+	return fmt.Sprintf("DseDatacenter/%s", dcName)
+}
+
+func dcLabelForName(dcName string) string {
+	return fmt.Sprintf("com.datastax.dse.datacenter=%s", dcName)
+}
+
 func TestLifecycle(t *testing.T) {
 	AfterSuite(func() {
 		logPath := fmt.Sprintf("%s/aftersuite", ns.LogDir)
 		kubectl.DumpAllLogs(logPath).ExecV()
 		fmt.Printf("\n\tPost-run logs dumped at: %s\n\n", logPath)
+		_ = ns.Terminate()
 	})
 
 	RegisterFailHandler(Fail)
@@ -41,7 +48,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator can park, and terminate a dse datacenter", func() {
+		Specify("the operator manages multiple clusters in the same namespace", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
@@ -63,49 +70,68 @@ var _ = Describe(testName, func() {
 			ns.WaitForOutputAndLog(step, k, "true", 120)
 
 			step = "creating a datacenter resource with 3 racks/3 nodes"
-			k = kubectl.ApplyFiles(dcYaml)
+			k = kubectl.ApplyFiles(dcYamls[0])
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the dse nodes to become ready"
+			step = "creating another datacenter resource with 1 rack/1 node"
+			k = kubectl.ApplyFiles(dcYamls[1])
+			ns.ExecAndLog(step, k)
+
+			step = "waiting for the dse node to become ready"
 			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
 			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
+				WithLabel(dcLabelForName(dcNames[0])).
 				WithFlag("field-selector", "status.phase=Running").
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true true true", 1200)
 
+			step = "waiting for the nodes to become ready"
+			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
+			k = kubectl.Get("Pods").
+				WithLabel(dcLabelForName(dcNames[1])).
+				WithFlag("field-selector", "status.phase=Running").
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "true", 1200)
+
 			step = "checking the dc label com.datastax.dse.operator.progress is set to Ready"
 			json = "jsonpath={.metadata.labels['com\\.datastax\\.dse\\.operator\\.progress']}"
-			k = kubectl.Get(dcResource).
+			k = kubectl.Get(dcResourceForName(dcNames[0])).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
 
-			step = "parking the dc"
-			json = "{\"spec\": {\"parked\": true}}"
-			k = kubectl.PatchMerge(dcResource, json)
-			ns.ExecAndLog(step, k)
-
-			step = "checking the spec size hasn't changed"
-			json = "jsonpath={.spec.size}"
-			k = kubectl.Get(dcResource).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "3", 20)
-
-			step = "checking that no dc pods remain"
-			json = "jsonpath={.items}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "[]", 300)
-
-			step = "deleting the dc"
-			k = kubectl.DeleteFromFiles(dcYaml)
+			step = "deleting the first dc"
+			k = kubectl.DeleteFromFiles(dcYamls[0])
 			ns.ExecAndLog(step, k)
 
 			step = "checking that the dc no longer exists"
 			json = "jsonpath={.items}"
 			k = kubectl.Get("DseDatacenter").
-				WithLabel(dcLabel).
+				WithLabel(dcLabelForName(dcNames[0])).
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "[]", 300)
+
+			step = "checking that no dc pods remain"
+			json = "jsonpath={.items}"
+			k = kubectl.Get("pods").
+				WithLabel(dcLabelForName(dcNames[0])).
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "[]", 300)
+
+			step = "deleting the second dc"
+			k = kubectl.DeleteFromFiles(dcYamls[1])
+			ns.ExecAndLog(step, k)
+
+			step = "checking that the dc no longer exists"
+			json = "jsonpath={.items}"
+			k = kubectl.Get("DseDatacenter").
+				WithLabel(dcLabelForName(dcNames[1])).
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "[]", 300)
+
+			step = "checking that no dc pods remain"
+			json = "jsonpath={.items}"
+			k = kubectl.Get("pods").
+				WithLabel(dcLabelForName(dcNames[1])).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "[]", 300)
 		})

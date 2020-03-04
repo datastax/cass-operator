@@ -10,7 +10,7 @@ spec:
     insecure: {}
   configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.4.0-20191113
   size: 3
-  storageclaim:
+  storageClaim:
     storageclassname: dse-storage
     resources:
       requests:
@@ -21,5 +21,5 @@ spec:
     - name: r3
   config:
     jvm-server-options:
-      initial_heap_size: "2g"
-      max_heap_size: "2g"
+      initial_heap_size: "600m"
+      max_heap_size: "600m"
