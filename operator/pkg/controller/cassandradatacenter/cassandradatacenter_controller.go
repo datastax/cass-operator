@@ -4,6 +4,8 @@ import (
 	"context"
 
 	cassandrav1alpha2 "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
+	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -100,54 +102,63 @@ func (r *ReconcileCassandraDatacenter) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
-	// Define a new Pod object
-	pod := newPodForCR(instance)
+	// WIP - just create a DseDatacenter
+
+	// Define a new DseDatacenter object
+	dseDc := newDseDatacenter(instance)
 
 	// Set CassandraDatacenter instance as the owner and controller
-	if err := controllerutil.SetControllerReference(instance, pod, r.scheme); err != nil {
+	if err := controllerutil.SetControllerReference(instance, dseDc, r.scheme); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Check if this Pod already exists
-	found := &corev1.Pod{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: pod.Name, Namespace: pod.Namespace}, found)
+	// Check if this dseDc already exists
+	found := &datastaxv1alpha1.DseDatacenter{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: dseDc.Name, Namespace: dseDc.Namespace}, found)
 	if err != nil && errors.IsNotFound(err) {
-		reqLogger.Info("Creating a new Pod", "Pod.Namespace", pod.Namespace, "Pod.Name", pod.Name)
-		err = r.client.Create(context.TODO(), pod)
+		reqLogger.Info("Creating a new DseDatacenter", "dseDc.Namespace", dseDc.Namespace, "dseDc.Name", dseDc.Name)
+		err = r.client.Create(context.TODO(), dseDc)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 
-		// Pod created successfully - don't requeue
+		// DseDc created successfully - don't requeue
 		return reconcile.Result{}, nil
 	} else if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	// Pod already exists - don't requeue
-	reqLogger.Info("Skip reconcile: Pod already exists", "Pod.Namespace", found.Namespace, "Pod.Name", found.Name)
+	// dseDc already exists - don't requeue
+	reqLogger.Info("Skip reconcile: DseDatacenter already exists", "dseDc.Namespace", found.Namespace, "dseDc.Name", found.Name)
+
 	return reconcile.Result{}, nil
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *cassandrav1alpha2.CassandraDatacenter) *corev1.Pod {
+func newDseDatacenter(cr *cassandrav1alpha2.CassandraDatacenter) *datastaxv1alpha1.DseDatacenter {
 	labels := map[string]string{
 		"app": cr.Name,
 	}
-	return &corev1.Pod{
+	return &datastaxv1alpha1.DseDatacenter{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
+			Name:      cr.Name + "-dse",
 			Namespace: cr.Namespace,
 			Labels:    labels,
 		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
+		Spec: datastaxv1alpha1.DseDatacenterSpec{
+			Size:                        cr.Spec.Size,
+			DseVersion:                  cr.Spec.ImageVersion,
+			DseImage:                    cr.Spec.ServerImage,
+			Config:                      cr.Spec.Config,
+			ManagementApiAuth:           cr.Spec.ManagementApiAuth,
+			Resources:                   cr.Spec.Resources,
+			Racks:                       cr.Spec.Racks,
+			StorageClaim:                cr.Spec.StorageClaim,
+			DseClusterName:              cr.Spec.ClusterName,
+			Parked:                      cr.Spec.Parked,
+			ConfigBuilderImage:          cr.Spec.ConfigBuilderImage,
+			CanaryUpgrade:               cr.Spec.CanaryUpgrade,
+			AllowMultipleNodesPerWorker: cr.Spec.AllowMultipleNodesPerWorker,
+			ServiceAccount:              cr.Spec.ServiceAccount,
 		},
 	}
 }

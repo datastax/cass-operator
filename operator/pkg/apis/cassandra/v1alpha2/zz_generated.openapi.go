@@ -67,8 +67,128 @@ func schema_pkg_apis_cassandra_v1alpha2_CassandraDatacenterSpec(ref common.Refer
 			SchemaProps: spec.SchemaProps{
 				Description: "CassandraDatacenterSpec defines the desired state of CassandraDatacenter",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"size": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Desired number of server nodes",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"imageVersion": {
+						SchemaProps: spec.SchemaProps{
+							Description: "version number",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverImage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Server image name. More info: https://kubernetes.io/docs/concepts/containers/images",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serverType": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Server type: \"cassandra\" or \"dse\"",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"config": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Config for the server, in YAML format",
+							Type:        []string{"string"},
+							Format:      "byte",
+						},
+					},
+					"managementApiAuth": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Config for the Management API certificates",
+							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.ManagementApiAuthConfig"),
+						},
+					},
+					"resources": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Kubernetes resource requests and limits, per pod",
+							Ref:         ref("k8s.io/api/core/v1.ResourceRequirements"),
+						},
+					},
+					"racks": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A list of the named racks in the datacenter, representing independent failure domains. The number of racks should match the replication factor in the keyspaces you plan to create, and the number of racks cannot easily be changed once a datacenter is deployed.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.Rack"),
+									},
+								},
+							},
+						},
+					},
+					"storageClaim": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Describes the persistent storage request of each server node",
+							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.StorageClaim"),
+						},
+					},
+					"clusterName": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name by which CQL clients and instances will know the cluster. If the same cluster name is shared by multiple Datacenters in the same Kubernetes namespace, they will join together in a multi-datacenter cluster.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"parked": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Indicates no server instances should run, like powering down bare metal servers. Volume resources will be left intact in Kubernetes and re-attached when the cluster is unparked. This is an experimental feature that requires that pod ip addresses do not change on restart.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"configBuilderImage": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Container image for the config builder init container, with host, path, and tag",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"canaryUpgrade": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Indicates configuration and container image changes should only be pushed to the first rack of the datacenter",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"allowMultipleNodesPerWorker": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Turning this option on allows multiple server pods to be created on a k8s worker node. By default the operator creates just one server pod per k8s worker node using k8s podAntiAffinity and requiredDuringSchedulingIgnoredDuringExecution.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"superuserSecret": {
+						SchemaProps: spec.SchemaProps{
+							Description: "This secret defines the username and password for the Server superuser.",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+					"serviceAccount": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The k8s service account to use for the server pods",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
+				Required: []string{"size", "imageVersion", "serverType", "clusterName"},
 			},
 		},
+		Dependencies: []string{
+			"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.ManagementApiAuthConfig", "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.Rack", "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.StorageClaim", "k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 
@@ -78,7 +198,31 @@ func schema_pkg_apis_cassandra_v1alpha2_CassandraDatacenterStatus(ref common.Ref
 			SchemaProps: spec.SchemaProps{
 				Description: "CassandraDatacenterStatus defines the observed state of CassandraDatacenter",
 				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"nodes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The number of the DSE server nodes",
+							Type:        []string{"integer"},
+							Format:      "int32",
+						},
+					},
+					"superUserUpserted": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The timestamp at which CQL superuser credentials were last upserted to the DSE management API",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+					"lastServerNodeStarted": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The timestamp when the operator last started a Server node with the management API",
+							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
+						},
+					},
+				},
+				Required: []string{"nodes"},
 			},
 		},
+		Dependencies: []string{
+			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }

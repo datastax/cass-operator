@@ -1,0 +1,20 @@
+apiVersion: cassandra.datastax.com/v1alpha2
+kind: CassandraDatacenter
+metadata:
+  name: dtcntr
+spec:
+  clusterName: clstr
+  serverImage: datastax-docker.jfrog.io/datastax/mgmtapi-apache-cassandra
+  imageVersion: 6.8.0
+  managementApiAuth:
+    insecure: {}
+  configBuilderImage: datastaxlabs/cassandra-k8s-config-builder:0.4.0-20191113
+  size: 2
+  superuserSecret: cassandra-superuser-secret
+  storageClaim:
+    storageclassname: cassandra-storage
+    resources:
+      requests:
+        storage: 1Gi
+  racks:
+    - name: r0

@@ -31,9 +31,162 @@ spec:
           type: object
         spec:
           description: CassandraDatacenterSpec defines the desired state of CassandraDatacenter
+          properties:
+            allowMultipleNodesPerWorker:
+              description: Turning this option on allows multiple server pods to be
+                created on a k8s worker node. By default the operator creates just
+                one server pod per k8s worker node using k8s podAntiAffinity and requiredDuringSchedulingIgnoredDuringExecution.
+              type: boolean
+            canaryUpgrade:
+              description: Indicates configuration and container image changes should
+                only be pushed to the first rack of the datacenter
+              type: boolean
+            clusterName:
+              description: The name by which CQL clients and instances will know the
+                cluster. If the same cluster name is shared by multiple Datacenters
+                in the same Kubernetes namespace, they will join together in a multi-datacenter
+                cluster.
+              type: string
+            config:
+              description: Config for the server, in YAML format
+              format: byte
+              type: string
+            configBuilderImage:
+              description: Container image for the config builder init container,
+                with host, path, and tag
+              type: string
+            imageVersion:
+              description: version number
+              type: string
+            managementApiAuth:
+              description: Config for the Management API certificates
+              properties:
+                insecure:
+                  type: object
+                manual:
+                  properties:
+                    clientSecretName:
+                      type: string
+                    serverSecretName:
+                      type: string
+                    skipSecretValidation:
+                      type: boolean
+                  required:
+                  - clientSecretName
+                  - serverSecretName
+                  type: object
+              type: object
+            parked:
+              description: Indicates no server instances should run, like powering
+                down bare metal servers. Volume resources will be left intact in Kubernetes
+                and re-attached when the cluster is unparked. This is an experimental
+                feature that requires that pod ip addresses do not change on restart.
+              type: boolean
+            racks:
+              description: A list of the named racks in the datacenter, representing
+                independent failure domains. The number of racks should match the
+                replication factor in the keyspaces you plan to create, and the number
+                of racks cannot easily be changed once a datacenter is deployed.
+              items:
+                description: Rack ...
+                properties:
+                  name:
+                    description: The rack name
+                    type: string
+                  zone:
+                    description: Zone name to pin the rack, using node affinity
+                    type: string
+                required:
+                - name
+                type: object
+              type: array
+            resources:
+              description: Kubernetes resource requests and limits, per pod
+              properties:
+                limits:
+                  additionalProperties:
+                    type: string
+                  description: 'Limits describes the maximum amount of compute resources
+                    allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+                requests:
+                  additionalProperties:
+                    type: string
+                  description: 'Requests describes the minimum amount of compute resources
+                    required. If Requests is omitted for a container, it defaults
+                    to Limits if that is explicitly specified, otherwise to an implementation-defined
+                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                  type: object
+              type: object
+            serverImage:
+              description: 'Server image name. More info: https://kubernetes.io/docs/concepts/containers/images'
+              type: string
+            serverType:
+              description: 'Server type: "cassandra" or "dse"'
+              type: string
+            serviceAccount:
+              description: The k8s service account to use for the server pods
+              type: string
+            size:
+              description: Desired number of server nodes
+              format: int32
+              type: integer
+            storageClaim:
+              description: Describes the persistent storage request of each server
+                node
+              properties:
+                resources:
+                  description: Resource requirements
+                  properties:
+                    limits:
+                      additionalProperties:
+                        type: string
+                      description: 'Limits describes the maximum amount of compute
+                        resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      type: object
+                    requests:
+                      additionalProperties:
+                        type: string
+                      description: 'Requests describes the minimum amount of compute
+                        resources required. If Requests is omitted for a container,
+                        it defaults to Limits if that is explicitly specified, otherwise
+                        to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
+                      type: object
+                  type: object
+                storageclassname:
+                  type: string
+              required:
+              - storageclassname
+              type: object
+            superuserSecret:
+              description: This secret defines the username and password for the Server
+                superuser.
+              type: string
+          required:
+          - clusterName
+          - imageVersion
+          - serverType
+          - size
           type: object
         status:
           description: CassandraDatacenterStatus defines the observed state of CassandraDatacenter
+          properties:
+            lastServerNodeStarted:
+              description: The timestamp when the operator last started a Server node
+                with the management API
+              format: date-time
+              type: string
+            nodes:
+              description: The number of the DSE server nodes
+              format: int32
+              type: integer
+            superUserUpserted:
+              description: The timestamp at which CQL superuser credentials were last
+                upserted to the DSE management API
+              format: date-time
+              type: string
+          required:
+          - nodes
           type: object
       type: object
   version: v1alpha2
