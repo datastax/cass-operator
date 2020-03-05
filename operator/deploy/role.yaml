@@ -58,3 +58,9 @@ rules:
   - poddisruptionbudgets
   verbs:
   - '*'
+- apiGroups:
+  - cassandra.datastax.com
+  resources:
+  - '*'
+  verbs:
+  - '*'
