@@ -1,4 +1,4 @@
-package dsereconciliation
+package reconciliation
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 )
 
 // ReconciliationContext contains all of the input necessary to calculate a list of ReconciliationActions
@@ -19,7 +19,7 @@ type ReconciliationContext struct {
 	Request        *reconcile.Request
 	Client         client.Client
 	Scheme         *runtime.Scheme
-	Datacenter     *datastaxv1alpha1.DseDatacenter
+	Datacenter     *api.CassandraDatacenter
 	NodeMgmtClient httphelper.NodeMgmtClient
 	// Note that logr.Logger is an interface,
 	// so we do not want to store a pointer to it
@@ -50,33 +50,33 @@ func CreateReconciliationContext(
 
 	rc.ReqLogger.Info("handler::CreateReconciliationContext")
 
-	// Fetch the DseDatacenter dseDatacenter
-	dseDatacenter := &datastaxv1alpha1.DseDatacenter{}
-	if err := retrieveDseDatacenter(rc, request, dseDatacenter); err != nil {
-		rc.ReqLogger.Error(err, "error in retrieveDseDatacenter")
+	// Fetch the datacenter resource
+	dc := &api.CassandraDatacenter{}
+	if err := retrieveDatacenter(rc, request, dc); err != nil {
+		rc.ReqLogger.Error(err, "error in retrieveDatacenter")
 		return nil, err
 	}
-	rc.Datacenter = dseDatacenter
+	rc.Datacenter = dc
 
 	// workaround for kubernetes having problems with zero-value and nil Times
 	if rc.Datacenter.Status.SuperUserUpserted.IsZero() {
 		rc.Datacenter.Status.SuperUserUpserted = metav1.Unix(1, 0)
 	}
-	if rc.Datacenter.Status.LastDseNodeStarted.IsZero() {
-		rc.Datacenter.Status.LastDseNodeStarted = metav1.Unix(1, 0)
+	if rc.Datacenter.Status.LastNodeStarted.IsZero() {
+		rc.Datacenter.Status.LastNodeStarted = metav1.Unix(1, 0)
 	}
 
-	httpClient, err := httphelper.BuildManagementApiHttpClient(dseDatacenter, client, rc.Ctx)
+	httpClient, err := httphelper.BuildManagementApiHttpClient(dc, client, rc.Ctx)
 	if err != nil {
 		rc.ReqLogger.Error(err, "error in BuildManagementApiHttpClient")
 		return nil, err
 	}
 
 	rc.ReqLogger = rc.ReqLogger.
-		WithValues("dseDatacenterName", dseDatacenter.Name).
-		WithValues("dseDatacenterClusterName", dseDatacenter.Spec.DseClusterName)
+		WithValues("datacenterName", dc.Name).
+		WithValues("clusterName", dc.Spec.CassandraClusterName)
 
-	protocol, err := httphelper.GetManagementApiProtocol(dseDatacenter)
+	protocol, err := httphelper.GetManagementApiProtocol(dc)
 	if err != nil {
 		rc.ReqLogger.Error(err, "error in GetManagementApiProtocol")
 		return nil, err
@@ -91,10 +91,10 @@ func CreateReconciliationContext(
 	return rc, nil
 }
 
-func retrieveDseDatacenter(rc *ReconciliationContext, request *reconcile.Request, dseDatacenter *datastaxv1alpha1.DseDatacenter) error {
+func retrieveDatacenter(rc *ReconciliationContext, request *reconcile.Request, dc *api.CassandraDatacenter) error {
 	err := rc.Client.Get(
 		rc.Ctx,
 		request.NamespacedName,
-		dseDatacenter)
+		dc)
 	return err
 }

@@ -2,57 +2,56 @@ package httphelper
 
 import (
 	"context"
-	"fmt"
-	"strings"
-	"errors"
-	"net/http"
-	"crypto/x509"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/pem"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
 
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
 )
 
 // API for Node Management mAuth Config
-func GetManagementApiProtocol(dseDatacenter *datastaxv1alpha1.DseDatacenter) (string, error) {
-	provider, err := BuildManagmenetApiSecurityProvider(dseDatacenter)
+func GetManagementApiProtocol(dc *api.CassandraDatacenter) (string, error) {
+	provider, err := BuildManagmenetApiSecurityProvider(dc)
 	if err != nil {
 		return "", err
 	}
 	return provider.GetProtocol(), nil
 }
 
-func BuildManagementApiHttpClient(dseDatacenter *datastaxv1alpha1.DseDatacenter, client client.Client, ctx context.Context) (HttpClient, error) {
-	provider, err := BuildManagmenetApiSecurityProvider(dseDatacenter)
+func BuildManagementApiHttpClient(dc *api.CassandraDatacenter, client client.Client, ctx context.Context) (HttpClient, error) {
+	provider, err := BuildManagmenetApiSecurityProvider(dc)
 	if err != nil {
 		return nil, err
 	}
 	return provider.BuildHttpClient(client, ctx)
 }
 
-func AddManagementApiServerSecurity(dseDatacenter *datastaxv1alpha1.DseDatacenter, dsePod *corev1.PodTemplateSpec) error {
-	provider, err := BuildManagmenetApiSecurityProvider(dseDatacenter)
+func AddManagementApiServerSecurity(dc *api.CassandraDatacenter, pod *corev1.PodTemplateSpec) error {
+	provider, err := BuildManagmenetApiSecurityProvider(dc)
 	if err != nil {
 		return err
 	}
-	provider.AddServerSecurity(dsePod)
+	provider.AddServerSecurity(pod)
 
 	return nil
 }
 
-func BuildManagmenetApiSecurityProvider(dseDatacenter *datastaxv1alpha1.DseDatacenter) (ManagementApiSecurityProvider, error) {
-	options := []func(*datastaxv1alpha1.DseDatacenter)(ManagementApiSecurityProvider,error){
+func BuildManagmenetApiSecurityProvider(dc *api.CassandraDatacenter) (ManagementApiSecurityProvider, error) {
+	options := []func(*api.CassandraDatacenter) (ManagementApiSecurityProvider, error){
 		buildManualApiSecurityProvider,
 		buildInsecureManagementApiSecurityProvider}
 
 	var selectedProvider ManagementApiSecurityProvider = nil
 
 	for _, builder := range options {
-		provider, err := builder(dseDatacenter)
+		provider, err := builder(dc)
 		if err != nil {
 			return nil, err
 		}
@@ -71,8 +70,8 @@ func BuildManagmenetApiSecurityProvider(dseDatacenter *datastaxv1alpha1.DseDatac
 	return selectedProvider, nil
 }
 
-func ValidateManagementApiConfig(dseDatacenter *datastaxv1alpha1.DseDatacenter, client client.Client, ctx context.Context) []error {
-	provider, err := BuildManagmenetApiSecurityProvider(dseDatacenter)
+func ValidateManagementApiConfig(dc *api.CassandraDatacenter, client client.Client, ctx context.Context) []error {
+	provider, err := BuildManagmenetApiSecurityProvider(dc)
 
 	if err != nil {
 		return []error{err}
@@ -84,17 +83,16 @@ func ValidateManagementApiConfig(dseDatacenter *datastaxv1alpha1.DseDatacenter, 
 // SPI for adding new mechanisms for securing the management API
 type ManagementApiSecurityProvider interface {
 	BuildHttpClient(client client.Client, ctx context.Context) (HttpClient, error)
-	AddServerSecurity(dsePod *corev1.PodTemplateSpec) error
+	AddServerSecurity(pod *corev1.PodTemplateSpec) error
 	GetProtocol() string
 	ValidateConfig(client client.Client, ctx context.Context) []error
 }
 
 type InsecureManagementApiSecurityProvider struct {
-
 }
 
-func buildInsecureManagementApiSecurityProvider(dseDatacenter *datastaxv1alpha1.DseDatacenter) (ManagementApiSecurityProvider, error) {
-	if dseDatacenter.Spec.ManagementApiAuth.Insecure != nil {
+func buildInsecureManagementApiSecurityProvider(dc *api.CassandraDatacenter) (ManagementApiSecurityProvider, error) {
+	if dc.Spec.ManagementApiAuth.Insecure != nil {
 		return &InsecureManagementApiSecurityProvider{}, nil
 	}
 	return nil, nil
@@ -108,7 +106,7 @@ func (provider *InsecureManagementApiSecurityProvider) BuildHttpClient(client cl
 	return http.DefaultClient, nil
 }
 
-func (provider *InsecureManagementApiSecurityProvider) AddServerSecurity(dsePod *corev1.PodTemplateSpec) error {
+func (provider *InsecureManagementApiSecurityProvider) AddServerSecurity(pod *corev1.PodTemplateSpec) error {
 	return nil
 }
 
@@ -118,14 +116,14 @@ func (provider *InsecureManagementApiSecurityProvider) ValidateConfig(client cli
 
 type ManualManagementApiSecurityProvider struct {
 	Namespace string
-	Config *datastaxv1alpha1.ManagementApiAuthManualConfig
+	Config    *api.ManagementApiAuthManualConfig
 }
 
-func buildManualApiSecurityProvider(dseDatacenter *datastaxv1alpha1.DseDatacenter) (ManagementApiSecurityProvider, error) {
-	if dseDatacenter.Spec.ManagementApiAuth.Manual != nil {
+func buildManualApiSecurityProvider(dc *api.CassandraDatacenter) (ManagementApiSecurityProvider, error) {
+	if dc.Spec.ManagementApiAuth.Manual != nil {
 		provider := &ManualManagementApiSecurityProvider{}
-		provider.Config = dseDatacenter.Spec.ManagementApiAuth.Manual
-		provider.Namespace = dseDatacenter.ObjectMeta.Namespace
+		provider.Config = dc.Spec.ManagementApiAuth.Manual
+		provider.Namespace = dc.ObjectMeta.Namespace
 		return provider, nil
 	}
 	return nil, nil
@@ -135,24 +133,22 @@ func (provider *ManualManagementApiSecurityProvider) GetProtocol() string {
 	return "https"
 }
 
-func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(dsePod *corev1.PodTemplateSpec) error {
+func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(pod *corev1.PodTemplateSpec) error {
 	caCertPath := "/management-api-certs/ca.crt"
 	tlsCrt := "/management-api-certs/tls.crt"
 	tlsKey := "/management-api-certs/tls.key"
 
-
 	// Find the DSE container
-	var dseContainer *corev1.Container = nil
-	for i, _ := range dsePod.Spec.Containers {
-		if dsePod.Spec.Containers[i].Name == "dse" {
-			dseContainer = &dsePod.Spec.Containers[i]
+	var container *corev1.Container = nil
+	for i, _ := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == "dse" {
+			container = &pod.Spec.Containers[i]
 		}
 	}
 
-	if dseContainer == nil {
+	if container == nil {
 		return fmt.Errorf("Could not find container with name '%s'", "dse")
 	}
-
 
 	// Add volume containing certificates
 	secretVolumeName := "management-api-server-certs-volume"
@@ -165,62 +161,58 @@ func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(dsePod *c
 		},
 	}
 
-	if dsePod.Spec.Volumes == nil {
-		dsePod.Spec.Volumes = []corev1.Volume{}
+	if pod.Spec.Volumes == nil {
+		pod.Spec.Volumes = []corev1.Volume{}
 	}
 
-	dsePod.Spec.Volumes = append(dsePod.Spec.Volumes, secretVolume)
-
+	pod.Spec.Volumes = append(pod.Spec.Volumes, secretVolume)
 
 	// Mount certificates volume in DSE container
 	secretVolumeMount := corev1.VolumeMount{
-		Name: secretVolumeName,
-		ReadOnly: true,
+		Name:      secretVolumeName,
+		ReadOnly:  true,
 		MountPath: "/management-api-certs",
 	}
 
-	if dseContainer.VolumeMounts == nil {
-		dseContainer.VolumeMounts = []corev1.VolumeMount{}
+	if container.VolumeMounts == nil {
+		container.VolumeMounts = []corev1.VolumeMount{}
 	}
 
-	dseContainer.VolumeMounts = append(dseContainer.VolumeMounts, secretVolumeMount)
-
+	container.VolumeMounts = append(container.VolumeMounts, secretVolumeMount)
 
 	// Configure DSE Management API to use certificates
 	envVars := []corev1.EnvVar{
 		{
-			Name: "DSE_MGMT_TLS_CA_CERT_FILE",
+			Name:  "DSE_MGMT_TLS_CA_CERT_FILE",
 			Value: caCertPath,
 		},
 		{
-			Name: "DSE_MGMT_TLS_CERT_FILE",
+			Name:  "DSE_MGMT_TLS_CERT_FILE",
 			Value: tlsCrt,
 		},
 		{
-			Name: "DSE_MGMT_TLS_KEY_FILE",
+			Name:  "DSE_MGMT_TLS_KEY_FILE",
 			Value: tlsKey,
 		},
 	}
 
-	if dseContainer.Env == nil {
-		dseContainer.Env = []corev1.EnvVar{}
+	if container.Env == nil {
+		container.Env = []corev1.EnvVar{}
 	}
 
-	dseContainer.Env = append(envVars, dseContainer.Env...)
-
+	container.Env = append(envVars, container.Env...)
 
 	// Update Liveness probe to account for mutual auth (can't just use HTTP probe now)
 	// TODO: Get endpoint from configured HTTPGet probe
 	livenessEndpoint := "https://localhost:8080/api/v0/probes/liveness"
-	if dseContainer.LivenessProbe == nil {
-		dseContainer.LivenessProbe =  &corev1.Probe{
-			Handler: corev1.Handler{
-			},
+	if container.LivenessProbe == nil {
+		container.LivenessProbe = &corev1.Probe{
+			Handler: corev1.Handler{},
 		}
 	}
-	dseContainer.LivenessProbe.Handler.HTTPGet = nil
-	dseContainer.LivenessProbe.Handler.TCPSocket = nil
-	dseContainer.LivenessProbe.Handler.Exec = &corev1.ExecAction{
+	container.LivenessProbe.Handler.HTTPGet = nil
+	container.LivenessProbe.Handler.TCPSocket = nil
+	container.LivenessProbe.Handler.Exec = &corev1.ExecAction{
 		Command: []string{"wget",
 			"--output-document", "/dev/null",
 			"--no-check-certificate",
@@ -230,19 +222,17 @@ func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(dsePod *c
 			livenessEndpoint},
 	}
 
-
 	// Update Readiness probe to account for mutual auth (can't just use HTTP probe now)
 	// TODO: Get endpoint from configured HTTPGet probe
 	readinessEndpoint := "https://localhost:8080/api/v0/probes/readiness"
-	if dseContainer.ReadinessProbe == nil {
-		dseContainer.ReadinessProbe =  &corev1.Probe{
-			Handler: corev1.Handler{
-			},
+	if container.ReadinessProbe == nil {
+		container.ReadinessProbe = &corev1.Probe{
+			Handler: corev1.Handler{},
 		}
 	}
-	dseContainer.ReadinessProbe.Handler.HTTPGet = nil
-	dseContainer.ReadinessProbe.Handler.TCPSocket = nil
-	dseContainer.ReadinessProbe.Handler.Exec = &corev1.ExecAction{
+	container.ReadinessProbe.Handler.HTTPGet = nil
+	container.ReadinessProbe.Handler.TCPSocket = nil
+	container.ReadinessProbe.Handler.Exec = &corev1.ExecAction{
 		Command: []string{"wget",
 			"--output-document", "/dev/null",
 			"--no-check-certificate",
@@ -402,7 +392,7 @@ func pemToCertificateChain(certificate []byte) ([]*x509.Certificate, error) {
 }
 
 func validateCertificateChain(chain []*x509.Certificate) error {
-	for i := 0; i < len(chain) - 1; i = i + 1 {
+	for i := 0; i < len(chain)-1; i = i + 1 {
 		certificateA := chain[i]
 		certificateB := chain[i+1]
 		err := certificateA.CheckSignatureFrom(certificateB)
@@ -481,7 +471,7 @@ func validatePeerACertificateSignedByPeerBCa(peerACertificate []byte, peerACa []
 func validateSecretStructure(secret *corev1.Secret) error {
 	secretNamespacedName := types.NamespacedName{
 		Name:      secret.ObjectMeta.Name,
-		Namespace: secret.ObjectMeta.Namespace,}
+		Namespace: secret.ObjectMeta.Namespace}
 
 	// Check secret type
 	if secret.Type != "kubernetes.io/tls" {
@@ -508,7 +498,7 @@ func validateSecretStructure(secret *corev1.Secret) error {
 func loadSecret(client client.Client, ctx context.Context, namespace string, name string) (*corev1.Secret, error) {
 	secretNamespacedName := types.NamespacedName{
 		Name:      name,
-		Namespace: namespace,}
+		Namespace: namespace}
 
 	secret := &corev1.Secret{}
 	err := client.Get(
@@ -554,20 +544,20 @@ func (provider *ManualManagementApiSecurityProvider) ValidateConfig(client clien
 	clientSecretName := provider.Config.ClientSecretName
 	serverSecretName := provider.Config.ServerSecretName
 
-	secretChecks := []struct{
+	secretChecks := []struct {
 		secretName   string
 		secretPtrPtr **corev1.Secret // everyone likes a pointer to a pointer
 		configKey    string
 	}{
 		{
-			secretName: clientSecretName,
+			secretName:   clientSecretName,
 			secretPtrPtr: &clientSecret,
-			configKey: ".managementApiAuth.manual.clientSecretName",
+			configKey:    ".managementApiAuth.manual.clientSecretName",
 		},
 		{
-			secretName: serverSecretName,
+			secretName:   serverSecretName,
 			secretPtrPtr: &serverSecret,
-			configKey: ".managementApiAuth.manual.serverSecretName",
+			configKey:    ".managementApiAuth.manual.serverSecretName",
 		},
 	}
 
@@ -599,13 +589,12 @@ func (provider *ManualManagementApiSecurityProvider) ValidateConfig(client clien
 		{
 			peerAsecret: clientSecret,
 			peerBsecret: serverSecret,
-			configKey: ".managementApiAuth.manual.clientSecretName",
-
+			configKey:   ".managementApiAuth.manual.clientSecretName",
 		},
 		{
 			peerAsecret: serverSecret,
 			peerBsecret: clientSecret,
-			configKey: ".managementApiAuth.manual.serverSecretName",
+			configKey:   ".managementApiAuth.manual.serverSecretName",
 		},
 	}
 
@@ -627,7 +616,7 @@ func (provider *ManualManagementApiSecurityProvider) BuildHttpClient(client clie
 	// Get the client Secret
 	secretNamespacedName := types.NamespacedName{
 		Name:      provider.Config.ClientSecretName,
-		Namespace: provider.Namespace,}
+		Namespace: provider.Namespace}
 
 	secret := &corev1.Secret{}
 	err := client.Get(
@@ -664,9 +653,9 @@ func (provider *ManualManagementApiSecurityProvider) BuildHttpClient(client clie
 	// Build the client
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		RootCAs: caCertPool,
-        // TODO: ...we should probably verify something here...
-		InsecureSkipVerify: true,
+		RootCAs:      caCertPool,
+		// TODO: ...we should probably verify something here...
+		InsecureSkipVerify:    true,
 		VerifyPeerCertificate: buildVerifyPeerCertificateNoHostCheck(caCertPool),
 	}
 	tlsConfig.BuildNameToCertificate()
@@ -699,7 +688,7 @@ func buildVerifyPeerCertificateNoHostCheck(rootCAs *x509.CertPool) func([][]byte
 
 func verifyPeerCertificateNoHostCheck(certificates []*x509.Certificate, rootCAs *x509.CertPool) ([][]*x509.Certificate, error) {
 	opts := x509.VerifyOptions{
-		Roots:         rootCAs,
+		Roots: rootCAs,
 		// Setting the DNSName to the empty string will cause
 		// Certificate.Verify() to skip hostname checking
 		DNSName:       "",
