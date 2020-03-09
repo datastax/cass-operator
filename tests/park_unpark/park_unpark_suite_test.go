@@ -17,14 +17,14 @@ var (
 	dcName           = "dc1"
 	dcYaml           = "../testdata/default-three-rack-three-node-dc.yaml"
 	operatorYaml     = "../testdata/operator.yaml"
-	dcResource       = fmt.Sprintf("DseDatacenter/%s", dcName)
-	dcLabel          = fmt.Sprintf("com.datastax.dse.datacenter=%s", dcName)
+	dcResource       = fmt.Sprintf("CassandraDatacenter/%s", dcName)
+	dcLabel          = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
 	ns               = ginkgo_util.NewWrapper(testName, namespace)
 	defaultResources = []string{
 		"../../operator/deploy/role.yaml",
 		"../../operator/deploy/role_binding.yaml",
 		"../../operator/deploy/service_account.yaml",
-		"../../operator/deploy/crds/datastax.com_dsedatacenters_crd.yaml",
+		"../../operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
 	}
 )
 
@@ -76,7 +76,7 @@ var _ = Describe(testName, func() {
 			ns.WaitForOutputAndLog(step, k, "true true true", 1200)
 
 			step = "checking the dc label com.datastax.dse.operator.progress is set to Ready"
-			json = "jsonpath={.metadata.labels['com\\.datastax\\.dse\\.operator\\.progress']}"
+			json = "jsonpath={.metadata.labels['cassandra\\.datastax\\.com/operator-progress']}"
 			k = kubectl.Get(dcResource).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
@@ -118,7 +118,7 @@ var _ = Describe(testName, func() {
 
 			step = "checking that the dc no longer exists"
 			json = "jsonpath={.items}"
-			k = kubectl.Get("DseDatacenter").
+			k = kubectl.Get("CassandraDatacenter").
 				WithLabel(dcLabel).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "[]", 300)

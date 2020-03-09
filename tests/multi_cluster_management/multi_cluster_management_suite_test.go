@@ -22,16 +22,16 @@ var (
 		"../../operator/deploy/role.yaml",
 		"../../operator/deploy/role_binding.yaml",
 		"../../operator/deploy/service_account.yaml",
-		"../../operator/deploy/crds/datastax.com_dsedatacenters_crd.yaml",
+		"../../operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
 	}
 )
 
 func dcResourceForName(dcName string) string {
-	return fmt.Sprintf("DseDatacenter/%s", dcName)
+	return fmt.Sprintf("CassandraDatacenter/%s", dcName)
 }
 
 func dcLabelForName(dcName string) string {
-	return fmt.Sprintf("com.datastax.dse.datacenter=%s", dcName)
+	return fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
 }
 
 func TestLifecycle(t *testing.T) {
@@ -94,7 +94,7 @@ var _ = Describe(testName, func() {
 			ns.WaitForOutputAndLog(step, k, "true", 1200)
 
 			step = "checking the dc label com.datastax.dse.operator.progress is set to Ready"
-			json = "jsonpath={.metadata.labels['com\\.datastax\\.dse\\.operator\\.progress']}"
+			json = "jsonpath={.metadata.labels['cassandra\\.datastax\\.com/operator-progress']}"
 			k = kubectl.Get(dcResourceForName(dcNames[0])).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
@@ -105,7 +105,7 @@ var _ = Describe(testName, func() {
 
 			step = "checking that the dc no longer exists"
 			json = "jsonpath={.items}"
-			k = kubectl.Get("DseDatacenter").
+			k = kubectl.Get("CassandraDatacenter").
 				WithLabel(dcLabelForName(dcNames[0])).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "[]", 300)
@@ -123,7 +123,7 @@ var _ = Describe(testName, func() {
 
 			step = "checking that the dc no longer exists"
 			json = "jsonpath={.items}"
-			k = kubectl.Get("DseDatacenter").
+			k = kubectl.Get("CassandraDatacenter").
 				WithLabel(dcLabelForName(dcNames[1])).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "[]", 300)
