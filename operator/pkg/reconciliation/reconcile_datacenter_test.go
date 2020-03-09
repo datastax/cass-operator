@@ -50,7 +50,7 @@ func TestDeletePVCs_FailedToList(t *testing.T) {
 	mockClient := &mocks.Client{}
 	rc.Client = mockClient
 
-	k8sMockClientList(mockClient, fmt.Errorf("failed to list PVCs for dseDatacenter")).
+	k8sMockClientList(mockClient, fmt.Errorf("failed to list PVCs for CassandraDatacenter")).
 		Run(func(args mock.Arguments) {
 			arg := args.Get(1).(*v1.PersistentVolumeClaimList)
 			arg.Items = []v1.PersistentVolumeClaim{{

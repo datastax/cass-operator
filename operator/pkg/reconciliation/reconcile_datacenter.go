@@ -10,34 +10,32 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
-	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
-	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation/reconcileriface"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 )
 
 // ReconcileDatacenter ...
 type ReconcileDatacenter struct {
-	ReconcileContext *dsereconciliation.ReconciliationContext
+	ReconcileContext *ReconciliationContext
 }
 
 // Apply ...
 func (r *ReconcileDatacenter) Apply() (reconcile.Result, error) {
-	// set the label here but no need to remove since we're deleting the DseDatacenter
+	// set the label here but no need to remove since we're deleting the CassandraDatacenter
 	if err := addOperatorProgressLabel(r.ReconcileContext, updating); err != nil {
 		return reconcile.Result{Requeue: true}, err
 	}
 
 	if err := r.deletePVCs(); err != nil {
-		r.ReconcileContext.ReqLogger.Error(err, "Failed to delete PVCs for DseDatacenter")
+		r.ReconcileContext.ReqLogger.Error(err, "Failed to delete PVCs for CassandraDatacenter")
 		return reconcile.Result{Requeue: true}, err
 	}
 
-	// Update finalizer to allow delete of DseDatacenter
+	// Update finalizer to allow delete of CassandraDatacenter
 	r.ReconcileContext.Datacenter.SetFinalizers(nil)
 
-	// Update DseDatacenter
+	// Update CassandraDatacenter
 	if err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, r.ReconcileContext.Datacenter); err != nil {
-		r.ReconcileContext.ReqLogger.Error(err, "Failed to update DseDatacenter with removed finalizers")
+		r.ReconcileContext.ReqLogger.Error(err, "Failed to update CassandraDatacenter with removed finalizers")
 		return reconcile.Result{Requeue: true}, err
 	}
 
@@ -45,7 +43,7 @@ func (r *ReconcileDatacenter) Apply() (reconcile.Result, error) {
 }
 
 // ProcessDeletion ...
-func (r *ReconcileDatacenter) ProcessDeletion() (reconcileriface.Reconciler, error) {
+func (r *ReconcileDatacenter) ProcessDeletion() (Reconciler, error) {
 	if r.ReconcileContext.Datacenter.GetDeletionTimestamp() != nil {
 		return &ReconcileDatacenter{
 			ReconcileContext: r.ReconcileContext,
@@ -62,29 +60,29 @@ func (r *ReconcileDatacenter) deletePVCs() error {
 	if err != nil {
 		if errors.IsNotFound(err) {
 			r.ReconcileContext.ReqLogger.Info(
-				"No PVCs found for DseDatacenter",
-				"dseDatacenterNamespace", r.ReconcileContext.Datacenter.Namespace,
-				"dseDatacenterName", r.ReconcileContext.Datacenter.Name)
+				"No PVCs found for CassandraDatacenter",
+				"cassandraDatacenterNamespace", r.ReconcileContext.Datacenter.Namespace,
+				"cassandraDatacenterName", r.ReconcileContext.Datacenter.Name)
 			return nil
 		}
 		r.ReconcileContext.ReqLogger.Error(err,
-			"Failed to list PVCs for dseDatacenter",
-			"dseDatacenterNamespace", r.ReconcileContext.Datacenter.Namespace,
-			"dseDatacenterName", r.ReconcileContext.Datacenter.Name)
+			"Failed to list PVCs for cassandraDatacenter",
+			"cassandraDatacenterNamespace", r.ReconcileContext.Datacenter.Namespace,
+			"cassandraDatacenterName", r.ReconcileContext.Datacenter.Name)
 		return err
 	}
 
 	r.ReconcileContext.ReqLogger.Info(
-		fmt.Sprintf("Found %d PVCs for dseDatacenter", len(persistentVolumeClaimList.Items)),
-		"dseDatacenterNamespace", r.ReconcileContext.Datacenter.Namespace,
-		"dseDatacenterName", r.ReconcileContext.Datacenter.Name)
+		fmt.Sprintf("Found %d PVCs for cassandraDatacenter", len(persistentVolumeClaimList.Items)),
+		"cassandraDatacenterNamespace", r.ReconcileContext.Datacenter.Namespace,
+		"cassandraDatacenterName", r.ReconcileContext.Datacenter.Name)
 
 	for _, pvc := range persistentVolumeClaimList.Items {
 		if err := r.ReconcileContext.Client.Delete(r.ReconcileContext.Ctx, &pvc); err != nil {
 			r.ReconcileContext.ReqLogger.Error(err,
-				"Failed to delete PVCs for dseDatacenter",
-				"dseDatacenterNamespace", r.ReconcileContext.Datacenter.Namespace,
-				"dseDatacenterName", r.ReconcileContext.Datacenter.Name)
+				"Failed to delete PVCs for cassandraDatacenter",
+				"cassandraDatacenterNamespace", r.ReconcileContext.Datacenter.Namespace,
+				"cassandraDatacenterName", r.ReconcileContext.Datacenter.Name)
 			return err
 		}
 		r.ReconcileContext.ReqLogger.Info(
@@ -100,7 +98,7 @@ func (r *ReconcileDatacenter) listPVCs() (*corev1.PersistentVolumeClaimList, err
 	r.ReconcileContext.ReqLogger.Info("reconciler::listPVCs")
 
 	selector := map[string]string{
-		datastaxv1alpha1.DatacenterLabel: r.ReconcileContext.Datacenter.Name,
+		api.DatacenterLabel: r.ReconcileContext.Datacenter.Name,
 	}
 
 	listOptions := &client.ListOptions{

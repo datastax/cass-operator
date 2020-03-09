@@ -62,8 +62,8 @@ func CreateReconciliationContext(
 	if rc.Datacenter.Status.SuperUserUpserted.IsZero() {
 		rc.Datacenter.Status.SuperUserUpserted = metav1.Unix(1, 0)
 	}
-	if rc.Datacenter.Status.LastNodeStarted.IsZero() {
-		rc.Datacenter.Status.LastNodeStarted = metav1.Unix(1, 0)
+	if rc.Datacenter.Status.LastServerNodeStarted.IsZero() {
+		rc.Datacenter.Status.LastServerNodeStarted = metav1.Unix(1, 0)
 	}
 
 	httpClient, err := httphelper.BuildManagementApiHttpClient(dc, client, rc.Ctx)
@@ -74,7 +74,7 @@ func CreateReconciliationContext(
 
 	rc.ReqLogger = rc.ReqLogger.
 		WithValues("datacenterName", dc.Name).
-		WithValues("clusterName", dc.Spec.CassandraClusterName)
+		WithValues("clusterName", dc.Spec.ClusterName)
 
 	protocol, err := httphelper.GetManagementApiProtocol(dc)
 	if err != nil {

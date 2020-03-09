@@ -1,4 +1,4 @@
-package dseconfig
+package serverconfig
 
 import (
 	"reflect"

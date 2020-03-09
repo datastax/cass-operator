@@ -1,13 +1,13 @@
-apiVersion: datastax.com/v1alpha1
-kind: DseDatacenter
+apiVersion: cassandra.datastax.com/v1alpha2
+kind: CassandraDatacenter
 metadata:
-  name: example-dsedatacenter
+  name: example-cassandradatacenter
 spec:
-  dseClusterName: example-cluster
-  dseImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-master-20190923204409-d9e0344
-  dseVersion: 6.8.0
+  clusterName: example-cluster
+  serverImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-master-20190923204409-d9e0344
+  imageVersion: 6.8.0
   size: 3
-  storageclaim:
+  storageClaim:
     storageclassname: gp2
     resources:
       requests:

@@ -1,27 +1,27 @@
 package httphelper
 
 import (
-	"testing"
 	"crypto/x509"
 	"encoding/pem"
-    "path/filepath"
-    "io/ioutil"
+	"io/ioutil"
+	"path/filepath"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
 func helperLoadBytes(t *testing.T, name string) []byte {
-    path := filepath.Join("testdata", name)
-    bytes, err := ioutil.ReadFile(path)
-    if err != nil {
-        t.Fatal(err)
-    }
-    return bytes
+	path := filepath.Join("testdata", name)
+	bytes, err := ioutil.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return bytes
 }
 
 func Test_buildVerifyPeerCertificateNoHostCheck_AcceptsGoodCert(t *testing.T) {
-    goodCaPem := helperLoadBytes(t, "ca.crt")
-    certPem := helperLoadBytes(t, "server.crt")
+	goodCaPem := helperLoadBytes(t, "ca.crt")
+	certPem := helperLoadBytes(t, "server.crt")
 
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(goodCaPem)
@@ -36,8 +36,8 @@ func Test_buildVerifyPeerCertificateNoHostCheck_AcceptsGoodCert(t *testing.T) {
 }
 
 func Test_buildVerifyPeerCertificateNoHostCheck_RejectsBadCert(t *testing.T) {
-    badCaPem := helperLoadBytes(t, "evil_ca.crt")
-    certPem := helperLoadBytes(t, "server.crt")
+	badCaPem := helperLoadBytes(t, "evil_ca.crt")
+	certPem := helperLoadBytes(t, "server.crt")
 
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(badCaPem)
@@ -52,46 +52,46 @@ func Test_buildVerifyPeerCertificateNoHostCheck_RejectsBadCert(t *testing.T) {
 }
 
 func Test_validatePrivateKey(t *testing.T) {
-    var errs []error
-    certPem := helperLoadBytes(t, "server.crt")
-    privateKey := helperLoadBytes(t, "server.key")
-    privateRsaKey := helperLoadBytes(t, "server.rsa.key")
-    privateEncryptedKey := helperLoadBytes(t, "server.encrypted.key")
+	var errs []error
+	certPem := helperLoadBytes(t, "server.crt")
+	privateKey := helperLoadBytes(t, "server.key")
+	privateRsaKey := helperLoadBytes(t, "server.rsa.key")
+	privateEncryptedKey := helperLoadBytes(t, "server.encrypted.key")
 
-    // use actual private key
-    errs = validatePrivateKey(privateKey)
-    assert.Equal(
-        t, 0, len(errs),
-        "Should have no errors for valid private key")
+	// use actual private key
+	errs = validatePrivateKey(privateKey)
+	assert.Equal(
+		t, 0, len(errs),
+		"Should have no errors for valid private key")
 
-    // use cert instead of private key
-    errs = validatePrivateKey(certPem)
+	// use cert instead of private key
+	errs = validatePrivateKey(certPem)
 
-    assert.Equal(
-        t, 1, len(errs),
-        "Should have error about type being a certificate when private key expected")
+	assert.Equal(
+		t, 1, len(errs),
+		"Should have error about type being a certificate when private key expected")
 
-    // use PKCS#1 key
-    errs = validatePrivateKey(privateRsaKey)
-    assert.Equal(
-        t, 1, len(errs),
-        "Should have error about using PKCS#1 when PKCS#8 expected")
+	// use PKCS#1 key
+	errs = validatePrivateKey(privateRsaKey)
+	assert.Equal(
+		t, 1, len(errs),
+		"Should have error about using PKCS#1 when PKCS#8 expected")
 
-    // use encrypted key
-    errs = validatePrivateKey(privateEncryptedKey)
-    assert.Equal(
-        t, 1, len(errs),
-        "Should have error about using an encrypted key")
+	// use encrypted key
+	errs = validatePrivateKey(privateEncryptedKey)
+	assert.Equal(
+		t, 1, len(errs),
+		"Should have error about using an encrypted key")
 
-    // use jibberish
-    errs = validatePrivateKey([]byte("some non-key"))
-    assert.Equal(
-        t, 1, len(errs),
-        "Should have an error about not being properly PEM encoded")
+	// use jibberish
+	errs = validatePrivateKey([]byte("some non-key"))
+	assert.Equal(
+		t, 1, len(errs),
+		"Should have an error about not being properly PEM encoded")
 
-    // TODO: Is the empty PEM file valid? Assuming not for now
-    errs = validatePrivateKey([]byte(""))
-    assert.Equal(
-        t, 1, len(errs),
-        "Should consider an empty key as an invalid key")
+	// TODO: Is the empty PEM file valid? Assuming not for now
+	errs = validatePrivateKey([]byte(""))
+	assert.Equal(
+		t, 1, len(errs),
+		"Should consider an empty key as an invalid key")
 }

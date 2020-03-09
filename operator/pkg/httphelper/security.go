@@ -180,7 +180,7 @@ func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(pod *core
 
 	container.VolumeMounts = append(container.VolumeMounts, secretVolumeMount)
 
-	// Configure DSE Management API to use certificates
+	// Configure Management API to use certificates
 	envVars := []corev1.EnvVar{
 		{
 			Name:  "DSE_MGMT_TLS_CA_CERT_FILE",
@@ -315,7 +315,7 @@ func validateCertificate(data []byte) []error {
 		if block.Type != "CERTIFICATE" {
 			validationErrors = append(
 				validationErrors,
-				fmt.Errorf("Certificate should be PEM encoded with preamble 'CERTIFIACATE', but found preamble '%s'.", block.Type))
+				fmt.Errorf("Certificate should be PEM encoded with preamble 'CERTIFICATE', but found preamble '%s'.", block.Type))
 		} else {
 			_, err := x509.ParseCertificates(block.Bytes)
 			if err != nil {

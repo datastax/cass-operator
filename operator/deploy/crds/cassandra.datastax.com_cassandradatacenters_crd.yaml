@@ -47,10 +47,6 @@ spec:
                 in the same Kubernetes namespace, they will join together in a multi-datacenter
                 cluster.
               type: string
-            config:
-              description: Config for the server, in YAML format
-              format: byte
-              type: string
             configBuilderImage:
               description: Container image for the config builder init container,
                 with host, path, and tag
@@ -177,18 +173,19 @@ spec:
               format: date-time
               type: string
             nodes:
-              description: The number of the DSE server nodes
+              description: The number of the server nodes
               format: int32
               type: integer
             superUserUpserted:
               description: The timestamp at which CQL superuser credentials were last
-                upserted to the DSE management API
+                upserted to the management API
               format: date-time
               type: string
           required:
           - nodes
           type: object
       type: object
+      x-kubernetes-preserve-unknown-fields: true
   version: v1alpha2
   versions:
   - name: v1alpha2

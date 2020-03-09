@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"time"
 
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -29,8 +29,8 @@ type nodeMgmtRequest struct {
 func BuildPodHostFromPod(pod *corev1.Pod) string {
 	return GetPodHost(
 		pod.Name,
-		pod.Labels[datastaxv1alpha1.ClusterLabel],
-		pod.Labels[datastaxv1alpha1.DatacenterLabel],
+		pod.Labels[api.ClusterLabel],
+		pod.Labels[api.DatacenterLabel],
 		pod.Namespace)
 }
 
@@ -63,7 +63,7 @@ func (client *NodeMgmtClient) CallCreateRoleEndpoint(pod *corev1.Pod, username s
 }
 
 func (client *NodeMgmtClient) CallProbeClusterEndpoint(pod *corev1.Pod, consistencyLevel string, rfPerDc int) error {
-	client.Log.Info("requesting Cluster Health status from DSE Node Management API",
+	client.Log.Info("requesting Cluster Health status from Node Management API",
 		"pod", pod.Name)
 
 	request := nodeMgmtRequest{
@@ -81,7 +81,7 @@ func (client *NodeMgmtClient) CallLifecycleStartEndpoint(pod *corev1.Pod) error 
 	podIP := pod.Status.PodIP
 
 	client.Log.Info(
-		"calling /api/v0/lifecycle/start on DSE Node Management API",
+		"calling /api/v0/lifecycle/start on Node Management API",
 		"pod", pod.Name,
 		"podIP", podIP,
 	)
@@ -97,7 +97,7 @@ func (client *NodeMgmtClient) CallLifecycleStartEndpoint(pod *corev1.Pod) error 
 }
 
 func (client *NodeMgmtClient) CallReloadSeedsEndpoint(pod *corev1.Pod) error {
-	client.Log.Info("reloading seeds for pod from DSE Node Management API",
+	client.Log.Info("reloading seeds for pod from Node Management API",
 		"pod", pod.Name)
 
 	request := nodeMgmtRequest{
@@ -115,7 +115,7 @@ func callNodeMgmtEndpoint(client *NodeMgmtClient, request nodeMgmtRequest) error
 	url := fmt.Sprintf("%s://%s:8080%s", client.Protocol, request.host, request.endpoint)
 	req, err := http.NewRequest(request.method, url, nil)
 	if err != nil {
-		client.Log.Error(err, "unable to create request for DSE Node Management Endpoint")
+		client.Log.Error(err, "unable to create request for Node Management Endpoint")
 		return err
 	}
 	req.Close = true
@@ -132,7 +132,7 @@ func callNodeMgmtEndpoint(client *NodeMgmtClient, request nodeMgmtRequest) error
 
 	res, err := client.Client.Do(req)
 	if err != nil {
-		client.Log.Error(err, "unable to perform request to DSE Node Management Endpoint")
+		client.Log.Error(err, "unable to perform request to Node Management Endpoint")
 		return err
 	}
 
@@ -145,13 +145,13 @@ func callNodeMgmtEndpoint(client *NodeMgmtClient, request nodeMgmtRequest) error
 
 	_, err = ioutil.ReadAll(res.Body)
 	if err != nil {
-		client.Log.Error(err, "Unable to read response from DSE Node Management Endpoint")
+		client.Log.Error(err, "Unable to read response from Node Management Endpoint")
 		return err
 	}
 
 	goodStatus := res.StatusCode >= 200 && res.StatusCode < 300
 	if !goodStatus {
-		client.Log.Info("incorrect status code when calling DSE Node Management Endpoint",
+		client.Log.Info("incorrect status code when calling Node Management Endpoint",
 			"statusCode", res.StatusCode,
 			"pod", request.host)
 

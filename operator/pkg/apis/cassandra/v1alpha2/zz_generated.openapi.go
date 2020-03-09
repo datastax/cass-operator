@@ -106,7 +106,7 @@ func schema_pkg_apis_cassandra_v1alpha2_CassandraDatacenterSpec(ref common.Refer
 					"managementApiAuth": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Config for the Management API certificates",
-							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.ManagementApiAuthConfig"),
+							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.ManagementApiAuthConfig"),
 						},
 					},
 					"resources": {
@@ -122,7 +122,7 @@ func schema_pkg_apis_cassandra_v1alpha2_CassandraDatacenterSpec(ref common.Refer
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.Rack"),
+										Ref: ref("github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.Rack"),
 									},
 								},
 							},
@@ -131,7 +131,7 @@ func schema_pkg_apis_cassandra_v1alpha2_CassandraDatacenterSpec(ref common.Refer
 					"storageClaim": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Describes the persistent storage request of each server node",
-							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.StorageClaim"),
+							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.StorageClaim"),
 						},
 					},
 					"clusterName": {
@@ -188,7 +188,7 @@ func schema_pkg_apis_cassandra_v1alpha2_CassandraDatacenterSpec(ref common.Refer
 			},
 		},
 		Dependencies: []string{
-			"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.ManagementApiAuthConfig", "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.Rack", "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1.StorageClaim", "k8s.io/api/core/v1.ResourceRequirements"},
+			"github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.ManagementApiAuthConfig", "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.Rack", "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.StorageClaim", "k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 
@@ -201,14 +201,14 @@ func schema_pkg_apis_cassandra_v1alpha2_CassandraDatacenterStatus(ref common.Ref
 				Properties: map[string]spec.Schema{
 					"nodes": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The number of the DSE server nodes",
+							Description: "The number of the server nodes",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
 					},
 					"superUserUpserted": {
 						SchemaProps: spec.SchemaProps{
-							Description: "The timestamp at which CQL superuser credentials were last upserted to the DSE management API",
+							Description: "The timestamp at which CQL superuser credentials were last upserted to the management API",
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},

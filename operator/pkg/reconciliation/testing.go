@@ -22,8 +22,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	log2 "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
-	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
 )
@@ -45,39 +44,39 @@ func MockSetControllerReference() func() {
 
 // CreateMockReconciliationContext ...
 func CreateMockReconciliationContext(
-	reqLogger logr.Logger) *dsereconciliation.ReconciliationContext {
+	reqLogger logr.Logger) *ReconciliationContext {
 
 	// These defaults may need to be settable via arguments
 
 	var (
-		name              = "dsedatacenter-example"
-		clusterName       = "dsedatacenter-example-cluster"
+		name              = "cassandradatacenter-example"
+		clusterName       = "cassandradatacenter-example-cluster"
 		namespace         = "default"
 		size        int32 = 2
 	)
 
-	// Instance a dseDatacenter
+	// Instance a cassandraDatacenter
 
-	dseDatacenter := &datastaxv1alpha1.DseDatacenter{
+	cassandraDatacenter := &api.CassandraDatacenter{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: datastaxv1alpha1.DseDatacenterSpec{
-			Size:           size,
-			DseClusterName: clusterName,
-			DseVersion:     "6.8.0",
+		Spec: api.CassandraDatacenterSpec{
+			Size:         size,
+			ClusterName:  clusterName,
+			ImageVersion: "6.8.0",
 		},
 	}
 
 	// Objects to keep track of
 
 	trackObjects := []runtime.Object{
-		dseDatacenter,
+		cassandraDatacenter,
 	}
 
 	s := scheme.Scheme
-	s.AddKnownTypes(datastaxv1alpha1.SchemeGroupVersion, dseDatacenter)
+	s.AddKnownTypes(api.SchemeGroupVersion, cassandraDatacenter)
 
 	fakeClient := fake.NewFakeClient(trackObjects...)
 
@@ -88,12 +87,12 @@ func CreateMockReconciliationContext(
 		},
 	}
 
-	rc := &dsereconciliation.ReconciliationContext{}
+	rc := &ReconciliationContext{}
 	rc.Request = request
 	rc.Client = fakeClient
 	rc.Scheme = s
 	rc.ReqLogger = reqLogger
-	rc.Datacenter = dseDatacenter
+	rc.Datacenter = cassandraDatacenter
 	rc.Ctx = context.Background()
 
 	res := &http.Response{
@@ -116,14 +115,14 @@ func CreateMockReconciliationContext(
 
 // Create a fake client that is tracking a service
 func fakeClientWithService(
-	dseDatacenter *datastaxv1alpha1.DseDatacenter) (*client.Client, *corev1.Service) {
+	cassandraDatacenter *api.CassandraDatacenter) (*client.Client, *corev1.Service) {
 
-	service := newServiceForDseDatacenter(dseDatacenter)
+	service := newServiceForCassandraDatacenter(cassandraDatacenter)
 
 	// Objects to keep track of
 
 	trackObjects := []runtime.Object{
-		dseDatacenter,
+		cassandraDatacenter,
 		service,
 	}
 
@@ -132,19 +131,19 @@ func fakeClientWithService(
 	return &fakeClient, service
 }
 
-func setupTest() (*dsereconciliation.ReconciliationContext, *corev1.Service, func()) {
+func setupTest() (*ReconciliationContext, *corev1.Service, func()) {
 	// Set up verbose logging
 	logger := log2.ZapLogger(true)
 	log2.SetLogger(logger)
 	cleanupMockScr := MockSetControllerReference()
 
 	rc := CreateMockReconciliationContext(logger)
-	service := newServiceForDseDatacenter(rc.Datacenter)
+	service := newServiceForCassandraDatacenter(rc.Datacenter)
 
 	return rc, service, cleanupMockScr
 }
 
-func getReconcilers(rc *dsereconciliation.ReconciliationContext) (ReconcileDatacenter, ReconcileRacks, ReconcileServices) {
+func getReconcilers(rc *ReconciliationContext) (ReconcileDatacenter, ReconcileRacks, ReconcileServices) {
 	reconcileDatacenter := ReconcileDatacenter{
 		ReconcileContext: rc,
 	}

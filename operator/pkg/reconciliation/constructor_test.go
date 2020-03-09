@@ -4,19 +4,19 @@ import (
 	"reflect"
 	"testing"
 
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	appsv1 "k8s.io/api/apps/v1"
 )
 
-func TestDseDatacenter_buildLabelSelectorForSeedService(t *testing.T) {
-	dc := &datastaxv1alpha1.DseDatacenter{
-		Spec: datastaxv1alpha1.DseDatacenterSpec{
-			DseClusterName: "bob",
+func TestCassandraDatacenter_buildLabelSelectorForSeedService(t *testing.T) {
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName: "bob",
 		},
 	}
 	want := map[string]string{
-		datastaxv1alpha1.ClusterLabel:  "bob",
-		datastaxv1alpha1.SeedNodeLabel: "true",
+		api.ClusterLabel:  "bob",
+		api.SeedNodeLabel: "true",
 	}
 
 	got := buildLabelSelectorForSeedService(dc)
@@ -27,14 +27,14 @@ func TestDseDatacenter_buildLabelSelectorForSeedService(t *testing.T) {
 }
 
 func Test_calculatePodAntiAffinity(t *testing.T) {
-	t.Run("check when we allow more than one dse pod per node", func(t *testing.T) {
+	t.Run("check when we allow more than one server pod per node", func(t *testing.T) {
 		paa := calculatePodAntiAffinity(true)
 		if paa != nil {
 			t.Errorf("calculatePodAntiAffinity() = %v, and we want nil", paa)
 		}
 	})
 
-	t.Run("check when we do not allow more than one dse pod per node", func(t *testing.T) {
+	t.Run("check when we do not allow more than one server pod per node", func(t *testing.T) {
 		paa := calculatePodAntiAffinity(false)
 		if paa == nil ||
 			len(paa.RequiredDuringSchedulingIgnoredDuringExecution) != 1 {

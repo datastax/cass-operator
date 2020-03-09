@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 )
 
 func Test_BuildPodHostFromPod(t *testing.T) {
@@ -17,8 +17,8 @@ func Test_BuildPodHostFromPod(t *testing.T) {
 			Name:      "pod-foo",
 			Namespace: "somenamespace",
 			Labels: map[string]string{
-				datastaxv1alpha1.DatacenterLabel: "dc-bar",
-				datastaxv1alpha1.ClusterLabel:    "the-foobar-cluster",
+				api.DatacenterLabel: "dc-bar",
+				api.ClusterLabel:    "the-foobar-cluster",
 			},
 		},
 	}

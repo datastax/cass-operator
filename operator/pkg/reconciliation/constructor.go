@@ -9,8 +9,7 @@ import (
 
 	"k8s.io/kubernetes/pkg/util/hash"
 
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
-	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/oplabels"
 
@@ -24,11 +23,11 @@ import (
 
 const resourceHashAnnotationKey = "k8s.datastax.com/resource-hash"
 
-// Creates a headless service object for the DSE Datacenter, for clients wanting to
-// reach out to a ready DSE node for either CQL or mgmt API
-func newServiceForDseDatacenter(dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
-	svcName := dseDatacenter.GetDatacenterServiceName()
-	service := makeGenericHeadlessService(dseDatacenter)
+// Creates a headless service object for the Datacenter, for clients wanting to
+// reach out to a ready Server node for either CQL or mgmt API
+func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Service {
+	svcName := dc.GetDatacenterServiceName()
+	service := makeGenericHeadlessService(dc)
 	service.ObjectMeta.Name = svcName
 	service.Spec.Ports = []corev1.ServicePort{
 		// Note: Port Names cannot be more than 15 characters
@@ -42,48 +41,48 @@ func newServiceForDseDatacenter(dseDatacenter *datastaxv1alpha1.DseDatacenter) *
 	return service
 }
 
-func buildLabelSelectorForSeedService(dseDatacenter *datastaxv1alpha1.DseDatacenter) map[string]string {
-	labels := dseDatacenter.GetClusterLabels()
+func buildLabelSelectorForSeedService(dc *api.CassandraDatacenter) map[string]string {
+	labels := dc.GetClusterLabels()
 
 	// narrow selection to just the seed nodes
-	labels[datastaxv1alpha1.SeedNodeLabel] = "true"
+	labels[api.SeedNodeLabel] = "true"
 
 	return labels
 }
 
-// newSeedServiceForDseDatacenter creates a headless service owned by the DseDatacenter which will attach to all seed
+// newSeedServiceForCassandraDatacenter creates a headless service owned by the CassandraDatacenter which will attach to all seed
 // nodes in the cluster
-func newSeedServiceForDseDatacenter(dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
-	service := makeGenericHeadlessService(dseDatacenter)
-	service.ObjectMeta.Name = dseDatacenter.GetSeedServiceName()
+func newSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Service {
+	service := makeGenericHeadlessService(dc)
+	service.ObjectMeta.Name = dc.GetSeedServiceName()
 
-	labels := dseDatacenter.GetClusterLabels()
+	labels := dc.GetClusterLabels()
 	oplabels.AddManagedByLabel(labels)
 	service.ObjectMeta.Labels = labels
 
-	service.Spec.Selector = buildLabelSelectorForSeedService(dseDatacenter)
+	service.Spec.Selector = buildLabelSelectorForSeedService(dc)
 	service.Spec.PublishNotReadyAddresses = true
 	return service
 }
 
-// newAllDsePodsServiceForDseDatacenter creates a headless service owned by the DseDatacenter,
-// which covers all DSE pods in the datacenter, whether they are ready or not
-func newAllDsePodsServiceForDseDatacenter(dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
-	service := makeGenericHeadlessService(dseDatacenter)
-	service.ObjectMeta.Name = dseDatacenter.GetAllPodsServiceName()
+// newAllDsePodsServiceForCassandraDatacenter creates a headless service owned by the CassandraDatacenter,
+// which covers all server pods in the datacenter, whether they are ready or not
+func newAllDsePodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Service {
+	service := makeGenericHeadlessService(dc)
+	service.ObjectMeta.Name = dc.GetAllPodsServiceName()
 	service.Spec.PublishNotReadyAddresses = true
 	return service
 }
 
 // makeGenericHeadlessService returns a fresh k8s headless (aka ClusterIP equals "None") Service
-// struct that has the same namespace as the DseDatacenter argument, and proper labels for the DC.
+// struct that has the same namespace as the CassandraDatacenter argument, and proper labels for the DC.
 // The caller needs to fill in the ObjectMeta.Name value, at a minimum, before it can be created
 // inside the k8s cluster.
-func makeGenericHeadlessService(dseDatacenter *datastaxv1alpha1.DseDatacenter) *corev1.Service {
-	labels := dseDatacenter.GetDatacenterLabels()
+func makeGenericHeadlessService(dc *api.CassandraDatacenter) *corev1.Service {
+	labels := dc.GetDatacenterLabels()
 	oplabels.AddManagedByLabel(labels)
 	var service corev1.Service
-	service.ObjectMeta.Namespace = dseDatacenter.Namespace
+	service.ObjectMeta.Namespace = dc.Namespace
 	service.ObjectMeta.Labels = labels
 	service.Spec.Selector = labels
 	service.Spec.Type = "ClusterIP"
@@ -92,11 +91,11 @@ func makeGenericHeadlessService(dseDatacenter *datastaxv1alpha1.DseDatacenter) *
 }
 
 func newNamespacedNameForStatefulSet(
-	dseDc *datastaxv1alpha1.DseDatacenter,
+	dc *api.CassandraDatacenter,
 	rackName string) types.NamespacedName {
 
-	name := dseDc.Spec.DseClusterName + "-" + dseDc.Name + "-" + rackName + "-sts"
-	ns := dseDc.Namespace
+	name := dc.Spec.ClusterName + "-" + dc.Name + "-" + rackName + "-sts"
+	ns := dc.Namespace
 
 	return types.NamespacedName{
 		Name:      name,
@@ -104,35 +103,35 @@ func newNamespacedNameForStatefulSet(
 	}
 }
 
-// Create a statefulset object for the DSE Datacenter.
-func newStatefulSetForDseDatacenter(
+// Create a statefulset object for the Datacenter.
+func newStatefulSetForCassandraDatacenter(
 	rackName string,
-	dseDatacenter *datastaxv1alpha1.DseDatacenter,
+	dc *api.CassandraDatacenter,
 	replicaCount int) (*appsv1.StatefulSet, error) {
 
 	replicaCountInt32 := int32(replicaCount)
 
-	podLabels := dseDatacenter.GetRackLabels(rackName)
+	podLabels := dc.GetRackLabels(rackName)
 	oplabels.AddManagedByLabel(podLabels)
-	podLabels[datastaxv1alpha1.NodeState] = "Ready-to-Start"
+	podLabels[api.CassNodeState] = "Ready-to-Start"
 
 	// see https://github.com/kubernetes/kubernetes/pull/74941
 	// pvc labels are ignored before k8s 1.15.0
-	pvcLabels := dseDatacenter.GetRackLabels(rackName)
+	pvcLabels := dc.GetRackLabels(rackName)
 	oplabels.AddManagedByLabel(pvcLabels)
 
-	statefulSetLabels := dseDatacenter.GetRackLabels(rackName)
+	statefulSetLabels := dc.GetRackLabels(rackName)
 	oplabels.AddManagedByLabel(statefulSetLabels)
 
-	statefulSetSelectorLabels := dseDatacenter.GetRackLabels(rackName)
+	statefulSetSelectorLabels := dc.GetRackLabels(rackName)
 
-	dseVersion := dseDatacenter.Spec.DseVersion
+	imageVersion := dc.Spec.ImageVersion
 	var userID int64 = 999
-	var volumeCaimTemplates []corev1.PersistentVolumeClaim
-	var dseVolumeMounts []corev1.VolumeMount
-	initContainerImage := dseDatacenter.GetConfigBuilderImage()
+	var volumeClaimTemplates []corev1.PersistentVolumeClaim
+	var serverVolumeMounts []corev1.VolumeMount
+	initContainerImage := dc.GetConfigBuilderImage()
 
-	racks := dseDatacenter.Spec.GetRacks()
+	racks := dc.Spec.GetRacks()
 	var zone string
 	for _, rack := range racks {
 		if rack.Name == rackName {
@@ -140,33 +139,33 @@ func newStatefulSetForDseDatacenter(
 		}
 	}
 
-	dseConfigVolumeMount := corev1.VolumeMount{
-		Name:      "dse-config",
+	serverConfigVolumeMount := corev1.VolumeMount{
+		Name:      "server-config",
 		MountPath: "/config",
 	}
 
-	dseVolumeMounts = append(dseVolumeMounts, dseConfigVolumeMount)
+	serverVolumeMounts = append(serverVolumeMounts, serverConfigVolumeMount)
 
-	dseVolumeMounts = append(dseVolumeMounts,
+	serverVolumeMounts = append(serverVolumeMounts,
 		corev1.VolumeMount{
-			Name:      "dse-logs",
+			Name:      "server-logs",
 			MountPath: "/var/log/cassandra",
 		})
 
-	configData, err := dseDatacenter.GetConfigAsJSON()
+	configData, err := dc.GetConfigAsJSON()
 	if err != nil {
 		return nil, err
 	}
 
 	// Add storage if storage claim defined
-	if nil != dseDatacenter.Spec.StorageClaim {
-		pvcName := "dse-data"
-		storageClaim := dseDatacenter.Spec.StorageClaim
-		dseVolumeMounts = append(dseVolumeMounts, corev1.VolumeMount{
+	if nil != dc.Spec.StorageClaim {
+		pvcName := "server-data"
+		storageClaim := dc.Spec.StorageClaim
+		serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
 			Name:      pvcName,
 			MountPath: "/var/lib/cassandra",
 		})
-		volumeCaimTemplates = []corev1.PersistentVolumeClaim{{
+		volumeClaimTemplates = []corev1.PersistentVolumeClaim{{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: pvcLabels,
 				Name:   pvcName,
@@ -181,21 +180,21 @@ func newStatefulSetForDseDatacenter(
 		}}
 	}
 
-	ports, err := dseDatacenter.GetContainerPorts()
+	ports, err := dc.GetContainerPorts()
 	if err != nil {
 		return nil, err
 	}
-	dseImage, err := dseDatacenter.GetServerImage()
+	serverImage, err := dc.GetServerImage()
 	if err != nil {
 		return nil, err
 	}
 
 	serviceAccount := "default"
-	if dseDatacenter.Spec.ServiceAccount != "" {
-		serviceAccount = dseDatacenter.Spec.ServiceAccount
+	if dc.Spec.ServiceAccount != "" {
+		serviceAccount = dc.Spec.ServiceAccount
 	}
 
-	nsName := newNamespacedNameForStatefulSet(dseDatacenter, rackName)
+	nsName := newNamespacedNameForStatefulSet(dc, rackName)
 
 	template := corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
@@ -204,7 +203,7 @@ func newStatefulSetForDseDatacenter(
 		Spec: corev1.PodSpec{
 			Affinity: &corev1.Affinity{
 				NodeAffinity:    calculateNodeAffinity(zone),
-				PodAntiAffinity: calculatePodAntiAffinity(dseDatacenter.Spec.AllowMultipleNodesPerWorker),
+				PodAntiAffinity: calculatePodAntiAffinity(dc.Spec.AllowMultipleNodesPerWorker),
 			},
 			// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
 			SecurityContext: &corev1.PodSecurityContext{
@@ -214,23 +213,23 @@ func newStatefulSetForDseDatacenter(
 			},
 			Volumes: []corev1.Volume{
 				{
-					Name: "dse-config",
+					Name: "server-config",
 					VolumeSource: corev1.VolumeSource{
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
 				{
-					Name: "dse-logs",
+					Name: "server-logs",
 					VolumeSource: corev1.VolumeSource{
 						EmptyDir: &corev1.EmptyDirVolumeSource{},
 					},
 				},
 			},
 			InitContainers: []corev1.Container{{
-				Name:  "dse-config-init",
+				Name:  "server-config-init",
 				Image: initContainerImage,
 				VolumeMounts: []corev1.VolumeMount{
-					dseConfigVolumeMount,
+					serverConfigVolumeMount,
 				},
 				Env: []corev1.EnvVar{
 					{
@@ -249,22 +248,24 @@ func newStatefulSetForDseDatacenter(
 						Name: "RACK_NAME",
 						ValueFrom: &corev1.EnvVarSource{
 							FieldRef: &corev1.ObjectFieldSelector{
-								FieldPath: fmt.Sprintf("metadata.labels['%s']", datastaxv1alpha1.RackLabel),
+								FieldPath: fmt.Sprintf("metadata.labels['%s']", api.RackLabel),
 							},
 						},
 					},
+					// TODO we may need to change this and configbuilder to expect something else
 					{
 						Name:  "DSE_VERSION",
-						Value: dseVersion,
+						Value: imageVersion,
 					},
 				},
 			}},
 			ServiceAccountName: serviceAccount,
 			Containers: []corev1.Container{
 				{
-					Name:      "dse",
-					Image:     dseImage,
-					Resources: dseDatacenter.Spec.Resources,
+					// TODO what should Name be?
+					Name:      "cassandra",
+					Image:     serverImage,
+					Resources: dc.Spec.Resources,
 					Env: []corev1.EnvVar{
 						{
 							Name:  "DS_LICENSE",
@@ -304,17 +305,17 @@ func newStatefulSetForDseDatacenter(
 						InitialDelaySeconds: 20,
 						PeriodSeconds:       10,
 					},
-					VolumeMounts: dseVolumeMounts,
+					VolumeMounts: serverVolumeMounts,
 				},
 				{
-					Name:  "dse-system-logger",
+					Name:  "server-system-logger",
 					Image: "busybox",
 					Args: []string{
 						"/bin/sh", "-c", "tail -n+1 -F /var/log/cassandra/system.log",
 					},
 					VolumeMounts: []corev1.VolumeMount{
 						corev1.VolumeMount{
-							Name:      "dse-logs",
+							Name:      "server-logs",
 							MountPath: "/var/log/cassandra",
 						},
 					},
@@ -323,7 +324,7 @@ func newStatefulSetForDseDatacenter(
 		},
 	}
 
-	_ = httphelper.AddManagementApiServerSecurity(dseDatacenter, &template)
+	_ = httphelper.AddManagementApiServerSecurity(dc, &template)
 
 	result := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -336,10 +337,10 @@ func newStatefulSetForDseDatacenter(
 				MatchLabels: statefulSetSelectorLabels,
 			},
 			Replicas:             &replicaCountInt32,
-			ServiceName:          dseDatacenter.GetDatacenterServiceName(),
+			ServiceName:          dc.GetDatacenterServiceName(),
 			PodManagementPolicy:  appsv1.ParallelPodManagement,
 			Template:             template,
-			VolumeClaimTemplates: volumeCaimTemplates,
+			VolumeClaimTemplates: volumeClaimTemplates,
 		},
 	}
 	result.Annotations = map[string]string{}
@@ -350,16 +351,16 @@ func newStatefulSetForDseDatacenter(
 	return result, nil
 }
 
-// Create a PodDisruptionBudget object for the DSE Datacenter
-func newPodDisruptionBudgetForDatacenter(dseDatacenter *datastaxv1alpha1.DseDatacenter) *policyv1beta1.PodDisruptionBudget {
-	minAvailable := intstr.FromInt(int(dseDatacenter.Spec.Size - 1))
-	labels := dseDatacenter.GetDatacenterLabels()
+// Create a PodDisruptionBudget object for the Datacenter
+func newPodDisruptionBudgetForDatacenter(dc *api.CassandraDatacenter) *policyv1beta1.PodDisruptionBudget {
+	minAvailable := intstr.FromInt(int(dc.Spec.Size - 1))
+	labels := dc.GetDatacenterLabels()
 	oplabels.AddManagedByLabel(labels)
-	selectorLabels := dseDatacenter.GetDatacenterLabels()
+	selectorLabels := dc.GetDatacenterLabels()
 	return &policyv1beta1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dseDatacenter.Name + "-pdb",
-			Namespace: dseDatacenter.Namespace,
+			Name:      dc.Name + "-pdb",
+			Namespace: dc.Namespace,
 			Labels:    labels,
 		},
 		Spec: policyv1beta1.PodDisruptionBudgetSpec{
@@ -372,16 +373,16 @@ func newPodDisruptionBudgetForDatacenter(dseDatacenter *datastaxv1alpha1.DseData
 }
 
 // this type exists so there's no chance of pushing random strings to our progress label
-type dseOperatorStatus string
+type cassandraOperatorStatus string
 
 const (
-	updating dseOperatorStatus = "Updating"
-	ready    dseOperatorStatus = "Ready"
+	updating cassandraOperatorStatus = "Updating"
+	ready    cassandraOperatorStatus = "Ready"
 )
 
 func addOperatorProgressLabel(
-	rc *dsereconciliation.ReconciliationContext,
-	status dseOperatorStatus) error {
+	rc *ReconciliationContext,
+	status cassandraOperatorStatus) error {
 
 	labelVal := string(status)
 
@@ -390,17 +391,17 @@ func addOperatorProgressLabel(
 		dcLabels = make(map[string]string)
 	}
 
-	if dcLabels[datastaxv1alpha1.OperatorProgressLabel] == labelVal {
+	if dcLabels[api.CassOperatorProgressLabel] == labelVal {
 		// early return, no need to ping k8s
 		return nil
 	}
 
 	// set the label and push it to k8s
-	dcLabels[datastaxv1alpha1.OperatorProgressLabel] = labelVal
+	dcLabels[api.CassOperatorProgressLabel] = labelVal
 	rc.Datacenter.SetLabels(dcLabels)
 	if err := rc.Client.Update(rc.Ctx, rc.Datacenter); err != nil {
 		rc.ReqLogger.Error(err, "error updating label",
-			"label", datastaxv1alpha1.OperatorProgressLabel,
+			"label", api.CassOperatorProgressLabel,
 			"value", labelVal)
 		return err
 	}
@@ -441,15 +442,15 @@ func calculatePodAntiAffinity(allowMultipleNodesPerWorker bool) *corev1.PodAntiA
 				LabelSelector: &metav1.LabelSelector{
 					MatchExpressions: []metav1.LabelSelectorRequirement{
 						{
-							Key:      datastaxv1alpha1.ClusterLabel,
+							Key:      api.ClusterLabel,
 							Operator: metav1.LabelSelectorOpExists,
 						},
 						{
-							Key:      datastaxv1alpha1.DatacenterLabel,
+							Key:      api.DatacenterLabel,
 							Operator: metav1.LabelSelectorOpExists,
 						},
 						{
-							Key:      datastaxv1alpha1.RackLabel,
+							Key:      api.RackLabel,
 							Operator: metav1.LabelSelectorOpExists,
 						},
 					},

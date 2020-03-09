@@ -20,8 +20,8 @@ package fake
 
 import (
 	clientset "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned"
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/typed/datastax/v1alpha1"
-	fakedatastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/typed/datastax/v1alpha1/fake"
+	cassandrav1alpha2 "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/typed/cassandra/v1alpha2"
+	fakecassandrav1alpha2 "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/typed/cassandra/v1alpha2/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -76,7 +76,7 @@ func (c *Clientset) Tracker() testing.ObjectTracker {
 
 var _ clientset.Interface = &Clientset{}
 
-// DatastaxV1alpha1 retrieves the DatastaxV1alpha1Client
-func (c *Clientset) DatastaxV1alpha1() datastaxv1alpha1.DatastaxV1alpha1Interface {
-	return &fakedatastaxv1alpha1.FakeDatastaxV1alpha1{Fake: &c.Fake}
+// CassandraV1alpha2 retrieves the CassandraV1alpha2Client
+func (c *Clientset) CassandraV1alpha2() cassandrav1alpha2.CassandraV1alpha2Interface {
+	return &fakecassandrav1alpha2.FakeCassandraV1alpha2{Fake: &c.Fake}
 }

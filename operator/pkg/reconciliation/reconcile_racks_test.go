@@ -10,9 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
-	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
 	"github.com/riptano/dse-operator/operator/pkg/oplabels"
@@ -32,7 +30,7 @@ import (
 func Test_validateLabelsForCluster(t *testing.T) {
 	type args struct {
 		resourceLabels map[string]string
-		rc             *dsereconciliation.ReconciliationContext
+		rc             *ReconciliationContext
 	}
 	tests := []struct {
 		name       string
@@ -44,88 +42,88 @@ func Test_validateLabelsForCluster(t *testing.T) {
 			name: "No labels",
 			args: args{
 				resourceLabels: make(map[string]string),
-				rc: &dsereconciliation.ReconciliationContext{
-					Datacenter: &datastaxv1alpha1.DseDatacenter{
+				rc: &ReconciliationContext{
+					Datacenter: &api.CassandraDatacenter{
 						ObjectMeta: metav1.ObjectMeta{
-							Name: "dseDC",
+							Name: "exampleDC",
 						},
-						Spec: datastaxv1alpha1.DseDatacenterSpec{
-							DseClusterName: "dseCluster",
+						Spec: api.CassandraDatacenterSpec{
+							ClusterName: "exampleCluster",
 						},
 					},
 				},
 			},
 			want: true,
 			wantLabels: map[string]string{
-				datastaxv1alpha1.ClusterLabel: "dseCluster",
-				oplabels.ManagedByLabel:       oplabels.ManagedByLabelValue,
+				api.ClusterLabel:        "exampleCluster",
+				oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
 			},
 		}, {
 			name: "Nil labels",
 			args: args{
 				resourceLabels: nil,
-				rc: &dsereconciliation.ReconciliationContext{
-					Datacenter: &datastaxv1alpha1.DseDatacenter{
+				rc: &ReconciliationContext{
+					Datacenter: &api.CassandraDatacenter{
 						ObjectMeta: metav1.ObjectMeta{
-							Name: "dseDC",
+							Name: "exampleDC",
 						},
-						Spec: datastaxv1alpha1.DseDatacenterSpec{
-							DseClusterName: "dseCluster",
+						Spec: api.CassandraDatacenterSpec{
+							ClusterName: "exampleCluster",
 						},
 					},
 				},
 			},
 			want: true,
 			wantLabels: map[string]string{
-				datastaxv1alpha1.ClusterLabel: "dseCluster",
-				oplabels.ManagedByLabel:       oplabels.ManagedByLabelValue,
+				api.ClusterLabel:        "exampleCluster",
+				oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
 			},
 		},
 		{
 			name: "Has Label",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.ClusterLabel: "dseCluster",
-					oplabels.ManagedByLabel:       oplabels.ManagedByLabelValue,
+					api.ClusterLabel:        "exampleCluster",
+					oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
 				},
-				rc: &dsereconciliation.ReconciliationContext{
-					Datacenter: &datastaxv1alpha1.DseDatacenter{
+				rc: &ReconciliationContext{
+					Datacenter: &api.CassandraDatacenter{
 						ObjectMeta: metav1.ObjectMeta{
-							Name: "dseDC",
+							Name: "exampleDC",
 						},
-						Spec: datastaxv1alpha1.DseDatacenterSpec{
-							DseClusterName: "dseCluster",
+						Spec: api.CassandraDatacenterSpec{
+							ClusterName: "exampleCluster",
 						},
 					},
 				},
 			},
 			want: false,
 			wantLabels: map[string]string{
-				datastaxv1alpha1.ClusterLabel: "dseCluster",
-				oplabels.ManagedByLabel:       oplabels.ManagedByLabelValue,
+				api.ClusterLabel:        "exampleCluster",
+				oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
 			},
 		}, {
 			name: "DC Label, No Cluster Label",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.DatacenterLabel: "dseDC",
+					api.DatacenterLabel: "exampleDC",
 				},
-				rc: &dsereconciliation.ReconciliationContext{
-					Datacenter: &datastaxv1alpha1.DseDatacenter{
+				rc: &ReconciliationContext{
+					Datacenter: &api.CassandraDatacenter{
 						ObjectMeta: metav1.ObjectMeta{
-							Name: "dseDC",
+							Name: "exampleDC",
 						},
-						Spec: datastaxv1alpha1.DseDatacenterSpec{
-							DseClusterName: "dseCluster",
+						Spec: api.CassandraDatacenterSpec{
+							ClusterName: "exampleCluster",
 						},
 					},
 				},
 			},
 			want: true,
 			wantLabels: map[string]string{
-				datastaxv1alpha1.DatacenterLabel: "dseDC",
-				datastaxv1alpha1.ClusterLabel:    "dseCluster",
-				oplabels.ManagedByLabel:          oplabels.ManagedByLabelValue,
+				api.DatacenterLabel:     "exampleDC",
+				api.ClusterLabel:        "exampleCluster",
+				oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
 			},
 		},
 	}
@@ -150,7 +148,7 @@ func TestReconcileRacks_ReconcilePods(t *testing.T) {
 		one = int32(1)
 	)
 
-	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
+	desiredStatefulSet, err := newStatefulSetForCassandraDatacenter(
 		"default",
 		rc.Datacenter,
 		2)
@@ -164,7 +162,7 @@ func TestReconcileRacks_ReconcilePods(t *testing.T) {
 		rc.Datacenter,
 	}
 
-	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.Datacenter.Spec.DseClusterName, rc.Datacenter.Name)
+	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.Datacenter.Spec.ClusterName, rc.Datacenter.Name)
 	for idx := range mockPods {
 		mp := mockPods[idx]
 		trackObjects = append(trackObjects, mp)
@@ -172,12 +170,12 @@ func TestReconcileRacks_ReconcilePods(t *testing.T) {
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
-	nextRack := &dsereconciliation.RackInformation{}
+	nextRack := &RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 1
 	nextRack.SeedCount = 1
 
-	rackInfo := []*dsereconciliation.RackInformation{nextRack}
+	rackInfo := []*RackInformation{nextRack}
 
 	reconcileRacks := ReconcileRacks{
 		ReconcileContext:       rc,
@@ -207,16 +205,16 @@ func TestReconcilePods(t *testing.T) {
 			}),
 		mock.MatchedBy(
 			func(obj *corev1.Pod) bool {
-				dseDatacenter := datastaxv1alpha1.DseDatacenter{
+				dc := api.CassandraDatacenter{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "dsedatacenter-example",
+						Name:      "cassandradatacenter-example",
 						Namespace: "default",
 					},
-					Spec: datastaxv1alpha1.DseDatacenterSpec{
-						DseClusterName: "dsedatacenter-example-cluster",
+					Spec: api.CassandraDatacenterSpec{
+						ClusterName: "cassandradatacenter-example-cluster",
 					},
 				}
-				expected := dseDatacenter.GetRackLabels("default")
+				expected := dc.GetRackLabels("default")
 				expected[oplabels.ManagedByLabel] = oplabels.ManagedByLabelValue
 
 				return reflect.DeepEqual(obj.GetLabels(), expected)
@@ -224,7 +222,7 @@ func TestReconcilePods(t *testing.T) {
 		Return(nil).
 		Once()
 
-	statefulSet, err := newStatefulSetForDseDatacenter(
+	statefulSet, err := newStatefulSetForCassandraDatacenter(
 		"default",
 		rc.Datacenter,
 		2)
@@ -245,7 +243,7 @@ func TestReconcilePods_WithVolumes(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	statefulSet, err := newStatefulSetForDseDatacenter(
+	statefulSet, err := newStatefulSetForCassandraDatacenter(
 		"default",
 		rc.Datacenter,
 		2)
@@ -258,15 +256,15 @@ func TestReconcilePods_WithVolumes(t *testing.T) {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "dsedatacenter-example-cluster-dsedatacenter-example-default-sts-0",
+			Name:      "cassandradatacenter-example-cluster-cassandradatacenter-example-default-sts-0",
 			Namespace: statefulSet.Namespace,
 		},
 		Spec: v1.PodSpec{
 			Volumes: []v1.Volume{{
-				Name: "dse-data",
+				Name: "server-data",
 				VolumeSource: v1.VolumeSource{
 					PersistentVolumeClaim: &v1.PersistentVolumeClaimVolumeSource{
-						ClaimName: "dse-data-example-cluster1-example-dsedatacenter1-rack0-sts-0",
+						ClaimName: "cassandra-data-example-cluster1-example-cassandradatacenter1-rack0-sts-0",
 					},
 				},
 			}},
@@ -305,7 +303,7 @@ func TestReconcileNextRack(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	statefulSet, err := newStatefulSetForDseDatacenter(
+	statefulSet, err := newStatefulSetForCassandraDatacenter(
 		"default",
 		rc.Datacenter,
 		2)
@@ -332,7 +330,7 @@ func TestReconcileNextRack_CreateError(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	statefulSet, err := newStatefulSetForDseDatacenter(
+	statefulSet, err := newStatefulSetForCassandraDatacenter(
 		"default",
 		rc.Datacenter,
 		2)
@@ -388,7 +386,7 @@ func TestCalculateRackInformation_MultiRack(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	rc.Datacenter.Spec.Racks = []v1alpha1.Rack{{
+	rc.Datacenter.Spec.Racks = []api.Rack{{
 		Name: "rack0",
 	}, {
 		Name: "rack1",
@@ -423,7 +421,7 @@ func TestReconcileRacks(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
+	desiredStatefulSet, err := newStatefulSetForCassandraDatacenter(
 		"default",
 		rc.Datacenter,
 		2)
@@ -434,7 +432,7 @@ func TestReconcileRacks(t *testing.T) {
 		rc.Datacenter,
 	}
 
-	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.Datacenter.Spec.DseClusterName, rc.Datacenter.Name)
+	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.Datacenter.Spec.ClusterName, rc.Datacenter.Name)
 	for idx := range mockPods {
 		mp := mockPods[idx]
 		trackObjects = append(trackObjects, mp)
@@ -442,9 +440,9 @@ func TestReconcileRacks(t *testing.T) {
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
-	var rackInfo []*dsereconciliation.RackInformation
+	var rackInfo []*RackInformation
 
-	nextRack := &dsereconciliation.RackInformation{}
+	nextRack := &RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 1
 
@@ -470,9 +468,9 @@ func TestReconcileRacks_GetStatefulsetError(t *testing.T) {
 
 	k8sMockClientGet(mockClient, fmt.Errorf(""))
 
-	var rackInfo []*dsereconciliation.RackInformation
+	var rackInfo []*RackInformation
 
-	nextRack := &dsereconciliation.RackInformation{}
+	nextRack := &RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 1
 
@@ -498,7 +496,7 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
+	desiredStatefulSet, err := newStatefulSetForCassandraDatacenter(
 		"default",
 		rc.Datacenter,
 		2)
@@ -508,7 +506,7 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 		desiredStatefulSet,
 	}
 
-	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.Datacenter.Spec.DseClusterName, rc.Datacenter.Name)
+	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.Datacenter.Spec.ClusterName, rc.Datacenter.Name)
 	for idx := range mockPods {
 		mp := mockPods[idx]
 		trackObjects = append(trackObjects, mp)
@@ -516,9 +514,9 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
-	var rackInfo []*dsereconciliation.RackInformation
+	var rackInfo []*RackInformation
 
-	nextRack := &dsereconciliation.RackInformation{}
+	nextRack := &RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 1
 	nextRack.SeedCount = 1
@@ -542,7 +540,7 @@ func TestReconcileRacks_NeedMoreReplicas(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	preExistingStatefulSet, err := newStatefulSetForDseDatacenter(
+	preExistingStatefulSet, err := newStatefulSetForCassandraDatacenter(
 		"default",
 		rc.Datacenter,
 		2)
@@ -554,9 +552,9 @@ func TestReconcileRacks_NeedMoreReplicas(t *testing.T) {
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
-	var rackInfo []*dsereconciliation.RackInformation
+	var rackInfo []*RackInformation
 
-	nextRack := &dsereconciliation.RackInformation{}
+	nextRack := &RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 3
 	nextRack.SeedCount = 3
@@ -578,7 +576,7 @@ func TestReconcileRacks_DoesntScaleDown(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	preExistingStatefulSet, err := newStatefulSetForDseDatacenter(
+	preExistingStatefulSet, err := newStatefulSetForCassandraDatacenter(
 		"default",
 		rc.Datacenter,
 		2)
@@ -588,7 +586,7 @@ func TestReconcileRacks_DoesntScaleDown(t *testing.T) {
 		preExistingStatefulSet,
 	}
 
-	mockPods := mockReadyPodsForStatefulSet(preExistingStatefulSet, rc.Datacenter.Spec.DseClusterName, rc.Datacenter.Name)
+	mockPods := mockReadyPodsForStatefulSet(preExistingStatefulSet, rc.Datacenter.Spec.ClusterName, rc.Datacenter.Name)
 	for idx := range mockPods {
 		mp := mockPods[idx]
 		trackObjects = append(trackObjects, mp)
@@ -596,9 +594,9 @@ func TestReconcileRacks_DoesntScaleDown(t *testing.T) {
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
-	var rackInfo []*dsereconciliation.RackInformation
+	var rackInfo []*RackInformation
 
-	nextRack := &dsereconciliation.RackInformation{}
+	nextRack := &RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 1
 	nextRack.SeedCount = 1
@@ -620,7 +618,7 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	preExistingStatefulSet, err := newStatefulSetForDseDatacenter(
+	preExistingStatefulSet, err := newStatefulSetForCassandraDatacenter(
 		"default",
 		rc.Datacenter,
 		3)
@@ -633,10 +631,10 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
-	var rackInfo []*dsereconciliation.RackInformation
+	var rackInfo []*RackInformation
 
 	rc.Datacenter.Spec.Parked = true
-	nextRack := &dsereconciliation.RackInformation{}
+	nextRack := &RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 0
 	nextRack.SeedCount = 0
@@ -667,7 +665,7 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
+	desiredStatefulSet, err := newStatefulSetForCassandraDatacenter(
 		"default",
 		rc.Datacenter,
 		2)
@@ -685,9 +683,9 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
-	var rackInfo []*dsereconciliation.RackInformation
+	var rackInfo []*RackInformation
 
-	nextRack := &dsereconciliation.RackInformation{}
+	nextRack := &RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 2
 	nextRack.SeedCount = 2
@@ -711,7 +709,7 @@ func TestReconcileRacks_FirstRackAlreadyReconciled(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
+	desiredStatefulSet, err := newStatefulSetForCassandraDatacenter(
 		"rack0",
 		rc.Datacenter,
 		2)
@@ -719,7 +717,7 @@ func TestReconcileRacks_FirstRackAlreadyReconciled(t *testing.T) {
 
 	desiredStatefulSet.Status.ReadyReplicas = 2
 
-	secondDesiredStatefulSet, err := newStatefulSetForDseDatacenter(
+	secondDesiredStatefulSet, err := newStatefulSetForCassandraDatacenter(
 		"rack1",
 		rc.Datacenter,
 		1)
@@ -734,14 +732,14 @@ func TestReconcileRacks_FirstRackAlreadyReconciled(t *testing.T) {
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
-	var rackInfo []*dsereconciliation.RackInformation
+	var rackInfo []*RackInformation
 
-	rack0 := &dsereconciliation.RackInformation{}
+	rack0 := &RackInformation{}
 	rack0.RackName = "rack0"
 	rack0.NodeCount = 2
 	rack0.SeedCount = 2
 
-	rack1 := &dsereconciliation.RackInformation{}
+	rack1 := &RackInformation{}
 	rack1.RackName = "rack1"
 	rack1.NodeCount = 2
 	rack1.SeedCount = 1
@@ -768,7 +766,7 @@ func TestReconcileRacks_FirstRackAlreadyReconciled(t *testing.T) {
 
 func TestReconcileRacks_UpdateRackNodeCount(t *testing.T) {
 	type args struct {
-		rc           *dsereconciliation.ReconciliationContext
+		rc           *ReconciliationContext
 		statefulSet  *appsv1.StatefulSet
 		newNodeCount int32
 	}
@@ -777,7 +775,7 @@ func TestReconcileRacks_UpdateRackNodeCount(t *testing.T) {
 	defer cleanupMockScr()
 
 	var (
-		nextRack       = &dsereconciliation.RackInformation{}
+		nextRack       = &RackInformation{}
 		reconcileRacks = ReconcileRacks{
 			ReconcileContext: rc,
 		}
@@ -828,7 +826,7 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
+	desiredStatefulSet, err := newStatefulSetForCassandraDatacenter(
 		"rack0",
 		rc.Datacenter,
 		2)
@@ -838,7 +836,7 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 
 	desiredPdb := newPodDisruptionBudgetForDatacenter(rc.Datacenter)
 
-	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.Datacenter.Spec.DseClusterName, rc.Datacenter.Name)
+	mockPods := mockReadyPodsForStatefulSet(desiredStatefulSet, rc.Datacenter.Spec.ClusterName, rc.Datacenter.Name)
 
 	trackObjects := []runtime.Object{
 		desiredStatefulSet,
@@ -852,9 +850,9 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
-	var rackInfo []*dsereconciliation.RackInformation
+	var rackInfo []*RackInformation
 
-	rack0 := &dsereconciliation.RackInformation{}
+	rack0 := &RackInformation{}
 	rack0.RackName = "rack0"
 	rack0.NodeCount = 2
 
@@ -876,7 +874,7 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 	assert.NoErrorf(t, err, "Client.Get() should not have returned an error")
 
 	assert.Equal(t,
-		"{\"cluster-info\":{\"name\":\"dsedatacenter-example-cluster\",\"seeds\":\"dsedatacenter-example-cluster-seed-service\"},\"datacenter-info\":{\"name\":\"dsedatacenter-example\"}}",
+		"{\"cluster-info\":{\"name\":\"cassandradatacenter-example-cluster\",\"seeds\":\"cassandradatacenter-example-cluster-seed-service\"},\"datacenter-info\":{\"name\":\"cassandradatacenter-example\"}}",
 		currentStatefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Value,
 		"The statefulset env config should not contain a cassandra-yaml entry.")
 
@@ -902,7 +900,7 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 	assert.NoErrorf(t, err, "Client.Get() should not have returned an error")
 
 	assert.Equal(t,
-		"{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\"},\"cluster-info\":{\"name\":\"dsedatacenter-example-cluster\",\"seeds\":\"dsedatacenter-example-cluster-seed-service\"},\"datacenter-info\":{\"name\":\"dsedatacenter-example\"}}",
+		"{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\"},\"cluster-info\":{\"name\":\"cassandradatacenter-example-cluster\",\"seeds\":\"cassandradatacenter-example-cluster-seed-service\"},\"datacenter-info\":{\"name\":\"cassandradatacenter-example\"}}",
 		currentStatefulSet.Spec.Template.Spec.InitContainers[0].Env[0].Value,
 		"The statefulset should contain a cassandra-yaml entry.")
 }
@@ -915,9 +913,9 @@ func mockReadyPodsForStatefulSet(sts *appsv1.StatefulSet, cluster, dc string) []
 		pod.Namespace = sts.Namespace
 		pod.Name = fmt.Sprintf("%s-%d", sts.Name, i)
 		pod.Labels = make(map[string]string)
-		pod.Labels[datastaxv1alpha1.ClusterLabel] = cluster
-		pod.Labels[datastaxv1alpha1.DatacenterLabel] = dc
-		pod.Labels[datastaxv1alpha1.NodeState] = "Started"
+		pod.Labels[api.ClusterLabel] = cluster
+		pod.Labels[api.DatacenterLabel] = dc
+		pod.Labels[api.CassNodeState] = "Started"
 		pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
 			Ready: true,
 		}}
@@ -929,9 +927,9 @@ func mockReadyPodsForStatefulSet(sts *appsv1.StatefulSet, cluster, dc string) []
 func makeMockReadyStartedPod() *corev1.Pod {
 	pod := &corev1.Pod{}
 	pod.Labels = make(map[string]string)
-	pod.Labels[datastaxv1alpha1.NodeState] = "Started"
+	pod.Labels[api.CassNodeState] = "Started"
 	pod.Status.ContainerStatuses = []corev1.ContainerStatus{{
-		Name:  "dse",
+		Name:  "cassandra",
 		Ready: true,
 	}}
 	return pod
@@ -939,8 +937,8 @@ func makeMockReadyStartedPod() *corev1.Pod {
 
 func TestReconcileRacks_countReadyAndStarted(t *testing.T) {
 	type fields struct {
-		ReconcileContext       *dsereconciliation.ReconciliationContext
-		desiredRackInformation []*dsereconciliation.RackInformation
+		ReconcileContext       *ReconciliationContext
+		desiredRackInformation []*RackInformation
 		statefulSets           []*appsv1.StatefulSet
 	}
 	type args struct {
@@ -959,7 +957,7 @@ func TestReconcileRacks_countReadyAndStarted(t *testing.T) {
 			name: "test an empty podList",
 			fields: fields{
 				ReconcileContext:       rc,
-				desiredRackInformation: []*dsereconciliation.RackInformation{},
+				desiredRackInformation: []*RackInformation{},
 				statefulSets:           []*appsv1.StatefulSet{},
 			},
 			args: args{
@@ -972,7 +970,7 @@ func TestReconcileRacks_countReadyAndStarted(t *testing.T) {
 			name: "test two ready and started pods",
 			fields: fields{
 				ReconcileContext:       rc,
-				desiredRackInformation: []*dsereconciliation.RackInformation{},
+				desiredRackInformation: []*RackInformation{},
 				statefulSets:           []*appsv1.StatefulSet{},
 			},
 			args: args{
@@ -1005,36 +1003,36 @@ func TestReconcileRacks_countReadyAndStarted(t *testing.T) {
 	}
 }
 
-func Test_isDseReady(t *testing.T) {
+func Test_isServerReady(t *testing.T) {
 	type args struct {
 		pod *corev1.Pod
 	}
-	podThatHasNoDse := makeMockReadyStartedPod()
-	podThatHasNoDse.Status.ContainerStatuses[0].Name = "nginx"
+	podThatHasNoServer := makeMockReadyStartedPod()
+	podThatHasNoServer.Status.ContainerStatuses[0].Name = "nginx"
 	tests := []struct {
 		name string
 		args args
 		want bool
 	}{
 		{
-			name: "check a ready dse pod",
+			name: "check a ready server pod",
 			args: args{
 				pod: makeMockReadyStartedPod(),
 			},
 			want: true,
 		},
 		{
-			name: "check a ready non-dse pod",
+			name: "check a ready non-server pod",
 			args: args{
-				pod: podThatHasNoDse,
+				pod: podThatHasNoServer,
 			},
 			want: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := isDseReady(tt.args.pod); got != tt.want {
-				t.Errorf("isDseReady() = %v, want %v", got, tt.want)
+			if got := isServerReady(tt.args.pod); got != tt.want {
+				t.Errorf("isServerReady() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -1044,16 +1042,16 @@ func Test_isMgmtApiRunning(t *testing.T) {
 	type args struct {
 		pod *corev1.Pod
 	}
-	readyDseContainer := makeMockReadyStartedPod()
-	readyDseContainer.Status.ContainerStatuses[0].State.Running =
+	readyServerContainer := makeMockReadyStartedPod()
+	readyServerContainer.Status.ContainerStatuses[0].State.Running =
 		&corev1.ContainerStateRunning{StartedAt: metav1.Date(2019, time.July, 4, 12, 12, 12, 0, time.UTC)}
 
-	veryFreshDseContainer := makeMockReadyStartedPod()
-	veryFreshDseContainer.Status.ContainerStatuses[0].State.Running =
+	veryFreshServerContainer := makeMockReadyStartedPod()
+	veryFreshServerContainer.Status.ContainerStatuses[0].State.Running =
 		&corev1.ContainerStateRunning{StartedAt: metav1.Now()}
 
-	podThatHasNoDse := makeMockReadyStartedPod()
-	podThatHasNoDse.Status.ContainerStatuses[0].Name = "nginx"
+	podThatHasNoServer := makeMockReadyStartedPod()
+	podThatHasNoServer.Status.ContainerStatuses[0].Name = "nginx"
 
 	tests := []struct {
 		name string
@@ -1061,23 +1059,23 @@ func Test_isMgmtApiRunning(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "check a ready dse pod",
+			name: "check a ready server pod",
 			args: args{
-				pod: readyDseContainer,
+				pod: readyServerContainer,
 			},
 			want: true,
 		},
 		{
-			name: "check a ready dse pod that started as recently as possible",
+			name: "check a ready server pod that started as recently as possible",
 			args: args{
-				pod: veryFreshDseContainer,
+				pod: veryFreshServerContainer,
 			},
 			want: false,
 		},
 		{
-			name: "check a ready dse pod that started as recently as possible",
+			name: "check a ready server pod that started as recently as possible",
 			args: args{
-				pod: podThatHasNoDse,
+				pod: podThatHasNoServer,
 			},
 			want: false,
 		},
@@ -1092,24 +1090,24 @@ func Test_isMgmtApiRunning(t *testing.T) {
 }
 
 func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
-	clusterName := "dsedatacenter-example-cluster"
-	dcName := "dsedatacenter-example"
+	clusterName := "cassandradatacenter-example-cluster"
+	dcName := "cassandradatacenter-example"
 	rackName := "rack1"
-	dseDatacenter := &datastaxv1alpha1.DseDatacenter{
+	dc := &api.CassandraDatacenter{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      dcName,
 			Namespace: "default",
 		},
-		Spec: datastaxv1alpha1.DseDatacenterSpec{
-			DseClusterName: clusterName,
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName: clusterName,
 		},
 	}
 
 	goodRackLabels := map[string]string{
-		datastaxv1alpha1.ClusterLabel:    clusterName,
-		datastaxv1alpha1.DatacenterLabel: dcName,
-		datastaxv1alpha1.RackLabel:       rackName,
-		oplabels.ManagedByLabel:          oplabels.ManagedByLabelValue,
+		api.ClusterLabel:        clusterName,
+		api.DatacenterLabel:     dcName,
+		api.RackLabel:           rackName,
+		oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
 	}
 
 	type args struct {
@@ -1131,9 +1129,9 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 			name: "Cluster name different",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.ClusterLabel:    "some-other-cluster",
-					datastaxv1alpha1.DatacenterLabel: dcName,
-					datastaxv1alpha1.RackLabel:       rackName,
+					api.ClusterLabel:    "some-other-cluster",
+					api.DatacenterLabel: dcName,
+					api.RackLabel:       rackName,
 				},
 			},
 			want: result{
@@ -1145,9 +1143,9 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 			name: "Rack name different",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.ClusterLabel:    clusterName,
-					datastaxv1alpha1.DatacenterLabel: dcName,
-					datastaxv1alpha1.RackLabel:       "some-other-rack",
+					api.ClusterLabel:    clusterName,
+					api.DatacenterLabel: dcName,
+					api.RackLabel:       "some-other-rack",
 				},
 			},
 			want: result{
@@ -1159,10 +1157,10 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 			name: "Rack name different plus other labels",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.ClusterLabel:    clusterName,
-					datastaxv1alpha1.DatacenterLabel: dcName,
-					datastaxv1alpha1.RackLabel:       "some-other-rack",
-					"foo":                            "bar",
+					api.ClusterLabel:    clusterName,
+					api.DatacenterLabel: dcName,
+					api.RackLabel:       "some-other-rack",
+					"foo":               "bar",
 				},
 			},
 			want: result{
@@ -1187,10 +1185,10 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 			name: "Correct labels",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.ClusterLabel:    clusterName,
-					datastaxv1alpha1.DatacenterLabel: dcName,
-					datastaxv1alpha1.RackLabel:       rackName,
-					oplabels.ManagedByLabel:          oplabels.ManagedByLabelValue,
+					api.ClusterLabel:        clusterName,
+					api.DatacenterLabel:     dcName,
+					api.RackLabel:           rackName,
+					oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
 				},
 			},
 			want: result{
@@ -1201,11 +1199,11 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 			name: "Correct labels with some additional labels",
 			args: args{
 				resourceLabels: map[string]string{
-					datastaxv1alpha1.ClusterLabel:    clusterName,
-					datastaxv1alpha1.DatacenterLabel: dcName,
-					datastaxv1alpha1.RackLabel:       rackName,
-					oplabels.ManagedByLabel:          oplabels.ManagedByLabelValue,
-					"foo":                            "bar",
+					api.ClusterLabel:        clusterName,
+					api.DatacenterLabel:     dcName,
+					api.RackLabel:           rackName,
+					oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
+					"foo":                   "bar",
 				},
 			},
 			want: result{
@@ -1217,7 +1215,7 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.want.changed {
-				changed, newLabels := shouldUpdateLabelsForRackResource(tt.args.resourceLabels, dseDatacenter, rackName)
+				changed, newLabels := shouldUpdateLabelsForRackResource(tt.args.resourceLabels, dc, rackName)
 				if !changed || !reflect.DeepEqual(newLabels, tt.want.labels) {
 					t.Errorf("shouldUpdateLabelsForRackResource() = (%v, %v), want (%v, %v)", changed, newLabels, true, tt.want)
 				}
@@ -1226,7 +1224,7 @@ func Test_shouldUpdateLabelsForRackResource(t *testing.T) {
 				// make sure that the map returned *is* the map passed in and
 				// that it is unchanged.
 				resourceLabelsCopy := utils.MergeMap(map[string]string{}, tt.args.resourceLabels)
-				changed, newLabels := shouldUpdateLabelsForRackResource(tt.args.resourceLabels, dseDatacenter, rackName)
+				changed, newLabels := shouldUpdateLabelsForRackResource(tt.args.resourceLabels, dc, rackName)
 				if changed || !reflect.DeepEqual(resourceLabelsCopy, newLabels) {
 					t.Errorf("shouldUpdateLabelsForRackResource() = (%v, %v), want (%v, %v)", changed, newLabels, true, tt.want)
 				} else if reflect.ValueOf(tt.args.resourceLabels).Pointer() != reflect.ValueOf(newLabels).Pointer() {
@@ -1243,8 +1241,8 @@ func makeReloadTestPod() *corev1.Pod {
 			Name:      "mypod",
 			Namespace: "default",
 			Labels: map[string]string{
-				datastaxv1alpha1.ClusterLabel:    "mycluster",
-				datastaxv1alpha1.DatacenterLabel: "mydc",
+				api.ClusterLabel:    "mycluster",
+				api.DatacenterLabel: "mydc",
 			},
 		},
 	}

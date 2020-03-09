@@ -4,9 +4,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
-	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation/reconcileriface"
-
 	"context"
 	"time"
 
@@ -18,29 +15,29 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 )
 
 // Use a var so we can mock this function
 var setControllerReference = controllerutil.SetControllerReference
 
-type reconcileFun func() (reconcileriface.Reconciler, error)
+type reconcileFun func() (Reconciler, error)
 
 // calculateReconciliationActions will iterate over an ordered list of reconcilers which will determine if any action needs to
-// be taken on the DseDatacenter. If a change is needed then the apply function will be called on that reconciler and the
+// be taken on the CassandraDatacenter. If a change is needed then the apply function will be called on that reconciler and the
 // request will be requeued for the next reconciler to handle in the subsequent reconcile loop, otherwise the next reconciler
 // will be called.
 func calculateReconciliationActions(
-	rc *dsereconciliation.ReconciliationContext,
+	rc *ReconciliationContext,
 	reconcileDatacenter ReconcileDatacenter,
 	reconcileRacks ReconcileRacks,
 	reconcileServices ReconcileServices,
-	reconciler *ReconcileDseDatacenter) (reconcile.Result, error) {
+	reconciler *ReconcileCassandraDatacenter) (reconcile.Result, error) {
 
 	rc.ReqLogger.Info("handler::calculateReconciliationActions")
 
-	// Check if the DseDatacenter was marked to be deleted
+	// Check if the CassandraDatacenter was marked to be deleted
 	if rec, err := reconcileDatacenter.ProcessDeletion(); err != nil || rec != nil {
 		// had to modify the headless service so requeue in order to reconcile the seed service on the next loop
 
@@ -85,24 +82,24 @@ var log = logf.Log.WithName("controller_dsedatacenter")
 
 // Reconciliation related data structures
 
-// ReconcileDseDatacenter reconciles a dseDatacenter object
+// ReconcileCassandraDatacenter reconciles a cassandraDatacenter object
 // This is placed here to avoid a circular dependency
-type ReconcileDseDatacenter struct {
+type ReconcileCassandraDatacenter struct {
 	// This client, initialized using mgr.client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	client client.Client
 	scheme *runtime.Scheme
 }
 
-// Reconcile reads that state of the cluster for a dseDatacenter object
+// Reconcile reads that state of the cluster for a Datacenter object
 // and makes changes based on the state read
-// and what is in the dseDatacenter.Spec
+// and what is in the cassandraDatacenter.Spec
 // Note:
 // The Controller will requeue the Request to be processed again
 // if the returned error is non-nil or Result.Requeue is true,
 // otherwise upon completion it will remove the work from the queue.
 // See: https://godoc.org/sigs.k8s.io/controller-runtime/pkg/reconcile#Result
-func (r *ReconcileDseDatacenter) Reconcile(
+func (r *ReconcileCassandraDatacenter) Reconcile(
 	request reconcile.Request) (reconcile.Result, error) {
 
 	startReconcile := time.Now()
@@ -121,7 +118,7 @@ func (r *ReconcileDseDatacenter) Reconcile(
 
 	logger.Info("======== handler::Reconcile has been called")
 
-	rc, err := dsereconciliation.CreateReconciliationContext(
+	rc, err := CreateReconciliationContext(
 		&request,
 		r.client,
 		r.scheme,
@@ -131,27 +128,27 @@ func (r *ReconcileDseDatacenter) Reconcile(
 			// Request object not found, could have been deleted after reconcile request.
 			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
 			// Return and don't requeue
-			logger.Info("DseDatacenter resource not found. Ignoring since object must be deleted.")
+			logger.Info("CassandraDatacenter resource not found. Ignoring since object must be deleted.")
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		logger.Error(err, "Failed to get DseDatacenter.")
+		logger.Error(err, "Failed to get CassandraDatacenter.")
 		return reconcile.Result{Requeue: true}, err
 	}
 
 	if ok, err := r.isValid(rc.Datacenter); !ok {
-		logger.Error(err, "DseDatacenter resource is invalid.")
+		logger.Error(err, "CassandraDatacenter resource is invalid.")
 		// No reason to requeue if the resource is invalid as the user will need
 		// to fix it before we can do anything further.
 		return reconcile.Result{Requeue: false}, err
 	}
 
 	twentySecsAgo := metav1.Now().Add(time.Second * -20)
-	lastNodeStart := rc.Datacenter.Status.LastDseNodeStarted
-	dseRecentlyStarted := lastNodeStart.After(twentySecsAgo)
+	lastNodeStart := rc.Datacenter.Status.LastServerNodeStarted
+	serverRecentlyStarted := lastNodeStart.After(twentySecsAgo)
 
-	if dseRecentlyStarted {
-		logger.Info("Ending reconciliation early because a DSE node was recently started")
+	if serverRecentlyStarted {
+		logger.Info("Ending reconciliation early because a server node was recently started")
 		return reconcile.Result{}, nil
 	}
 
@@ -170,28 +167,28 @@ func (r *ReconcileDseDatacenter) Reconcile(
 	return calculateReconciliationActions(rc, reconcileDatacenter, reconcileRacks, reconcileServices, r)
 }
 
-func (r *ReconcileDseDatacenter) addFinalizer(rc *dsereconciliation.ReconciliationContext) error {
+func (r *ReconcileCassandraDatacenter) addFinalizer(rc *ReconciliationContext) error {
 	if len(rc.Datacenter.GetFinalizers()) < 1 && rc.Datacenter.GetDeletionTimestamp() == nil {
-		rc.ReqLogger.Info("Adding Finalizer for the DseDatacenter")
+		rc.ReqLogger.Info("Adding Finalizer for the CassandraDatacenter")
 		rc.Datacenter.SetFinalizers([]string{"com.datastax.dse.finalizer"})
 
 		// Update CR
 		err := r.client.Update(rc.Ctx, rc.Datacenter)
 		if err != nil {
-			rc.ReqLogger.Error(err, "Failed to update DseDatacenter with finalizer")
+			rc.ReqLogger.Error(err, "Failed to update CassandraDatacenter with finalizer")
 			return err
 		}
 	}
 	return nil
 }
 
-func (r *ReconcileDseDatacenter) isValid(dseDatacenter *datastaxv1alpha1.DseDatacenter) (bool, error) {
+func (r *ReconcileCassandraDatacenter) isValid(dc *api.CassandraDatacenter) (bool, error) {
 	ctx := context.Background()
 
 	// Basic validation up here
 
 	// Validate Management API config
-	errs := httphelper.ValidateManagementApiConfig(dseDatacenter, r.client, ctx)
+	errs := httphelper.ValidateManagementApiConfig(dc, r.client, ctx)
 	if errs != nil && len(errs) > 0 {
 		return false, errs[0]
 	}
@@ -201,7 +198,7 @@ func (r *ReconcileDseDatacenter) isValid(dseDatacenter *datastaxv1alpha1.DseData
 
 // NewReconciler returns a new reconcile.Reconciler
 func NewReconciler(mgr manager.Manager) reconcile.Reconciler {
-	return &ReconcileDseDatacenter{
+	return &ReconcileCassandraDatacenter{
 		client: mgr.GetClient(),
 		scheme: mgr.GetScheme()}
 }

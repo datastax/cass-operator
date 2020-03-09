@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
 )
 
@@ -27,7 +27,7 @@ func TestCalculateReconciliationActions(t *testing.T) {
 
 	datacenterReconcile, reconcileRacks, reconcileServices := getReconcilers(rc)
 
-	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileDseDatacenter{client: rc.Client})
+	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileCassandraDatacenter{client: rc.Client})
 	assert.NoErrorf(t, err, "Should not have returned an error while calculating reconciliation actions")
 	assert.NotNil(t, result, "Result should not be nil")
 
@@ -36,7 +36,7 @@ func TestCalculateReconciliationActions(t *testing.T) {
 	fakeClient, _ := fakeClientWithService(rc.Datacenter)
 	rc.Client = *fakeClient
 
-	result, err = calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileDseDatacenter{client: rc.Client})
+	result, err = calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileCassandraDatacenter{client: rc.Client})
 	assert.NoErrorf(t, err, "Should not have returned an error while calculating reconciliation actions")
 	assert.NotNil(t, result, "Result should not be nil")
 }
@@ -53,7 +53,7 @@ func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
 
 	datacenterReconcile, reconcileRacks, reconcileServices := getReconcilers(rc)
 
-	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileDseDatacenter{client: rc.Client})
+	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileCassandraDatacenter{client: rc.Client})
 	assert.Errorf(t, err, "Should have returned an error while calculating reconciliation actions")
 	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 
@@ -67,10 +67,10 @@ func TestCalculateReconciliationActions_FailedUpdate(t *testing.T) {
 	mockClient := &mocks.Client{}
 	rc.Client = mockClient
 
-	k8sMockClientUpdate(mockClient, fmt.Errorf("failed to update DseDatacenter with removed finalizers"))
+	k8sMockClientUpdate(mockClient, fmt.Errorf("failed to update CassandraDatacenter with removed finalizers"))
 
 	datacenterReconcile, reconcileRacks, reconcileServices := getReconcilers(rc)
-	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileDseDatacenter{client: rc.Client})
+	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileCassandraDatacenter{client: rc.Client})
 	assert.Errorf(t, err, "Should have returned an error while calculating reconciliation actions")
 	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 
@@ -101,7 +101,7 @@ func TestProcessDeletion_FailedDelete(t *testing.T) {
 	rc.Datacenter.SetDeletionTimestamp(&now)
 
 	datacenterReconcile, reconcileRacks, reconcileServices := getReconcilers(rc)
-	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileDseDatacenter{client: rc.Client})
+	result, err := calculateReconciliationActions(rc, datacenterReconcile, reconcileRacks, reconcileServices, &ReconcileCassandraDatacenter{client: rc.Client})
 	assert.Errorf(t, err, "Should have returned an error while calculating reconciliation actions")
 	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 
@@ -114,20 +114,20 @@ func TestReconcile(t *testing.T) {
 	logf.SetLogger(logger)
 
 	var (
-		name            = "cluster-example-cluster.dc-example-dsedatacenter"
+		name            = "cluster-example-cluster.dc-example-datacenter"
 		namespace       = "default"
 		size      int32 = 2
 	)
 
-	// Instance a dseDatacenter
-	dseDatacenter := &datastaxv1alpha1.DseDatacenter{
+	// Instance a CassandraDatacenter
+	dc := &api.CassandraDatacenter{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: datastaxv1alpha1.DseDatacenterSpec{
-			ManagementApiAuth: datastaxv1alpha1.ManagementApiAuthConfig{
-				Insecure: &datastaxv1alpha1.ManagementApiAuthInsecureConfig{},
+		Spec: api.CassandraDatacenterSpec{
+			ManagementApiAuth: api.ManagementApiAuthConfig{
+				Insecure: &api.ManagementApiAuthInsecureConfig{},
 			},
 			Size: size,
 		},
@@ -135,15 +135,15 @@ func TestReconcile(t *testing.T) {
 
 	// Objects to keep track of
 	trackObjects := []runtime.Object{
-		dseDatacenter,
+		dc,
 	}
 
 	s := scheme.Scheme
-	s.AddKnownTypes(datastaxv1alpha1.SchemeGroupVersion, dseDatacenter)
+	s.AddKnownTypes(api.SchemeGroupVersion, dc)
 
 	fakeClient := fake.NewFakeClient(trackObjects...)
 
-	r := &ReconcileDseDatacenter{
+	r := &ReconcileCassandraDatacenter{
 		client: fakeClient,
 		scheme: s,
 	}
@@ -171,21 +171,21 @@ func TestReconcile_NotFound(t *testing.T) {
 	logf.SetLogger(logger)
 
 	var (
-		name            = "dsedatacenter-example"
+		name            = "datacenter-example"
 		namespace       = "default"
 		size      int32 = 2
 	)
 
-	// Instance a dseDatacenter
+	// Instance a CassandraDatacenter
 
-	dseDatacenter := &datastaxv1alpha1.DseDatacenter{
+	dc := &api.CassandraDatacenter{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: datastaxv1alpha1.DseDatacenterSpec{
-			ManagementApiAuth: datastaxv1alpha1.ManagementApiAuthConfig{
-				Insecure: &datastaxv1alpha1.ManagementApiAuthInsecureConfig{},
+		Spec: api.CassandraDatacenterSpec{
+			ManagementApiAuth: api.ManagementApiAuthConfig{
+				Insecure: &api.ManagementApiAuthInsecureConfig{},
 			},
 			Size: size,
 		},
@@ -195,11 +195,11 @@ func TestReconcile_NotFound(t *testing.T) {
 	trackObjects := []runtime.Object{}
 
 	s := scheme.Scheme
-	s.AddKnownTypes(datastaxv1alpha1.SchemeGroupVersion, dseDatacenter)
+	s.AddKnownTypes(api.SchemeGroupVersion, dc)
 
 	fakeClient := fake.NewFakeClient(trackObjects...)
 
-	r := &ReconcileDseDatacenter{
+	r := &ReconcileCassandraDatacenter{
 		client: fakeClient,
 		scheme: s,
 	}
@@ -228,21 +228,21 @@ func TestReconcile_Error(t *testing.T) {
 	logf.SetLogger(logger)
 
 	var (
-		name            = "dsedatacenter-example"
+		name            = "datacenter-example"
 		namespace       = "default"
 		size      int32 = 2
 	)
 
-	// Instance a dseDatacenter
+	// Instance a CassandraDatacenter
 
-	dseDatacenter := &datastaxv1alpha1.DseDatacenter{
+	dc := &api.CassandraDatacenter{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
-		Spec: datastaxv1alpha1.DseDatacenterSpec{
-			ManagementApiAuth: datastaxv1alpha1.ManagementApiAuthConfig{
-				Insecure: &datastaxv1alpha1.ManagementApiAuthInsecureConfig{},
+		Spec: api.CassandraDatacenterSpec{
+			ManagementApiAuth: api.ManagementApiAuthConfig{
+				Insecure: &api.ManagementApiAuthInsecureConfig{},
 			},
 			Size: size,
 		},
@@ -251,12 +251,12 @@ func TestReconcile_Error(t *testing.T) {
 	// Objects to keep track of
 
 	s := scheme.Scheme
-	s.AddKnownTypes(datastaxv1alpha1.SchemeGroupVersion, dseDatacenter)
+	s.AddKnownTypes(api.SchemeGroupVersion, dc)
 
 	mockClient := &mocks.Client{}
 	k8sMockClientGet(mockClient, fmt.Errorf(""))
 
-	r := &ReconcileDseDatacenter{
+	r := &ReconcileCassandraDatacenter{
 		client: mockClient,
 		scheme: s,
 	}
@@ -278,29 +278,29 @@ func TestReconcile_Error(t *testing.T) {
 	}
 }
 
-func TestReconcile_DseDatacenterToBeDeleted(t *testing.T) {
+func TestReconcile_CassandraDatacenterToBeDeleted(t *testing.T) {
 	// Set up verbose logging
 	logger := logf.ZapLogger(true)
 	logf.SetLogger(logger)
 
 	var (
-		name            = "dsedatacenter-example"
+		name            = "datacenter-example"
 		namespace       = "default"
 		size      int32 = 2
 	)
 
-	// Instance a dseDatacenter
+	// Instance a CassandraDatacenter
 	now := metav1.Now()
-	dseDatacenter := &datastaxv1alpha1.DseDatacenter{
+	dc := &api.CassandraDatacenter{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:              name,
 			Namespace:         namespace,
 			DeletionTimestamp: &now,
 			Finalizers:        nil,
 		},
-		Spec: datastaxv1alpha1.DseDatacenterSpec{
-			ManagementApiAuth: datastaxv1alpha1.ManagementApiAuthConfig{
-				Insecure: &datastaxv1alpha1.ManagementApiAuthInsecureConfig{},
+		Spec: api.CassandraDatacenterSpec{
+			ManagementApiAuth: api.ManagementApiAuthConfig{
+				Insecure: &api.ManagementApiAuthInsecureConfig{},
 			},
 			Size: size,
 		},
@@ -308,15 +308,15 @@ func TestReconcile_DseDatacenterToBeDeleted(t *testing.T) {
 
 	// Objects to keep track of
 	trackObjects := []runtime.Object{
-		dseDatacenter,
+		dc,
 	}
 
 	s := scheme.Scheme
-	s.AddKnownTypes(datastaxv1alpha1.SchemeGroupVersion, dseDatacenter)
+	s.AddKnownTypes(api.SchemeGroupVersion, dc)
 
 	fakeClient := fake.NewFakeClient(trackObjects...)
 
-	r := &ReconcileDseDatacenter{
+	r := &ReconcileCassandraDatacenter{
 		client: fakeClient,
 		scheme: s,
 	}

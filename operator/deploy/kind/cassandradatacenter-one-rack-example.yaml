@@ -12,7 +12,7 @@ spec:
   size: 2
   superuserSecret: cassandra-superuser-secret
   storageClaim:
-    storageclassname: cassandra-storage
+    storageclassname: server-storage
     resources:
       requests:
         storage: 1Gi

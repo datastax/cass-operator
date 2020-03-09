@@ -16,17 +16,21 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/apis/datastax/v1alpha1"
-	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
-	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation/reconcileriface"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	"github.com/riptano/dse-operator/operator/pkg/oplabels"
 	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
 
+// TODO remove this interface
+// Reconciler ...
+type Reconciler interface {
+	Apply() (reconcile.Result, error)
+}
+
 // ReconcileRacks ...
 type ReconcileRacks struct {
-	ReconcileContext       *dsereconciliation.ReconciliationContext
-	desiredRackInformation []*dsereconciliation.RackInformation
+	ReconcileContext       *ReconciliationContext
+	desiredRackInformation []*RackInformation
 	statefulSets           []*appsv1.StatefulSet
 }
 
@@ -38,7 +42,7 @@ var (
 )
 
 // CalculateRackInformation determine how many nodes per rack are needed
-func (r *ReconcileRacks) CalculateRackInformation() (reconcileriface.Reconciler, error) {
+func (r *ReconcileRacks) CalculateRackInformation() (Reconciler, error) {
 
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::calculateRackInformation")
 
@@ -65,7 +69,7 @@ func (r *ReconcileRacks) CalculateRackInformation() (reconcileriface.Reconciler,
 		seedCount = rackCount
 	}
 
-	var desiredRackInformation []*dsereconciliation.RackInformation
+	var desiredRackInformation []*RackInformation
 
 	if rackCount < 1 {
 		return nil, fmt.Errorf("assertion failed! rackCount should not possibly be zero here")
@@ -76,7 +80,7 @@ func (r *ReconcileRacks) CalculateRackInformation() (reconcileriface.Reconciler,
 	nodesPerRack, extraNodes := nodeCount/rackCount, nodeCount%rackCount
 	seedsPerRack, extraSeeds := seedCount/rackCount, seedCount%rackCount
 
-	for rackIndex, dseRack := range racks {
+	for rackIndex, currentRack := range racks {
 		nodesForThisRack := nodesPerRack
 		if rackIndex < extraNodes {
 			nodesForThisRack++
@@ -85,8 +89,8 @@ func (r *ReconcileRacks) CalculateRackInformation() (reconcileriface.Reconciler,
 		if rackIndex < extraSeeds {
 			seedsForThisRack++
 		}
-		nextRack := &dsereconciliation.RackInformation{}
-		nextRack.RackName = dseRack.Name
+		nextRack := &RackInformation{}
+		nextRack.RackName = currentRack.Name
 		nextRack.NodeCount = nodesForThisRack
 		nextRack.SeedCount = seedsForThisRack
 
@@ -156,9 +160,9 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 
 		// have to use zero here, because each statefulset is created with no replicas
 		// in GetStatefulSetForRack()
-		desiredSts, err := newStatefulSetForDseDatacenter(rackName, r.ReconcileContext.Datacenter, 0)
+		desiredSts, err := newStatefulSetForCassandraDatacenter(rackName, r.ReconcileContext.Datacenter, 0)
 		if err != nil {
-			logger.Error(err, "error calling newStatefulSetForDseDatacenter")
+			logger.Error(err, "error calling newStatefulSetForCassandraDatacenter")
 			res := ResultShouldNotRequeue
 			return &res, err
 		}
@@ -289,7 +293,7 @@ func (r *ReconcileRacks) CheckRackParkedState() (*reconcile.Result, error) {
 
 		if parked && currentPodCount > 0 {
 			r.ReconcileContext.ReqLogger.Info(
-				"DseDatacenter is parked, setting rack to zero replicas",
+				"CassandraDatacenter is parked, setting rack to zero replicas",
 				"Rack", rackInfo.RackName,
 				"currentSize", currentPodCount,
 				"desiredSize", desiredNodeCount,
@@ -322,7 +326,7 @@ func (r *ReconcileRacks) checkSeedLabels() (int, error) {
 	return seedCount, nil
 }
 
-// CheckPodsReady loops over all the DSE pods and starts them
+// CheckPodsReady loops over all the server pods and starts them
 func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::CheckPodsReady")
 
@@ -471,8 +475,8 @@ func (r *ReconcileRacks) CheckRackPodLabels() (*reconcile.Result, error) {
 	return nil, nil
 }
 
-func shouldUpsertSuperUser(dseDc datastaxv1alpha1.DseDatacenter) bool {
-	lastCreated := dseDc.Status.SuperUserUpserted
+func shouldUpsertSuperUser(dc api.CassandraDatacenter) bool {
+	lastCreated := dc.Status.SuperUserUpserted
 	return time.Now().After(lastCreated.Add(time.Minute * 4))
 }
 
@@ -494,8 +498,8 @@ func (r *ReconcileRacks) CreateSuperuser() (*reconcile.Result, error) {
 
 	// Get the secret
 
-	if rc.Datacenter.Spec.DseSuperuserSecret == "" {
-		rc.ReqLogger.Info("dseSuperuserSecret not specified for DseDatacenter.  Skipping superuser creation.")
+	if rc.Datacenter.Spec.SuperuserSecret == "" {
+		rc.ReqLogger.Info("SuperuserSecret not specified for CassandraDatacenter.  Skipping superuser creation.")
 		return nil, nil
 	}
 
@@ -505,29 +509,29 @@ func (r *ReconcileRacks) CreateSuperuser() (*reconcile.Result, error) {
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      rc.Datacenter.Spec.DseSuperuserSecret,
+			Name:      rc.Datacenter.Spec.SuperuserSecret,
 			Namespace: rc.Datacenter.Namespace,
 		},
 	}
 	err := r.ReconcileContext.Client.Get(
 		r.ReconcileContext.Ctx,
 		types.NamespacedName{
-			Name:      rc.Datacenter.Spec.DseSuperuserSecret,
+			Name:      rc.Datacenter.Spec.SuperuserSecret,
 			Namespace: rc.Datacenter.Namespace},
 		secret)
 	if err != nil {
-		rc.ReqLogger.Error(err, "error retrieving dseSuperuserSecret for DseDatacenter.")
+		rc.ReqLogger.Error(err, "error retrieving SuperuserSecret for CassandraDatacenter.")
 		return &ResultShouldNotRequeue, err
 	}
 
 	// We will call mgmt API on the first pod
 
 	selector := map[string]string{
-		datastaxv1alpha1.ClusterLabel: rc.Datacenter.Spec.DseClusterName,
+		api.ClusterLabel: rc.Datacenter.Spec.ClusterName,
 	}
 	podList, err := listPods(rc, selector)
 	if err != nil {
-		rc.ReqLogger.Error(err, "no pods found for DseDatacenter")
+		rc.ReqLogger.Error(err, "no pods found for CassandraDatacenter")
 		return &ResultShouldNotRequeue, err
 	}
 
@@ -610,15 +614,15 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 	return reconcile.Result{}, nil
 }
 
-func isClusterHealthy(rc *dsereconciliation.ReconciliationContext) bool {
+func isClusterHealthy(rc *ReconciliationContext) bool {
 	selector := map[string]string{
-		datastaxv1alpha1.ClusterLabel: rc.Datacenter.Spec.DseClusterName,
+		api.ClusterLabel: rc.Datacenter.Spec.ClusterName,
 		// FIXME make a enum, pods should start in an Init state
-		datastaxv1alpha1.NodeState: "Started",
+		api.CassNodeState: "Started",
 	}
 	podList, err := listPods(rc, selector)
 	if err != nil {
-		rc.ReqLogger.Error(err, "no started pods found for DseDatacenter")
+		rc.ReqLogger.Error(err, "no started pods found for CassandraDatacenter")
 		return false
 	}
 
@@ -633,9 +637,9 @@ func isClusterHealthy(rc *dsereconciliation.ReconciliationContext) bool {
 }
 
 // labelSeedPods iterates over all pods for a statefulset and makes sure the right number of
-// ready pods are labelled as DSE seeds, so that they are picked up by the headless seed service
+// ready pods are labelled as seeds, so that they are picked up by the headless seed service
 // Returns the number of ready seeds.
-func (r *ReconcileRacks) labelSeedPods(rackInfo *dsereconciliation.RackInformation) (int, error) {
+func (r *ReconcileRacks) labelSeedPods(rackInfo *RackInformation) (int, error) {
 	rackLabels := r.ReconcileContext.Datacenter.GetRackLabels(rackInfo.RackName)
 	podList, err := listPods(r.ReconcileContext, rackLabels)
 	if err != nil {
@@ -652,11 +656,11 @@ func (r *ReconcileRacks) labelSeedPods(rackInfo *dsereconciliation.RackInformati
 	for idx := range pods {
 		pod := &pods[idx]
 		podLabels := pod.GetLabels()
-		ready := isDseReady(pod)
-		starting := isDseStarting(pod)
+		ready := isServerReady(pod)
+		starting := isServerStarting(pod)
 
 		isSeed := ready && count < rackInfo.SeedCount
-		currentVal := podLabels[datastaxv1alpha1.SeedNodeLabel]
+		currentVal := podLabels[api.SeedNodeLabel]
 		if isSeed {
 			count++
 		}
@@ -668,12 +672,12 @@ func (r *ReconcileRacks) labelSeedPods(rackInfo *dsereconciliation.RackInformati
 
 		shouldUpdate := false
 		if isSeed && currentVal != "true" {
-			podLabels[datastaxv1alpha1.SeedNodeLabel] = "true"
+			podLabels[api.SeedNodeLabel] = "true"
 			shouldUpdate = true
 		}
 		// if this pod is starting, we should leave the seed label alone
 		if !isSeed && currentVal == "true" && !starting {
-			delete(podLabels, datastaxv1alpha1.SeedNodeLabel)
+			delete(podLabels, api.SeedNodeLabel)
 			shouldUpdate = true
 		}
 
@@ -693,7 +697,7 @@ func (r *ReconcileRacks) labelSeedPods(rackInfo *dsereconciliation.RackInformati
 // GetStatefulSetForRack returns the statefulset for the rack
 // and whether it currently exists and whether an error occured
 func (r *ReconcileRacks) GetStatefulSetForRack(
-	nextRack *dsereconciliation.RackInformation) (*appsv1.StatefulSet, bool, error) {
+	nextRack *RackInformation) (*appsv1.StatefulSet, bool, error) {
 
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::getStatefulSetForRack")
 
@@ -712,7 +716,7 @@ func (r *ReconcileRacks) GetStatefulSetForRack(
 		return nil, false, err
 	}
 
-	desiredStatefulSet, err := newStatefulSetForDseDatacenter(
+	desiredStatefulSet, err := newStatefulSetForCassandraDatacenter(
 		nextRack.RackName,
 		r.ReconcileContext.Datacenter,
 		0)
@@ -720,7 +724,7 @@ func (r *ReconcileRacks) GetStatefulSetForRack(
 		return nil, false, err
 	}
 
-	// Set dseDatacenter dseDatacenter as the owner and controller
+	// Set the CassandraDatacenter as the owner and controller
 	err = setControllerReference(
 		r.ReconcileContext.Datacenter,
 		desiredStatefulSet,
@@ -732,7 +736,7 @@ func (r *ReconcileRacks) GetStatefulSetForRack(
 	return desiredStatefulSet, false, nil
 }
 
-// ReconcileNextRack ensures that the resources for a dse rack have been properly created
+// ReconcileNextRack ensures that the resources for a rack have been properly created
 // Note that each statefulset is using OrderedReadyPodManagement,
 // so it will bring up one node at a time.
 func (r *ReconcileRacks) ReconcileNextRack(statefulSet *appsv1.StatefulSet) (reconcile.Result, error) {
@@ -757,12 +761,12 @@ func (r *ReconcileRacks) ReconcileNextRack(statefulSet *appsv1.StatefulSet) (rec
 }
 
 func (r *ReconcileRacks) CheckDcPodDisruptionBudget() (*reconcile.Result, error) {
-	// Create a PodDisruptionBudget for the DseDatacenter
+	// Create a PodDisruptionBudget for the CassandraDatacenter
 	dseDc := r.ReconcileContext.Datacenter
 	ctx := r.ReconcileContext.Ctx
 	desiredBudget := newPodDisruptionBudgetForDatacenter(dseDc)
 
-	// Set DseDatacenter dseDatacenter as the owner and controller
+	// Set CassandraDatacenter as the owner and controller
 	if err := setControllerReference(dseDc, desiredBudget, r.ReconcileContext.Scheme); err != nil {
 		res := &ResultShouldRequeueNow
 		return res, err
@@ -864,7 +868,7 @@ func (r *ReconcileRacks) ReconcilePods(statefulSet *appsv1.StatefulSet) error {
 		}
 
 		podLabels := pod.GetLabels()
-		shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForRackResource(podLabels, r.ReconcileContext.Datacenter, statefulSet.GetLabels()[datastaxv1alpha1.RackLabel])
+		shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForRackResource(podLabels, r.ReconcileContext.Datacenter, statefulSet.GetLabels()[api.RackLabel])
 		if shouldUpdateLabels {
 			r.ReconcileContext.ReqLogger.Info(
 				"Updating labels",
@@ -913,7 +917,7 @@ func (r *ReconcileRacks) ReconcilePods(statefulSet *appsv1.StatefulSet) error {
 		}
 
 		pvcLabels := pvc.GetLabels()
-		shouldUpdateLabels, updatedLabels = shouldUpdateLabelsForRackResource(pvcLabels, r.ReconcileContext.Datacenter, statefulSet.GetLabels()[datastaxv1alpha1.RackLabel])
+		shouldUpdateLabels, updatedLabels = shouldUpdateLabelsForRackResource(pvcLabels, r.ReconcileContext.Datacenter, statefulSet.GetLabels()[api.RackLabel])
 		if shouldUpdateLabels {
 			r.ReconcileContext.ReqLogger.Info("Updating labels",
 				"PVC", pvc,
@@ -946,50 +950,50 @@ func mergeInLabelsIfDifferent(existingLabels, newLabels map[string]string) (bool
 
 // shouldUpdateLabelsForClusterResource will compare the labels passed in with what the labels should be for a cluster level
 // resource. It will return the updated map and a boolean denoting whether the resource needs to be updated with the new labels.
-func shouldUpdateLabelsForClusterResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter) (bool, map[string]string) {
-	desired := dseDatacenter.GetClusterLabels()
+func shouldUpdateLabelsForClusterResource(resourceLabels map[string]string, dc *api.CassandraDatacenter) (bool, map[string]string) {
+	desired := dc.GetClusterLabels()
 	oplabels.AddManagedByLabel(desired)
 	return mergeInLabelsIfDifferent(resourceLabels, desired)
 }
 
 // shouldUpdateLabelsForRackResource will compare the labels passed in with what the labels should be for a rack level
 // resource. It will return the updated map and a boolean denoting whether the resource needs to be updated with the new labels.
-func shouldUpdateLabelsForRackResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter, rackName string) (bool, map[string]string) {
-	desired := dseDatacenter.GetRackLabels(rackName)
+func shouldUpdateLabelsForRackResource(resourceLabels map[string]string, dc *api.CassandraDatacenter, rackName string) (bool, map[string]string) {
+	desired := dc.GetRackLabels(rackName)
 	oplabels.AddManagedByLabel(desired)
 	return mergeInLabelsIfDifferent(resourceLabels, desired)
 }
 
 // shouldUpdateLabelsForDatacenterResource will compare the labels passed in with what the labels should be for a datacenter level
 // resource. It will return the updated map and a boolean denoting whether the resource needs to be updated with the new labels.
-func shouldUpdateLabelsForDatacenterResource(resourceLabels map[string]string, dseDatacenter *datastaxv1alpha1.DseDatacenter) (bool, map[string]string) {
-	desired := dseDatacenter.GetDatacenterLabels()
+func shouldUpdateLabelsForDatacenterResource(resourceLabels map[string]string, dc *api.CassandraDatacenter) (bool, map[string]string) {
+	desired := dc.GetDatacenterLabels()
 	oplabels.AddManagedByLabel(desired)
 	return mergeInLabelsIfDifferent(resourceLabels, desired)
 }
 
-func (r *ReconcileRacks) labelDsePodStarting(pod *corev1.Pod) error {
+func (r *ReconcileRacks) labelServerPodStarting(pod *corev1.Pod) error {
 	client := r.ReconcileContext.Client
 	ctx := r.ReconcileContext.Ctx
-	dseDc := r.ReconcileContext.Datacenter
-	pod.Labels[datastaxv1alpha1.NodeState] = "Starting"
+	dc := r.ReconcileContext.Datacenter
+	pod.Labels[api.CassNodeState] = "Starting"
 	err := client.Update(ctx, pod)
 	if err != nil {
 		return err
 	}
-	dseDc.Status.LastDseNodeStarted = metav1.Now()
-	err = client.Status().Update(ctx, dseDc)
+	dc.Status.LastServerNodeStarted = metav1.Now()
+	err = client.Status().Update(ctx, dc)
 	return err
 }
 
-func (r *ReconcileRacks) labelDsePodStarted(pod *corev1.Pod) error {
-	pod.Labels[datastaxv1alpha1.NodeState] = "Started"
+func (r *ReconcileRacks) labelServerPodStarted(pod *corev1.Pod) error {
+	pod.Labels[api.CassNodeState] = "Started"
 	err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, pod)
 	return err
 }
 
-func (r *ReconcileRacks) labelDsePodStartedNotReady(pod *corev1.Pod) error {
-	pod.Labels[datastaxv1alpha1.NodeState] = "Started-not-Ready"
+func (r *ReconcileRacks) labelServerPodStartedNotReady(pod *corev1.Pod) error {
+	pod.Labels[api.CassNodeState] = "Started-not-Ready"
 	err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, pod)
 	return err
 }
@@ -1006,9 +1010,9 @@ func (r *ReconcileRacks) findStartingNodes(podList *corev1.PodList) (bool, error
 
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
-		if pod.Labels[datastaxv1alpha1.NodeState] == "Starting" {
-			if isDseReady(pod) {
-				if err := r.labelDsePodStarted(pod); err != nil {
+		if pod.Labels[api.CassNodeState] == "Starting" {
+			if isServerReady(pod) {
+				if err := r.labelServerPodStarted(pod); err != nil {
 					return false, err
 				}
 			} else {
@@ -1031,17 +1035,17 @@ func (r *ReconcileRacks) findStartedNotReadyNodes(podList *corev1.PodList) (bool
 
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
-		if pod.Labels[datastaxv1alpha1.NodeState] == "Started" {
-			if !isDseReady(pod) {
-				if err := r.labelDsePodStartedNotReady(pod); err != nil {
+		if pod.Labels[api.CassNodeState] == "Started" {
+			if !isServerReady(pod) {
+				if err := r.labelServerPodStartedNotReady(pod); err != nil {
 					return false, err
 				}
 				return true, nil
 			}
 		}
-		if pod.Labels[datastaxv1alpha1.NodeState] == "Started-not-Ready" {
-			if isDseReady(pod) {
-				if err := r.labelDsePodStarted(pod); err != nil {
+		if pod.Labels[api.CassNodeState] == "Started-not-Ready" {
+			if isServerReady(pod) {
+				if err := r.labelServerPodStarted(pod); err != nil {
 					return false, err
 				}
 				return false, nil
@@ -1068,8 +1072,8 @@ func (r *ReconcileRacks) startOneNodePerRack(readySeeds int) (string, error) {
 
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
-		rackName := pod.Labels[datastaxv1alpha1.RackLabel]
-		if isDseReady(pod) {
+		rackName := pod.Labels[api.RackLabel]
+		if isServerReady(pod) {
 			rackReadyCount[rackName]++
 		}
 	}
@@ -1089,11 +1093,11 @@ func (r *ReconcileRacks) startOneNodePerRack(readySeeds int) (string, error) {
 			if !mgmtApiUp {
 				continue
 			}
-			podRack := pod.Labels[datastaxv1alpha1.RackLabel]
+			podRack := pod.Labels[api.RackLabel]
 			if podRack == rackName {
 				// this is the one exception to all seed labelling happening in labelSeedPods()
 				if labelSeedBeforeStart {
-					pod.Labels[datastaxv1alpha1.SeedNodeLabel] = "true"
+					pod.Labels[api.SeedNodeLabel] = "true"
 					if err := r.ReconcileContext.Client.Update(r.ReconcileContext.Ctx, pod); err != nil {
 						return "", err
 					}
@@ -1103,7 +1107,7 @@ func (r *ReconcileRacks) startOneNodePerRack(readySeeds int) (string, error) {
 				if err = r.callNodeManagementStart(pod); err != nil {
 					return "", err
 				}
-				if err = r.labelDsePodStarting(pod); err != nil {
+				if err = r.labelServerPodStarting(pod); err != nil {
 					return "", err
 				}
 				return rackName, nil
@@ -1114,17 +1118,17 @@ func (r *ReconcileRacks) startOneNodePerRack(readySeeds int) (string, error) {
 	return rackThatNeedsNode, nil
 }
 
-// returns whether one or more DSE nodes is not running or ready
+// returns whether one or more server nodes is not running or ready
 func (r *ReconcileRacks) startAllNodes(podList *corev1.PodList) (bool, error) {
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::startAllNodes")
 
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
-		if isMgmtApiRunning(pod) && !isDseReady(pod) && !isDseStarted(pod) {
+		if isMgmtApiRunning(pod) && !isServerReady(pod) && !isServerStarted(pod) {
 			if err := r.callNodeManagementStart(pod); err != nil {
 				return false, err
 			}
-			if err := r.labelDsePodStarting(pod); err != nil {
+			if err := r.labelServerPodStarting(pod); err != nil {
 				return false, err
 			}
 			return true, nil
@@ -1132,7 +1136,7 @@ func (r *ReconcileRacks) startAllNodes(podList *corev1.PodList) (bool, error) {
 	}
 
 	// this extra pass only does anything when we have a combination of
-	// ready DSE pods and pods that are not running - possibly stuck pending
+	// ready server pods and pods that are not running - possibly stuck pending
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
 		if !isMgmtApiRunning(pod) {
@@ -1152,7 +1156,7 @@ func (r *ReconcileRacks) countReadyAndStarted(podList *corev1.PodList) (int, int
 	started := 0
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
-		if isDseReady(pod) {
+		if isServerReady(pod) {
 			ready++
 			r.ReconcileContext.ReqLogger.Info(
 				"found a ready pod",
@@ -1163,7 +1167,7 @@ func (r *ReconcileRacks) countReadyAndStarted(podList *corev1.PodList) (int, int
 	}
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
-		if isDseStarted(pod) {
+		if isServerStarted(pod) {
 			started++
 			r.ReconcileContext.ReqLogger.Info(
 				"found a pod we labeled Started",
@@ -1179,7 +1183,7 @@ func isMgmtApiRunning(pod *corev1.Pod) bool {
 	podStatus := pod.Status
 	statuses := podStatus.ContainerStatuses
 	for _, status := range statuses {
-		if status.Name != "dse" {
+		if status.Name != "cassandra" {
 			continue
 		}
 		state := status.State
@@ -1193,20 +1197,20 @@ func isMgmtApiRunning(pod *corev1.Pod) bool {
 	return false
 }
 
-func isDseStarting(pod *corev1.Pod) bool {
-	return pod.Labels[datastaxv1alpha1.NodeState] == "Starting"
+func isServerStarting(pod *corev1.Pod) bool {
+	return pod.Labels[api.CassNodeState] == "Starting"
 }
 
-func isDseStarted(pod *corev1.Pod) bool {
-	return pod.Labels[datastaxv1alpha1.NodeState] == "Started" ||
-		pod.Labels[datastaxv1alpha1.NodeState] == "Started-not-Ready"
+func isServerStarted(pod *corev1.Pod) bool {
+	return pod.Labels[api.CassNodeState] == "Started" ||
+		pod.Labels[api.CassNodeState] == "Started-not-Ready"
 }
 
-func isDseReady(pod *corev1.Pod) bool {
+func isServerReady(pod *corev1.Pod) bool {
 	status := pod.Status
 	statuses := status.ContainerStatuses
 	for _, status := range statuses {
-		if status.Name != "dse" {
+		if status.Name != "cassandra" {
 			continue
 		}
 		return status.Ready
@@ -1214,15 +1218,15 @@ func isDseReady(pod *corev1.Pod) bool {
 	return false
 }
 
-func refreshSeeds(rc *dsereconciliation.ReconciliationContext) error {
-	rc.ReqLogger.Info("reconcileDseNode::refreshSeeds")
+func refreshSeeds(rc *ReconciliationContext) error {
+	rc.ReqLogger.Info("reconcile_racks::refreshSeeds")
 	if rc.Datacenter.Spec.Parked {
 		rc.ReqLogger.Info("cluster is parked, skipping refreshSeeds")
 		return nil
 	}
 
 	selector := rc.Datacenter.GetClusterLabels()
-	selector[datastaxv1alpha1.NodeState] = "Started"
+	selector[api.CassNodeState] = "Started"
 
 	podList, err := listPods(rc, selector)
 	if err != nil {
@@ -1239,8 +1243,8 @@ func refreshSeeds(rc *dsereconciliation.ReconciliationContext) error {
 	return nil
 }
 
-func listPods(rc *dsereconciliation.ReconciliationContext, selector map[string]string) (*corev1.PodList, error) {
-	rc.ReqLogger.Info("reconcileDseNode::listPods")
+func listPods(rc *ReconciliationContext, selector map[string]string) (*corev1.PodList, error) {
+	rc.ReqLogger.Info("reconcile_racks::listPods")
 
 	listOptions := &client.ListOptions{
 		Namespace:     rc.Datacenter.Namespace,

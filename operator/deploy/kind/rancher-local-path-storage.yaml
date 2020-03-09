@@ -82,8 +82,8 @@ spec:
 apiVersion: storage.k8s.io/v1
 kind: StorageClass
 metadata:
-  # Changing the name to dse-storage is the only change we have made compared to upstream
-  name: dse-storage
+  # Changing the name to server-storage is the only change we have made compared to upstream
+  name: server-storage
 provisioner: rancher.io/local-path
 volumeBindingMode: WaitForFirstConsumer
 reclaimPolicy: Delete

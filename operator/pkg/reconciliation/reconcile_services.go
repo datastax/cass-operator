@@ -7,14 +7,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation"
-	"github.com/riptano/dse-operator/operator/pkg/dsereconciliation/reconcileriface"
 )
 
 // ReconcileServices ...
 type ReconcileServices struct {
-	ReconcileContext *dsereconciliation.ReconciliationContext
+	ReconcileContext *ReconciliationContext
 	Services         []*corev1.Service
 }
 
@@ -49,20 +46,20 @@ func (r *ReconcileServices) Apply() (reconcile.Result, error) {
 }
 
 // ReconcileHeadlessService ...
-func (r *ReconcileServices) ReconcileHeadlessServices() (reconcileriface.Reconciler, error) {
+func (r *ReconcileServices) ReconcileHeadlessServices() (Reconciler, error) {
 	// unpacking
 	recCtx := r.ReconcileContext
 	logger := recCtx.ReqLogger
-	dseDatacenter := recCtx.Datacenter
+	dc := recCtx.Datacenter
 	client := recCtx.Client
 
 	logger.Info("reconcile_services::ReconcileHeadlessServices")
 
 	// Check if there is a headless service for the cluster
 
-	cqlService := newServiceForDseDatacenter(dseDatacenter)
-	seedService := newSeedServiceForDseDatacenter(dseDatacenter)
-	allPodsService := newAllDsePodsServiceForDseDatacenter(dseDatacenter)
+	cqlService := newServiceForCassandraDatacenter(dc)
+	seedService := newSeedServiceForCassandraDatacenter(dc)
+	allPodsService := newAllDsePodsServiceForCassandraDatacenter(dc)
 
 	services := []*corev1.Service{cqlService, seedService, allPodsService}
 
@@ -74,8 +71,8 @@ func (r *ReconcileServices) ReconcileHeadlessServices() (reconcileriface.Reconci
 	for idx := range services {
 		desiredSvc := services[idx]
 
-		// Set DseDatacenter dseDatacenter as the owner and controller
-		err := setControllerReference(dseDatacenter, desiredSvc, recCtx.Scheme)
+		// Set CassandraDatacenter dc as the owner and controller
+		err := setControllerReference(dc, desiredSvc, recCtx.Scheme)
 		if err != nil {
 			logger.Error(
 				err, "Could not set controller reference for headless service")

@@ -25,7 +25,7 @@ const (
 	operatorSdkImage           = "operator-sdk-binary"
 	testSdkImage               = "operator-sdk-binary-tester"
 	genClientImage             = "operator-gen-client"
-	generatedDseDataCentersCrd = "operator/deploy/crds/datastax.com_dsedatacenters_crd.yaml"
+	generatedDseDataCentersCrd = "operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml"
 	packagePath                = "github.com/riptano/dse-operator/operator"
 	envGitBranch               = "MO_BRANCH"
 	envVersionString           = "MO_VERSION"
@@ -441,7 +441,7 @@ func doGenerateClient() {
 	mageutil.PanicOnError(err)
 	runArgs := []string{"-t", "--rm", "-u", fmt.Sprintf("%s:%s", usr.Uid, usr.Gid)}
 	execArgs := []string{"client", "github.com/riptano/dse-operator/operator/pkg/generated",
-		"github.com/riptano/dse-operator/operator/pkg/apis", "datastax:v1alpha1"}
+		"github.com/riptano/dse-operator/operator/pkg/apis", "cassandra:v1alpha2"}
 	volumes := []string{fmt.Sprintf("%s/operator:/go/src/github.com/riptano/dse-operator/operator", cwd)}
 	dockerutil.Run(genClientImage, volumes, nil, nil, runArgs, execArgs).ExecVPanic()
 }

@@ -19,7 +19,7 @@ limitations under the License.
 package versioned
 
 import (
-	datastaxv1alpha1 "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/typed/datastax/v1alpha1"
+	cassandrav1alpha2 "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/typed/cassandra/v1alpha2"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -27,19 +27,19 @@ import (
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	DatastaxV1alpha1() datastaxv1alpha1.DatastaxV1alpha1Interface
+	CassandraV1alpha2() cassandrav1alpha2.CassandraV1alpha2Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
 // version included in a Clientset.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	datastaxV1alpha1 *datastaxv1alpha1.DatastaxV1alpha1Client
+	cassandraV1alpha2 *cassandrav1alpha2.CassandraV1alpha2Client
 }
 
-// DatastaxV1alpha1 retrieves the DatastaxV1alpha1Client
-func (c *Clientset) DatastaxV1alpha1() datastaxv1alpha1.DatastaxV1alpha1Interface {
-	return c.datastaxV1alpha1
+// CassandraV1alpha2 retrieves the CassandraV1alpha2Client
+func (c *Clientset) CassandraV1alpha2() cassandrav1alpha2.CassandraV1alpha2Interface {
+	return c.cassandraV1alpha2
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -58,7 +58,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	}
 	var cs Clientset
 	var err error
-	cs.datastaxV1alpha1, err = datastaxv1alpha1.NewForConfig(&configShallowCopy)
+	cs.cassandraV1alpha2, err = cassandrav1alpha2.NewForConfig(&configShallowCopy)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 // panics if there is an error in the config.
 func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
-	cs.datastaxV1alpha1 = datastaxv1alpha1.NewForConfigOrDie(c)
+	cs.cassandraV1alpha2 = cassandrav1alpha2.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -83,7 +83,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.datastaxV1alpha1 = datastaxv1alpha1.New(c)
+	cs.cassandraV1alpha2 = cassandrav1alpha2.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs
