@@ -88,7 +88,7 @@ func (k NsWrapper) Terminate() error {
 	//
 	// This is important because deleting the namespace itself
 	// can hang if this step is skipped.
-	kcmd := kubectl.Delete("dsedatacenter", "--all")
+	kcmd := kubectl.Delete("cassandradatacenter", "--all")
 	_ = k.ExecV(kcmd)
 	return kubectl.DeleteByTypeAndName("namespace", k.Namespace).ExecV()
 }

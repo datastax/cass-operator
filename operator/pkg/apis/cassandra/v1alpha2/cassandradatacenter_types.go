@@ -157,6 +157,7 @@ type CassandraDatacenterStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 }
 
+// +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CassandraDatacenter is the Schema for the cassandradatacenters API
