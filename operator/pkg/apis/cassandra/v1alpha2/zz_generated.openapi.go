@@ -128,10 +128,10 @@ func schema_pkg_apis_cassandra_v1alpha2_CassandraDatacenterSpec(ref common.Refer
 							},
 						},
 					},
-					"storageClaim": {
+					"storageConfig": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Describes the persistent storage request of each server node",
-							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.StorageClaim"),
+							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.StorageConfig"),
 						},
 					},
 					"clusterName": {
@@ -184,11 +184,11 @@ func schema_pkg_apis_cassandra_v1alpha2_CassandraDatacenterSpec(ref common.Refer
 						},
 					},
 				},
-				Required: []string{"size", "imageVersion", "serverType", "clusterName"},
+				Required: []string{"size", "imageVersion", "serverType", "storageConfig", "clusterName"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.ManagementApiAuthConfig", "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.Rack", "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.StorageClaim", "k8s.io/api/core/v1.ResourceRequirements"},
+			"github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.ManagementApiAuthConfig", "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.Rack", "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2.StorageConfig", "k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 

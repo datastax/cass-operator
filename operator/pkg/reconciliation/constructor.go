@@ -157,28 +157,24 @@ func newStatefulSetForCassandraDatacenter(
 		return nil, err
 	}
 
-	// Add storage if storage claim defined
-	if nil != dc.Spec.StorageClaim {
-		pvcName := "server-data"
-		storageClaim := dc.Spec.StorageClaim
-		serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
-			Name:      pvcName,
-			MountPath: "/var/lib/cassandra",
-		})
-		volumeClaimTemplates = []corev1.PersistentVolumeClaim{{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels: pvcLabels,
-				Name:   pvcName,
-			},
-			Spec: corev1.PersistentVolumeClaimSpec{
-				AccessModes: []corev1.PersistentVolumeAccessMode{
-					corev1.ReadWriteOnce,
-				},
-				Resources:        storageClaim.Resources,
-				StorageClassName: &storageClaim.StorageClassName,
-			},
-		}}
+	// Add storage
+	if dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec == nil {
+		err := fmt.Errorf("StorageConfig.cassandraDataVolumeClaimSpec is required")
+		return nil, err
 	}
+
+	pvcName := "server-data"
+	serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
+		Name:      pvcName,
+		MountPath: "/var/lib/cassandra",
+	})
+	volumeClaimTemplates = []corev1.PersistentVolumeClaim{{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: pvcLabels,
+			Name:   pvcName,
+		},
+		Spec: *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec,
+	}}
 
 	ports, err := dc.GetContainerPorts()
 	if err != nil {

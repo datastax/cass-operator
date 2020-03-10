@@ -7,7 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -118,6 +120,17 @@ func TestReconcile(t *testing.T) {
 		namespace       = "default"
 		size      int32 = 2
 	)
+	storageSize := resource.MustParse("1Gi")
+	storageName := "server-data"
+	storageConfig := api.StorageConfig{
+		CassandraDataVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
+			StorageClassName: &storageName,
+			AccessModes:      []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
+			Resources: corev1.ResourceRequirements{
+				Requests: map[corev1.ResourceName]resource.Quantity{"storage": storageSize},
+			},
+		},
+	}
 
 	// Instance a CassandraDatacenter
 	dc := &api.CassandraDatacenter{
@@ -129,7 +142,8 @@ func TestReconcile(t *testing.T) {
 			ManagementApiAuth: api.ManagementApiAuthConfig{
 				Insecure: &api.ManagementApiAuthInsecureConfig{},
 			},
-			Size: size,
+			Size:          size,
+			StorageConfig: storageConfig,
 		},
 	}
 
@@ -176,8 +190,19 @@ func TestReconcile_NotFound(t *testing.T) {
 		size      int32 = 2
 	)
 
-	// Instance a CassandraDatacenter
+	storageSize := resource.MustParse("1Gi")
+	storageName := "server-data"
+	storageConfig := api.StorageConfig{
+		CassandraDataVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
+			StorageClassName: &storageName,
+			AccessModes:      []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
+			Resources: corev1.ResourceRequirements{
+				Requests: map[corev1.ResourceName]resource.Quantity{"storage": storageSize},
+			},
+		},
+	}
 
+	// Instance a CassandraDatacenter
 	dc := &api.CassandraDatacenter{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -187,7 +212,8 @@ func TestReconcile_NotFound(t *testing.T) {
 			ManagementApiAuth: api.ManagementApiAuthConfig{
 				Insecure: &api.ManagementApiAuthInsecureConfig{},
 			},
-			Size: size,
+			Size:          size,
+			StorageConfig: storageConfig,
 		},
 	}
 
@@ -233,8 +259,19 @@ func TestReconcile_Error(t *testing.T) {
 		size      int32 = 2
 	)
 
-	// Instance a CassandraDatacenter
+	storageSize := resource.MustParse("1Gi")
+	storageName := "server-data"
+	storageConfig := api.StorageConfig{
+		CassandraDataVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
+			StorageClassName: &storageName,
+			AccessModes:      []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
+			Resources: corev1.ResourceRequirements{
+				Requests: map[corev1.ResourceName]resource.Quantity{"storage": storageSize},
+			},
+		},
+	}
 
+	// Instance a CassandraDatacenter
 	dc := &api.CassandraDatacenter{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -244,7 +281,8 @@ func TestReconcile_Error(t *testing.T) {
 			ManagementApiAuth: api.ManagementApiAuthConfig{
 				Insecure: &api.ManagementApiAuthInsecureConfig{},
 			},
-			Size: size,
+			Size:          size,
+			StorageConfig: storageConfig,
 		},
 	}
 
@@ -289,6 +327,18 @@ func TestReconcile_CassandraDatacenterToBeDeleted(t *testing.T) {
 		size      int32 = 2
 	)
 
+	storageSize := resource.MustParse("1Gi")
+	storageName := "server-data"
+	storageConfig := api.StorageConfig{
+		CassandraDataVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
+			StorageClassName: &storageName,
+			AccessModes:      []corev1.PersistentVolumeAccessMode{"ReadWriteOnce"},
+			Resources: corev1.ResourceRequirements{
+				Requests: map[corev1.ResourceName]resource.Quantity{"storage": storageSize},
+			},
+		},
+	}
+
 	// Instance a CassandraDatacenter
 	now := metav1.Now()
 	dc := &api.CassandraDatacenter{
@@ -302,7 +352,8 @@ func TestReconcile_CassandraDatacenterToBeDeleted(t *testing.T) {
 			ManagementApiAuth: api.ManagementApiAuthConfig{
 				Insecure: &api.ManagementApiAuthInsecureConfig{},
 			},
-			Size: size,
+			Size:          size,
+			StorageConfig: storageConfig,
 		},
 	}
 

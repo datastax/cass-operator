@@ -1,6 +1,8 @@
 package reconciliation
 
 import (
+	"fmt"
+
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -191,6 +193,21 @@ func (r *ReconcileCassandraDatacenter) isValid(dc *api.CassandraDatacenter) (boo
 	errs := httphelper.ValidateManagementApiConfig(dc, r.client, ctx)
 	if errs != nil && len(errs) > 0 {
 		return false, errs[0]
+	}
+
+	if dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec == nil {
+		err := fmt.Errorf("StorageConfig.cassandraDataVolumeClaimSpec is required")
+		return false, err
+	}
+
+	if *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec.StorageClassName == "" {
+		err := fmt.Errorf("StorageConfig.cassandraDataVolumeClaimSpec.storageClassName is required")
+		return false, err
+	}
+
+	if len(dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec.AccessModes) == 0 {
+		err := fmt.Errorf("StorageConfig.cassandraDataVolumeClaimSpec.accessModes is required")
+		return false, err
 	}
 
 	return true, nil

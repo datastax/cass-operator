@@ -13,11 +13,14 @@ spec:
       memory: "512Mi"
     limits:
       memory: "8000Mi"
-  storageClaim:
-    storageclassname: standard
-    resources:
-      requests:
-        storage: 1Gi
+  storageConfig:
+      cassandraDataVolumeClaimSpec:
+        storageClassName: standard
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
   racks:
     - name: r0
   config:

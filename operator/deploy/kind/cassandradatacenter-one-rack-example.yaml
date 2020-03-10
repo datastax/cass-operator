@@ -11,10 +11,13 @@ spec:
   configBuilderImage: datastaxlabs/cassandra-k8s-config-builder:0.4.0-20191113
   size: 2
   superuserSecret: cassandra-superuser-secret
-  storageClaim:
-    storageclassname: server-storage
-    resources:
-      requests:
-        storage: 1Gi
+  storageConfig:
+      cassandraDataVolumeClaimSpec:
+        storageClassName: server-storage
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
   racks:
     - name: r0

@@ -86,7 +86,7 @@ type CassandraDatacenterSpec struct {
 	// the number of racks cannot easily be changed once a datacenter is deployed.
 	Racks []Rack `json:"racks,omitempty"`
 	// Describes the persistent storage request of each server node
-	StorageClaim *StorageClaim `json:"storageClaim,omitempty"`
+	StorageConfig StorageConfig `json:"storageConfig"`
 	// The name by which CQL clients and instances will know the cluster. If the same
 	// cluster name is shared by multiple Datacenters in the same Kubernetes namespace,
 	// they will join together in a multi-datacenter cluster.
@@ -110,6 +110,10 @@ type CassandraDatacenterSpec struct {
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 }
 
+type StorageConfig struct {
+	CassandraDataVolumeClaimSpec *corev1.PersistentVolumeClaimSpec `json:"cassandraDataVolumeClaimSpec,omitempty"`
+}
+
 // GetRacks is a getter for the Rack slice in the spec
 // It ensures there is always at least one rack
 // FIXME move this onto the DseDatacenter for consistency?
@@ -129,13 +133,6 @@ type Rack struct {
 	Name string `json:"name"`
 	// Zone name to pin the rack, using node affinity
 	Zone string `json:"zone,omitempty"`
-}
-
-// StorageClaim ...
-type StorageClaim struct {
-	StorageClassName string `json:"storageclassname"`
-	// Resource requirements
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // CassandraDatacenterStatus defines the observed state of CassandraDatacenter

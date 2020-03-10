@@ -7,11 +7,14 @@ spec:
   serverImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-master-20190923204409-d9e0344
   imageVersion: 6.8.0
   size: 3
-  storageClaim:
-    storageclassname: gp2
-    resources:
-      requests:
-        storage: 1Gi
+  storageConfig:
+      cassandraDataVolumeClaimSpec:
+        storageClassName: gp2
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
   racks:
     - name: rack0
     - name: rack1
