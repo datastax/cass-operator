@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/record"
 
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -52,6 +53,7 @@ func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
 
 	k8sMockClientGet(mockClient, fmt.Errorf(""))
 	k8sMockClientUpdate(mockClient, nil).Times(1)
+	// k8sMockClientCreate(mockClient, nil)
 
 	datacenterReconcile, reconcileRacks, reconcileServices := getReconcilers(rc)
 
@@ -158,8 +160,9 @@ func TestReconcile(t *testing.T) {
 	fakeClient := fake.NewFakeClient(trackObjects...)
 
 	r := &ReconcileCassandraDatacenter{
-		client: fakeClient,
-		scheme: s,
+		client:   fakeClient,
+		scheme:   s,
+		recorder: record.NewFakeRecorder(100),
 	}
 
 	request := reconcile.Request{

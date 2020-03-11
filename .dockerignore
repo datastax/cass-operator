@@ -2,3 +2,4 @@
 /operator/vendor/
 /operator/build/
 /.gradle/
+/build/

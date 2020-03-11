@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -80,7 +81,7 @@ func calculateReconciliationActions(
 // For information on log usage, see:
 // https://godoc.org/github.com/go-logr/logr
 
-var log = logf.Log.WithName("controller_dsedatacenter")
+var log = logf.Log.WithName("reconciliation_handler")
 
 // Reconciliation related data structures
 
@@ -89,8 +90,9 @@ var log = logf.Log.WithName("controller_dsedatacenter")
 type ReconcileCassandraDatacenter struct {
 	// This client, initialized using mgr.client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client client.Client
-	scheme *runtime.Scheme
+	client   client.Client
+	scheme   *runtime.Scheme
+	recorder record.EventRecorder
 }
 
 // Reconcile reads that state of the cluster for a Datacenter object
@@ -124,6 +126,7 @@ func (r *ReconcileCassandraDatacenter) Reconcile(
 		&request,
 		r.client,
 		r.scheme,
+		r.recorder,
 		logger)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -138,8 +141,10 @@ func (r *ReconcileCassandraDatacenter) Reconcile(
 		return reconcile.Result{Requeue: true}, err
 	}
 
-	if ok, err := r.isValid(rc.Datacenter); !ok {
-		logger.Error(err, "CassandraDatacenter resource is invalid.")
+	if err := r.isValid(rc.Datacenter); err != nil {
+		logger.Error(err, "CassandraDatacenter resource is invalid")
+		rc.Recorder.Eventf(rc.Datacenter, "Warning", "ValidationFailed", err.Error())
+
 		// No reason to requeue if the resource is invalid as the user will need
 		// to fix it before we can do anything further.
 		return reconcile.Result{Requeue: false}, err
@@ -166,13 +171,18 @@ func (r *ReconcileCassandraDatacenter) Reconcile(
 		ReconcileContext: rc,
 	}
 
-	return calculateReconciliationActions(rc, reconcileDatacenter, reconcileRacks, reconcileServices, r)
+	res, err := calculateReconciliationActions(rc, reconcileDatacenter, reconcileRacks, reconcileServices, r)
+	if err != nil {
+		logger.Error(err, "calculateReconciliationActions returned an error")
+		rc.Recorder.Eventf(rc.Datacenter, "Warning", "ReconcileFailed", err.Error())
+	}
+	return res, err
 }
 
 func (r *ReconcileCassandraDatacenter) addFinalizer(rc *ReconciliationContext) error {
 	if len(rc.Datacenter.GetFinalizers()) < 1 && rc.Datacenter.GetDeletionTimestamp() == nil {
 		rc.ReqLogger.Info("Adding Finalizer for the CassandraDatacenter")
-		rc.Datacenter.SetFinalizers([]string{"com.datastax.dse.finalizer"})
+		rc.Datacenter.SetFinalizers([]string{"finalizer.cassandra.datastax.com"})
 
 		// Update CR
 		err := r.client.Update(rc.Ctx, rc.Datacenter)
@@ -184,38 +194,41 @@ func (r *ReconcileCassandraDatacenter) addFinalizer(rc *ReconciliationContext) e
 	return nil
 }
 
-func (r *ReconcileCassandraDatacenter) isValid(dc *api.CassandraDatacenter) (bool, error) {
+func (r *ReconcileCassandraDatacenter) isValid(dc *api.CassandraDatacenter) error {
 	ctx := context.Background()
 
 	// Basic validation up here
 
 	// Validate Management API config
 	errs := httphelper.ValidateManagementApiConfig(dc, r.client, ctx)
-	if errs != nil && len(errs) > 0 {
-		return false, errs[0]
+	if len(errs) > 0 {
+		return errs[0]
 	}
 
-	if dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec == nil {
-		err := fmt.Errorf("StorageConfig.cassandraDataVolumeClaimSpec is required")
-		return false, err
+	claim := dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec
+	if claim == nil {
+		err := fmt.Errorf("storageConfig.cassandraDataVolumeClaimSpec is required")
+		return err
 	}
 
-	if *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec.StorageClassName == "" {
-		err := fmt.Errorf("StorageConfig.cassandraDataVolumeClaimSpec.storageClassName is required")
-		return false, err
+	if claim.StorageClassName == nil || *claim.StorageClassName == "" {
+		err := fmt.Errorf("storageConfig.cassandraDataVolumeClaimSpec.storageClassName is required")
+		return err
 	}
 
-	if len(dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec.AccessModes) == 0 {
-		err := fmt.Errorf("StorageConfig.cassandraDataVolumeClaimSpec.accessModes is required")
-		return false, err
+	if len(claim.AccessModes) == 0 {
+		err := fmt.Errorf("storageConfig.cassandraDataVolumeClaimSpec.accessModes is required")
+		return err
 	}
 
-	return true, nil
+	return nil
 }
 
 // NewReconciler returns a new reconcile.Reconciler
 func NewReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileCassandraDatacenter{
-		client: mgr.GetClient(),
-		scheme: mgr.GetScheme()}
+		client:   mgr.GetClient(),
+		scheme:   mgr.GetScheme(),
+		recorder: mgr.GetEventRecorderFor("cassandra-operator"),
+	}
 }

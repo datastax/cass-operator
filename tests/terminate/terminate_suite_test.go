@@ -75,7 +75,7 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true", 1200)
 
-			step = "checking the dc label com.datastax.dse.operator.progress is set to Ready"
+			step = "checking the dc label cassandra.datastax.com/operator-progress is set to Ready"
 			json = "jsonpath={.metadata.labels['cassandra\\.datastax\\.com/operator-progress']}"
 			k = kubectl.Get(dcResource).
 				FormatOutput(json)

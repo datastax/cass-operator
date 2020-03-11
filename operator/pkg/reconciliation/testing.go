@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"strings"
 
+	"k8s.io/client-go/tools/record"
+
 	"github.com/go-logr/logr"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
@@ -106,6 +108,7 @@ func CreateMockReconciliationContext(
 	rc.Scheme = s
 	rc.ReqLogger = reqLogger
 	rc.Datacenter = cassandraDatacenter
+	rc.Recorder = record.NewFakeRecorder(100)
 	rc.Ctx = context.Background()
 
 	res := &http.Response{

@@ -169,9 +169,7 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 
 		needsUpdate := false
 
-		currentHash := statefulSet.Annotations[resourceHashAnnotationKey]
-		desiredHash := desiredSts.Annotations[resourceHashAnnotationKey]
-		if currentHash != desiredHash {
+		if !resourcesHaveSameHash(statefulSet, desiredSts) {
 			logger.
 				WithValues("rackName", rackName).
 				Info("statefulset needs an update")
@@ -757,6 +755,8 @@ func (r *ReconcileRacks) ReconcileNextRack(statefulSet *appsv1.StatefulSet) (rec
 		return ResultShouldNotRequeue, err
 	}
 
+	r.ReconcileContext.Recorder.Eventf(r.ReconcileContext.Datacenter, "Normal", "CreatedResource", "Created statefulset %s", statefulSet.Name)
+
 	return reconcile.Result{}, nil
 }
 
@@ -781,8 +781,18 @@ func (r *ReconcileRacks) CheckDcPodDisruptionBudget() (*reconcile.Result, error)
 			Namespace: desiredBudget.Namespace},
 		currentBudget)
 
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
+	}
+
+	found := err == nil
+
+	if found && resourcesHaveSameHash(currentBudget, desiredBudget) {
+		return nil, nil
+	}
+
 	// it's not possible to update a PodDisruptionBudget, so we need to delete this one and remake it
-	if err == nil && currentBudget.Spec.MinAvailable.IntValue() != desiredBudget.Spec.MinAvailable.IntValue() {
+	if found {
 		r.ReconcileContext.ReqLogger.Info(
 			"Deleting and re-creating a PodDisruptionBudget",
 			"pdbNamespace", desiredBudget.Namespace,
@@ -791,32 +801,22 @@ func (r *ReconcileRacks) CheckDcPodDisruptionBudget() (*reconcile.Result, error)
 			"desiredMinAvailable", desiredBudget.Spec.MinAvailable,
 		)
 		err = r.ReconcileContext.Client.Delete(ctx, currentBudget)
-		if err == nil {
-			err = r.ReconcileContext.Client.Create(ctx, desiredBudget)
+		if err != nil {
+			return nil, err
 		}
-		// either way we return here
-		res := &ResultShouldRequeueNow
-		return res, err
 	}
 
-	if err != nil && errors.IsNotFound(err) {
-		// Create the Budget
-		r.ReconcileContext.ReqLogger.Info(
-			"Creating a new PodDisruptionBudget.",
-			"pdbNamespace", desiredBudget.Namespace,
-			"pdbName", desiredBudget.Name)
-		err = r.ReconcileContext.Client.Create(ctx, desiredBudget)
-		res := &ResultShouldRequeueNow
-		// either way we return here
-		return res, err
-	}
+	// Create the Budget
+	r.ReconcileContext.ReqLogger.Info(
+		"Creating a new PodDisruptionBudget.",
+		"pdbNamespace", desiredBudget.Namespace,
+		"pdbName", desiredBudget.Name)
+	err = r.ReconcileContext.Client.Create(ctx, desiredBudget)
 
-	if err != nil {
-		res := &ResultShouldRequeueNow
-		return res, err
-	}
+	r.ReconcileContext.Recorder.Eventf(r.ReconcileContext.Datacenter, "Normal", "CreatedResource", "Created PodDisruptionBudget %s", desiredBudget.Name)
 
-	return nil, nil
+	res := &ResultShouldRequeueNow
+	return res, err
 }
 
 // UpdateRackNodeCount ...

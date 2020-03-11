@@ -3,11 +3,7 @@ package reconciliation
 // This file defines constructors for k8s objects
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
-
-	"k8s.io/kubernetes/pkg/util/hash"
 
 	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
@@ -20,8 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
-
-const resourceHashAnnotationKey = "k8s.datastax.com/resource-hash"
 
 // Creates a headless service object for the Datacenter, for clients wanting to
 // reach out to a ready Server node for either CQL or mgmt API
@@ -341,8 +335,8 @@ func newStatefulSetForCassandraDatacenter(
 	}
 	result.Annotations = map[string]string{}
 
-	// add a hash here to facilitate checking if updates are needed for a large chunk of the inputs
-	result.Annotations[resourceHashAnnotationKey] = deepHashString(result)
+	// add a hash here to facilitate checking if updates are needed
+	addHashAnnotation(result)
 
 	return result, nil
 }
@@ -353,11 +347,12 @@ func newPodDisruptionBudgetForDatacenter(dc *api.CassandraDatacenter) *policyv1b
 	labels := dc.GetDatacenterLabels()
 	oplabels.AddManagedByLabel(labels)
 	selectorLabels := dc.GetDatacenterLabels()
-	return &policyv1beta1.PodDisruptionBudget{
+	pdb := &policyv1beta1.PodDisruptionBudget{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      dc.Name + "-pdb",
-			Namespace: dc.Namespace,
-			Labels:    labels,
+			Name:        dc.Name + "-pdb",
+			Namespace:   dc.Namespace,
+			Labels:      labels,
+			Annotations: map[string]string{},
 		},
 		Spec: policyv1beta1.PodDisruptionBudgetSpec{
 			Selector: &metav1.LabelSelector{
@@ -366,6 +361,11 @@ func newPodDisruptionBudgetForDatacenter(dc *api.CassandraDatacenter) *policyv1b
 			MinAvailable: &minAvailable,
 		},
 	}
+
+	// add a hash here to facilitate checking if updates are needed
+	addHashAnnotation(pdb)
+
+	return pdb
 }
 
 // this type exists so there's no chance of pushing random strings to our progress label
@@ -455,12 +455,4 @@ func calculatePodAntiAffinity(allowMultipleNodesPerWorker bool) *corev1.PodAntiA
 			},
 		},
 	}
-}
-
-func deepHashString(obj interface{}) string {
-	hasher := sha256.New()
-	hash.DeepHashObject(hasher, obj)
-	hashBytes := hasher.Sum([]byte{})
-	b64Hash := base64.StdEncoding.EncodeToString(hashBytes)
-	return b64Hash
 }

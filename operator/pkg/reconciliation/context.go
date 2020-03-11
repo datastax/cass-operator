@@ -6,6 +6,7 @@ import (
 	"github.com/go-logr/logr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -21,10 +22,8 @@ type ReconciliationContext struct {
 	Scheme         *runtime.Scheme
 	Datacenter     *api.CassandraDatacenter
 	NodeMgmtClient httphelper.NodeMgmtClient
-	// Note that logr.Logger is an interface,
-	// so we do not want to store a pointer to it
-	// see: https://stackoverflow.com/a/44372954
-	ReqLogger logr.Logger
+	Recorder       record.EventRecorder
+	ReqLogger      logr.Logger
 	// According to golang recommendations the context should not be stored in a struct but given that
 	// this is passed around as a parameter we feel that its a fair compromise. For further discussion
 	// see: golang/go#22602
@@ -36,12 +35,14 @@ func CreateReconciliationContext(
 	request *reconcile.Request,
 	client client.Client,
 	scheme *runtime.Scheme,
+	recorder record.EventRecorder,
 	ReqLogger logr.Logger) (*ReconciliationContext, error) {
 
 	rc := &ReconciliationContext{}
 	rc.Request = request
 	rc.Client = client
 	rc.Scheme = scheme
+	rc.Recorder = recorder
 	rc.ReqLogger = ReqLogger
 	rc.Ctx = context.Background()
 

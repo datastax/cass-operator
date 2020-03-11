@@ -40,6 +40,8 @@ func (r *ReconcileServices) Apply() (reconcile.Result, error) {
 
 			return reconcile.Result{Requeue: true}, err
 		}
+
+		r.ReconcileContext.Recorder.Eventf(r.ReconcileContext.Datacenter, "Normal", "CreatedResource", "Created service %s", service.Name)
 	}
 
 	return reconcile.Result{Requeue: true}, nil
