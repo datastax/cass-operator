@@ -199,13 +199,6 @@ func schema_pkg_apis_cassandra_v1alpha2_CassandraDatacenterStatus(ref common.Ref
 				Description: "CassandraDatacenterStatus defines the observed state of CassandraDatacenter",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
-					"nodes": {
-						SchemaProps: spec.SchemaProps{
-							Description: "The number of the server nodes",
-							Type:        []string{"integer"},
-							Format:      "int32",
-						},
-					},
 					"superUserUpserted": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The timestamp at which CQL superuser credentials were last upserted to the management API",
@@ -218,8 +211,14 @@ func schema_pkg_apis_cassandra_v1alpha2_CassandraDatacenterStatus(ref common.Ref
 							Ref:         ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
+					"cassandraOperatorProgress": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Last known progress state of the Cassandra Operator",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
 				},
-				Required: []string{"nodes"},
 			},
 		},
 		Dependencies: []string{

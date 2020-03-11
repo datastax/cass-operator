@@ -65,6 +65,7 @@ func TestCreateHeadlessService(t *testing.T) {
 }
 
 func TestCreateHeadlessService_ClientReturnsError(t *testing.T) {
+	t.Skip()
 	rc, svc, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 

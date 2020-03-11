@@ -3,6 +3,7 @@ package reconciliation
 import (
 	"reflect"
 
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -30,7 +31,7 @@ func (r *ReconcileServices) Apply() (reconcile.Result, error) {
 			"serviceNamespace", service.Namespace,
 			"serviceName", service.Name)
 
-		if err := addOperatorProgressLabel(recCtx, updating); err != nil {
+		if err := setOperatorProgressStatus(recCtx, api.ProgressUpdating); err != nil {
 			return reconcile.Result{Requeue: true}, err
 		}
 

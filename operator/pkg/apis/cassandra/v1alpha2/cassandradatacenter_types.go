@@ -41,7 +41,14 @@ const (
 
 	// CassNodeState
 	CassNodeState = "cassandra.datastax.com/node-state"
+
+	// Progress states for status
+	ProgressUpdating ProgressState = "Updating"
+	ProgressReady    ProgressState = "Ready"
 )
+
+// this type exists so there's no chance of pushing random strings to our progress status
+type ProgressState string
 
 // getDseImageFromVersion tries to look up a known DSE image
 // from a DSE version number.
@@ -138,9 +145,6 @@ type Rack struct {
 // CassandraDatacenterStatus defines the observed state of CassandraDatacenter
 // +k8s:openapi-gen=true
 type CassandraDatacenterStatus struct {
-	// The number of the server nodes
-	Nodes int32 `json:"nodes"`
-
 	// The timestamp at which CQL superuser credentials
 	// were last upserted to the management API
 	// +optional
@@ -150,6 +154,10 @@ type CassandraDatacenterStatus struct {
 	// with the management API
 	// +optional
 	LastServerNodeStarted metav1.Time `json:"lastServerNodeStarted,omitempty"`
+
+	// Last known progress state of the Cassandra Operator
+	// +optional
+	CassandraOperatorProgress ProgressState `json:"cassandraOperatorProgress,omitempty"`
 
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 }

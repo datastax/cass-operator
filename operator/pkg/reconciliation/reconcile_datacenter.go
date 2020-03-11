@@ -21,7 +21,7 @@ type ReconcileDatacenter struct {
 // Apply ...
 func (r *ReconcileDatacenter) Apply() (reconcile.Result, error) {
 	// set the label here but no need to remove since we're deleting the CassandraDatacenter
-	if err := addOperatorProgressLabel(r.ReconcileContext, updating); err != nil {
+	if err := setOperatorProgressStatus(r.ReconcileContext, api.ProgressUpdating); err != nil {
 		return reconcile.Result{Requeue: true}, err
 	}
 

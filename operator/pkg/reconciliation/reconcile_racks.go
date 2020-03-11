@@ -186,7 +186,7 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 
 		if needsUpdate {
 
-			if err := addOperatorProgressLabel(r.ReconcileContext, updating); err != nil {
+			if err := setOperatorProgressStatus(r.ReconcileContext, api.ProgressUpdating); err != nil {
 				return &ResultShouldNotRequeue, err
 			}
 
@@ -544,8 +544,9 @@ func (r *ReconcileRacks) CreateSuperuser() (*reconcile.Result, error) {
 		return &ResultShouldNotRequeue, err
 	}
 
+	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
 	rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
-	if err = rc.Client.Status().Update(rc.Ctx, rc.Datacenter); err != nil {
+	if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
 		rc.ReqLogger.Error(err, "error updating the CQL superuser upsert timestamp")
 		return &ResultShouldNotRequeue, err
 	}
@@ -602,7 +603,7 @@ func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
 		return *recResult, err
 	}
 
-	if err := addOperatorProgressLabel(r.ReconcileContext, ready); err != nil {
+	if err := setOperatorProgressStatus(r.ReconcileContext, api.ProgressReady); err != nil {
 		// this error is especially sad because we were just about to be done reconciling
 		return ResultShouldRequeueNow, err
 	}
@@ -741,7 +742,7 @@ func (r *ReconcileRacks) ReconcileNextRack(statefulSet *appsv1.StatefulSet) (rec
 
 	r.ReconcileContext.ReqLogger.Info("reconcile_racks::reconcileNextRack")
 
-	if err := addOperatorProgressLabel(r.ReconcileContext, updating); err != nil {
+	if err := setOperatorProgressStatus(r.ReconcileContext, api.ProgressUpdating); err != nil {
 		return ResultShouldNotRequeue, err
 	}
 
@@ -831,7 +832,7 @@ func (r *ReconcileRacks) UpdateRackNodeCount(statefulSet *appsv1.StatefulSet, ne
 		"newNodeCount", newNodeCount,
 	)
 
-	if err := addOperatorProgressLabel(r.ReconcileContext, updating); err != nil {
+	if err := setOperatorProgressStatus(r.ReconcileContext, api.ProgressUpdating); err != nil {
 		return ResultShouldRequeueNow, err
 	}
 
@@ -973,16 +974,17 @@ func shouldUpdateLabelsForDatacenterResource(resourceLabels map[string]string, d
 }
 
 func (r *ReconcileRacks) labelServerPodStarting(pod *corev1.Pod) error {
-	client := r.ReconcileContext.Client
-	ctx := r.ReconcileContext.Ctx
-	dc := r.ReconcileContext.Datacenter
+	rc := r.ReconcileContext
+	ctx := rc.Ctx
+	dc := rc.Datacenter
 	pod.Labels[api.CassNodeState] = "Starting"
-	err := client.Update(ctx, pod)
+	err := rc.Client.Update(ctx, pod)
 	if err != nil {
 		return err
 	}
+	patch := client.MergeFrom(dc.DeepCopy())
 	dc.Status.LastServerNodeStarted = metav1.Now()
-	err = client.Status().Update(ctx, dc)
+	err = rc.Client.Status().Patch(ctx, dc, patch)
 	return err
 }
 

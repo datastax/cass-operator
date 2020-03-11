@@ -85,6 +85,12 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true true true", 1200)
 
+			step = "checking the cassandra operator progress status is set to Ready for first dc"
+			json = "jsonpath={.status.cassandraOperatorProgress}"
+			k = kubectl.Get(dcResourceForName(dcNames[0])).
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "Ready", 30)
+
 			step = "waiting for the nodes to become ready"
 			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
 			k = kubectl.Get("Pods").
@@ -93,9 +99,9 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true", 1200)
 
-			step = "checking the dc label cassandra.datastax.com/operator-progress is set to Ready"
-			json = "jsonpath={.metadata.labels['cassandra\\.datastax\\.com/operator-progress']}"
-			k = kubectl.Get(dcResourceForName(dcNames[0])).
+			step = "checking the cassandra operator progress status is set to Ready for second dc"
+			json = "jsonpath={.status.cassandraOperatorProgress}"
+			k = kubectl.Get(dcResourceForName(dcNames[1])).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
 

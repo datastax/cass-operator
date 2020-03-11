@@ -5,6 +5,7 @@ package reconciliation
 import (
 	"fmt"
 
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/oplabels"
@@ -368,37 +369,17 @@ func newPodDisruptionBudgetForDatacenter(dc *api.CassandraDatacenter) *policyv1b
 	return pdb
 }
 
-// this type exists so there's no chance of pushing random strings to our progress label
-type cassandraOperatorStatus string
-
-const (
-	updating cassandraOperatorStatus = "Updating"
-	ready    cassandraOperatorStatus = "Ready"
-)
-
-func addOperatorProgressLabel(
-	rc *ReconciliationContext,
-	status cassandraOperatorStatus) error {
-
-	labelVal := string(status)
-
-	dcLabels := rc.Datacenter.GetLabels()
-	if dcLabels == nil {
-		dcLabels = make(map[string]string)
-	}
-
-	if dcLabels[api.CassOperatorProgressLabel] == labelVal {
+func setOperatorProgressStatus(rc *ReconciliationContext, newState api.ProgressState) error {
+	currentState := rc.Datacenter.Status.CassandraOperatorProgress
+	if currentState == newState {
 		// early return, no need to ping k8s
 		return nil
 	}
 
-	// set the label and push it to k8s
-	dcLabels[api.CassOperatorProgressLabel] = labelVal
-	rc.Datacenter.SetLabels(dcLabels)
-	if err := rc.Client.Update(rc.Ctx, rc.Datacenter); err != nil {
-		rc.ReqLogger.Error(err, "error updating label",
-			"label", api.CassOperatorProgressLabel,
-			"value", labelVal)
+	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
+	rc.Datacenter.Status.CassandraOperatorProgress = newState
+	if err := rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
+		rc.ReqLogger.Error(err, "error updating the Cassandra Operator Progress state")
 		return err
 	}
 

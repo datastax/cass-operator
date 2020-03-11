@@ -75,8 +75,8 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true", 1200)
 
-			step = "checking the dc label cassandra.datastax.com/operator-progress is set to Ready"
-			json = "jsonpath={.metadata.labels['cassandra\\.datastax\\.com/operator-progress']}"
+			step = "checking the cassandra operator progress status is set to Ready"
+			json = "jsonpath={.status.cassandraOperatorProgress}"
 			k = kubectl.Get(dcResource).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
@@ -85,6 +85,12 @@ var _ = Describe(testName, func() {
 			json = "{\"spec\": {\"size\": 2}}"
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
+
+			step = "checking the cassandra operator progress status gets set to Updating"
+			json = "jsonpath={.status.cassandraOperatorProgress}"
+			k = kubectl.Get(dcResource).
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "Updating", 30)
 
 			step = "wait for 2nd dse node to become ready"
 			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
@@ -119,6 +125,12 @@ var _ = Describe(testName, func() {
 				WithFlag("field-selector", "status.phase=Running").
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true true true true true", 1200)
+
+			step = "checking the cassandra operator progress status is set to Ready"
+			json = "jsonpath={.status.cassandraOperatorProgress}"
+			k = kubectl.Get(dcResource).
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "Ready", 30)
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
