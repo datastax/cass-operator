@@ -146,6 +146,7 @@ func TestReconcile(t *testing.T) {
 				Insecure: &api.ManagementApiAuthInsecureConfig{},
 			},
 			Size:          size,
+			ImageVersion:  "6.8.0",
 			StorageConfig: storageConfig,
 		},
 	}
@@ -357,6 +358,7 @@ func TestReconcile_CassandraDatacenterToBeDeleted(t *testing.T) {
 				Insecure: &api.ManagementApiAuthInsecureConfig{},
 			},
 			Size:          size,
+			ImageVersion:  "6.8.0",
 			StorageConfig: storageConfig,
 		},
 	}

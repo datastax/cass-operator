@@ -46,6 +46,7 @@ spec:
                 cluster. If the same cluster name is shared by multiple Datacenters
                 in the same Kubernetes namespace, they will join together in a multi-datacenter
                 cluster.
+              minLength: 2
               type: string
             configBuilderImage:
               description: Container image for the config builder init container,
@@ -53,6 +54,9 @@ spec:
               type: string
             imageVersion:
               description: version number
+              enum:
+              - 6.8.0
+              - 3.11.6
               type: string
             managementApiAuth:
               description: Config for the Management API certificates
@@ -88,6 +92,7 @@ spec:
                 properties:
                   name:
                     description: The rack name
+                    minLength: 2
                     type: string
                   zone:
                     description: Zone name to pin the rack, using node affinity
@@ -119,6 +124,9 @@ spec:
               type: string
             serverType:
               description: 'Server type: "cassandra" or "dse"'
+              enum:
+              - cassandra
+              - dse
               type: string
             serviceAccount:
               description: The k8s service account to use for the server pods
@@ -126,6 +134,7 @@ spec:
             size:
               description: Desired number of server nodes
               format: int32
+              minimum: 1
               type: integer
             storageConfig:
               description: Describes the persistent storage request of each server

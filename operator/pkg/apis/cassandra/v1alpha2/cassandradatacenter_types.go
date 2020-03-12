@@ -72,14 +72,19 @@ type CassandraDatacenterSpec struct {
 	// https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
 	// Desired number of server nodes
+	// +kubebuilder:validation:Minimum=1
 	Size int32 `json:"size"`
+
 	// version number
+	// +kubebuilder:validation:Enum="6.8.0";"3.11.6"
 	ImageVersion string `json:"imageVersion"`
+
 	// Server image name.
 	// More info: https://kubernetes.io/docs/concepts/containers/images
 	ServerImage string `json:"serverImage,omitempty"`
 
 	// Server type: "cassandra" or "dse"
+	// +kubebuilder:validation:Enum=cassandra;dse
 	ServerType string `json:"serverType"`
 
 	// Config for the server, in YAML format
@@ -94,10 +99,13 @@ type CassandraDatacenterSpec struct {
 	Racks []Rack `json:"racks,omitempty"`
 	// Describes the persistent storage request of each server node
 	StorageConfig StorageConfig `json:"storageConfig"`
+
 	// The name by which CQL clients and instances will know the cluster. If the same
 	// cluster name is shared by multiple Datacenters in the same Kubernetes namespace,
 	// they will join together in a multi-datacenter cluster.
+	// +kubebuilder:validation:MinLength=2
 	ClusterName string `json:"clusterName"`
+
 	// Indicates no server instances should run, like powering down bare metal servers. Volume resources
 	// will be left intact in Kubernetes and re-attached when the cluster is unparked. This is an
 	// experimental feature that requires that pod ip addresses do not change on restart.
@@ -137,6 +145,7 @@ func (s *CassandraDatacenterSpec) GetRacks() []Rack {
 // Rack ...
 type Rack struct {
 	// The rack name
+	// +kubebuilder:validation:MinLength=2
 	Name string `json:"name"`
 	// Zone name to pin the rack, using node affinity
 	Zone string `json:"zone,omitempty"`
