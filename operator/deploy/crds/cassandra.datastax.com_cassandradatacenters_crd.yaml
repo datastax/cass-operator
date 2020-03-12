@@ -8,6 +8,9 @@ spec:
     kind: CassandraDatacenter
     listKind: CassandraDatacenterList
     plural: cassandradatacenters
+    shortNames:
+    - cassdc
+    - cassdcs
     singular: cassandradatacenter
   scope: Namespaced
   subresources:

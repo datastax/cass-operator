@@ -177,7 +177,7 @@ type CassandraDatacenterStatus struct {
 // CassandraDatacenter is the Schema for the cassandradatacenters API
 // +k8s:openapi-gen=true
 // +kubebuilder:subresource:status
-// +kubebuilder:resource:path=cassandradatacenters,scope=Namespaced
+// +kubebuilder:resource:path=cassandradatacenters,scope=Namespaced,shortName=cassdc;cassdcs
 type CassandraDatacenter struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
