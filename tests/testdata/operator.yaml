@@ -17,6 +17,24 @@ spec:
         - name: dse-operator
           image: datastax/dse-operator:latest
           imagePullPolicy: IfNotPresent
+          livenessProbe:
+            exec:
+              command:
+                - pgrep
+                - ".*operator"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - stat
+                - "/tmp/operator-sdk-ready"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 1
           env:
             - name: WATCH_NAMESPACE
               valueFrom:

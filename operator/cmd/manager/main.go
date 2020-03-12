@@ -27,16 +27,17 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
+	"github.com/operator-framework/operator-sdk/pkg/ready"
 	"github.com/riptano/dse-operator/operator/pkg/apis"
 	"github.com/riptano/dse-operator/operator/pkg/controller"
 )
 
 // Change below variables to serve metrics on different host or port.
 var (
-	metricsHost       = "0.0.0.0"
-	metricsPort int32 = 8383
+	metricsHost               = "0.0.0.0"
+	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
-	version           = "DEV"
+	version                   = "DEV"
 )
 var log = logf.Log.WithName("cmd")
 
@@ -139,6 +140,16 @@ func main() {
 	if err != nil {
 		log.Error(err, "could not expose metrics port, continuing anyway")
 	}
+
+	// Use the operator-sdk ready pkg
+	readyFile := ready.NewFileReady()
+	err = readyFile.Set()
+	if err != nil {
+		log.Error(err, "Problem creating readyFile. Exited non-zero")
+		os.Exit(1)
+	}
+	log.Info("created the readyFile.")
+	defer readyFile.Unset()
 
 	log.Info("Starting the Cmd.")
 

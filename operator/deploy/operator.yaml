@@ -19,6 +19,24 @@ spec:
           # echo "datastax-docker.jfrog.io/dse-operator/operator:$(git symbolic-ref --short HEAD).$(git rev-parse HEAD)"
           image: datastax/dse-operator:latest
           imagePullPolicy: IfNotPresent
+          livenessProbe:
+            exec:
+              command:
+                - pgrep
+                - ".*operator"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - stat
+                - "/tmp/operator-sdk-ready"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 1
           env:
             - name: WATCH_NAMESPACE
               valueFrom:

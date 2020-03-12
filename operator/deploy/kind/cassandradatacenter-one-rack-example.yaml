@@ -6,6 +6,7 @@ spec:
   clusterName: clstr
   serverImage: datastax-docker.jfrog.io/datastax/mgmtapi-apache-cassandra
   imageVersion: 6.8.0
+  serverType: cassandra
   managementApiAuth:
     insecure: {}
   configBuilderImage: datastaxlabs/cassandra-k8s-config-builder:0.4.0-20191113

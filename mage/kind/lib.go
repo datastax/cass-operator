@@ -111,15 +111,15 @@ func SetupExampleCluster() {
 	loadImage(settings.Dev.ConfigBuilderImage)
 	operator.BuildDocker()
 	loadImage(operatorImage)
-	kubectl.CreateSecretLiteral("dse-superuser-secret", "devuser", "devpass").ExecVPanic()
+	kubectl.CreateSecretLiteral("cassandra-superuser-secret", "devuser", "devpass").ExecVPanic()
 	kubectl.ApplyFiles(
 		"operator/deploy/kind/rancher-local-path-storage.yaml",
 		"operator/deploy/role.yaml",
 		"operator/deploy/role_binding.yaml",
 		"operator/deploy/service_account.yaml",
-		"operator/deploy/crds/datastax.com_dsedatacenters_crd.yaml",
+		"operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
 		"operator/deploy/operator.yaml",
-		"operator/deploy/kind/dsedatacenter-one-rack-example.yaml",
+		"operator/deploy/kind/cassandradatacenter-one-rack-example.yaml",
 	).ExecVPanic()
 	kubectl.WatchPods()
 }
