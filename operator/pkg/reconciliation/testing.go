@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"strings"
 
-	"k8s.io/client-go/tools/record"
-
 	"github.com/go-logr/logr"
 	mock "github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
@@ -20,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
