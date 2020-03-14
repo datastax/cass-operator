@@ -25,55 +25,34 @@ import (
 // Use a var so we can mock this function
 var setControllerReference = controllerutil.SetControllerReference
 
-type reconcileFun func() (Reconciler, error)
-
 // calculateReconciliationActions will iterate over an ordered list of reconcilers which will determine if any action needs to
 // be taken on the CassandraDatacenter. If a change is needed then the apply function will be called on that reconciler and the
 // request will be requeued for the next reconciler to handle in the subsequent reconcile loop, otherwise the next reconciler
 // will be called.
-func calculateReconciliationActions(
-	rc *ReconciliationContext,
-	reconcileDatacenter ReconcileDatacenter,
-	reconcileRacks ReconcileRacks,
-	reconcileServices ReconcileServices,
-	reconciler *ReconcileCassandraDatacenter) (reconcile.Result, error) {
+func (rc *ReconciliationContext) calculateReconciliationActions() (reconcile.Result, error) {
 
 	rc.ReqLogger.Info("handler::calculateReconciliationActions")
 
 	// Check if the CassandraDatacenter was marked to be deleted
-	if rec, err := reconcileDatacenter.ProcessDeletion(); err != nil || rec != nil {
-		// had to modify the headless service so requeue in order to reconcile the seed service on the next loop
-
-		if err != nil {
-			return reconcile.Result{Requeue: true}, err
-		}
-
-		return rec.Apply()
+	if rc.ProcessDeletion() {
+		return rc.RemoveDatacenterResources()
 	}
 
-	if err := reconciler.addFinalizer(rc); err != nil {
-		return reconcile.Result{Requeue: true}, err
+	if err := rc.addFinalizer(); err != nil {
+		return reconcile.Result{}, err
 	}
 
-	// order of this list matters!
-	reconcilers := []reconcileFun{
-		reconcileServices.ReconcileHeadlessServices,
-		reconcileRacks.CalculateRackInformation}
-
-	for _, fun := range reconcilers {
-		if rec, err := fun(); err != nil || rec != nil {
-			if err != nil {
-				return reconcile.Result{Requeue: true}, err
-			}
-
-			return rec.Apply()
-		}
+	if needCreate, err := rc.CheckHeadlessServices(); err != nil {
+		return reconcile.Result{}, err
+	} else if needCreate {
+		return rc.CreateHeadlessServices()
 	}
 
-	// no more changes to make!
+	if err := rc.CalculateRackInformation(); err != nil {
+		return reconcile.Result{}, err
+	}
 
-	// nothing happened so return and don't requeue
-	return reconcile.Result{}, nil
+	return rc.ReconcileAllRacks()
 }
 
 // This file contains various definitions and plumbing setup used for reconciliation.
@@ -103,8 +82,7 @@ type ReconcileCassandraDatacenter struct {
 // if the returned error is non-nil or Result.Requeue is true,
 // otherwise upon completion it will remove the work from the queue.
 // See: https://godoc.org/sigs.k8s.io/controller-runtime/pkg/reconcile#Result
-func (r *ReconcileCassandraDatacenter) Reconcile(
-	request reconcile.Request) (reconcile.Result, error) {
+func (r *ReconcileCassandraDatacenter) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 
 	startReconcile := time.Now()
 
@@ -138,7 +116,7 @@ func (r *ReconcileCassandraDatacenter) Reconcile(
 		}
 		// Error reading the object - requeue the request.
 		logger.Error(err, "Failed to get CassandraDatacenter.")
-		return reconcile.Result{Requeue: true}, err
+		return reconcile.Result{}, err
 	}
 
 	if err := r.isValid(rc.Datacenter); err != nil {
@@ -159,19 +137,7 @@ func (r *ReconcileCassandraDatacenter) Reconcile(
 		return reconcile.Result{}, nil
 	}
 
-	reconcileDatacenter := ReconcileDatacenter{
-		ReconcileContext: rc,
-	}
-
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext: rc,
-	}
-
-	reconcileServices := ReconcileServices{
-		ReconcileContext: rc,
-	}
-
-	res, err := calculateReconciliationActions(rc, reconcileDatacenter, reconcileRacks, reconcileServices, r)
+	res, err := rc.calculateReconciliationActions()
 	if err != nil {
 		logger.Error(err, "calculateReconciliationActions returned an error")
 		rc.Recorder.Eventf(rc.Datacenter, "Warning", "ReconcileFailed", err.Error())
@@ -179,13 +145,13 @@ func (r *ReconcileCassandraDatacenter) Reconcile(
 	return res, err
 }
 
-func (r *ReconcileCassandraDatacenter) addFinalizer(rc *ReconciliationContext) error {
+func (rc *ReconciliationContext) addFinalizer() error {
 	if len(rc.Datacenter.GetFinalizers()) < 1 && rc.Datacenter.GetDeletionTimestamp() == nil {
 		rc.ReqLogger.Info("Adding Finalizer for the CassandraDatacenter")
 		rc.Datacenter.SetFinalizers([]string{"finalizer.cassandra.datastax.com"})
 
 		// Update CR
-		err := r.client.Update(rc.Ctx, rc.Datacenter)
+		err := rc.Client.Update(rc.Ctx, rc.Datacenter)
 		if err != nil {
 			rc.ReqLogger.Error(err, "Failed to update CassandraDatacenter with finalizer")
 			return err

@@ -177,13 +177,10 @@ func TestReconcileRacks_ReconcilePods(t *testing.T) {
 
 	rackInfo := []*RackInformation{nextRack}
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext:       rc,
-		desiredRackInformation: rackInfo,
-		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
-	}
+	rc.desiredRackInformation = rackInfo
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
 
-	result, err := reconcileRacks.Apply()
+	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.NotNil(t, result, "Result should not be nil")
 }
@@ -230,11 +227,7 @@ func TestReconcilePods(t *testing.T) {
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 	statefulSet.Status.Replicas = int32(1)
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext: rc,
-	}
-
-	err = reconcileRacks.ReconcilePods(statefulSet)
+	err = rc.ReconcilePods(statefulSet)
 	assert.NoErrorf(t, err, "Should not have returned an error")
 
 	mockClient.AssertExpectations(t)
@@ -289,10 +282,7 @@ func TestReconcilePods_WithVolumes(t *testing.T) {
 	}
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext: rc,
-	}
-	err = reconcileRacks.ReconcilePods(statefulSet)
+	err = rc.ReconcilePods(statefulSet)
 	assert.NoErrorf(t, err, "Should not have returned an error")
 }
 
@@ -310,11 +300,7 @@ func TestReconcileNextRack(t *testing.T) {
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext: rc,
-	}
-
-	result, err := reconcileRacks.ReconcileNextRack(statefulSet)
+	result, err := rc.ReconcileNextRack(statefulSet)
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.Equal(t, reconcile.Result{}, result, "Should requeue request")
 
@@ -344,11 +330,7 @@ func TestReconcileNextRack_CreateError(t *testing.T) {
 	k8sMockClientCreate(mockClient, fmt.Errorf(""))
 	k8sMockClientUpdate(mockClient, nil).Times(1)
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext: rc,
-	}
-
-	result, err := reconcileRacks.ReconcileNextRack(statefulSet)
+	result, err := rc.ReconcileNextRack(statefulSet)
 
 	mockClient.AssertExpectations(t)
 
@@ -363,13 +345,10 @@ func TestCalculateRackInformation(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext: rc,
-	}
-	rec, err := reconcileRacks.CalculateRackInformation()
+	err := rc.CalculateRackInformation()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 
-	rackInfo := rec.(*ReconcileRacks).desiredRackInformation[0]
+	rackInfo := rc.desiredRackInformation[0]
 
 	assert.Equal(t, "default", rackInfo.RackName, "Should have correct rack name")
 
@@ -398,14 +377,10 @@ func TestCalculateRackInformation_MultiRack(t *testing.T) {
 
 	rc.Datacenter.Spec.Size = 3
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext: rc,
-	}
-
-	rec, err := reconcileRacks.CalculateRackInformation()
+	err := rc.CalculateRackInformation()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 
-	rackInfo := rec.(*ReconcileRacks).desiredRackInformation[0]
+	rackInfo := rc.desiredRackInformation[0]
 
 	assert.Equal(t, "rack0", rackInfo.RackName, "Should have correct rack name")
 
@@ -450,13 +425,11 @@ func TestReconcileRacks(t *testing.T) {
 
 	rackInfo = append(rackInfo, nextRack)
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext:       rc,
-		desiredRackInformation: rackInfo,
-		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
-	}
+	rc.desiredRackInformation = rackInfo
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
 
-	result, err := reconcileRacks.Apply()
+	result, err := rc.ReconcileAllRacks()
+
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.NotNil(t, result, "Result should not be nil")
 }
@@ -478,12 +451,9 @@ func TestReconcileRacks_GetStatefulsetError(t *testing.T) {
 
 	rackInfo = append(rackInfo, nextRack)
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext:       rc,
-		desiredRackInformation: rackInfo,
-	}
+	rc.desiredRackInformation = rackInfo
 
-	result, err := reconcileRacks.Apply()
+	result, err := rc.ReconcileAllRacks()
 
 	mockClient.AssertExpectations(t)
 
@@ -525,13 +495,10 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 
 	rackInfo = append(rackInfo, nextRack)
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext:       rc,
-		desiredRackInformation: rackInfo,
-		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
-	}
+	rc.desiredRackInformation = rackInfo
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
 
-	result, err := reconcileRacks.Apply()
+	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.True(t, result.Requeue, result, "Should requeue request")
 }
@@ -563,13 +530,10 @@ func TestReconcileRacks_NeedMoreReplicas(t *testing.T) {
 
 	rackInfo = append(rackInfo, nextRack)
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext:       rc,
-		desiredRackInformation: rackInfo,
-		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
-	}
+	rc.desiredRackInformation = rackInfo
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
 
-	result, err := reconcileRacks.Apply()
+	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 }
@@ -605,13 +569,10 @@ func TestReconcileRacks_DoesntScaleDown(t *testing.T) {
 
 	rackInfo = append(rackInfo, nextRack)
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext:       rc,
-		desiredRackInformation: rackInfo,
-		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
-	}
+	rc.desiredRackInformation = rackInfo
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
 
-	result, err := reconcileRacks.Apply()
+	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.True(t, result.Requeue, result, "Should requeue request")
 }
@@ -643,13 +604,10 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 
 	rackInfo = append(rackInfo, nextRack)
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext:       rc,
-		desiredRackInformation: rackInfo,
-		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
-	}
+	rc.desiredRackInformation = rackInfo
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
 
-	result, err := reconcileRacks.Apply()
+	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Apply() should not have returned an error")
 	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 
@@ -694,13 +652,10 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 
 	rackInfo = append(rackInfo, nextRack)
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext:       rc,
-		desiredRackInformation: rackInfo,
-		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
-	}
+	rc.desiredRackInformation = rackInfo
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
 
-	result, err := reconcileRacks.Apply()
+	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.Equal(t, reconcile.Result{}, result, "Should not requeue request")
 }
@@ -748,13 +703,10 @@ func TestReconcileRacks_FirstRackAlreadyReconciled(t *testing.T) {
 
 	rackInfo = append(rackInfo, rack0, rack1)
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext:       rc,
-		desiredRackInformation: rackInfo,
-		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
-	}
+	rc.desiredRackInformation = rackInfo
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
 
-	result, err := reconcileRacks.Apply()
+	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 
@@ -776,17 +728,12 @@ func TestReconcileRacks_UpdateRackNodeCount(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	var (
-		nextRack       = &RackInformation{}
-		reconcileRacks = ReconcileRacks{
-			ReconcileContext: rc,
-		}
-	)
+	var nextRack = &RackInformation{}
 
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 2
 
-	statefulSet, _, _ := reconcileRacks.GetStatefulSetForRack(nextRack)
+	statefulSet, _, _ := rc.GetStatefulSetForRack(nextRack)
 
 	tests := []struct {
 		name    string
@@ -810,9 +757,9 @@ func TestReconcileRacks_UpdateRackNodeCount(t *testing.T) {
 				rc.Datacenter,
 			}
 
-			reconcileRacks.ReconcileContext.Client = fake.NewFakeClient(trackObjects...)
+			rc.Client = fake.NewFakeClient(trackObjects...)
 
-			if _, err := reconcileRacks.UpdateRackNodeCount(tt.args.statefulSet, tt.args.newNodeCount); (err != nil) != tt.wantErr {
+			if _, err := rc.UpdateRackNodeCount(tt.args.statefulSet, tt.args.newNodeCount); (err != nil) != tt.wantErr {
 				t.Errorf("updateRackNodeCount() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.args.newNodeCount != *tt.args.statefulSet.Spec.Replicas {
@@ -860,13 +807,10 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 
 	rackInfo = append(rackInfo, rack0)
 
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext:       rc,
-		desiredRackInformation: rackInfo,
-		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
-	}
+	rc.desiredRackInformation = rackInfo
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
 
-	result, err := reconcileRacks.Apply()
+	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.Equal(t, reconcile.Result{Requeue: false}, result, "Should not requeue request")
 
@@ -886,13 +830,10 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 
 	rc.Datacenter.Spec.Config = configJson
 
-	reconcileRacks = ReconcileRacks{
-		ReconcileContext:       rc,
-		desiredRackInformation: rackInfo,
-		statefulSets:           make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo)),
-	}
+	rc.desiredRackInformation = rackInfo
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
 
-	result, err = reconcileRacks.Apply()
+	result, err = rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 
@@ -989,12 +930,10 @@ func TestReconcileRacks_countReadyAndStarted(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			r := &ReconcileRacks{
-				ReconcileContext:       tt.fields.ReconcileContext,
-				desiredRackInformation: tt.fields.desiredRackInformation,
-				statefulSets:           tt.fields.statefulSets,
-			}
-			ready, started := r.countReadyAndStarted(tt.args.podList)
+			rc.desiredRackInformation = tt.fields.desiredRackInformation
+			rc.statefulSets = tt.fields.statefulSets
+
+			ready, started := rc.countReadyAndStarted(tt.args.podList)
 			if ready != tt.wantReady {
 				t.Errorf("ReconcileRacks.countReadyAndStarted() ready = %v, want %v", ready, tt.wantReady)
 			}

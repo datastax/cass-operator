@@ -21,19 +21,6 @@ import (
 	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
 
-// TODO remove this interface
-// Reconciler ...
-type Reconciler interface {
-	Apply() (reconcile.Result, error)
-}
-
-// ReconcileRacks ...
-type ReconcileRacks struct {
-	ReconcileContext       *ReconciliationContext
-	desiredRackInformation []*RackInformation
-	statefulSets           []*appsv1.StatefulSet
-}
-
 var (
 	ResultShouldNotRequeue     reconcile.Result = reconcile.Result{Requeue: false}
 	ResultShouldRequeueNow     reconcile.Result = reconcile.Result{Requeue: true}
@@ -42,8 +29,8 @@ var (
 )
 
 // CalculateRackInformation determine how many nodes per rack are needed
-func (r *ReconcileRacks) CalculateRackInformation() (Reconciler, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) CalculateRackInformation() error {
+
 	rc.ReqLogger.Info("reconcile_racks::calculateRackInformation")
 
 	// Create RackInformation
@@ -72,7 +59,7 @@ func (r *ReconcileRacks) CalculateRackInformation() (Reconciler, error) {
 	var desiredRackInformation []*RackInformation
 
 	if rackCount < 1 {
-		return nil, fmt.Errorf("assertion failed! rackCount should not possibly be zero here")
+		return fmt.Errorf("assertion failed! rackCount should not possibly be zero here")
 	}
 
 	// nodes_per_rack = total_size / rack_count + 1 if rack_index < remainder
@@ -99,23 +86,21 @@ func (r *ReconcileRacks) CalculateRackInformation() (Reconciler, error) {
 
 	statefulSets := make([]*appsv1.StatefulSet, len(desiredRackInformation), len(desiredRackInformation))
 
-	return &ReconcileRacks{
-		ReconcileContext:       rc,
-		desiredRackInformation: desiredRackInformation,
-		statefulSets:           statefulSets,
-	}, nil
+	rc.desiredRackInformation = desiredRackInformation
+	rc.statefulSets = statefulSets
+
+	return nil
 }
 
-func (r *ReconcileRacks) CheckRackCreation() (*reconcile.Result, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) CheckRackCreation() (*reconcile.Result, error) {
 	rc.ReqLogger.Info("reconcile_racks::CheckRackCreation")
 
-	for idx := range r.desiredRackInformation {
-		rackInfo := r.desiredRackInformation[idx]
+	for idx := range rc.desiredRackInformation {
+		rackInfo := rc.desiredRackInformation[idx]
 
 		// Does this rack have a statefulset?
 
-		statefulSet, statefulSetFound, err := r.GetStatefulSetForRack(rackInfo)
+		statefulSet, statefulSetFound, err := rc.GetStatefulSetForRack(rackInfo)
 		if err != nil {
 			rc.ReqLogger.Error(
 				err,
@@ -129,7 +114,7 @@ func (r *ReconcileRacks) CheckRackCreation() (*reconcile.Result, error) {
 			rc.ReqLogger.Info(
 				"Need to create new StatefulSet for",
 				"Rack", rackInfo.RackName)
-			res, err := r.ReconcileNextRack(statefulSet)
+			res, err := rc.ReconcileNextRack(statefulSet)
 			if err != nil {
 				rc.ReqLogger.Error(
 					err,
@@ -139,26 +124,25 @@ func (r *ReconcileRacks) CheckRackCreation() (*reconcile.Result, error) {
 			}
 		}
 
-		r.statefulSets[idx] = statefulSet
+		rc.statefulSets[idx] = statefulSet
 	}
 
 	return nil, nil
 }
 
-func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) CheckRackPodTemplate() (*reconcile.Result, error) {
 	logger := rc.ReqLogger
 	logger.Info("starting CheckRackPodTemplate()")
 
-	for idx := range r.desiredRackInformation {
-		rackName := r.desiredRackInformation[idx].RackName
+	for idx := range rc.desiredRackInformation {
+		rackName := rc.desiredRackInformation[idx].RackName
 		if rc.Datacenter.Spec.CanaryUpgrade && idx > 0 {
 			logger.
 				WithValues("rackName", rackName).
 				Info("Skipping rack because CanaryUpgrade is turned on")
 			return nil, nil
 		}
-		statefulSet := r.statefulSets[idx]
+		statefulSet := rc.statefulSets[idx]
 
 		// have to use zero here, because each statefulset is created with no replicas
 		// in GetStatefulSetForRack()
@@ -240,13 +224,12 @@ func (r *ReconcileRacks) CheckRackPodTemplate() (*reconcile.Result, error) {
 	return nil, nil
 }
 
-func (r *ReconcileRacks) CheckRackLabels() (*reconcile.Result, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) CheckRackLabels() (*reconcile.Result, error) {
 	rc.ReqLogger.Info("reconcile_racks::CheckRackLabels")
 
-	for idx, _ := range r.desiredRackInformation {
-		rackInfo := r.desiredRackInformation[idx]
-		statefulSet := r.statefulSets[idx]
+	for idx, _ := range rc.desiredRackInformation {
+		rackInfo := rc.desiredRackInformation[idx]
+		statefulSet := rc.statefulSets[idx]
 
 		// Has this statefulset been reconciled?
 
@@ -271,13 +254,12 @@ func (r *ReconcileRacks) CheckRackLabels() (*reconcile.Result, error) {
 	return nil, nil
 }
 
-func (r *ReconcileRacks) CheckRackParkedState() (*reconcile.Result, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) CheckRackParkedState() (*reconcile.Result, error) {
 	rc.ReqLogger.Info("reconcile_racks::CheckRackParkedState")
 
-	for idx := range r.desiredRackInformation {
-		rackInfo := r.desiredRackInformation[idx]
-		statefulSet := r.statefulSets[idx]
+	for idx := range rc.desiredRackInformation {
+		rackInfo := rc.desiredRackInformation[idx]
+		statefulSet := rc.statefulSets[idx]
 
 		parked := rc.Datacenter.Spec.Parked
 		currentPodCount := *statefulSet.Spec.Replicas
@@ -304,7 +286,7 @@ func (r *ReconcileRacks) CheckRackParkedState() (*reconcile.Result, error) {
 
 			// TODO we should call a more graceful stop node command here
 
-			res, err := r.UpdateRackNodeCount(statefulSet, desiredNodeCount)
+			res, err := rc.UpdateRackNodeCount(statefulSet, desiredNodeCount)
 			if err != nil {
 				return &res, err
 			}
@@ -315,13 +297,12 @@ func (r *ReconcileRacks) CheckRackParkedState() (*reconcile.Result, error) {
 }
 
 // checkSeedLabels loops over all racks and makes sure that the proper pods are labelled as seeds.
-func (r *ReconcileRacks) checkSeedLabels() (int, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) checkSeedLabels() (int, error) {
 	rc.ReqLogger.Info("reconcile_racks::CheckSeedLabels")
 	seedCount := 0
-	for idx := range r.desiredRackInformation {
-		rackInfo := r.desiredRackInformation[idx]
-		n, err := r.labelSeedPods(rackInfo)
+	for idx := range rc.desiredRackInformation {
+		rackInfo := rc.desiredRackInformation[idx]
+		n, err := rc.labelSeedPods(rackInfo)
 		seedCount += n
 		if err != nil {
 			return 0, err
@@ -331,8 +312,7 @@ func (r *ReconcileRacks) checkSeedLabels() (int, error) {
 }
 
 // CheckPodsReady loops over all the server pods and starts them
-func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) CheckPodsReady() (*reconcile.Result, error) {
 	rc.ReqLogger.Info("reconcile_racks::CheckPodsReady")
 
 	if rc.Datacenter.Spec.Parked {
@@ -353,7 +333,7 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 
 	// step 0 - get the nodes labelled as seeds before we start any nodes
 
-	seedCount, err := r.checkSeedLabels()
+	seedCount, err := rc.checkSeedLabels()
 	if err != nil {
 		return &ResultShouldRequeueSoon, err
 	}
@@ -364,7 +344,7 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 
 	// step 1 - see if any nodes are already coming up
 
-	nodeIsStarting, err := r.findStartingNodes(podList)
+	nodeIsStarting, err := rc.findStartingNodes(podList)
 
 	if err != nil || nodeIsStarting {
 		return &ResultShouldRequeueSoon, err
@@ -372,7 +352,7 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 
 	// step 2 - get one node up per rack
 
-	rackWaitingForANode, err := r.startOneNodePerRack(seedCount)
+	rackWaitingForANode, err := rc.startOneNodePerRack(seedCount)
 
 	if err != nil || rackWaitingForANode != "" {
 		return &ResultShouldRequeueSoon, err
@@ -381,7 +361,7 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 	// step 3 - see if any nodes lost their readiness
 	// or gained it back
 
-	nodeStartedNotReady, err := r.findStartedNotReadyNodes(podList)
+	nodeStartedNotReady, err := rc.findStartedNotReadyNodes(podList)
 
 	if err != nil || nodeStartedNotReady {
 		return &ResultShouldRequeueSoon, err
@@ -397,7 +377,7 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 		return &ResultShouldRequeueSoon, nil
 	}
 
-	needsMoreNodes, err := r.startAllNodes(podList)
+	needsMoreNodes, err := rc.startAllNodes(podList)
 	if err != nil {
 		return &ResultShouldRequeueSoon, err
 	}
@@ -407,7 +387,7 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 
 	// step 4 sanity check that all pods are labelled as started and are ready
 
-	readyPodCount, startedLabelCount := r.countReadyAndStarted(podList)
+	readyPodCount, startedLabelCount := rc.countReadyAndStarted(podList)
 	desiredSize := int(rc.Datacenter.Spec.Size)
 
 	if desiredSize == readyPodCount && desiredSize == startedLabelCount {
@@ -420,13 +400,12 @@ func (r *ReconcileRacks) CheckPodsReady() (*reconcile.Result, error) {
 
 // CheckRackScale loops over each statefulset and makes sure that it has the right
 // amount of desired replicas. At this time we can only increase the amount of replicas.
-func (r *ReconcileRacks) CheckRackScale() (*reconcile.Result, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) CheckRackScale() (*reconcile.Result, error) {
 	rc.ReqLogger.Info("reconcile_racks::CheckRackScale")
 
-	for idx := range r.desiredRackInformation {
-		rackInfo := r.desiredRackInformation[idx]
-		statefulSet := r.statefulSets[idx]
+	for idx := range rc.desiredRackInformation {
+		rackInfo := rc.desiredRackInformation[idx]
+		statefulSet := rc.statefulSets[idx]
 
 		// By the time we get here we know all the racks are ready for that particular size
 
@@ -443,7 +422,7 @@ func (r *ReconcileRacks) CheckRackScale() (*reconcile.Result, error) {
 				"desiredSize", desiredNodeCount,
 			)
 
-			res, err := r.UpdateRackNodeCount(statefulSet, desiredNodeCount)
+			res, err := rc.UpdateRackNodeCount(statefulSet, desiredNodeCount)
 			if err != nil {
 				return &res, err
 			}
@@ -466,14 +445,13 @@ func (r *ReconcileRacks) CheckRackScale() (*reconcile.Result, error) {
 
 // CheckRackPodLabels checks each pod and its volume(s) and makes sure they have the
 // proper labels
-func (r *ReconcileRacks) CheckRackPodLabels() (*reconcile.Result, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) CheckRackPodLabels() (*reconcile.Result, error) {
 	rc.ReqLogger.Info("reconcile_racks::CheckRackPodLabels")
 
-	for idx, _ := range r.desiredRackInformation {
-		statefulSet := r.statefulSets[idx]
+	for idx, _ := range rc.desiredRackInformation {
+		statefulSet := rc.statefulSets[idx]
 
-		if err := r.ReconcilePods(statefulSet); err != nil {
+		if err := rc.ReconcilePods(statefulSet); err != nil {
 			res := ResultShouldNotRequeue
 			return &res, nil
 		}
@@ -487,8 +465,7 @@ func shouldUpsertSuperUser(dc api.CassandraDatacenter) bool {
 	return time.Now().After(lastCreated.Add(time.Minute * 4))
 }
 
-func (r *ReconcileRacks) CreateSuperuser() (*reconcile.Result, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) CreateSuperuser() (*reconcile.Result, error) {
 	if rc.Datacenter.Spec.Parked {
 		rc.ReqLogger.Info("cluster is parked, skipping CreateSuperuser")
 		return nil, nil
@@ -563,51 +540,50 @@ func (r *ReconcileRacks) CreateSuperuser() (*reconcile.Result, error) {
 }
 
 // Apply reconcileRacks determines if a rack needs to be reconciled.
-func (r *ReconcileRacks) Apply() (reconcile.Result, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	rc.ReqLogger.Info("reconcile_racks::Apply")
 
-	recResult, err := r.CheckRackCreation()
+	recResult, err := rc.CheckRackCreation()
 	if recResult != nil || err != nil {
 		return *recResult, err
 	}
 
-	recResult, err = r.CheckRackLabels()
+	recResult, err = rc.CheckRackLabels()
 	if recResult != nil || err != nil {
 		return *recResult, err
 	}
 
-	recResult, err = r.CheckRackParkedState()
+	recResult, err = rc.CheckRackParkedState()
 	if recResult != nil || err != nil {
 		return *recResult, err
 	}
 
-	recResult, err = r.CheckRackScale()
+	recResult, err = rc.CheckRackScale()
 	if recResult != nil || err != nil {
 		return *recResult, err
 	}
 
-	recResult, err = r.CheckPodsReady()
+	recResult, err = rc.CheckPodsReady()
 	if recResult != nil || err != nil {
 		return *recResult, err
 	}
 
-	recResult, err = r.CheckDcPodDisruptionBudget()
+	recResult, err = rc.CheckDcPodDisruptionBudget()
 	if recResult != nil || err != nil {
 		return *recResult, err
 	}
 
-	recResult, err = r.CheckRackPodTemplate()
+	recResult, err = rc.CheckRackPodTemplate()
 	if recResult != nil || err != nil {
 		return *recResult, err
 	}
 
-	recResult, err = r.CheckRackPodLabels()
+	recResult, err = rc.CheckRackPodLabels()
 	if recResult != nil || err != nil {
 		return *recResult, err
 	}
 
-	recResult, err = r.CreateSuperuser()
+	recResult, err = rc.CreateSuperuser()
 	if recResult != nil || err != nil {
 		return *recResult, err
 	}
@@ -647,8 +623,7 @@ func isClusterHealthy(rc *ReconciliationContext) bool {
 // labelSeedPods iterates over all pods for a statefulset and makes sure the right number of
 // ready pods are labelled as seeds, so that they are picked up by the headless seed service
 // Returns the number of ready seeds.
-func (r *ReconcileRacks) labelSeedPods(rackInfo *RackInformation) (int, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) labelSeedPods(rackInfo *RackInformation) (int, error) {
 	rackLabels := rc.Datacenter.GetRackLabels(rackInfo.RackName)
 	podList, err := listPods(rc, rackLabels)
 	if err != nil {
@@ -706,10 +681,9 @@ func (r *ReconcileRacks) labelSeedPods(rackInfo *RackInformation) (int, error) {
 
 // GetStatefulSetForRack returns the statefulset for the rack
 // and whether it currently exists and whether an error occured
-func (r *ReconcileRacks) GetStatefulSetForRack(
+func (rc *ReconciliationContext) GetStatefulSetForRack(
 	nextRack *RackInformation) (*appsv1.StatefulSet, bool, error) {
 
-	rc := r.ReconcileContext
 	rc.ReqLogger.Info("reconcile_racks::getStatefulSetForRack")
 
 	// Check if the desiredStatefulSet already exists
@@ -750,8 +724,8 @@ func (r *ReconcileRacks) GetStatefulSetForRack(
 // ReconcileNextRack ensures that the resources for a rack have been properly created
 // Note that each statefulset is using OrderedReadyPodManagement,
 // so it will bring up one node at a time.
-func (r *ReconcileRacks) ReconcileNextRack(statefulSet *appsv1.StatefulSet) (reconcile.Result, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) ReconcileNextRack(statefulSet *appsv1.StatefulSet) (reconcile.Result, error) {
+
 	rc.ReqLogger.Info("reconcile_racks::reconcileNextRack")
 
 	if err := setOperatorProgressStatus(rc, api.ProgressUpdating); err != nil {
@@ -774,9 +748,8 @@ func (r *ReconcileRacks) ReconcileNextRack(statefulSet *appsv1.StatefulSet) (rec
 	return reconcile.Result{}, nil
 }
 
-func (r *ReconcileRacks) CheckDcPodDisruptionBudget() (*reconcile.Result, error) {
+func (rc *ReconciliationContext) CheckDcPodDisruptionBudget() (*reconcile.Result, error) {
 	// Create a PodDisruptionBudget for the CassandraDatacenter
-	rc := r.ReconcileContext
 	dc := rc.Datacenter
 	ctx := rc.Ctx
 	desiredBudget := newPodDisruptionBudgetForDatacenter(dc)
@@ -836,8 +809,8 @@ func (r *ReconcileRacks) CheckDcPodDisruptionBudget() (*reconcile.Result, error)
 }
 
 // UpdateRackNodeCount ...
-func (r *ReconcileRacks) UpdateRackNodeCount(statefulSet *appsv1.StatefulSet, newNodeCount int32) (reconcile.Result, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) UpdateRackNodeCount(statefulSet *appsv1.StatefulSet, newNodeCount int32) (reconcile.Result, error) {
+
 	rc.ReqLogger.Info("reconcile_racks::updateRack")
 
 	rc.ReqLogger.Info(
@@ -860,8 +833,7 @@ func (r *ReconcileRacks) UpdateRackNodeCount(statefulSet *appsv1.StatefulSet, ne
 }
 
 // ReconcilePods ...
-func (r *ReconcileRacks) ReconcilePods(statefulSet *appsv1.StatefulSet) error {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) ReconcilePods(statefulSet *appsv1.StatefulSet) error {
 	rc.ReqLogger.Info("reconcile_racks::ReconcilePods")
 
 	for i := int32(0); i < statefulSet.Status.Replicas; i++ {
@@ -992,8 +964,7 @@ func shouldUpdateLabelsForDatacenterResource(resourceLabels map[string]string, d
 	return mergeInLabelsIfDifferent(resourceLabels, desired)
 }
 
-func (r *ReconcileRacks) labelServerPodStarting(pod *corev1.Pod) error {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) labelServerPodStarting(pod *corev1.Pod) error {
 	ctx := rc.Ctx
 	dc := rc.Datacenter
 	podPatch := client.MergeFrom(pod.DeepCopy())
@@ -1008,39 +979,35 @@ func (r *ReconcileRacks) labelServerPodStarting(pod *corev1.Pod) error {
 	return err
 }
 
-func (r *ReconcileRacks) labelServerPodStarted(pod *corev1.Pod) error {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) labelServerPodStarted(pod *corev1.Pod) error {
 	patch := client.MergeFrom(pod.DeepCopy())
 	pod.Labels[api.CassNodeState] = "Started"
 	err := rc.Client.Patch(rc.Ctx, pod, patch)
 	return err
 }
 
-func (r *ReconcileRacks) labelServerPodStartedNotReady(pod *corev1.Pod) error {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) labelServerPodStartedNotReady(pod *corev1.Pod) error {
 	patch := client.MergeFrom(pod.DeepCopy())
 	pod.Labels[api.CassNodeState] = "Started-not-Ready"
 	err := rc.Client.Patch(rc.Ctx, pod, patch)
 	return err
 }
 
-func (r *ReconcileRacks) callNodeManagementStart(pod *corev1.Pod) error {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) callNodeManagementStart(pod *corev1.Pod) error {
 	mgmtClient := rc.NodeMgmtClient
 	err := mgmtClient.CallLifecycleStartEndpoint(pod)
 
 	return err
 }
 
-func (r *ReconcileRacks) findStartingNodes(podList *corev1.PodList) (bool, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) findStartingNodes(podList *corev1.PodList) (bool, error) {
 	rc.ReqLogger.Info("reconcile_racks::findStartingNodes")
 
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
 		if pod.Labels[api.CassNodeState] == "Starting" {
 			if isServerReady(pod) {
-				if err := r.labelServerPodStarted(pod); err != nil {
+				if err := rc.labelServerPodStarted(pod); err != nil {
 					return false, err
 				}
 			} else {
@@ -1048,7 +1015,7 @@ func (r *ReconcileRacks) findStartingNodes(podList *corev1.PodList) (bool, error
 				// TODO but was making problems w/ overloading management API
 				// TODO Use a label to hold state and request starting no more than once per minute?
 
-				// if err := r.callNodeManagementStart(pod); err != nil {
+				// if err := rc.callNodeManagementStart(pod); err != nil {
 				// 	return false, err
 				// }
 				return true, nil
@@ -1058,15 +1025,14 @@ func (r *ReconcileRacks) findStartingNodes(podList *corev1.PodList) (bool, error
 	return false, nil
 }
 
-func (r *ReconcileRacks) findStartedNotReadyNodes(podList *corev1.PodList) (bool, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) findStartedNotReadyNodes(podList *corev1.PodList) (bool, error) {
 	rc.ReqLogger.Info("reconcile_racks::findStartedNotReadyNodes")
 
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
 		if pod.Labels[api.CassNodeState] == "Started" {
 			if !isServerReady(pod) {
-				if err := r.labelServerPodStartedNotReady(pod); err != nil {
+				if err := rc.labelServerPodStartedNotReady(pod); err != nil {
 					return false, err
 				}
 				return true, nil
@@ -1074,7 +1040,7 @@ func (r *ReconcileRacks) findStartedNotReadyNodes(podList *corev1.PodList) (bool
 		}
 		if pod.Labels[api.CassNodeState] == "Started-not-Ready" {
 			if isServerReady(pod) {
-				if err := r.labelServerPodStarted(pod); err != nil {
+				if err := rc.labelServerPodStarted(pod); err != nil {
 					return false, err
 				}
 				return false, nil
@@ -1085,8 +1051,7 @@ func (r *ReconcileRacks) findStartedNotReadyNodes(podList *corev1.PodList) (bool
 }
 
 // returns the name of one rack without any ready node
-func (r *ReconcileRacks) startOneNodePerRack(readySeeds int) (string, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) startOneNodePerRack(readySeeds int) (string, error) {
 	rc.ReqLogger.Info("reconcile_racks::startOneNodePerRack")
 
 	selector := rc.Datacenter.GetDatacenterLabels()
@@ -1096,7 +1061,7 @@ func (r *ReconcileRacks) startOneNodePerRack(readySeeds int) (string, error) {
 	}
 
 	rackReadyCount := map[string]int{}
-	for _, rackInfo := range r.desiredRackInformation {
+	for _, rackInfo := range rc.desiredRackInformation {
 		rackReadyCount[rackInfo.RackName] = 0
 	}
 
@@ -1135,10 +1100,10 @@ func (r *ReconcileRacks) startOneNodePerRack(readySeeds int) (string, error) {
 					// sleeping five seconds for DNS paranoia
 					time.Sleep(5 * time.Second)
 				}
-				if err = r.callNodeManagementStart(pod); err != nil {
+				if err = rc.callNodeManagementStart(pod); err != nil {
 					return "", err
 				}
-				if err = r.labelServerPodStarting(pod); err != nil {
+				if err = rc.labelServerPodStarting(pod); err != nil {
 					return "", err
 				}
 				return rackName, nil
@@ -1150,17 +1115,16 @@ func (r *ReconcileRacks) startOneNodePerRack(readySeeds int) (string, error) {
 }
 
 // returns whether one or more server nodes is not running or ready
-func (r *ReconcileRacks) startAllNodes(podList *corev1.PodList) (bool, error) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) startAllNodes(podList *corev1.PodList) (bool, error) {
 	rc.ReqLogger.Info("reconcile_racks::startAllNodes")
 
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
 		if isMgmtApiRunning(pod) && !isServerReady(pod) && !isServerStarted(pod) {
-			if err := r.callNodeManagementStart(pod); err != nil {
+			if err := rc.callNodeManagementStart(pod); err != nil {
 				return false, err
 			}
-			if err := r.labelServerPodStarting(pod); err != nil {
+			if err := rc.labelServerPodStarting(pod); err != nil {
 				return false, err
 			}
 			return true, nil
@@ -1183,8 +1147,7 @@ func (r *ReconcileRacks) startAllNodes(podList *corev1.PodList) (bool, error) {
 	return false, nil
 }
 
-func (r *ReconcileRacks) countReadyAndStarted(podList *corev1.PodList) (int, int) {
-	rc := r.ReconcileContext
+func (rc *ReconciliationContext) countReadyAndStarted(podList *corev1.PodList) (int, int) {
 	ready := 0
 	started := 0
 	for idx := range podList.Items {

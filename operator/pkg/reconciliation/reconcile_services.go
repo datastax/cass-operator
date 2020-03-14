@@ -10,51 +10,42 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// ReconcileServices ...
-type ReconcileServices struct {
-	ReconcileContext *ReconciliationContext
-	Services         []*corev1.Service
-}
-
-// Apply ...
-func (r *ReconcileServices) Apply() (reconcile.Result, error) {
+func (rc *ReconciliationContext) CreateHeadlessServices() (reconcile.Result, error) {
 	// unpacking
-	recCtx := r.ReconcileContext
-	logger := recCtx.ReqLogger
-	client := recCtx.Client
+	logger := rc.ReqLogger
+	client := rc.Client
 
-	for idx := range r.Services {
-		service := r.Services[idx]
+	for idx := range rc.Services {
+		service := rc.Services[idx]
 
 		logger.Info(
 			"Creating a new headless service",
 			"serviceNamespace", service.Namespace,
 			"serviceName", service.Name)
 
-		if err := setOperatorProgressStatus(recCtx, api.ProgressUpdating); err != nil {
+		if err := setOperatorProgressStatus(rc, api.ProgressUpdating); err != nil {
 			return reconcile.Result{Requeue: true}, err
 		}
 
-		if err := client.Create(recCtx.Ctx, service); err != nil {
+		if err := client.Create(rc.Ctx, service); err != nil {
 			logger.Error(
 				err, "Could not create headless service")
 
 			return reconcile.Result{Requeue: true}, err
 		}
 
-		r.ReconcileContext.Recorder.Eventf(r.ReconcileContext.Datacenter, "Normal", "CreatedResource", "Created service %s", service.Name)
+		rc.Recorder.Eventf(rc.Datacenter, "Normal", "CreatedResource", "Created service %s", service.Name)
 	}
 
 	return reconcile.Result{Requeue: true}, nil
 }
 
 // ReconcileHeadlessService ...
-func (r *ReconcileServices) ReconcileHeadlessServices() (Reconciler, error) {
+func (rc *ReconciliationContext) CheckHeadlessServices() (bool, error) {
 	// unpacking
-	recCtx := r.ReconcileContext
-	logger := recCtx.ReqLogger
-	dc := recCtx.Datacenter
-	client := recCtx.Client
+	logger := rc.ReqLogger
+	dc := rc.Datacenter
+	client := rc.Client
 
 	logger.Info("reconcile_services::ReconcileHeadlessServices")
 
@@ -66,26 +57,23 @@ func (r *ReconcileServices) ReconcileHeadlessServices() (Reconciler, error) {
 
 	services := []*corev1.Service{cqlService, seedService, allPodsService}
 
-	var reconciler ReconcileServices
-	reconciler.ReconcileContext = recCtx
-
 	createNeeded := []*corev1.Service{}
 
 	for idx := range services {
 		desiredSvc := services[idx]
 
 		// Set CassandraDatacenter dc as the owner and controller
-		err := setControllerReference(dc, desiredSvc, recCtx.Scheme)
+		err := setControllerReference(dc, desiredSvc, rc.Scheme)
 		if err != nil {
 			logger.Error(
 				err, "Could not set controller reference for headless service")
-			return nil, err
+			return false, err
 		}
 
 		// See if the service already exists
 		nsName := types.NamespacedName{Name: desiredSvc.Name, Namespace: desiredSvc.Namespace}
 		currentService := &corev1.Service{}
-		err = client.Get(recCtx.Ctx, nsName, currentService)
+		err = client.Get(rc.Ctx, nsName, currentService)
 
 		if err != nil && errors.IsNotFound(err) {
 			// if it's not found, put the service in the slice to be created when Apply is called
@@ -97,7 +85,7 @@ func (r *ReconcileServices) ReconcileHeadlessServices() (Reconciler, error) {
 				err, "Could not get headless seed service",
 				"name", nsName,
 			)
-			return nil, err
+			return false, err
 
 		} else {
 			// if we found the service already, check if the labels are right
@@ -111,20 +99,19 @@ func (r *ReconcileServices) ReconcileHeadlessServices() (Reconciler, error) {
 					"desired", desiredLabels)
 				currentService.SetLabels(desiredLabels)
 
-				if err := client.Update(recCtx.Ctx, currentService); err != nil {
+				if err := client.Update(rc.Ctx, currentService); err != nil {
 					logger.Error(err, "Unable to update service with labels",
 						"service", currentService)
-					return nil, err
+					return false, err
 				}
 			}
 		}
 	}
 
 	if len(createNeeded) > 0 {
-		reconciler.Services = createNeeded
-		return &reconciler, nil
+		rc.Services = createNeeded
+		return true, nil
 	}
 
-	//
-	return nil, nil
+	return false, nil
 }

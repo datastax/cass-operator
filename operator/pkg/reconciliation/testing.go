@@ -158,22 +158,6 @@ func setupTest() (*ReconciliationContext, *corev1.Service, func()) {
 	return rc, service, cleanupMockScr
 }
 
-func getReconcilers(rc *ReconciliationContext) (ReconcileDatacenter, ReconcileRacks, ReconcileServices) {
-	reconcileDatacenter := ReconcileDatacenter{
-		ReconcileContext: rc,
-	}
-
-	reconcileRacks := ReconcileRacks{
-		ReconcileContext: rc,
-	}
-
-	reconcileServices := ReconcileServices{
-		ReconcileContext: rc,
-	}
-
-	return reconcileDatacenter, reconcileRacks, reconcileServices
-}
-
 func k8sMockClientGet(mockClient *mocks.Client, returnArg interface{}) *mock.Call {
 	return mockClient.On("Get",
 		mock.MatchedBy(

@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/go-logr/logr"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -28,6 +30,10 @@ type ReconciliationContext struct {
 	// this is passed around as a parameter we feel that its a fair compromise. For further discussion
 	// see: golang/go#22602
 	Ctx context.Context
+
+	Services               []*corev1.Service
+	desiredRackInformation []*RackInformation
+	statefulSets           []*appsv1.StatefulSet
 }
 
 // CreateReconciliationContext gathers all information needed for computeReconciliationActions into a struct.

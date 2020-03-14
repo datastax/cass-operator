@@ -33,11 +33,7 @@ func TestDeletePVCs(t *testing.T) {
 
 	k8sMockClientDelete(mockClient, nil)
 
-	reconcileDatacenter := ReconcileDatacenter{
-		ReconcileContext: rc,
-	}
-
-	err := reconcileDatacenter.deletePVCs()
+	err := rc.deletePVCs()
 	if err != nil {
 		t.Fatalf("deletePVCs should not have failed")
 	}
@@ -62,11 +58,7 @@ func TestDeletePVCs_FailedToList(t *testing.T) {
 
 	k8sMockClientDelete(mockClient, nil)
 
-	reconcileDatacenter := ReconcileDatacenter{
-		ReconcileContext: rc,
-	}
-
-	err := reconcileDatacenter.deletePVCs()
+	err := rc.deletePVCs()
 	if err == nil {
 		t.Fatalf("deletePVCs should have failed")
 	}
@@ -90,11 +82,7 @@ func TestDeletePVCs_PVCsNotFound(t *testing.T) {
 			}}
 		})
 
-	reconcileDatacenter := ReconcileDatacenter{
-		ReconcileContext: rc,
-	}
-
-	err := reconcileDatacenter.deletePVCs()
+	err := rc.deletePVCs()
 	if err != nil {
 		t.Fatalf("deletePVCs should not have failed")
 	}
@@ -119,11 +107,7 @@ func TestDeletePVCs_FailedToDelete(t *testing.T) {
 
 	k8sMockClientDelete(mockClient, fmt.Errorf("failed to delete"))
 
-	reconcileDatacenter := ReconcileDatacenter{
-		ReconcileContext: rc,
-	}
-
-	err := reconcileDatacenter.deletePVCs()
+	err := rc.deletePVCs()
 	if err == nil {
 		t.Fatalf("deletePVCs should have failed")
 	}

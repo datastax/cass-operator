@@ -16,12 +16,9 @@ func TestReconcileHeadlessService(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	reconcileServices := ReconcileServices{
-		ReconcileContext: rc,
-	}
-	rec, err := reconcileServices.ReconcileHeadlessServices()
+	shouldCreate, err := rc.CheckHeadlessServices()
 	assert.NoErrorf(t, err, "Should not have returned an error")
-	assert.NotNil(t, rec, "Reconciler should not be nil")
+	assert.True(t, shouldCreate, "shouldCrete should be true")
 }
 
 func TestReconcileHeadlessService_UpdateLabels(t *testing.T) {
@@ -43,23 +40,18 @@ func TestReconcileHeadlessService_UpdateLabels(t *testing.T) {
 
 	service.SetLabels(make(map[string]string))
 
-	reconcileServices := ReconcileServices{
-		ReconcileContext: rc,
-	}
-	rec, err := reconcileServices.ReconcileHeadlessServices()
+	shouldCreate, err := rc.CheckHeadlessServices()
 	assert.NoErrorf(t, err, "Should not have returned an error")
-	assert.Nil(t, rec, "Reconciler should be nil")
+	assert.False(t, shouldCreate, "shouldCreate should be false")
 }
 
 func TestCreateHeadlessService(t *testing.T) {
 	rc, svc, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	reconcileServices := ReconcileServices{
-		ReconcileContext: rc,
-		Services:         []*corev1.Service{svc},
-	}
-	result, err := reconcileServices.Apply()
+	rc.Services = []*corev1.Service{svc}
+
+	result, err := rc.CreateHeadlessServices()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 }
@@ -75,11 +67,9 @@ func TestCreateHeadlessService_ClientReturnsError(t *testing.T) {
 	k8sMockClientCreate(mockClient, fmt.Errorf(""))
 	k8sMockClientUpdate(mockClient, nil).Times(1)
 
-	reconcileServices := ReconcileServices{
-		ReconcileContext: rc,
-		Services:         []*corev1.Service{svc},
-	}
-	result, err := reconcileServices.Apply()
+	rc.Services = []*corev1.Service{svc}
+
+	result, err := rc.CreateHeadlessServices()
 	assert.Errorf(t, err, "Should have returned an error")
 	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 
