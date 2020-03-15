@@ -16,7 +16,7 @@ spec:
       containers:
         - name: dse-operator
           image: datastax/dse-operator:latest
-          imagePullPolicy: IfNotPresent
+          imagePullPolicy: Always
           livenessProbe:
             exec:
               command:

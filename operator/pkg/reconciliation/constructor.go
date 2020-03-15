@@ -5,10 +5,10 @@ package reconciliation
 import (
 	"fmt"
 
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/oplabels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -121,7 +121,6 @@ func newStatefulSetForCassandraDatacenter(
 	statefulSetSelectorLabels := dc.GetRackLabels(rackName)
 
 	imageVersion := dc.Spec.ImageVersion
-	var userID int64 = 999
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 	var serverVolumeMounts []corev1.VolumeMount
 	initContainerImage := dc.GetConfigBuilderImage()
@@ -196,12 +195,6 @@ func newStatefulSetForCassandraDatacenter(
 				NodeAffinity:    calculateNodeAffinity(zone),
 				PodAntiAffinity: calculatePodAntiAffinity(dc.Spec.AllowMultipleNodesPerWorker),
 			},
-			// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
-			SecurityContext: &corev1.PodSecurityContext{
-				RunAsUser:  &userID,
-				RunAsGroup: &userID,
-				FSGroup:    &userID,
-			},
 			Volumes: []corev1.Volume{
 				{
 					Name: "server-config",
@@ -243,17 +236,19 @@ func newStatefulSetForCassandraDatacenter(
 							},
 						},
 					},
-					// TODO we may need to change this and configbuilder to expect something else
 					{
-						Name:  "DSE_VERSION",
+						Name:  "PRODUCT_VERSION",
 						Value: imageVersion,
+					},
+					{
+						Name:  "PRODUCT_NAME",
+						Value: dc.Spec.ServerType,
 					},
 				},
 			}},
 			ServiceAccountName: serviceAccount,
 			Containers: []corev1.Container{
 				{
-					// TODO what should Name be?
 					Name:      "cassandra",
 					Image:     serverImage,
 					Resources: dc.Spec.Resources,
@@ -313,6 +308,16 @@ func newStatefulSetForCassandraDatacenter(
 				},
 			},
 		},
+	}
+
+	// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
+	if dc.Spec.ServerType == "dse" {
+		var userID int64 = 999
+		template.Spec.SecurityContext = &corev1.PodSecurityContext{
+			RunAsUser:  &userID,
+			RunAsGroup: &userID,
+			FSGroup:    &userID,
+		}
 	}
 
 	_ = httphelper.AddManagementApiServerSecurity(dc, &template)
