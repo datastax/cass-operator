@@ -183,6 +183,19 @@ func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(pod *core
 	// Configure Management API to use certificates
 	envVars := []corev1.EnvVar{
 		{
+			Name:  "MGMT_API_TLS_CA_CERT_FILE",
+			Value: caCertPath,
+		},
+		{
+			Name:  "MGMT_API_TLS_CERT_FILE",
+			Value: tlsCrt,
+		},
+		{
+			Name:  "MGMT_API_TLS_KEY_FILE",
+			Value: tlsKey,
+		},
+		// TODO remove the below stuff post 1.0
+		{
 			Name:  "DSE_MGMT_TLS_CA_CERT_FILE",
 			Value: caCertPath,
 		},

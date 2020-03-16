@@ -244,6 +244,11 @@ func newStatefulSetForCassandraDatacenter(
 						Name:  "PRODUCT_NAME",
 						Value: dc.Spec.ServerType,
 					},
+					// TODO remove this post 1.0
+					{
+						Name:  "DSE_VERSION",
+						Value: imageVersion,
+					},
 				},
 			}},
 			ServiceAccountName: serviceAccount,
@@ -265,6 +270,11 @@ func newStatefulSetForCassandraDatacenter(
 							Name:  "USE_MGMT_API",
 							Value: "true",
 						},
+						{
+							Name:  "MGMT_API_EXPLICIT_START",
+							Value: "true",
+						},
+						// TODO remove this post 1.0
 						{
 							Name:  "DSE_MGMT_EXPLICIT_START",
 							Value: "true",

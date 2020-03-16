@@ -4,7 +4,7 @@ metadata:
   name: dc1
 spec:
   clusterName: cluster1
-  serverImage: gcr.io/gcp-dmc/mgmt-api-cassandra-3.11
+  serverImage: gcr.io/gcp-dmc/mgmt-api-cassandra-3.11:8f81bef64f2c
   imageVersion: "3.11.6"
   serverType: cassandra
   managementApiAuth:
