@@ -15,6 +15,8 @@ import (
 	_ "github.com/riptano/dse-operator/mage/kind"
 	// mage:import integ
 	_ "github.com/riptano/dse-operator/mage/integ-tests"
+	// mage:import lint
+	_ "github.com/riptano/dse-operator/mage/linting"
 )
 
 // Clean all build artifacts, does not clean up old docker images.
