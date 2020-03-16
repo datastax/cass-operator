@@ -24,15 +24,29 @@ func deleteCluster() error {
 }
 
 func createCluster() {
-	// We explicitly request a kubernetes v1.15 cluster with --image
-	shutil.RunVPanic(
-		"kind",
-		"create",
-		"cluster",
-		"--config",
-		"tests/testdata/kind/kind_config_6_workers.yaml",
-		"--image",
-		"kindest/node:v1.15.7@sha256:e2df133f80ef633c53c0200114fce2ed5e1f6947477dbc83261a6a921169488d")
+	// Kind can be flaky when starting up a new cluster
+	// so let's give it a few chances to redeem itself
+	// after failing
+	retries := 5
+	var err error
+	for retries > 0 {
+		// We explicitly request a kubernetes v1.15 cluster with --image
+		err = shutil.RunV(
+			"kind",
+			"create",
+			"cluster",
+			"--config",
+			"tests/testdata/kind/kind_config_6_workers.yaml",
+			"--image",
+			"kindest/node:v1.15.7@sha256:e2df133f80ef633c53c0200114fce2ed5e1f6947477dbc83261a6a921169488d")
+		if err != nil {
+			fmt.Printf("KIND failed to create the cluster. %v retries left.\n", retries)
+			retries--
+		} else {
+			return
+		}
+	}
+	mageutil.PanicOnError(err)
 }
 
 func loadImage(image string) {
