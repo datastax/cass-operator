@@ -169,7 +169,7 @@ func schema_pkg_apis_cassandra_v1alpha2_CassandraDatacenterSpec(ref common.Refer
 							Format:      "",
 						},
 					},
-					"superuserSecret": {
+					"superuserSecretName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "This secret defines the username and password for the Server superuser.",
 							Type:        []string{"string"},

@@ -2,12 +2,10 @@ package reconciliation
 
 import (
 	"fmt"
+	"time"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	"context"
-	"time"
 
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -119,7 +117,7 @@ func (r *ReconcileCassandraDatacenter) Reconcile(request reconcile.Request) (rec
 		return reconcile.Result{}, err
 	}
 
-	if err := r.isValid(rc.Datacenter); err != nil {
+	if err := rc.isValid(rc.Datacenter); err != nil {
 		logger.Error(err, "CassandraDatacenter resource is invalid")
 		rc.Recorder.Eventf(rc.Datacenter, "Warning", "ValidationFailed", err.Error())
 
@@ -160,13 +158,15 @@ func (rc *ReconciliationContext) addFinalizer() error {
 	return nil
 }
 
-func (r *ReconcileCassandraDatacenter) isValid(dc *api.CassandraDatacenter) error {
-	ctx := context.Background()
+func (rc *ReconciliationContext) isValid(dc *api.CassandraDatacenter) error {
+	var errs []error = []error{}
 
 	// Basic validation up here
 
+	errs = append(errs, rc.validateSuperuserSecret()...)
+
 	// Validate Management API config
-	errs := httphelper.ValidateManagementApiConfig(dc, r.client, ctx)
+	errs = append(errs, httphelper.ValidateManagementApiConfig(dc, rc.Client, rc.Ctx)...)
 	if len(errs) > 0 {
 		return errs[0]
 	}

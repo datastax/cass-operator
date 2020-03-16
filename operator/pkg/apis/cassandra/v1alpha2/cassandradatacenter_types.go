@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 
 	"github.com/riptano/dse-operator/operator/pkg/serverconfig"
 	"github.com/riptano/dse-operator/operator/pkg/utils"
@@ -120,7 +121,7 @@ type CassandraDatacenterSpec struct {
 	// podAntiAffinity and requiredDuringSchedulingIgnoredDuringExecution.
 	AllowMultipleNodesPerWorker bool `json:"allowMultipleNodesPerWorker,omitempty"`
 	// This secret defines the username and password for the Server superuser.
-	SuperuserSecret string `json:"superuserSecret,omitempty"`
+	SuperuserSecretName string `json:"superuserSecretName,omitempty"`
 	// The k8s service account to use for the server pods
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 }
@@ -286,6 +287,23 @@ func (dc *CassandraDatacenter) GetAllPodsServiceName() string {
 
 func (dc *CassandraDatacenter) GetDatacenterServiceName() string {
 	return dc.Spec.ClusterName + "-" + dc.Name + "-service"
+}
+
+func (dc *CassandraDatacenter) ShouldGenerateSuperuserSecret() bool {
+	return len(dc.Spec.SuperuserSecretName) == 0
+}
+
+func (dc *CassandraDatacenter) GetSuperuserSecretNamespacedName() types.NamespacedName {
+	name := dc.Spec.ClusterName + "-superuser"
+	namespace := dc.ObjectMeta.Namespace
+	if len(dc.Spec.SuperuserSecretName) > 0 {
+		name = dc.Spec.SuperuserSecretName
+	}
+
+	return types.NamespacedName{
+		Name: name,
+		Namespace: namespace,
+	}
 }
 
 // GetConfigAsJSON gets a JSON-encoded string suitable for passing to configBuilder

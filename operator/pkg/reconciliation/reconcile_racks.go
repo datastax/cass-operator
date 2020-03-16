@@ -92,9 +92,20 @@ func (rc *ReconciliationContext) CalculateRackInformation() error {
 	return nil
 }
 
+func (rc *ReconciliationContext) CheckSuperuserSecretCreation() (*reconcile.Result, error) {
+	rc.ReqLogger.Info("reconcile_racks::CheckSuperuserSecretCreation")
+
+	_, err := rc.retrieveSuperuserSecretOrCreateDefault()
+	if err != nil {
+		rc.ReqLogger.Error(err, "error retrieving SuperuserSecret for CassandraDatacenter.")
+		return &ResultShouldNotRequeue, err
+	}
+
+	return nil, nil
+}
+
 func (rc *ReconciliationContext) CheckRackCreation() (*reconcile.Result, error) {
 	rc.ReqLogger.Info("reconcile_racks::CheckRackCreation")
-
 	for idx := range rc.desiredRackInformation {
 		rackInfo := rc.desiredRackInformation[idx]
 
@@ -480,28 +491,7 @@ func (rc *ReconciliationContext) CreateSuperuser() (*reconcile.Result, error) {
 	rc.ReqLogger.Info("reconcile_racks::CreateSuperuser")
 
 	// Get the secret
-
-	if rc.Datacenter.Spec.SuperuserSecret == "" {
-		rc.ReqLogger.Info("SuperuserSecret not specified for CassandraDatacenter.  Skipping superuser creation.")
-		return nil, nil
-	}
-
-	secret := &corev1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Secret",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      rc.Datacenter.Spec.SuperuserSecret,
-			Namespace: rc.Datacenter.Namespace,
-		},
-	}
-	err := rc.Client.Get(
-		rc.Ctx,
-		types.NamespacedName{
-			Name:      rc.Datacenter.Spec.SuperuserSecret,
-			Namespace: rc.Datacenter.Namespace},
-		secret)
+	secret, err := rc.retrieveSuperuserSecret()
 	if err != nil {
 		rc.ReqLogger.Error(err, "error retrieving SuperuserSecret for CassandraDatacenter.")
 		return &ResultShouldNotRequeue, err
@@ -543,7 +533,12 @@ func (rc *ReconciliationContext) CreateSuperuser() (*reconcile.Result, error) {
 func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	rc.ReqLogger.Info("reconcile_racks::Apply")
 
-	recResult, err := rc.CheckRackCreation()
+	recResult, err := rc.CheckSuperuserSecretCreation()
+	if recResult != nil || err != nil {
+		return *recResult, err
+	}
+
+	recResult, err = rc.CheckRackCreation()
 	if recResult != nil || err != nil {
 		return *recResult, err
 	}

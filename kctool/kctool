@@ -267,7 +267,7 @@ function deploy_operator() {
     kubectl apply \
         --wait \
         --namespace "$namespace" \
-        --filename "$DEPLOY_BASE_PATH/crds/datastax.com_dsedatacenters_crd.yaml"
+        --filename "$DEPLOY_BASE_PATH/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml"
 
     kubectl apply \
         --wait \
@@ -479,7 +479,7 @@ function do_deploy() {
             branch_name="master"
         fi
         local revision="$(git rev-parse HEAD)"
-        image="$(echo "registry.cloud-tools.datastax.com/dse-operator/operator:${branch_name}.${revision}")"
+        image="$(echo "registry.cloud-tools.datastax.com/dse-operator/operator:${revision}")"
     fi
 
     KUBECONFIG_CONTENT="$(retrieve_kubectl_config "$kubespray_cluster_name" "$k8s_cluster_name")"

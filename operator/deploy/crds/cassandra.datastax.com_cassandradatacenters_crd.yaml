@@ -259,7 +259,7 @@ spec:
                       type: string
                   type: object
               type: object
-            superuserSecret:
+            superuserSecretName:
               description: This secret defines the username and password for the Server
                 superuser.
               type: string
