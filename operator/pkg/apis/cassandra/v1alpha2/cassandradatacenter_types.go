@@ -16,14 +16,13 @@ import (
 
 const (
 	// For now we will define defaults for both server image types
-	defaultCassRepository = "datastax-docker.jfrog.io/datastax/mgmtapi-apache-cassandra"
-
-	defaultCassVersion = "latest"
+	defaultCassRepository = "datastaxlabs/apache-cassandra-with-mgmtapi"
+	defaultCassVersion    = "3.11.6-20200316"
 
 	defaultDseRepository = "datastaxlabs/dse-k8s-server"
-	defaultDseVersion    = "6.8.0-20191113"
+	defaultDseVersion    = "6.8.0-20200316"
 
-	defaultConfigBuilderImage = "datastaxlabs/dse-k8s-config-builder:0.4.0-20191113"
+	defaultConfigBuilderImage = "datastaxlabs/dse-k8s-config-builder:0.9.0-20200316"
 
 	// ClusterLabel is the operator's label for the cluster name
 	ClusterLabel = "cassandra.datastax.com/cluster"
@@ -55,13 +54,16 @@ type ProgressState string
 // from a DSE version number.
 //
 // In the event that no image is found, an error is returned
-func getDseImageFromVersion(version string) (string, error) {
-	switch version {
-	case "6.8.0":
+func getImageForServerVersion(server, version string) (string, error) {
+	sv := server + "-" + version
+	switch sv {
+	case "dse-6.8.0":
 		return fmt.Sprintf("%s:%s", defaultDseRepository, defaultDseVersion), nil
+	case "cassandra-3.11.6":
+		return fmt.Sprintf("%s:%s", defaultCassRepository, defaultCassVersion), nil
 	}
-	msg := fmt.Sprintf("The specified image version %s does not map to a known container image.", version)
-	return "", errors.New(msg)
+	err := fmt.Errorf("server '%s' and version '%s' do not work together", server, version)
+	return "", err
 }
 
 // CassandraDatacenterSpec defines the desired state of CassandraDatacenter
@@ -229,8 +231,7 @@ func (dc *CassandraDatacenter) GetConfigBuilderImage() string {
 // In the event that no valid image could be retrieved from the specified version,
 // an error is returned.
 func (dc *CassandraDatacenter) GetServerImage() (string, error) {
-	// TODO add custom logic based on ServerType
-	return makeImage(dc.Spec.ImageVersion, dc.Spec.ServerImage)
+	return makeImage(dc.Spec.ServerType, dc.Spec.ImageVersion, dc.Spec.ServerImage)
 }
 
 // makeImage takes the image version and image name information from the spec,
@@ -241,9 +242,9 @@ func (dc *CassandraDatacenter) GetServerImage() (string, error) {
 //
 // If serverImage is empty, we attempt to find an appropriate container image based on the imageVersion
 // In the event that no image is found, an error is returned
-func makeImage(imageVersion, serverImage string) (string, error) {
+func makeImage(serverType, imageVersion, serverImage string) (string, error) {
 	if serverImage == "" {
-		return getDseImageFromVersion(imageVersion)
+		return getImageForServerVersion(serverType, imageVersion)
 	}
 	return serverImage, nil
 }

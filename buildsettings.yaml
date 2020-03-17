@@ -1,6 +1,6 @@
 version:
   major: 0
-  minor: 5
+  minor: 9
   patch: 0
   prerelease: "snapshot"
 jenkins:
@@ -16,5 +16,5 @@ jenkins:
       - timestamper
       - simple-theme-plugin
 dev:
-  dseImage: datastaxlabs/dse-k8s-server:6.8.0-20191113
-  configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.4.0-20191113
+  dseImage: datastaxlabs/dse-k8s-server:6.8.0-20200316
+  configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.9.0-20200316

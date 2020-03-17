@@ -10,6 +10,7 @@ import (
 
 func Test_makeImage(t *testing.T) {
 	type args struct {
+		serverType   string
 		serverImage  string
 		imageVersion string
 	}
@@ -23,15 +24,27 @@ func Test_makeImage(t *testing.T) {
 			name: "test empty image",
 			args: args{
 				serverImage:  "",
+				serverType:   "dse",
 				imageVersion: "6.8.0",
 			},
-			want:      "datastaxlabs/dse-k8s-server:6.8.0-20191113",
+			want:      "datastaxlabs/dse-k8s-server:6.8.0-20200316",
+			errString: "",
+		},
+		{
+			name: "test empty image cassandra",
+			args: args{
+				serverImage:  "",
+				serverType:   "cassandra",
+				imageVersion: "3.11.6",
+			},
+			want:      "datastaxlabs/apache-cassandra-with-mgmtapi:3.11.6-20200316",
 			errString: "",
 		},
 		{
 			name: "test private repo server",
 			args: args{
 				serverImage:  "datastax.jfrog.io/secret-debug-image/dse-server:6.8.0-test123",
+				serverType:   "dse",
 				imageVersion: "6.8.0",
 			},
 			want:      "datastax.jfrog.io/secret-debug-image/dse-server:6.8.0-test123",
@@ -41,15 +54,16 @@ func Test_makeImage(t *testing.T) {
 			name: "test unknown version",
 			args: args{
 				serverImage:  "",
+				serverType:   "dse",
 				imageVersion: "6.7.0",
 			},
 			want:      "",
-			errString: "The specified image version 6.7.0 does not map to a known container image.",
+			errString: "server 'dse' and version '6.7.0' do not work together",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := makeImage(tt.args.imageVersion, tt.args.serverImage)
+			got, err := makeImage(tt.args.serverType, tt.args.imageVersion, tt.args.serverImage)
 			if got != tt.want {
 				t.Errorf("makeImage() = %v, want %v", got, tt.want)
 			}
@@ -99,7 +113,7 @@ func TestCassandraDatacenter_GetServerImage(t *testing.T) {
 				},
 			},
 			want:      "",
-			errString: "The specified image version 9000 does not map to a known container image.",
+			errString: "server '' and version '9000' do not work together",
 		},
 	}
 	for _, tt := range tests {

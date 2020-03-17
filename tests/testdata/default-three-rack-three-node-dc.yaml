@@ -4,12 +4,12 @@ metadata:
   name: dc1
 spec:
   clusterName: cluster1
-  serverImage: datastaxlabs/dse-k8s-server:6.8.0-20191113
-  imageVersion: "6.8.0"
   serverType: dse
+  imageVersion: "6.8.0"
+  serverImage: datastaxlabs/dse-k8s-server:6.8.0-20200316
+  configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.9.0-20200316
   managementApiAuth:
     insecure: {}
-  configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.4.0-20191113
   size: 3
   storageConfig:
       cassandraDataVolumeClaimSpec:

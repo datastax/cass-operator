@@ -78,6 +78,7 @@ func CreateMockReconciliationContext(
 		Spec: api.CassandraDatacenterSpec{
 			Size:          size,
 			ClusterName:   clusterName,
+			ServerType:    "dse",
 			ImageVersion:  "6.8.0",
 			StorageConfig: storageConfig,
 		},
