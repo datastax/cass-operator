@@ -9,13 +9,13 @@ import (
 
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
+	"github.com/riptano/dse-operator/operator/internal/result"
 	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 )
@@ -32,22 +32,20 @@ func (rc *ReconciliationContext) calculateReconciliationActions() (reconcile.Res
 	rc.ReqLogger.Info("handler::calculateReconciliationActions")
 
 	// Check if the CassandraDatacenter was marked to be deleted
-	if rc.ProcessDeletion() {
-		return rc.RemoveDatacenterResources()
+	if result := rc.ProcessDeletion(); result.Completed() {
+		return result.Output()
 	}
 
 	if err := rc.addFinalizer(); err != nil {
-		return reconcile.Result{}, err
+		return result.Error(err).Output()
 	}
 
-	if needCreate, err := rc.CheckHeadlessServices(); err != nil {
-		return reconcile.Result{}, err
-	} else if needCreate {
-		return rc.CreateHeadlessServices()
+	if result := rc.CheckHeadlessServices(); result.Completed() {
+		return result.Output()
 	}
 
 	if err := rc.CalculateRackInformation(); err != nil {
-		return reconcile.Result{}, err
+		return result.Error(err).Output()
 	}
 
 	return rc.ReconcileAllRacks()
@@ -98,41 +96,36 @@ func (r *ReconcileCassandraDatacenter) Reconcile(request reconcile.Request) (rec
 
 	logger.Info("======== handler::Reconcile has been called")
 
-	rc, err := CreateReconciliationContext(
-		&request,
-		r.client,
-		r.scheme,
-		r.recorder,
-		logger)
+	rc, err := CreateReconciliationContext(&request, r.client, r.scheme, r.recorder, logger)
+
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
-			// Owned objects are automatically garbage collected. For additional cleanup logic use finalizers.
+			// Owned objects are automatically garbage collected.
 			// Return and don't requeue
 			logger.Info("CassandraDatacenter resource not found. Ignoring since object must be deleted.")
-			return reconcile.Result{}, nil
+			return result.Done().Output()
 		}
-		// Error reading the object - requeue the request.
+
+		// Error reading the object
 		logger.Error(err, "Failed to get CassandraDatacenter.")
-		return reconcile.Result{}, err
+		return result.Error(err).Output()
 	}
 
 	if err := rc.isValid(rc.Datacenter); err != nil {
 		logger.Error(err, "CassandraDatacenter resource is invalid")
 		rc.Recorder.Eventf(rc.Datacenter, "Warning", "ValidationFailed", err.Error())
-
-		// No reason to requeue if the resource is invalid as the user will need
-		// to fix it before we can do anything further.
-		return reconcile.Result{Requeue: false}, err
+		return result.Error(err).Output()
 	}
 
-	twentySecsAgo := metav1.Now().Add(time.Second * -20)
+	twentySecs := time.Second * 20
 	lastNodeStart := rc.Datacenter.Status.LastServerNodeStarted
-	serverRecentlyStarted := lastNodeStart.After(twentySecsAgo)
+	cooldownTime := time.Until(lastNodeStart.Add(twentySecs))
 
-	if serverRecentlyStarted {
+	if cooldownTime > 0 {
 		logger.Info("Ending reconciliation early because a server node was recently started")
-		return reconcile.Result{}, nil
+		secs := 1 + int(cooldownTime.Seconds())
+		return result.RequeueSoon(secs).Output()
 	}
 
 	res, err := rc.calculateReconciliationActions()

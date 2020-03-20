@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
 )
@@ -16,9 +15,16 @@ func TestReconcileHeadlessService(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	shouldCreate, err := rc.CheckHeadlessServices()
-	assert.NoErrorf(t, err, "Should not have returned an error")
-	assert.True(t, shouldCreate, "shouldCrete should be true")
+	recResult := rc.CheckHeadlessServices()
+
+	// kind of weird to check this path we don't want in a test, but
+	// it's useful to see what the error is
+	if recResult.Completed() {
+		_, err := recResult.Output()
+		assert.NoErrorf(t, err, "Should not have returned an error")
+	}
+
+	assert.False(t, recResult.Completed(), "Reconcile loop should not be completed")
 }
 
 func TestReconcileHeadlessService_UpdateLabels(t *testing.T) {
@@ -40,9 +46,16 @@ func TestReconcileHeadlessService_UpdateLabels(t *testing.T) {
 
 	service.SetLabels(make(map[string]string))
 
-	shouldCreate, err := rc.CheckHeadlessServices()
-	assert.NoErrorf(t, err, "Should not have returned an error")
-	assert.False(t, shouldCreate, "shouldCreate should be false")
+	recResult := rc.CheckHeadlessServices()
+
+	// kind of weird to check this path we don't want in a test, but
+	// it's useful to see what the error is
+	if recResult.Completed() {
+		_, err := recResult.Output()
+		assert.NoErrorf(t, err, "Should not have returned an error")
+	}
+
+	assert.False(t, recResult.Completed(), "Reconcile loop should not be completed")
 }
 
 func TestCreateHeadlessService(t *testing.T) {
@@ -51,12 +64,20 @@ func TestCreateHeadlessService(t *testing.T) {
 
 	rc.Services = []*corev1.Service{svc}
 
-	result, err := rc.CreateHeadlessServices()
-	assert.NoErrorf(t, err, "Should not have returned an error")
-	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
+	recResult := rc.CreateHeadlessServices()
+
+	// kind of weird to check this path we don't want in a test, but
+	// it's useful to see what the error is
+	if recResult.Completed() {
+		_, err := recResult.Output()
+		assert.NoErrorf(t, err, "Should not have returned an error")
+	}
+
+	assert.False(t, recResult.Completed(), "Reconcile loop should not be completed")
 }
 
 func TestCreateHeadlessService_ClientReturnsError(t *testing.T) {
+	// skipped because mocking Status() call and response is very tricky
 	t.Skip()
 	rc, svc, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
@@ -69,9 +90,16 @@ func TestCreateHeadlessService_ClientReturnsError(t *testing.T) {
 
 	rc.Services = []*corev1.Service{svc}
 
-	result, err := rc.CreateHeadlessServices()
-	assert.Errorf(t, err, "Should have returned an error")
-	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
+	recResult := rc.CreateHeadlessServices()
+
+	// kind of weird to check this path we don't want in a test, but
+	// it's useful to see what the error is
+	if recResult.Completed() {
+		_, err := recResult.Output()
+		assert.NoErrorf(t, err, "Should not have returned an error")
+	}
+
+	assert.True(t, recResult.Completed(), "Reconcile loop should be completed")
 
 	mockClient.AssertExpectations(t)
 }

@@ -300,9 +300,8 @@ func TestReconcileNextRack(t *testing.T) {
 		2)
 	assert.NoErrorf(t, err, "error occurred creating statefulset")
 
-	result, err := rc.ReconcileNextRack(statefulSet)
+	err = rc.ReconcileNextRack(statefulSet)
 	assert.NoErrorf(t, err, "Should not have returned an error")
-	assert.Equal(t, reconcile.Result{}, result, "Should requeue request")
 
 	// Validation:
 	// Currently reconcileNextRack does two things
@@ -330,15 +329,11 @@ func TestReconcileNextRack_CreateError(t *testing.T) {
 	k8sMockClientCreate(mockClient, fmt.Errorf(""))
 	k8sMockClientUpdate(mockClient, nil).Times(1)
 
-	result, err := rc.ReconcileNextRack(statefulSet)
+	err = rc.ReconcileNextRack(statefulSet)
 
 	mockClient.AssertExpectations(t)
 
 	assert.Errorf(t, err, "Should have returned an error while calculating reconciliation actions")
-
-	t.Skip("FIXME - Skipping assertion")
-
-	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
 }
 
 func TestCalculateRackInformation(t *testing.T) {
@@ -609,7 +604,7 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 
 	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Apply() should not have returned an error")
-	assert.Equal(t, reconcile.Result{Requeue: true}, result, "Should requeue request")
+	assert.False(t, result.Requeue, "Should not requeue request")
 
 	currentStatefulSet := &appsv1.StatefulSet{}
 	nsName := types.NamespacedName{Name: preExistingStatefulSet.Name, Namespace: preExistingStatefulSet.Namespace}
@@ -759,7 +754,7 @@ func TestReconcileRacks_UpdateRackNodeCount(t *testing.T) {
 
 			rc.Client = fake.NewFakeClient(trackObjects...)
 
-			if _, err := rc.UpdateRackNodeCount(tt.args.statefulSet, tt.args.newNodeCount); (err != nil) != tt.wantErr {
+			if err := rc.UpdateRackNodeCount(tt.args.statefulSet, tt.args.newNodeCount); (err != nil) != tt.wantErr {
 				t.Errorf("updateRackNodeCount() error = %v, wantErr %v", err, tt.wantErr)
 			}
 			if tt.args.newNodeCount != *tt.args.statefulSet.Spec.Replicas {

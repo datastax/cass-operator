@@ -3,14 +3,14 @@ package reconciliation
 import (
 	"reflect"
 
+	"github.com/riptano/dse-operator/operator/internal/result"
 	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-func (rc *ReconciliationContext) CreateHeadlessServices() (reconcile.Result, error) {
+func (rc *ReconciliationContext) CreateHeadlessServices() result.ReconcileResult {
 	// unpacking
 	logger := rc.ReqLogger
 	client := rc.Client
@@ -24,24 +24,25 @@ func (rc *ReconciliationContext) CreateHeadlessServices() (reconcile.Result, err
 			"serviceName", service.Name)
 
 		if err := setOperatorProgressStatus(rc, api.ProgressUpdating); err != nil {
-			return reconcile.Result{Requeue: true}, err
+			return result.Error(err)
 		}
 
 		if err := client.Create(rc.Ctx, service); err != nil {
-			logger.Error(
-				err, "Could not create headless service")
+			logger.Error(err, "Could not create headless service")
 
-			return reconcile.Result{Requeue: true}, err
+			return result.Error(err)
 		}
 
 		rc.Recorder.Eventf(rc.Datacenter, "Normal", "CreatedResource", "Created service %s", service.Name)
 	}
 
-	return reconcile.Result{Requeue: true}, nil
+	// at this point we had previously been saying this reconcile call was over, we're done
+	// but that seems wrong, we should just continue on to the next resources
+	return result.Continue()
 }
 
 // ReconcileHeadlessService ...
-func (rc *ReconciliationContext) CheckHeadlessServices() (bool, error) {
+func (rc *ReconciliationContext) CheckHeadlessServices() result.ReconcileResult {
 	// unpacking
 	logger := rc.ReqLogger
 	dc := rc.Datacenter
@@ -65,9 +66,8 @@ func (rc *ReconciliationContext) CheckHeadlessServices() (bool, error) {
 		// Set CassandraDatacenter dc as the owner and controller
 		err := setControllerReference(dc, desiredSvc, rc.Scheme)
 		if err != nil {
-			logger.Error(
-				err, "Could not set controller reference for headless service")
-			return false, err
+			logger.Error(err, "Could not set controller reference for headless service")
+			return result.Error(err)
 		}
 
 		// See if the service already exists
@@ -81,11 +81,10 @@ func (rc *ReconciliationContext) CheckHeadlessServices() (bool, error) {
 
 		} else if err != nil {
 			// if we hit a k8s error, log it and error out
-			logger.Error(
-				err, "Could not get headless seed service",
+			logger.Error(err, "Could not get headless seed service",
 				"name", nsName,
 			)
-			return false, err
+			return result.Error(err)
 
 		} else {
 			// if we found the service already, check if the labels are right
@@ -102,7 +101,7 @@ func (rc *ReconciliationContext) CheckHeadlessServices() (bool, error) {
 				if err := client.Update(rc.Ctx, currentService); err != nil {
 					logger.Error(err, "Unable to update service with labels",
 						"service", currentService)
-					return false, err
+					return result.Error(err)
 				}
 			}
 		}
@@ -110,8 +109,8 @@ func (rc *ReconciliationContext) CheckHeadlessServices() (bool, error) {
 
 	if len(createNeeded) > 0 {
 		rc.Services = createNeeded
-		return true, nil
+		return rc.CreateHeadlessServices()
 	}
 
-	return false, nil
+	return result.Continue()
 }
