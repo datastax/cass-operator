@@ -3,6 +3,7 @@ package kubectl
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	shutil "github.com/riptano/dse-operator/mage/sh"
@@ -157,7 +158,7 @@ func PatchMerge(resource string, data string) KCmd {
 	return KCmd{Command: "patch", Args: args}
 }
 
-func WaitForOutput(k KCmd, expected string, seconds int) error {
+func WaitForOutput(k KCmd, expected string, seconds int, exactMatch bool) error {
 	c := make(chan string)
 	timer := time.NewTimer(time.Duration(seconds) * time.Second)
 	cquit := make(chan bool)
@@ -166,8 +167,16 @@ func WaitForOutput(k KCmd, expected string, seconds int) error {
 	var actual string
 	var err error
 
+	matchFunc := func(actualVal string) bool {
+		if exactMatch {
+			return actualVal == expected
+		} else {
+			return strings.Contains(actualVal, expected)
+		}
+	}
+
 	go func() {
-		for actual != expected {
+		for !matchFunc(actual) {
 			select {
 			case <-cquit:
 				return
@@ -182,7 +191,14 @@ func WaitForOutput(k KCmd, expected string, seconds int) error {
 
 	select {
 	case <-timer.C:
-		msg := fmt.Sprintf("Timed out waiting for value. Expected %s, but got %s.", expected, actual)
+		var expectedPhrase string
+		if exactMatch {
+			expectedPhrase = "Expected to output to match exactly:"
+		} else {
+
+			expectedPhrase = "Expected to output to contain:"
+		}
+		msg := fmt.Sprintf("Timed out waiting for value. %s %s, but got %s.", expectedPhrase, expected, actual)
 		if err != nil {
 			msg = fmt.Sprintf("%s\nThe following error occured while querying k8s: %v", msg, err)
 		}

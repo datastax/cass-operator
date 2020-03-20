@@ -61,11 +61,20 @@ func (k NsWrapper) OutputPanic(kcmd kubectl.KCmd) string {
 }
 
 func (k NsWrapper) WaitForOutput(kcmd kubectl.KCmd, expected string, seconds int) error {
-	return kubectl.WaitForOutput(kcmd.InNamespace(k.Namespace), expected, seconds)
+	return kubectl.WaitForOutput(kcmd.InNamespace(k.Namespace), expected, seconds, true)
+}
+
+func (k NsWrapper) WaitForOutputContains(kcmd kubectl.KCmd, expected string, seconds int) error {
+	return kubectl.WaitForOutput(kcmd.InNamespace(k.Namespace), expected, seconds, false)
 }
 
 func (k NsWrapper) WaitForOutputPanic(kcmd kubectl.KCmd, expected string, seconds int) {
-	err := kubectl.WaitForOutput(kcmd.InNamespace(k.Namespace), expected, seconds)
+	err := kubectl.WaitForOutput(kcmd.InNamespace(k.Namespace), expected, seconds, true)
+	Expect(err).ToNot(HaveOccurred())
+}
+
+func (k NsWrapper) WaitForOutputContainsPanic(kcmd kubectl.KCmd, expected string, seconds int) {
+	err := kubectl.WaitForOutput(kcmd.InNamespace(k.Namespace), expected, seconds, false)
 	Expect(err).ToNot(HaveOccurred())
 }
 
@@ -134,5 +143,12 @@ func (ns *NsWrapper) WaitForOutputAndLog(description string, kcmd kubectl.KCmd, 
 	ginkgo.By(description)
 	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
 	execErr := ns.WaitForOutput(kcmd, expected, seconds)
+	Expect(execErr).ToNot(HaveOccurred())
+}
+
+func (ns *NsWrapper) WaitForOutputContainsAndLog(description string, kcmd kubectl.KCmd, expected string, seconds int) {
+	ginkgo.By(description)
+	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
+	execErr := ns.WaitForOutputContains(kcmd, expected, seconds)
 	Expect(execErr).ToNot(HaveOccurred())
 }

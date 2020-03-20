@@ -238,6 +238,7 @@ func (rc *ReconciliationContext) CheckRackLabels() result.ReconcileResult {
 	for idx, _ := range rc.desiredRackInformation {
 		rackInfo := rc.desiredRackInformation[idx]
 		statefulSet := rc.statefulSets[idx]
+		patch := client.MergeFrom(statefulSet.DeepCopy())
 
 		// Has this statefulset been reconciled?
 
@@ -249,7 +250,6 @@ func (rc *ReconciliationContext) CheckRackLabels() result.ReconcileResult {
 				"statefulSet", statefulSet,
 				"current", stsLabels,
 				"desired", updatedLabels)
-			patch := client.MergeFrom(statefulSet.DeepCopy())
 			statefulSet.SetLabels(updatedLabels)
 
 			if err := rc.Client.Patch(rc.Ctx, statefulSet, patch); err != nil {
@@ -622,10 +622,12 @@ func isClusterHealthy(rc *ReconciliationContext) bool {
 // ready pods are labelled as seeds, so that they are picked up by the headless seed service
 // Returns the number of ready seeds.
 func (rc *ReconciliationContext) labelSeedPods(rackInfo *RackInformation) (int, error) {
+	logger := rc.ReqLogger.WithName("labelSeedPods")
+
 	rackLabels := rc.Datacenter.GetRackLabels(rackInfo.RackName)
 	podList, err := listPods(rc, rackLabels)
 	if err != nil {
-		rc.ReqLogger.Error(
+		logger.Error(
 			err, "Unable to list pods for rack",
 			"rackName", rackInfo.RackName)
 		return 0, err
@@ -637,12 +639,16 @@ func (rc *ReconciliationContext) labelSeedPods(rackInfo *RackInformation) (int, 
 	count := 0
 	for idx := range pods {
 		pod := &pods[idx]
-		podLabels := pod.GetLabels()
+		patch := client.MergeFrom(pod.DeepCopy())
+
+		newLabels := make(map[string]string)
+		utils.MergeMap(newLabels, pod.GetLabels())
+
 		ready := isServerReady(pod)
 		starting := isServerStarting(pod)
 
 		isSeed := ready && count < rackInfo.SeedCount
-		currentVal := podLabels[api.SeedNodeLabel]
+		currentVal := pod.GetLabels()[api.SeedNodeLabel]
 		if isSeed {
 			count++
 		}
@@ -654,20 +660,19 @@ func (rc *ReconciliationContext) labelSeedPods(rackInfo *RackInformation) (int, 
 
 		shouldUpdate := false
 		if isSeed && currentVal != "true" {
-			podLabels[api.SeedNodeLabel] = "true"
+			newLabels[api.SeedNodeLabel] = "true"
 			shouldUpdate = true
 		}
 		// if this pod is starting, we should leave the seed label alone
 		if !isSeed && currentVal == "true" && !starting {
-			delete(podLabels, api.SeedNodeLabel)
+			delete(newLabels, api.SeedNodeLabel)
 			shouldUpdate = true
 		}
 
 		if shouldUpdate {
-			patch := client.MergeFrom(pod.DeepCopy())
-			pod.SetLabels(podLabels)
+			pod.SetLabels(newLabels)
 			if err := rc.Client.Patch(rc.Ctx, pod, patch); err != nil {
-				rc.ReqLogger.Error(
+				logger.Error(
 					err, "Unable to update pod with seed label",
 					"pod", pod.Name)
 				return 0, err
@@ -853,6 +858,8 @@ func (rc *ReconciliationContext) ReconcilePods(statefulSet *appsv1.StatefulSet) 
 			return err
 		}
 
+		podPatch := client.MergeFrom(pod.DeepCopy())
+
 		podLabels := pod.GetLabels()
 		shouldUpdateLabels, updatedLabels := shouldUpdateLabelsForRackResource(podLabels,
 			rc.Datacenter, statefulSet.GetLabels()[api.RackLabel])
@@ -862,10 +869,10 @@ func (rc *ReconciliationContext) ReconcilePods(statefulSet *appsv1.StatefulSet) 
 				"Pod", podName,
 				"current", podLabels,
 				"desired", updatedLabels)
-			patch := client.MergeFrom(pod.DeepCopy())
+
 			pod.SetLabels(updatedLabels)
 
-			if err := rc.Client.Patch(rc.Ctx, pod, patch); err != nil {
+			if err := rc.Client.Patch(rc.Ctx, pod, podPatch); err != nil {
 				rc.ReqLogger.Error(
 					err,
 					"Unable to update pod with label",
@@ -904,6 +911,8 @@ func (rc *ReconciliationContext) ReconcilePods(statefulSet *appsv1.StatefulSet) 
 			return err
 		}
 
+		pvcPatch := client.MergeFrom(pvc.DeepCopy())
+
 		pvcLabels := pvc.GetLabels()
 		shouldUpdateLabels, updatedLabels = shouldUpdateLabelsForRackResource(pvcLabels,
 			rc.Datacenter, statefulSet.GetLabels()[api.RackLabel])
@@ -913,10 +922,9 @@ func (rc *ReconciliationContext) ReconcilePods(statefulSet *appsv1.StatefulSet) 
 				"current", pvcLabels,
 				"desired", updatedLabels)
 
-			patch := client.MergeFrom(pvc.DeepCopy())
 			pvc.SetLabels(updatedLabels)
 
-			if err := rc.Client.Patch(rc.Ctx, pvc, patch); err != nil {
+			if err := rc.Client.Patch(rc.Ctx, pvc, pvcPatch); err != nil {
 				rc.ReqLogger.Error(
 					err,
 					"Unable to update pvc with labels",
