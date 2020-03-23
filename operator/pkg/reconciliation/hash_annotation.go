@@ -12,7 +12,7 @@ type Annotated interface {
 	SetAnnotations(annotations map[string]string)
 }
 
-const resourceHashAnnotationKey = "k8s.datastax.com/resource-hash"
+const resourceHashAnnotationKey = "cassandra.datastax.com/resource-hash"
 
 func resourcesHaveSameHash(r1, r2 Annotated) bool {
 	a1 := r1.GetAnnotations()

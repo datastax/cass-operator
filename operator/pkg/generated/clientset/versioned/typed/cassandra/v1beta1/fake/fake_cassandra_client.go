@@ -19,22 +19,22 @@ limitations under the License.
 package fake
 
 import (
-	v1alpha2 "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/typed/cassandra/v1alpha2"
+	v1beta1 "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/typed/cassandra/v1beta1"
 	rest "k8s.io/client-go/rest"
 	testing "k8s.io/client-go/testing"
 )
 
-type FakeCassandraV1alpha2 struct {
+type FakeCassandraV1beta1 struct {
 	*testing.Fake
 }
 
-func (c *FakeCassandraV1alpha2) CassandraDatacenters(namespace string) v1alpha2.CassandraDatacenterInterface {
+func (c *FakeCassandraV1beta1) CassandraDatacenters(namespace string) v1beta1.CassandraDatacenterInterface {
 	return &FakeCassandraDatacenters{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeCassandraV1alpha2) RESTClient() rest.Interface {
+func (c *FakeCassandraV1beta1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

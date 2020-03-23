@@ -1,11 +1,11 @@
-apiVersion: cassandra.datastax.com/v1alpha2
+apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
 metadata:
   name: dc1
 spec:
   clusterName: cluster1
   serverType: cassandra
-  imageVersion: "3.11.6"
+  serverVersion: "3.11.6"
   serverImage: datastaxlabs/apache-cassandra-with-mgmtapi:3.11.6-20200316
   configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.9.0-20200316
   managementApiAuth:

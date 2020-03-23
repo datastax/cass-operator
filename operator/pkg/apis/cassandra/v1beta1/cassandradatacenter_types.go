@@ -1,4 +1,4 @@
-package v1alpha2
+package v1beta1
 
 import (
 	"encoding/json"
@@ -31,7 +31,7 @@ const (
 	DatacenterLabel = "cassandra.datastax.com/datacenter"
 
 	// SeedNodeLabel is the operator's label for the seed node state
-	SeedNodeLabel = "cassandra.datastax.com/seednode"
+	SeedNodeLabel = "cassandra.datastax.com/seed-node"
 
 	// RackLabel is the operator's label for the rack name
 	RackLabel = "cassandra.datastax.com/rack"
@@ -78,9 +78,9 @@ type CassandraDatacenterSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	Size int32 `json:"size"`
 
-	// version number
+	// Version number
 	// +kubebuilder:validation:Enum="6.8.0";"3.11.6"
-	ImageVersion string `json:"imageVersion"`
+	ServerVersion string `json:"serverVersion"`
 
 	// Server image name.
 	// More info: https://kubernetes.io/docs/concepts/containers/images
@@ -109,12 +109,14 @@ type CassandraDatacenterSpec struct {
 	// +kubebuilder:validation:MinLength=2
 	ClusterName string `json:"clusterName"`
 
-	// Indicates no server instances should run, like powering down bare metal servers. Volume resources
-	// will be left intact in Kubernetes and re-attached when the cluster is unparked. This is an
-	// experimental feature that requires that pod ip addresses do not change on restart.
-	Parked bool `json:"parked,omitempty"`
+	// A stopped CassandraDatacenter will have no running server pods, like using "stop" with
+	// traditional System V init scripts. Other Kubernetes resources will be left intact, and volumes
+	// will re-attach when the CassandraDatacenter workload is resumed.
+	Stopped bool `json:"stopped,omitempty"`
+
 	// Container image for the config builder init container, with host, path, and tag
 	ConfigBuilderImage string `json:"configBuilderImage,omitempty"`
+
 	// Indicates configuration and container image changes should only be pushed to
 	// the first rack of the datacenter
 	CanaryUpgrade bool `json:"canaryUpgrade,omitempty"`
@@ -231,20 +233,18 @@ func (dc *CassandraDatacenter) GetConfigBuilderImage() string {
 // In the event that no valid image could be retrieved from the specified version,
 // an error is returned.
 func (dc *CassandraDatacenter) GetServerImage() (string, error) {
-	return makeImage(dc.Spec.ServerType, dc.Spec.ImageVersion, dc.Spec.ServerImage)
+	return makeImage(dc.Spec.ServerType, dc.Spec.ServerVersion, dc.Spec.ServerImage)
 }
 
-// makeImage takes the image version and image name information from the spec,
-// and returns a fully qualified server container image
-//
-// imageVersion should be a semver-like string
+// makeImage takes the server type/version and image from the spec,
+// and returns a docker pullable server container image
+// serverVersion should be a semver-like string
 // serverImage should be an empty string, or [hostname[:port]/][path/with/repo]:[Server container img tag]
-//
-// If serverImage is empty, we attempt to find an appropriate container image based on the imageVersion
+// If serverImage is empty, we attempt to find an appropriate container image based on the serverVersion
 // In the event that no image is found, an error is returned
-func makeImage(serverType, imageVersion, serverImage string) (string, error) {
+func makeImage(serverType, serverVersion, serverImage string) (string, error) {
 	if serverImage == "" {
-		return getImageForServerVersion(serverType, imageVersion)
+		return getImageForServerVersion(serverType, serverVersion)
 	}
 	return serverImage, nil
 }
@@ -302,7 +302,7 @@ func (dc *CassandraDatacenter) GetSuperuserSecretNamespacedName() types.Namespac
 	}
 
 	return types.NamespacedName{
-		Name: name,
+		Name:      name,
 		Namespace: namespace,
 	}
 }

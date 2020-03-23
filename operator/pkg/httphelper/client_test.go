@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
 )
 
 func Test_BuildPodHostFromPod(t *testing.T) {

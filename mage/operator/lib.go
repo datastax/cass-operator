@@ -441,7 +441,7 @@ func doGenerateClient() {
 	mageutil.PanicOnError(err)
 	runArgs := []string{"-t", "--rm", "-u", fmt.Sprintf("%s:%s", usr.Uid, usr.Gid)}
 	execArgs := []string{"client", "github.com/riptano/dse-operator/operator/pkg/generated",
-		"github.com/riptano/dse-operator/operator/pkg/apis", "cassandra:v1alpha2"}
+		"github.com/riptano/dse-operator/operator/pkg/apis", "cassandra:v1beta1"}
 	volumes := []string{fmt.Sprintf("%s/operator:/go/src/github.com/riptano/dse-operator/operator", cwd)}
 	dockerutil.Run(genClientImage, volumes, nil, nil, runArgs, execArgs).ExecVPanic()
 }

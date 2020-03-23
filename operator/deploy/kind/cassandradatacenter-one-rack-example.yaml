@@ -1,11 +1,11 @@
-apiVersion: cassandra.datastax.com/v1alpha2
+apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
 metadata:
   name: dtcntr
 spec:
   clusterName: clstr
   serverImage: datastaxlabs/apache-cassandra-with-mgmtapi:3.11.6-20200316
-  imageVersion: 3.11.6
+  serverVersion: 6.8.0
   serverType: cassandra
   managementApiAuth:
     insecure: {}

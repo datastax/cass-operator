@@ -17,7 +17,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/riptano/dse-operator/operator/internal/result"
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/riptano/dse-operator/operator/pkg/oplabels"
 	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
@@ -42,7 +42,7 @@ func (rc *ReconciliationContext) CalculateRackInformation() error {
 
 	// TODO error if nodeCount < rackCount
 
-	if rc.Datacenter.Spec.Parked {
+	if rc.Datacenter.Spec.Stopped {
 		nodeCount = 0
 	}
 
@@ -265,32 +265,32 @@ func (rc *ReconciliationContext) CheckRackLabels() result.ReconcileResult {
 	return result.Continue()
 }
 
-func (rc *ReconciliationContext) CheckRackParkedState() result.ReconcileResult {
-	rc.ReqLogger.Info("reconcile_racks::CheckRackParkedState")
+func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult {
+	rc.ReqLogger.Info("reconcile_racks::CheckRackStoppedState")
 
 	racksUpdated := false
 	for idx := range rc.desiredRackInformation {
 		rackInfo := rc.desiredRackInformation[idx]
 		statefulSet := rc.statefulSets[idx]
 
-		parked := rc.Datacenter.Spec.Parked
+		stopped := rc.Datacenter.Spec.Stopped
 		currentPodCount := *statefulSet.Spec.Replicas
 
 		var desiredNodeCount int32
-		if parked {
-			// rackInfo.NodeCount should be passed in as zero for parked clusters
+		if stopped {
+			// rackInfo.NodeCount should be passed in as zero for stopped clusters
 			desiredNodeCount = int32(rackInfo.NodeCount)
 		} else if currentPodCount > 1 {
 			// already gone through the first round of scaling seed nodes, now lets add the rest of the nodes
 			desiredNodeCount = int32(rackInfo.NodeCount)
 		} else {
-			// not parked and we just want to get our first seed up fully
+			// not stopped and we just want to get our first seed up fully
 			desiredNodeCount = int32(1)
 		}
 
-		if parked && currentPodCount > 0 {
+		if stopped && currentPodCount > 0 {
 			rc.ReqLogger.Info(
-				"CassandraDatacenter is parked, setting rack to zero replicas",
+				"CassandraDatacenter is stopped, setting rack to zero replicas",
 				"Rack", rackInfo.RackName,
 				"currentSize", currentPodCount,
 				"desiredSize", desiredNodeCount,
@@ -331,7 +331,7 @@ func (rc *ReconciliationContext) checkSeedLabels() (int, error) {
 func (rc *ReconciliationContext) CheckPodsReady() result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_racks::CheckPodsReady")
 
-	if rc.Datacenter.Spec.Parked {
+	if rc.Datacenter.Spec.Stopped {
 		return result.Continue()
 	}
 
@@ -491,8 +491,8 @@ func shouldUpsertSuperUser(dc api.CassandraDatacenter) bool {
 }
 
 func (rc *ReconciliationContext) CreateSuperuser() result.ReconcileResult {
-	if rc.Datacenter.Spec.Parked {
-		rc.ReqLogger.Info("cluster is parked, skipping CreateSuperuser")
+	if rc.Datacenter.Spec.Stopped {
+		rc.ReqLogger.Info("cluster is stopped, skipping CreateSuperuser")
 		return result.Continue()
 	}
 
@@ -559,7 +559,7 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
-	if recResult := rc.CheckRackParkedState(); recResult.Completed() {
+	if recResult := rc.CheckRackStoppedState(); recResult.Completed() {
 		return recResult.Output()
 	}
 
@@ -1222,8 +1222,8 @@ func isServerReady(pod *corev1.Pod) bool {
 
 func refreshSeeds(rc *ReconciliationContext) error {
 	rc.ReqLogger.Info("reconcile_racks::refreshSeeds")
-	if rc.Datacenter.Spec.Parked {
-		rc.ReqLogger.Info("cluster is parked, skipping refreshSeeds")
+	if rc.Datacenter.Spec.Stopped {
+		rc.ReqLogger.Info("cluster is stopped, skipping refreshSeeds")
 		return nil
 	}
 

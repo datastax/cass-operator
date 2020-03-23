@@ -20,7 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
 )
 
@@ -107,7 +107,7 @@ func TestProcessDeletion_FailedDelete(t *testing.T) {
 
 func TestReconcile(t *testing.T) {
 	t.Skip()
-	
+
 	// Set up verbose logging
 	logger := logf.ZapLogger(true)
 	logf.SetLogger(logger)
@@ -140,9 +140,9 @@ func TestReconcile(t *testing.T) {
 				Insecure: &api.ManagementApiAuthInsecureConfig{},
 			},
 			Size:          size,
-			ImageVersion:  "6.8.0",
+			ServerVersion: "6.8.0",
 			StorageConfig: storageConfig,
-			ClusterName: "cluster-example",
+			ClusterName:   "cluster-example",
 		},
 	}
 
@@ -350,7 +350,7 @@ func TestReconcile_CassandraDatacenterToBeDeleted(t *testing.T) {
 				Insecure: &api.ManagementApiAuthInsecureConfig{},
 			},
 			Size:          size,
-			ImageVersion:  "6.8.0",
+			ServerVersion: "6.8.0",
 			StorageConfig: storageConfig,
 		},
 	}

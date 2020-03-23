@@ -3,13 +3,14 @@ package httphelper
 import (
 	"context"
 	"fmt"
-	"github.com/go-logr/logr"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"time"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
+	"github.com/go-logr/logr"
+
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
 

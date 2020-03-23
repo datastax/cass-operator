@@ -42,7 +42,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator can scale up, park, unpark, and terminate a dse datacenter", func() {
+		Specify("the operator can scale up, stop, resume, and terminate a dse datacenter", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
@@ -107,8 +107,8 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true true true true true", 1200)
 
-			step = "parking the dc"
-			json = "{\"spec\": {\"parked\": true}}"
+			step = "stopping the dc"
+			json = "{\"spec\": {\"stopped\": true}}"
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
@@ -125,8 +125,8 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "[]", 300)
 
-			step = "unparking the dc"
-			json = "{\"spec\": {\"parked\": false}}"
+			step = "resume the dc"
+			json = "{\"spec\": {\"stopped\": false}}"
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 

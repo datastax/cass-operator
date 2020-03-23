@@ -19,7 +19,7 @@ limitations under the License.
 package fake
 
 import (
-	cassandrav1alpha2 "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
+	cassandrav1beta1 "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
@@ -31,7 +31,7 @@ var scheme = runtime.NewScheme()
 var codecs = serializer.NewCodecFactory(scheme)
 var parameterCodec = runtime.NewParameterCodec(scheme)
 var localSchemeBuilder = runtime.SchemeBuilder{
-	cassandrav1alpha2.AddToScheme,
+	cassandrav1beta1.AddToScheme,
 }
 
 // AddToScheme adds all types of this clientset into the given scheme. This allows composition

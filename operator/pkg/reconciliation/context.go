@@ -14,7 +14,7 @@ import (
 
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
 )
 
 // ReconciliationContext contains all of the input necessary to calculate a list of ReconciliationActions

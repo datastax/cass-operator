@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
 	"github.com/riptano/dse-operator/operator/pkg/oplabels"
@@ -572,7 +572,7 @@ func TestReconcileRacks_DoesntScaleDown(t *testing.T) {
 	assert.True(t, result.Requeue, result, "Should requeue request")
 }
 
-func TestReconcileRacks_NeedToPark(t *testing.T) {
+func TestReconcileRacks_NeedToStop(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
@@ -591,7 +591,7 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 
 	var rackInfo []*RackInformation
 
-	rc.Datacenter.Spec.Parked = true
+	rc.Datacenter.Spec.Stopped = true
 	nextRack := &RackInformation{}
 	nextRack.RackName = "default"
 	nextRack.NodeCount = 0

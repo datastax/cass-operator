@@ -1,4 +1,4 @@
-package park_unpark_scale_up
+package scale_up_stop_resume
 
 import (
 	"fmt"
@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	testName         = "Park Unpark Scale Up"
-	namespace        = "park-unpark-scale-up"
+	testName         = "Scale Up Stop Resume"
+	namespace        = "scale-up-stop-resume"
 	dcName           = "dc1"
 	dcYaml           = "../testdata/default-three-rack-three-node-dc.yaml"
 	operatorYaml     = "../testdata/operator.yaml"
@@ -42,7 +42,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator can park, unpark, scale up, and terminate a dse datacenter", func() {
+		Specify("the operator can scale up, stop, resume, and terminate a dse datacenter", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
@@ -81,8 +81,34 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
 
-			step = "parking the dc"
-			json = "{\"spec\": {\"parked\": true}}"
+			step = "scale up to 4 nodes"
+			json = "{\"spec\": {\"size\": 4}}"
+			k = kubectl.PatchMerge(dcResource, json)
+			ns.ExecAndLog(step, k)
+
+			step = "waiting for the 4th dse node to become ready"
+			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
+			k = kubectl.Get("pods").
+				WithLabel(dcLabel).
+				WithFlag("field-selector", "status.phase=Running").
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "true true true true", 1200)
+
+			step = "scale up to 5 nodes"
+			json = "{\"spec\": {\"size\": 5}}"
+			k = kubectl.PatchMerge(dcResource, json)
+			ns.ExecAndLog(step, k)
+
+			step = "waiting for the 5th dse node to become ready"
+			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
+			k = kubectl.Get("pods").
+				WithLabel(dcLabel).
+				WithFlag("field-selector", "status.phase=Running").
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "true true true true true", 1200)
+
+			step = "stopping the dc"
+			json = "{\"spec\": {\"stopped\": true}}"
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
@@ -90,7 +116,7 @@ var _ = Describe(testName, func() {
 			json = "jsonpath={.spec.size}"
 			k = kubectl.Get(dcResource).
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "3", 20)
+			ns.WaitForOutputAndLog(step, k, "5", 20)
 
 			step = "checking that no dc pods remain"
 			json = "jsonpath={.items}"
@@ -99,13 +125,8 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "[]", 300)
 
-			step = "unparking the dc"
-			json = "{\"spec\": {\"parked\": false}}"
-			k = kubectl.PatchMerge(dcResource, json)
-			ns.ExecAndLog(step, k)
-
-			step = "scale up to 4 nodes"
-			json = "{\"spec\": {\"size\": 4}}"
+			step = "resume the dc"
+			json = "{\"spec\": {\"stopped\": false}}"
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
@@ -115,7 +136,7 @@ var _ = Describe(testName, func() {
 				WithLabel(dcLabel).
 				WithFlag("field-selector", "status.phase=Running").
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true true true true", 1200)
+			ns.WaitForOutputAndLog(step, k, "true true true true true", 1200)
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)

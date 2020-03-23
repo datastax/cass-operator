@@ -55,12 +55,6 @@ spec:
               description: Container image for the config builder init container,
                 with host, path, and tag
               type: string
-            imageVersion:
-              description: version number
-              enum:
-              - 6.8.0
-              - 3.11.6
-              type: string
             managementApiAuth:
               description: Config for the Management API certificates
               properties:
@@ -79,12 +73,6 @@ spec:
                   - serverSecretName
                   type: object
               type: object
-            parked:
-              description: Indicates no server instances should run, like powering
-                down bare metal servers. Volume resources will be left intact in Kubernetes
-                and re-attached when the cluster is unparked. This is an experimental
-                feature that requires that pod ip addresses do not change on restart.
-              type: boolean
             racks:
               description: A list of the named racks in the datacenter, representing
                 independent failure domains. The number of racks should match the
@@ -131,6 +119,12 @@ spec:
               - cassandra
               - dse
               type: string
+            serverVersion:
+              description: Version number
+              enum:
+              - 6.8.0
+              - 3.11.6
+              type: string
             serviceAccount:
               description: The k8s service account to use for the server pods
               type: string
@@ -139,6 +133,12 @@ spec:
               format: int32
               minimum: 1
               type: integer
+            stopped:
+              description: A stopped CassandraDatacenter will have no running server
+                pods, like using "stop" with traditional System V init scripts. Other
+                Kubernetes resources will be left intact, and volumes will re-attach
+                when the CassandraDatacenter workload is resumed.
+              type: boolean
             storageConfig:
               description: Describes the persistent storage request of each server
                 node
@@ -265,8 +265,8 @@ spec:
               type: string
           required:
           - clusterName
-          - imageVersion
           - serverType
+          - serverVersion
           - size
           - storageConfig
           type: object
@@ -289,8 +289,8 @@ spec:
           type: object
       type: object
       x-kubernetes-preserve-unknown-fields: true
-  version: v1alpha2
+  version: v1beta1
   versions:
-  - name: v1alpha2
+  - name: v1beta1
     served: true
     storage: true

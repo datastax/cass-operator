@@ -1,4 +1,4 @@
-apiVersion: cassandra.datastax.com/v1alpha2
+apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
 metadata:
   name: dtcntr
@@ -6,7 +6,7 @@ spec:
   clusterName: clstr
   serverType: "dse"
   serverImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-master-20190923204409-d9e0344
-  imageVersion: 6.8.0
+  serverVersion: 6.8.0
   size: 2
   resources:
     requests:

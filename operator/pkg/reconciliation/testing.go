@@ -24,7 +24,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	log2 "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/mocks"
 )
@@ -79,7 +79,7 @@ func CreateMockReconciliationContext(
 			Size:          size,
 			ClusterName:   clusterName,
 			ServerType:    "dse",
-			ImageVersion:  "6.8.0",
+			ServerVersion: "6.8.0",
 			StorageConfig: storageConfig,
 		},
 	}

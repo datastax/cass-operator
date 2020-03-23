@@ -1,4 +1,4 @@
-apiVersion: cassandra.datastax.com/v1alpha2
+apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
 metadata:
   name: example-cassandradatacenter

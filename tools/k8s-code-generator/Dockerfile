@@ -53,5 +53,5 @@ RUN chmod -R 777 /.cache
 #   client \
 #   github.com/riptano/dse-operator/operator/pkg/generated \
 #   github.com/riptano/dse-operator/operator/pkg/apis \
-#   datastax:v1alpha1
+#   cassandra:v1beta1
 ENTRYPOINT ["/go/src/k8s.io/code-generator/generate-groups.sh"]

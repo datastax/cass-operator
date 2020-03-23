@@ -5,7 +5,7 @@ package reconciliation
 import (
 	"fmt"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/oplabels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -120,7 +120,7 @@ func newStatefulSetForCassandraDatacenter(
 
 	statefulSetSelectorLabels := dc.GetRackLabels(rackName)
 
-	imageVersion := dc.Spec.ImageVersion
+	serverVersion := dc.Spec.ServerVersion
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 	var serverVolumeMounts []corev1.VolumeMount
 	initContainerImage := dc.GetConfigBuilderImage()
@@ -238,7 +238,7 @@ func newStatefulSetForCassandraDatacenter(
 					},
 					{
 						Name:  "PRODUCT_VERSION",
-						Value: imageVersion,
+						Value: serverVersion,
 					},
 					{
 						Name:  "PRODUCT_NAME",
@@ -247,7 +247,7 @@ func newStatefulSetForCassandraDatacenter(
 					// TODO remove this post 1.0
 					{
 						Name:  "DSE_VERSION",
-						Value: imageVersion,
+						Value: serverVersion,
 					},
 				},
 			}},

@@ -1,7 +1,7 @@
 package cassandradatacenter
 
 import (
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1alpha2"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
 
 	"github.com/riptano/dse-operator/operator/pkg/oplabels"
 
