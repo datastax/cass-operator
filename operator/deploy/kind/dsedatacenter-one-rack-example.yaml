@@ -4,8 +4,8 @@ metadata:
   name: dtcntr
 spec:
   clusterName: clstr
-  serverImage: datastaxlabs/apache-cassandra-with-mgmtapi:3.11.6-20200316
-  imageVersion: 3.11.6
+  serverImage: datastaxlabs/dse-k8s-server:6.8.0-20200316
+  imageVersion: 6.8.0
   serverType: cassandra
   managementApiAuth:
     insecure: {}

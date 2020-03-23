@@ -114,10 +114,10 @@ func RunIntegTests() {
 	mageutil.PanicOnError(err)
 }
 
-// Stand up a example Kind cluster.
-//
-// Loads all necessary resources to get
-// a running DseDatacenter and operator
+// Perform all the steps to stand up an example Kind cluster,
+// except for applying the final cassandra yaml specification.
+// This must either be applied manually or by calling SetupCassandraCluster
+// or SetupDCECluster
 func SetupExampleCluster() {
 	mg.Deps(SetupEmptyCluster)
 	settings := cfgutil.ReadBuildSettings()
@@ -133,11 +133,30 @@ func SetupExampleCluster() {
 		"operator/deploy/service_account.yaml",
 		"operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
 		"operator/deploy/operator.yaml",
+	).ExecVPanic()
+}
+
+// Stand up an example kind cluster running Apache Cassandra
+// Loads all necessary resources to get a running Apache Cassandra data center and operator
+func SetupCassandraCluster() {
+	mg.Deps(SetupExampleCluster)
+	kubectl.ApplyFiles(
 		"operator/deploy/kind/cassandradatacenter-one-rack-example.yaml",
 	).ExecVPanic()
 	kubectl.WatchPods()
 }
 
+// Stand up an example kind cluster running DSE 6.8
+// Loads all necessary resources to get a running DCE data center and operator
+func SetupDSECluster() {
+	mg.Deps(SetupExampleCluster)
+	kubectl.ApplyFiles(
+		"operator/deploy/kind/dsedatacenter-one-rack-example.yaml",
+	).ExecVPanic()
+	kubectl.WatchPods()
+}
+
+// Delete a running cluster
 func DeleteCluster() {
 	err := deleteCluster()
 	mageutil.PanicOnError(err)
