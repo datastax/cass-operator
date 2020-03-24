@@ -6,7 +6,7 @@ spec:
   clusterName: clstr
   serverImage: datastaxlabs/dse-k8s-server:6.8.0-20200316
   serverVersion: 6.8.0
-  serverType: cassandra
+  serverType: dse
   managementApiAuth:
     insecure: {}
   configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.9.0-20200316
