@@ -43,7 +43,10 @@ func GetPodHost(podName, clusterName, dcName, namespace string) string {
 
 // Create a new superuser with the given username and password
 func (client *NodeMgmtClient) CallCreateRoleEndpoint(pod *corev1.Pod, username string, password string) error {
-	client.Log.Info("client::callCreateRoleEndpoint")
+	client.Log.Info(
+		"calling Management API create role - POST /api/v0/ops/auth/role",
+		"pod", pod.Name,
+	)
 
 	postData := url.Values{}
 	postData.Set("username", username)
@@ -64,13 +67,31 @@ func (client *NodeMgmtClient) CallCreateRoleEndpoint(pod *corev1.Pod, username s
 }
 
 func (client *NodeMgmtClient) CallProbeClusterEndpoint(pod *corev1.Pod, consistencyLevel string, rfPerDc int) error {
-	client.Log.Info("requesting Cluster Health status from Node Management API",
-		"pod", pod.Name)
+	client.Log.Info(
+		"calling Management API cluster health - GET /api/v0/probes/cluster",
+		"pod", pod.Name,
+	)
 
 	request := nodeMgmtRequest{
 		endpoint: fmt.Sprintf("/api/v0/probes/cluster?consistency_level=%s&rf_per_dc=%d", consistencyLevel, rfPerDc),
 		host:     BuildPodHostFromPod(pod),
 		method:   http.MethodGet,
+	}
+
+	return callNodeMgmtEndpoint(client, request)
+}
+
+func (client *NodeMgmtClient) CallDrainEndpoint(pod *corev1.Pod) error {
+	client.Log.Info(
+		"calling Management API drain node - POST /api/v0/ops/node/drain",
+		"pod", pod.Name,
+	)
+
+	request := nodeMgmtRequest{
+		endpoint: "/api/v0/ops/node/drain",
+		host:     BuildPodHostFromPod(pod),
+		method:   http.MethodPost,
+		timeout:  time.Minute * 2,
 	}
 
 	return callNodeMgmtEndpoint(client, request)
@@ -82,7 +103,7 @@ func (client *NodeMgmtClient) CallLifecycleStartEndpoint(pod *corev1.Pod) error 
 	podIP := pod.Status.PodIP
 
 	client.Log.Info(
-		"calling /api/v0/lifecycle/start on Node Management API",
+		"calling Management API start node - POST /api/v0/lifecycle/start",
 		"pod", pod.Name,
 		"podIP", podIP,
 	)
@@ -98,8 +119,10 @@ func (client *NodeMgmtClient) CallLifecycleStartEndpoint(pod *corev1.Pod) error 
 }
 
 func (client *NodeMgmtClient) CallReloadSeedsEndpoint(pod *corev1.Pod) error {
-	client.Log.Info("reloading seeds for pod from Node Management API",
-		"pod", pod.Name)
+	client.Log.Info(
+		"calling Management API reload seeds - POST /api/v0/ops/seeds/reload",
+		"pod", pod.Name,
+	)
 
 	request := nodeMgmtRequest{
 		endpoint: "/api/v0/ops/seeds/reload",

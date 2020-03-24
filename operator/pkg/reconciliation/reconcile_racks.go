@@ -266,7 +266,7 @@ func (rc *ReconciliationContext) CheckRackLabels() result.ReconcileResult {
 }
 
 func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult {
-	rc.ReqLogger.Info("reconcile_racks::CheckRackStoppedState")
+	logger := rc.ReqLogger
 
 	racksUpdated := false
 	for idx := range rc.desiredRackInformation {
@@ -276,29 +276,44 @@ func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult 
 		stopped := rc.Datacenter.Spec.Stopped
 		currentPodCount := *statefulSet.Spec.Replicas
 
-		var desiredNodeCount int32
-		if stopped {
-			// rackInfo.NodeCount should be passed in as zero for stopped clusters
-			desiredNodeCount = int32(rackInfo.NodeCount)
-		} else if currentPodCount > 1 {
-			// already gone through the first round of scaling seed nodes, now lets add the rest of the nodes
-			desiredNodeCount = int32(rackInfo.NodeCount)
-		} else {
-			// not stopped and we just want to get our first seed up fully
-			desiredNodeCount = int32(1)
-		}
-
 		if stopped && currentPodCount > 0 {
-			rc.ReqLogger.Info(
+			logger.Info(
 				"CassandraDatacenter is stopped, setting rack to zero replicas",
-				"Rack", rackInfo.RackName,
+				"rack", rackInfo.RackName,
 				"currentSize", currentPodCount,
-				"desiredSize", desiredNodeCount,
 			)
 
-			// TODO we should call a more graceful stop node command here
+			podList, err := listPods(rc, rc.Datacenter.GetRackLabels(rackInfo.RackName))
+			if err != nil {
+				return result.Error(err)
+			}
 
-			err := rc.UpdateRackNodeCount(statefulSet, desiredNodeCount)
+			nodesDrained := 0
+			nodeDrainErrors := 0
+
+			for _, pod := range podList.Items {
+				podPtr := &pod
+				if isMgmtApiRunning(podPtr) {
+					nodesDrained++
+					err := rc.NodeMgmtClient.CallDrainEndpoint(&pod)
+					// if we got an error during drain, just log it and count it
+					// and then keep going, because we don't want to try restarting
+					// the server just to bring it down
+					if err != nil {
+						logger.Error(err, "error during node drain",
+							"pod", pod.Name)
+						nodeDrainErrors++
+					}
+				}
+			}
+
+			logger.Info("rack drains done",
+				"rack", rackInfo.RackName,
+				"nodesDrained", nodesDrained,
+				"nodeDrainErrors", nodeDrainErrors,
+			)
+
+			err = rc.UpdateRackNodeCount(statefulSet, 0)
 			if err != nil {
 				return result.Error(err)
 			}
