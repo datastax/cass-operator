@@ -108,7 +108,7 @@ func newStatefulSetForCassandraDatacenter(
 
 	podLabels := dc.GetRackLabels(rackName)
 	oplabels.AddManagedByLabel(podLabels)
-	podLabels[api.CassNodeState] = "Ready-to-Start"
+	podLabels[api.CassNodeState] = stateReadyToStart
 
 	// see https://github.com/kubernetes/kubernetes/pull/74941
 	// pvc labels are ignored before k8s 1.15.0

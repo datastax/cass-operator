@@ -18,6 +18,7 @@ import (
 
 	"github.com/riptano/dse-operator/operator/internal/result"
 	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/oplabels"
 	"github.com/riptano/dse-operator/operator/pkg/utils"
 )
@@ -27,6 +28,13 @@ var (
 	ResultShouldRequeueNow     reconcile.Result = reconcile.Result{Requeue: true}
 	ResultShouldRequeueSoon    reconcile.Result = reconcile.Result{Requeue: true, RequeueAfter: 2 * time.Second}
 	ResultShouldRequeueTenSecs reconcile.Result = reconcile.Result{Requeue: true, RequeueAfter: 10 * time.Second}
+)
+
+const (
+	stateReadyToStart    = "Ready-to-Start"
+	stateStartedNotReady = "Started-not-Ready"
+	stateStarted         = "Started"
+	stateStarting        = "Starting"
 )
 
 // CalculateRackInformation determine how many nodes per rack are needed
@@ -362,7 +370,27 @@ func (rc *ReconciliationContext) CheckPodsReady() result.ReconcileResult {
 		return result.Error(err)
 	}
 
-	// step 0 - get the nodes labelled as seeds before we start any nodes
+	// step 0 - see if any nodes lost their readiness
+	// or gained it back
+	nodeStartedNotReady, err := rc.findStartedNotReadyNodes(podList)
+	if err != nil {
+		return result.Error(err)
+	}
+	if nodeStartedNotReady {
+		return result.RequeueSoon(2)
+	}
+
+	// delete stuck nodes
+
+	deletedNode, err := rc.deleteStuckNodes(podList)
+	if err != nil {
+		return result.Error(err)
+	}
+	if deletedNode {
+		return result.Done()
+	}
+
+	// get the nodes labelled as seeds before we start any nodes
 
 	seedCount, err := rc.checkSeedLabels()
 	if err != nil {
@@ -395,20 +423,7 @@ func (rc *ReconciliationContext) CheckPodsReady() result.ReconcileResult {
 		return result.RequeueSoon(2)
 	}
 
-	// step 3 - see if any nodes lost their readiness
-	// or gained it back
-
-	nodeStartedNotReady, err := rc.findStartedNotReadyNodes(podList)
-
-	if err != nil {
-		return result.Error(err)
-	}
-	if nodeStartedNotReady {
-		return result.RequeueSoon(2)
-	}
-
-	// step 4 - get all nodes up
-
+	// step 3 - get all nodes up
 	// if the cluster isn't healthy, that's ok, but go back to step 1
 	if !isClusterHealthy(rc) {
 		rc.ReqLogger.Info(
@@ -611,11 +626,115 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	return result.Done().Output()
 }
 
+func hasBeenXMinutes(x int, sinceTime time.Time) bool {
+	xMinutesAgo := time.Now().Add(time.Minute * time.Duration(-x))
+	return sinceTime.Before(xMinutesAgo)
+}
+
+func hasBeenXMinutesSinceReady(x int, pod *corev1.Pod) bool {
+	for _, c := range pod.Status.Conditions {
+		if c.Type == "Ready" && c.Status == "False" {
+			return hasBeenXMinutes(x, c.LastTransitionTime.Time)
+		}
+	}
+	return false
+}
+
+func hasBeenXMinutesSinceStarted(x int, pod *corev1.Pod) bool {
+	if status := getCassContainerStatus(pod); status != nil {
+		running := status.State.Running
+		if running != nil {
+			return hasBeenXMinutes(x, running.StartedAt.Time)
+		}
+	}
+	return false
+}
+
+func hasBeenXMinutesSinceTerminated(x int, pod *corev1.Pod) bool {
+	if status := getCassContainerStatus(pod); status != nil {
+		lastState := status.LastTerminationState
+		if lastState.Terminated != nil {
+			return hasBeenXMinutes(x, lastState.Terminated.FinishedAt.Time)
+		}
+	}
+	return false
+}
+
+func getCassContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
+	for _, status := range pod.Status.ContainerStatuses {
+		if status.Name != "cassandra" {
+			continue
+		}
+		return &status
+	}
+	return nil
+}
+
+func isNodeStuckAfterTerminating(pod *corev1.Pod) bool {
+	if isServerReady(pod) || isServerReadyToStart(pod) {
+		return false
+	}
+
+	return hasBeenXMinutesSinceTerminated(10, pod)
+}
+
+func isNodeStuckAfterLosingReadiness(pod *corev1.Pod) bool {
+	if !isServerStartedNotReady(pod) || isServerReadyToStart(pod) {
+		return false
+	}
+	return hasBeenXMinutesSinceReady(10, pod)
+}
+
+func (rc *ReconciliationContext) getCassMetadataEndpoints(podList *corev1.PodList) map[string]httphelper.EndpointState {
+	var endpoints = make(map[string]httphelper.EndpointState)
+	for _, pod := range podList.Items {
+		// Try to query the first ready pod we find.
+		// We won't get any endpoints back if no pods are ready yet.
+		if !isServerReady(&pod) {
+			continue
+		}
+
+		result, _ := rc.NodeMgmtClient.CallNodeMetadataEndpointsEndpoint(&pod)
+		if len(result.Entity) == 0 {
+			continue
+		}
+
+		for _, ep := range result.Entity {
+			endpoints[ep.GetRpcAddress()] = ep
+		}
+		break
+	}
+
+	return endpoints
+}
+
+func (rc *ReconciliationContext) deleteStuckNodes(podList *corev1.PodList) (bool, error) {
+	rc.ReqLogger.Info("reconcile_racks::deleteStuckNodes")
+	for _, pod := range podList.Items {
+		shouldDelete := false
+		reason := ""
+		if isNodeStuckAfterTerminating(&pod) {
+			reason = "Pod got stuck after Cassandra container terminated"
+			shouldDelete = true
+		} else if isNodeStuckAfterLosingReadiness(&pod) {
+			reason = "Pod got stuck after losing readiness"
+			shouldDelete = true
+		}
+
+		if shouldDelete {
+			rc.ReqLogger.Info(fmt.Sprintf("Deleting stuck pod: %s. Reason: %s", pod.Name, reason))
+			return true, rc.Client.Delete(rc.Ctx, &pod)
+		}
+	}
+
+	return false, nil
+}
+
 func isClusterHealthy(rc *ReconciliationContext) bool {
 	selector := map[string]string{
 		api.ClusterLabel: rc.Datacenter.Spec.ClusterName,
 		// FIXME make a enum, pods should start in an Init state
-		api.CassNodeState: "Started",
+		api.CassNodeState: stateStarted,
 	}
 	podList, err := listPods(rc, selector)
 	if err != nil {
@@ -989,7 +1108,7 @@ func (rc *ReconciliationContext) labelServerPodStarting(pod *corev1.Pod) error {
 	ctx := rc.Ctx
 	dc := rc.Datacenter
 	podPatch := client.MergeFrom(pod.DeepCopy())
-	pod.Labels[api.CassNodeState] = "Starting"
+	pod.Labels[api.CassNodeState] = stateStarting
 	err := rc.Client.Patch(ctx, pod, podPatch)
 	if err != nil {
 		return err
@@ -1002,14 +1121,14 @@ func (rc *ReconciliationContext) labelServerPodStarting(pod *corev1.Pod) error {
 
 func (rc *ReconciliationContext) labelServerPodStarted(pod *corev1.Pod) error {
 	patch := client.MergeFrom(pod.DeepCopy())
-	pod.Labels[api.CassNodeState] = "Started"
+	pod.Labels[api.CassNodeState] = stateStarted
 	err := rc.Client.Patch(rc.Ctx, pod, patch)
 	return err
 }
 
 func (rc *ReconciliationContext) labelServerPodStartedNotReady(pod *corev1.Pod) error {
 	patch := client.MergeFrom(pod.DeepCopy())
-	pod.Labels[api.CassNodeState] = "Started-not-Ready"
+	pod.Labels[api.CassNodeState] = stateStartedNotReady
 	err := rc.Client.Patch(rc.Ctx, pod, patch)
 	return err
 }
@@ -1026,7 +1145,7 @@ func (rc *ReconciliationContext) findStartingNodes(podList *corev1.PodList) (boo
 
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
-		if pod.Labels[api.CassNodeState] == "Starting" {
+		if pod.Labels[api.CassNodeState] == stateStarting {
 			if isServerReady(pod) {
 				if err := rc.labelServerPodStarted(pod); err != nil {
 					return false, err
@@ -1051,15 +1170,15 @@ func (rc *ReconciliationContext) findStartedNotReadyNodes(podList *corev1.PodLis
 
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
-		if pod.Labels[api.CassNodeState] == "Started" {
-			if !isServerReady(pod) {
-				if err := rc.labelServerPodStartedNotReady(pod); err != nil {
-					return false, err
-				}
-				return true, nil
+
+		if didServerLoseReadiness(pod) {
+			if err := rc.labelServerPodStartedNotReady(pod); err != nil {
+				return false, err
 			}
+			return true, nil
 		}
-		if pod.Labels[api.CassNodeState] == "Started-not-Ready" {
+
+		if isServerStartedNotReady(pod) {
 			if isServerReady(pod) {
 				if err := rc.labelServerPodStarted(pod); err != nil {
 					return false, err
@@ -1106,7 +1225,7 @@ func (rc *ReconciliationContext) startOneNodePerRack(readySeeds int) (string, er
 		for idx := range podList.Items {
 			pod := &podList.Items[idx]
 			mgmtApiUp := isMgmtApiRunning(pod)
-			if !mgmtApiUp {
+			if !isServerReadyToStart(pod) || !mgmtApiUp {
 				continue
 			}
 			podRack := pod.Labels[api.RackLabel]
@@ -1215,12 +1334,27 @@ func isMgmtApiRunning(pod *corev1.Pod) bool {
 }
 
 func isServerStarting(pod *corev1.Pod) bool {
-	return pod.Labels[api.CassNodeState] == "Starting"
+	return pod.Labels[api.CassNodeState] == stateStarting
 }
 
 func isServerStarted(pod *corev1.Pod) bool {
-	return pod.Labels[api.CassNodeState] == "Started" ||
-		pod.Labels[api.CassNodeState] == "Started-not-Ready"
+	return pod.Labels[api.CassNodeState] == stateStarted ||
+		pod.Labels[api.CassNodeState] == stateStartedNotReady
+}
+
+func isServerStartedNotReady(pod *corev1.Pod) bool {
+	return pod.Labels[api.CassNodeState] == stateStartedNotReady
+}
+
+func isServerReadyToStart(pod *corev1.Pod) bool {
+	return pod.Labels[api.CassNodeState] == stateReadyToStart
+}
+
+func didServerLoseReadiness(pod *corev1.Pod) bool {
+	if pod.Labels[api.CassNodeState] == stateStarted {
+		return !isServerReady(pod)
+	}
+	return false
 }
 
 func isServerReady(pod *corev1.Pod) bool {
@@ -1243,7 +1377,7 @@ func refreshSeeds(rc *ReconciliationContext) error {
 	}
 
 	selector := rc.Datacenter.GetClusterLabels()
-	selector[api.CassNodeState] = "Started"
+	selector[api.CassNodeState] = stateStarted
 
 	podList, err := listPods(rc, selector)
 	if err != nil {

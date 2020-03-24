@@ -2,6 +2,7 @@ package httphelper
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -27,6 +28,25 @@ type nodeMgmtRequest struct {
 	timeout  time.Duration
 }
 
+type EndpointState struct {
+	HostID                 string `json:"HOST_ID"`
+	IsAlive                string `json:"IS_ALIVE"`
+	NativeTransportAddress string `json:"NATIVE_TRANSPORT_ADDRESS"`
+	RpcAddress             string `json:"RPC_ADDRESS"`
+}
+
+func (x *EndpointState) GetRpcAddress() string {
+	if x.NativeTransportAddress != "" {
+		return x.NativeTransportAddress
+	} else {
+		return x.RpcAddress
+	}
+}
+
+type CassMetadataEndpoints struct {
+	Entity []EndpointState `json:"entity"`
+}
+
 func BuildPodHostFromPod(pod *corev1.Pod) string {
 	return GetPodHost(
 		pod.Name,
@@ -39,6 +59,28 @@ func GetPodHost(podName, clusterName, dcName, namespace string) string {
 	nodeServicePattern := "%s.%s-%s-service.%s"
 
 	return fmt.Sprintf(nodeServicePattern, podName, clusterName, dcName, namespace)
+}
+
+func (client *NodeMgmtClient) CallNodeMetadataEndpointsEndpoint(pod *corev1.Pod) (CassMetadataEndpoints, error) {
+	client.Log.Info("requesting Cassandra metadata endpoints from Node Management API", "pod", pod.Name)
+
+	request := nodeMgmtRequest{
+		endpoint: "/api/v0/metadata/endpoints",
+		host:     BuildPodHostFromPod(pod),
+		method:   http.MethodGet,
+	}
+
+	bytes, err := callNodeMgmtEndpoint(client, request)
+	if err != nil {
+		return CassMetadataEndpoints{}, err
+
+	}
+	var endpoints CassMetadataEndpoints
+	if err := json.Unmarshal(bytes, &endpoints); err != nil {
+		return CassMetadataEndpoints{}, err
+	}
+
+	return endpoints, err
 }
 
 // Create a new superuser with the given username and password
@@ -59,11 +101,8 @@ func (client *NodeMgmtClient) CallCreateRoleEndpoint(pod *corev1.Pod, username s
 		host:     BuildPodHostFromPod(pod),
 		method:   http.MethodPost,
 	}
-	if err := callNodeMgmtEndpoint(client, request); err != nil {
-		return err
-	}
-
-	return nil
+	_, err := callNodeMgmtEndpoint(client, request)
+	return err
 }
 
 func (client *NodeMgmtClient) CallProbeClusterEndpoint(pod *corev1.Pod, consistencyLevel string, rfPerDc int) error {
@@ -78,7 +117,8 @@ func (client *NodeMgmtClient) CallProbeClusterEndpoint(pod *corev1.Pod, consiste
 		method:   http.MethodGet,
 	}
 
-	return callNodeMgmtEndpoint(client, request)
+	_, err := callNodeMgmtEndpoint(client, request)
+	return err
 }
 
 func (client *NodeMgmtClient) CallDrainEndpoint(pod *corev1.Pod) error {
@@ -115,7 +155,8 @@ func (client *NodeMgmtClient) CallLifecycleStartEndpoint(pod *corev1.Pod) error 
 		timeout:  10 * time.Second,
 	}
 
-	return callNodeMgmtEndpoint(client, request)
+	_, err := callNodeMgmtEndpoint(client, request)
+	return err
 }
 
 func (client *NodeMgmtClient) CallReloadSeedsEndpoint(pod *corev1.Pod) error {
@@ -129,18 +170,18 @@ func (client *NodeMgmtClient) CallReloadSeedsEndpoint(pod *corev1.Pod) error {
 		host:     BuildPodHostFromPod(pod),
 		method:   http.MethodPost,
 	}
-
-	return callNodeMgmtEndpoint(client, request)
+	_, err := callNodeMgmtEndpoint(client, request)
+	return err
 }
 
-func callNodeMgmtEndpoint(client *NodeMgmtClient, request nodeMgmtRequest) error {
+func callNodeMgmtEndpoint(client *NodeMgmtClient, request nodeMgmtRequest) ([]byte, error) {
 	client.Log.Info("client::callNodeMgmtEndpoint")
 
 	url := fmt.Sprintf("%s://%s:8080%s", client.Protocol, request.host, request.endpoint)
 	req, err := http.NewRequest(request.method, url, nil)
 	if err != nil {
 		client.Log.Error(err, "unable to create request for Node Management Endpoint")
-		return err
+		return nil, err
 	}
 	req.Close = true
 
@@ -157,7 +198,7 @@ func callNodeMgmtEndpoint(client *NodeMgmtClient, request nodeMgmtRequest) error
 	res, err := client.Client.Do(req)
 	if err != nil {
 		client.Log.Error(err, "unable to perform request to Node Management Endpoint")
-		return err
+		return nil, err
 	}
 
 	defer func() {
@@ -167,10 +208,10 @@ func callNodeMgmtEndpoint(client *NodeMgmtClient, request nodeMgmtRequest) error
 		}
 	}()
 
-	_, err = ioutil.ReadAll(res.Body)
+	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		client.Log.Error(err, "Unable to read response from Node Management Endpoint")
-		return err
+		return nil, err
 	}
 
 	goodStatus := res.StatusCode >= 200 && res.StatusCode < 300
@@ -179,8 +220,8 @@ func callNodeMgmtEndpoint(client *NodeMgmtClient, request nodeMgmtRequest) error
 			"statusCode", res.StatusCode,
 			"pod", request.host)
 
-		return fmt.Errorf("incorrect status code of %d when calling endpoint", res.StatusCode)
+		return nil, fmt.Errorf("incorrect status code of %d when calling endpoint", res.StatusCode)
 	}
 
-	return nil
+	return body, nil
 }

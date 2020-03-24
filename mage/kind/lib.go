@@ -16,7 +16,8 @@ import (
 )
 
 const (
-	operatorImage = "datastax/dse-operator:latest"
+	operatorImage    = "datastax/dse-operator:latest"
+	envLoadDevImages = "M_LOAD_DEV_IMAGES"
 )
 
 func deleteCluster() error {
@@ -54,6 +55,19 @@ func loadImage(image string) {
 	shutil.RunVPanic("kind", "load", "docker-image", image)
 }
 
+func loadImagesFromBuildSettings() {
+	settings := cfgutil.ReadBuildSettings()
+	//TODO: cass image will get put into build settings
+	// once the dev image section gets more generalized
+	cass311 := "datastaxlabs/apache-cassandra-with-mgmtapi:3.11.6-20200316"
+	shutil.RunVPanic("docker", "pull", settings.Dev.DseImage)
+	shutil.RunVPanic("docker", "pull", settings.Dev.ConfigBuilderImage)
+	shutil.RunVPanic("docker", "pull", cass311)
+	loadImage(settings.Dev.DseImage)
+	loadImage(settings.Dev.ConfigBuilderImage)
+	loadImage(cass311)
+}
+
 // Currently there is no concept of "global tool install"
 // with the go cli. With the new module system, your project's
 // go.mod and go.sum files will be updated with new dependencies
@@ -89,10 +103,21 @@ func ReloadOperator() {
 //
 // This will also configure kubectl to point
 // at the new cluster.
+//
+// Set M_LOAD_DEV_IMAGES to "true" to pull and
+// load the dev images listed in buildsettings.yaml
+// into the kind cluster.
 func SetupEmptyCluster() {
 	deleteCluster()
 	createCluster()
 	kubectl.ClusterInfoForContext("kind-kind").ExecVPanic()
+
+	loadDevImages := os.Getenv(envLoadDevImages)
+	if strings.ToLower(loadDevImages) == "true" {
+		fmt.Println("Pulling and loading images from buildsettings.yaml")
+		loadImagesFromBuildSettings()
+	}
+
 	kubectl.ApplyFiles("operator/deploy/kind/rancher-local-path-storage.yaml").
 		ExecVPanic()
 	//TODO make this part optional

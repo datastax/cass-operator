@@ -26,12 +26,16 @@ type KCmd struct {
 // Execute KCmd by running kubectl
 //==============================================
 func (k KCmd) ToCliArgs() []string {
-	args := []string{k.Command}
-	for _, r := range k.Args {
-		args = append(args, r)
-	}
+	var args []string
+	// Write out flags first because we don't know
+	// if the command args will have a -- in them or not
+	// and prevent our flags from working.
 	for k, v := range k.Flags {
 		args = append(args, fmt.Sprintf("--%s=%s", k, v))
+	}
+	args = append(args, k.Command)
+	for _, r := range k.Args {
+		args = append(args, r)
 	}
 	return args
 }
@@ -223,4 +227,10 @@ func DumpLogs(path string, namespace string) KCmd {
 	args := []string{"dump", "-n", namespace}
 	flags := map[string]string{"output-directory": path}
 	return KCmd{Command: "cluster-info", Args: args, Flags: flags}
+}
+
+func ExecOnPod(podName string, args ...string) KCmd {
+	execArgs := []string{podName}
+	execArgs = append(execArgs, args...)
+	return KCmd{Command: "exec", Args: execArgs}
 }
