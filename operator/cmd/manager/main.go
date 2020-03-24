@@ -22,6 +22,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
+	controllerRuntime "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/operator-framework/operator-sdk/pkg/ready"
 	"github.com/riptano/dse-operator/operator/pkg/apis"
+	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/riptano/dse-operator/operator/pkg/controller"
 )
 
@@ -123,6 +125,12 @@ func main() {
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Error(err, "could not add to manager")
+		os.Exit(1)
+	}
+
+	err = controllerRuntime.NewWebhookManagedBy(mgr).For(&api.CassandraDatacenter{}).Complete()
+	if err != nil {
+		log.Error(err, "unable to create validating webhook for CassandraDatacenter")
 		os.Exit(1)
 	}
 

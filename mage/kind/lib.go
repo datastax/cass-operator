@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/magefile/mage/mg"
 	cfgutil "github.com/riptano/dse-operator/mage/config"
@@ -16,8 +17,9 @@ import (
 )
 
 const (
-	operatorImage    = "datastax/dse-operator:latest"
-	envLoadDevImages = "M_LOAD_DEV_IMAGES"
+	operatorImage              = "datastax/dse-operator:latest"
+	operatorInitContainerImage = "datastax/cass-operator-initcontainer:latest"
+	envLoadDevImages           = "M_LOAD_DEV_IMAGES"
 )
 
 func deleteCluster() error {
@@ -122,6 +124,7 @@ func SetupEmptyCluster() {
 		ExecVPanic()
 	//TODO make this part optional
 	operator.BuildDocker()
+	loadImage(operatorInitContainerImage)
 	loadImage(operatorImage)
 }
 
@@ -149,16 +152,23 @@ func SetupExampleCluster() {
 	loadImage(settings.Dev.DseImage)
 	loadImage(settings.Dev.ConfigBuilderImage)
 	operator.BuildDocker()
+	loadImage(operatorInitContainerImage)
 	loadImage(operatorImage)
 	kubectl.CreateSecretLiteral("cassandra-superuser-secret", "devuser", "devpass").ExecVPanic()
 	kubectl.ApplyFiles(
 		"operator/deploy/kind/rancher-local-path-storage.yaml",
 		"operator/deploy/role.yaml",
 		"operator/deploy/role_binding.yaml",
+		"operator/deploy/cluster_role.yaml",
+		"operator/deploy/cluster_role_binding.yaml",
 		"operator/deploy/service_account.yaml",
 		"operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
 		"operator/deploy/operator.yaml",
 	).ExecVPanic()
+
+	// Wait for 15 seconds for the operator to come up
+	// because the apiserver will call the webhook too soon and fail if we do not wait
+	time.Sleep(time.Second * 15)
 }
 
 // Stand up an example kind cluster running Apache Cassandra

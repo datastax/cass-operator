@@ -134,7 +134,8 @@ func (client *NodeMgmtClient) CallDrainEndpoint(pod *corev1.Pod) error {
 		timeout:  time.Minute * 2,
 	}
 
-	return callNodeMgmtEndpoint(client, request)
+	_, err := callNodeMgmtEndpoint(client, request)
+	return err
 }
 
 func (client *NodeMgmtClient) CallLifecycleStartEndpoint(pod *corev1.Pod) error {

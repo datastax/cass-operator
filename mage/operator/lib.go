@@ -330,6 +330,18 @@ func calcFullVersion(settings cfgutil.BuildSettings, git GitData) FullVersion {
 	}
 }
 
+func runInitContainerDockerBuild(version FullVersion) {
+	fmt.Println("- Building operator init container docker image")
+	versionedTag := fmt.Sprintf("datastax/cass-operator-initcontainer:%v", version)
+	tagsToPush := []string{
+		versionedTag,
+		fmt.Sprintf("datastax/cass-operator-initcontainer:%s", version.Hash),
+	}
+	tags := append(tagsToPush, "datastax/cass-operator-initcontainer:latest")
+	buildArgs := []string{fmt.Sprintf("VERSION_STAMP=%s", versionedTag)}
+	dockerutil.Build("./tools/initcontainer", "", "", tags, buildArgs).ExecVPanic()
+}
+
 func runDockerBuild(version FullVersion) []string {
 	versionedTag := fmt.Sprintf("datastax/dse-operator:%v", version)
 	tagsToPush := []string{
@@ -403,6 +415,7 @@ func BuildDocker() {
 	settings := cfgutil.ReadBuildSettings()
 	git := getGitData()
 	version := calcFullVersion(settings, git)
+	runInitContainerDockerBuild(version)
 	tags := runDockerBuild(version)
 	// Write the versioned image tags to a file in our build
 	// directory so that other targets in the build process can identify
