@@ -197,6 +197,13 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref common.Refere
 							Format:      "",
 						},
 					},
+					"rollingRestartRequested": {
+						SchemaProps: spec.SchemaProps{
+							Description: "Whether to do a rolling restart at the next opportunity. The operator will set this back to false once the restart is in progress.",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
 				},
 				Required: []string{"size", "serverVersion", "serverType", "storageConfig", "clusterName"},
 			},
@@ -230,6 +237,11 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterStatus(ref common.Refe
 							Description: "Last known progress state of the Cassandra Operator",
 							Type:        []string{"string"},
 							Format:      "",
+						},
+					},
+					"lastRollingRestart": {
+						SchemaProps: spec.SchemaProps{
+							Ref: ref("k8s.io/apimachinery/pkg/apis/meta/v1.Time"),
 						},
 					},
 					"nodeStatuses": {

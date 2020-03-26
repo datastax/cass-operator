@@ -151,11 +151,12 @@ func (rc *ReconciliationContext) CheckRackCreation() result.ReconcileResult {
 
 func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 	logger := rc.ReqLogger
+	dc := rc.Datacenter
 	logger.Info("starting CheckRackPodTemplate()")
 
 	for idx := range rc.desiredRackInformation {
 		rackName := rc.desiredRackInformation[idx].RackName
-		if rc.Datacenter.Spec.CanaryUpgrade && idx > 0 {
+		if dc.Spec.CanaryUpgrade && idx > 0 {
 			logger.
 				WithValues("rackName", rackName).
 				Info("Skipping rack because CanaryUpgrade is turned on")
@@ -165,7 +166,7 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 
 		// have to use zero here, because each statefulset is created with no replicas
 		// in GetStatefulSetForRack()
-		desiredSts, err := newStatefulSetForCassandraDatacenter(rackName, rc.Datacenter, 0)
+		desiredSts, err := newStatefulSetForCassandraDatacenter(rackName, dc, 0)
 		if err != nil {
 			logger.Error(err, "error calling newStatefulSetForCassandraDatacenter")
 			return result.Error(err)
@@ -782,6 +783,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	}
 
 	if recResult := rc.CheckPodsReady(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckRollingRestart(); recResult.Completed() {
 		return recResult.Output()
 	}
 
@@ -1691,4 +1696,55 @@ func listPods(rc *ReconciliationContext, selector map[string]string) (*corev1.Po
 	}
 
 	return podList, rc.Client.List(rc.Ctx, podList, listOptions)
+}
+
+func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
+	dc := rc.Datacenter
+	logger := rc.ReqLogger
+
+	if dc.Spec.RollingRestartRequested {
+		dcPatch := client.MergeFrom(dc.DeepCopy())
+		dc.Status.LastRollingRestart = metav1.Now()
+		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
+		if err != nil {
+			logger.Error(err, "error patching datacenter status for rolling restart")
+			return result.Error(err)
+		}
+
+		dcPatch = client.MergeFrom(dc.DeepCopy())
+		dc.Spec.RollingRestartRequested = false
+		err = rc.Client.Patch(rc.Ctx, dc, dcPatch)
+		if err != nil {
+			logger.Error(err, "error patching datacenter for rolling restart")
+			return result.Error(err)
+		}
+	}
+
+	pods, err := listPods(rc, dc.GetDatacenterLabels())
+	if err != nil {
+		return result.Error(err)
+	}
+
+	cutoff := &dc.Status.LastRollingRestart
+	for idx := range pods.Items {
+		pod := &pods.Items[idx]
+		podStartTime := pod.GetCreationTimestamp()
+		if podStartTime.Before(cutoff) {
+			// drain the node
+			err = rc.NodeMgmtClient.CallDrainEndpoint(pod)
+			if err != nil {
+				logger.Error(err, "error during drain during rolling restart",
+					"pod", pod.Name)
+			}
+			// get a fresh pod
+			// TODO should we keep the pod and cycle the DB with mgmt api?
+			err = rc.Client.Delete(rc.Ctx, pod)
+			if err != nil {
+				return result.Error(err)
+			}
+			return result.Done()
+		}
+	}
+
+	return result.Continue()
 }

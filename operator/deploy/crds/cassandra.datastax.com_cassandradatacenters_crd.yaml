@@ -115,6 +115,10 @@ spec:
                     value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                   type: object
               type: object
+            rollingRestartRequested:
+              description: Whether to do a rolling restart at the next opportunity.
+                The operator will set this back to false once the restart is in progress.
+              type: boolean
             serverImage:
               description: 'Server image name. More info: https://kubernetes.io/docs/concepts/containers/images'
               type: string
@@ -280,6 +284,9 @@ spec:
           properties:
             cassandraOperatorProgress:
               description: Last known progress state of the Cassandra Operator
+              type: string
+            lastRollingRestart:
+              format: date-time
               type: string
             lastServerNodeStarted:
               description: The timestamp when the operator last started a Server node

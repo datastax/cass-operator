@@ -9,7 +9,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/riptano/dse-operator/operator/pkg/httphelper"
@@ -20,7 +20,7 @@ import (
 // ReconciliationContext contains all of the input necessary to calculate a list of ReconciliationActions
 type ReconciliationContext struct {
 	Request        *reconcile.Request
-	Client         client.Client
+	Client         runtimeClient.Client
 	Scheme         *runtime.Scheme
 	Datacenter     *api.CassandraDatacenter
 	NodeMgmtClient httphelper.NodeMgmtClient
@@ -38,28 +38,28 @@ type ReconciliationContext struct {
 
 // CreateReconciliationContext gathers all information needed for computeReconciliationActions into a struct.
 func CreateReconciliationContext(
-	request *reconcile.Request,
-	client client.Client,
+	req *reconcile.Request,
+	cli runtimeClient.Client,
 	scheme *runtime.Scheme,
-	recorder record.EventRecorder,
-	ReqLogger logr.Logger) (*ReconciliationContext, error) {
+	rec record.EventRecorder,
+	reqLogger logr.Logger) (*ReconciliationContext, error) {
 
 	rc := &ReconciliationContext{}
-	rc.Request = request
-	rc.Client = client
+	rc.Request = req
+	rc.Client = cli
 	rc.Scheme = scheme
-	rc.Recorder = recorder
-	rc.ReqLogger = ReqLogger
+	rc.Recorder = rec
+	rc.ReqLogger = reqLogger
 	rc.Ctx = context.Background()
 
 	rc.ReqLogger = rc.ReqLogger.
-		WithValues("namespace", request.Namespace)
+		WithValues("namespace", req.Namespace)
 
 	rc.ReqLogger.Info("handler::CreateReconciliationContext")
 
 	// Fetch the datacenter resource
 	dc := &api.CassandraDatacenter{}
-	if err := retrieveDatacenter(rc, request, dc); err != nil {
+	if err := retrieveDatacenter(rc, req, dc); err != nil {
 		rc.ReqLogger.Error(err, "error in retrieveDatacenter")
 		return nil, err
 	}
@@ -73,7 +73,17 @@ func CreateReconciliationContext(
 		rc.Datacenter.Status.LastServerNodeStarted = metav1.Unix(1, 0)
 	}
 
-	httpClient, err := httphelper.BuildManagementApiHttpClient(dc, client, rc.Ctx)
+	if rc.Datacenter.Status.LastRollingRestart.IsZero() {
+		dcPatch := runtimeClient.MergeFrom(dc.DeepCopy())
+		dc.Status.LastRollingRestart = metav1.Now()
+		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
+		if err != nil {
+			rc.ReqLogger.Error(err, "error patching datacenter status for rolling restart")
+			return nil, err
+		}
+	}
+
+	httpClient, err := httphelper.BuildManagementApiHttpClient(dc, cli, rc.Ctx)
 	if err != nil {
 		rc.ReqLogger.Error(err, "error in BuildManagementApiHttpClient")
 		return nil, err

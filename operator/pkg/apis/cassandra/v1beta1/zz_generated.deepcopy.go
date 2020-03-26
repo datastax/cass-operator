@@ -111,6 +111,7 @@ func (in *CassandraDatacenterStatus) DeepCopyInto(out *CassandraDatacenterStatus
 	*out = *in
 	in.SuperUserUpserted.DeepCopyInto(&out.SuperUserUpserted)
 	in.LastServerNodeStarted.DeepCopyInto(&out.LastServerNodeStarted)
+	in.LastRollingRestart.DeepCopyInto(&out.LastRollingRestart)
 	if in.NodeStatuses != nil {
 		in, out := &in.NodeStatuses, &out.NodeStatuses
 		*out = make(CassandraStatusMap, len(*in))
