@@ -28,6 +28,19 @@ type nodeMgmtRequest struct {
 	timeout  time.Duration
 }
 
+func buildEndpoint(path string, queryParams ...string) string {
+	params := url.Values{}
+	for i := 0; i < len(queryParams) - 1; i = i + 2 {
+		params[queryParams[i]] = []string{queryParams[i+1]}
+	}
+
+	url := &url.URL{
+		Path: path,
+		RawQuery: params.Encode(),
+	}
+	return url.String()
+}
+
 type EndpointState struct {
 	HostID                 string `json:"HOST_ID"`
 	IsAlive                string `json:"IS_ALIVE"`
@@ -61,7 +74,15 @@ func GetPodHost(podName, clusterName, dcName, namespace string) string {
 	return fmt.Sprintf(nodeServicePattern, podName, clusterName, dcName, namespace)
 }
 
-func (client *NodeMgmtClient) CallNodeMetadataEndpointsEndpoint(pod *corev1.Pod) (CassMetadataEndpoints, error) {
+func parseMetadataEndpointsResponseBody(body []byte) (*CassMetadataEndpoints, error) {
+	endpoints := &CassMetadataEndpoints{}
+	if err := json.Unmarshal(body, &endpoints); err != nil {
+		return nil, err
+	}
+	return endpoints, nil
+}
+
+func (client *NodeMgmtClient) CallMetadataEndpointsEndpoint(pod *corev1.Pod) (CassMetadataEndpoints, error) {
 	client.Log.Info("requesting Cassandra metadata endpoints from Node Management API", "pod", pod.Name)
 
 	request := nodeMgmtRequest{
@@ -75,12 +96,13 @@ func (client *NodeMgmtClient) CallNodeMetadataEndpointsEndpoint(pod *corev1.Pod)
 		return CassMetadataEndpoints{}, err
 
 	}
-	var endpoints CassMetadataEndpoints
-	if err := json.Unmarshal(bytes, &endpoints); err != nil {
-		return CassMetadataEndpoints{}, err
-	}
 
-	return endpoints, err
+	endpoints, err := parseMetadataEndpointsResponseBody(bytes)
+	if err != nil {
+		return CassMetadataEndpoints{}, err
+	} else {
+		return *endpoints, nil
+	}
 }
 
 // Create a new superuser with the given username and password
@@ -138,7 +160,7 @@ func (client *NodeMgmtClient) CallDrainEndpoint(pod *corev1.Pod) error {
 	return err
 }
 
-func (client *NodeMgmtClient) CallLifecycleStartEndpoint(pod *corev1.Pod) error {
+func (client *NodeMgmtClient) CallLifecycleStartEndpointWithReplaceIp(pod *corev1.Pod, replaceIp string) error {
 	// talk to the pod via IP because we are dialing up a pod that isn't ready,
 	// so it won't be reachable via the service and pod DNS
 	podIP := pod.Status.PodIP
@@ -147,10 +169,17 @@ func (client *NodeMgmtClient) CallLifecycleStartEndpoint(pod *corev1.Pod) error 
 		"calling Management API start node - POST /api/v0/lifecycle/start",
 		"pod", pod.Name,
 		"podIP", podIP,
+		"replaceIP", replaceIp,
 	)
 
+	endpoint := "/api/v0/lifecycle/start"
+	
+	if replaceIp != "" {
+		endpoint = buildEndpoint(endpoint, "replace_ip", replaceIp)
+	}
+
 	request := nodeMgmtRequest{
-		endpoint: "/api/v0/lifecycle/start",
+		endpoint: endpoint,
 		host:     podIP,
 		method:   http.MethodPost,
 		timeout:  10 * time.Second,
@@ -158,6 +187,10 @@ func (client *NodeMgmtClient) CallLifecycleStartEndpoint(pod *corev1.Pod) error 
 
 	_, err := callNodeMgmtEndpoint(client, request)
 	return err
+}
+
+func (client *NodeMgmtClient) CallLifecycleStartEndpoint(pod *corev1.Pod) error {
+	return client.CallLifecycleStartEndpointWithReplaceIp(pod, "")
 }
 
 func (client *NodeMgmtClient) CallReloadSeedsEndpoint(pod *corev1.Pod) error {
@@ -171,6 +204,7 @@ func (client *NodeMgmtClient) CallReloadSeedsEndpoint(pod *corev1.Pod) error {
 		host:     BuildPodHostFromPod(pod),
 		method:   http.MethodPost,
 	}
+
 	_, err := callNodeMgmtEndpoint(client, request)
 	return err
 }

@@ -103,6 +103,9 @@ type CassandraDatacenterSpec struct {
 	// Describes the persistent storage request of each server node
 	StorageConfig StorageConfig `json:"storageConfig"`
 
+	// A list of pod names that need to be replaced.
+	ReplaceNodes []string `json:"replaceNodes,omitempty"`
+
 	// The name by which CQL clients and instances will know the cluster. If the same
 	// cluster name is shared by multiple Datacenters in the same Kubernetes namespace,
 	// they will join together in a multi-datacenter cluster.
@@ -156,6 +159,13 @@ type Rack struct {
 	Zone string `json:"zone,omitempty"`
 }
 
+type CassandraNodeStatus struct {
+	HostID string `json:"hostID,omitempty"`
+	NodeIP string `json:"nodeIP,omitempty"`
+}
+
+type CassandraStatusMap map[string]CassandraNodeStatus
+
 // CassandraDatacenterStatus defines the observed state of CassandraDatacenter
 // +k8s:openapi-gen=true
 type CassandraDatacenterStatus struct {
@@ -172,6 +182,12 @@ type CassandraDatacenterStatus struct {
 	// Last known progress state of the Cassandra Operator
 	// +optional
 	CassandraOperatorProgress ProgressState `json:"cassandraOperatorProgress,omitempty"`
+
+	// +optional
+	NodeStatuses CassandraStatusMap `json:"nodeStatuses"`
+
+	// +optional
+	NodeReplacements []string `json:"nodeReplacements"`
 
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 }

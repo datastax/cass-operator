@@ -134,6 +134,20 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref common.Refere
 							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.StorageConfig"),
 						},
 					},
+					"replaceNodes": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A list of pod names that need to be replaced.",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 					"clusterName": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The name by which CQL clients and instances will know the cluster. If the same cluster name is shared by multiple Datacenters in the same Kubernetes namespace, they will join together in a multi-datacenter cluster.",
@@ -218,10 +232,36 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterStatus(ref common.Refe
 							Format:      "",
 						},
 					},
+					"nodeStatuses": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.CassandraNodeStatus"),
+									},
+								},
+							},
+						},
+					},
+					"nodeReplacements": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.CassandraNodeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }

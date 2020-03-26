@@ -61,21 +61,25 @@ func (k NsWrapper) OutputPanic(kcmd kubectl.KCmd) string {
 }
 
 func (k NsWrapper) WaitForOutput(kcmd kubectl.KCmd, expected string, seconds int) error {
-	return kubectl.WaitForOutput(kcmd.InNamespace(k.Namespace), expected, seconds, true)
+	return kubectl.WaitForOutput(kcmd.InNamespace(k.Namespace), expected, seconds)
 }
 
 func (k NsWrapper) WaitForOutputContains(kcmd kubectl.KCmd, expected string, seconds int) error {
-	return kubectl.WaitForOutput(kcmd.InNamespace(k.Namespace), expected, seconds, false)
+	return kubectl.WaitForOutputContains(kcmd.InNamespace(k.Namespace), expected, seconds)
 }
 
 func (k NsWrapper) WaitForOutputPanic(kcmd kubectl.KCmd, expected string, seconds int) {
-	err := kubectl.WaitForOutput(kcmd.InNamespace(k.Namespace), expected, seconds, true)
+	err := kubectl.WaitForOutput(kcmd.InNamespace(k.Namespace), expected, seconds)
 	Expect(err).ToNot(HaveOccurred())
 }
 
 func (k NsWrapper) WaitForOutputContainsPanic(kcmd kubectl.KCmd, expected string, seconds int) {
-	err := kubectl.WaitForOutput(kcmd.InNamespace(k.Namespace), expected, seconds, false)
+	err := kubectl.WaitForOutput(kcmd.InNamespace(k.Namespace), expected, seconds)
 	Expect(err).ToNot(HaveOccurred())
+}
+
+func (k NsWrapper) WaitForOutputPattern(kcmd kubectl.KCmd, pattern string, seconds int) error {
+	return kubectl.WaitForOutputPattern(kcmd.InNamespace(k.Namespace), pattern, seconds)
 }
 
 func (k *NsWrapper) countStep() int {
@@ -143,6 +147,13 @@ func (ns *NsWrapper) WaitForOutputAndLog(description string, kcmd kubectl.KCmd, 
 	ginkgo.By(description)
 	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
 	execErr := ns.WaitForOutput(kcmd, expected, seconds)
+	Expect(execErr).ToNot(HaveOccurred())
+}
+
+func (ns *NsWrapper) WaitForOutputPatternAndLog(description string, kcmd kubectl.KCmd, expected string, seconds int) {
+	ginkgo.By(description)
+	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
+	execErr := ns.WaitForOutputPattern(kcmd, expected, seconds)
 	Expect(execErr).ToNot(HaveOccurred())
 }
 

@@ -18,9 +18,9 @@ import (
 
 	"github.com/riptano/dse-operator/operator/internal/result"
 	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
-	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 	"github.com/riptano/dse-operator/operator/pkg/oplabels"
 	"github.com/riptano/dse-operator/operator/pkg/utils"
+	"github.com/riptano/dse-operator/operator/pkg/httphelper"
 )
 
 var (
@@ -441,7 +441,7 @@ func (rc *ReconciliationContext) CheckPodsReady() result.ReconcileResult {
 		return result.RequeueSoon(2)
 	}
 
-	// step 4 sanity check that all pods are labelled as started and are ready
+	// step 5 sanity check that all pods are labelled as started and are ready
 
 	readyPodCount, startedLabelCount := rc.countReadyAndStarted(podList)
 	desiredSize := int(rc.Datacenter.Spec.Size)
@@ -573,9 +573,193 @@ func (rc *ReconciliationContext) CreateSuperuser() result.ReconcileResult {
 	return result.Continue()
 }
 
+func findHostIdForIpFromEndpointsData(endpointsData []httphelper.EndpointState, ip string) string {
+	for _, data := range endpointsData {
+		if data.GetRpcAddress() == ip {
+			return data.HostID
+		}
+	}
+	return ""
+}
+
+func findValueIndexFromStringArray(a []string, v string) int {
+	foundIdx := -1
+	for idx, item := range a {
+		if item == v {
+			foundIdx = idx
+			break
+		}
+	}
+
+	return foundIdx
+}
+
+func removeValueFromStringArray(a []string, v string) []string {
+	foundIdx := findValueIndexFromStringArray(a, v)
+
+	if foundIdx > -1 {
+		copy(a[foundIdx:], a[foundIdx+1:])
+		a[len(a)-1] = ""
+		a = a[:len(a)-1]
+	}
+	return a
+}
+
+func appendValuesToStringArrayIfNotPresent(a []string, values ...string) []string {
+	for _, v := range values {
+		idx := findValueIndexFromStringArray(a, v)
+		if idx < 0 {
+			// array does not contain this value, so add it
+			a = append(a, v)
+		}
+	}
+	return a
+}
+
+func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
+	dc := rc.Datacenter
+	status := &dc.Status
+	logger := rc.ReqLogger
+
+	podList, err := rc.ListAllStartedDatacenterPods()
+	if err != nil {
+		return err
+	}
+
+	if status.NodeStatuses == nil {
+		status.NodeStatuses = map[string]api.CassandraNodeStatus{}
+	}
+
+	for idx := range podList.Items {
+		pod := &podList.Items[idx]
+
+		nodeStatus, ok := status.NodeStatuses[pod.Name]
+		if !ok {
+			nodeStatus = api.CassandraNodeStatus{}
+		}
+
+		if pod.Status.PodIP != "" && isMgmtApiRunning(pod) {
+			// Getting the HostID requires a call to the node management API which is 
+			// moderately expensive, so if we already have a HostID, don't bother. This
+			// would only change if something has gone horribly horribly wrong.
+			if nodeStatus.HostID == "" {
+				endpointsResponse, err := rc.NodeMgmtClient.CallMetadataEndpointsEndpoint(pod)
+				if err == nil {
+					nodeStatus.HostID = findHostIdForIpFromEndpointsData(
+						endpointsResponse.Entity, pod.Status.PodIP)
+					if nodeStatus.HostID == "" {
+						logger.Info("Failed to find host ID", pod, pod.Name)
+					}
+				} else {
+					rc.ReqLogger.Error(err, "Could not get enpoints data")	
+				}
+			}
+
+			if nodeStatus.HostID != "" {
+				nodeStatus.NodeIP = pod.Status.PodIP
+			}
+		}
+
+		status.NodeStatuses[pod.Name] = nodeStatus
+	}
+	
+	return nil
+}
+
+func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
+	dc := rc.Datacenter
+	logger := rc.ReqLogger
+
+	// Update current progress of replacing pods
+	if len(dc.Status.NodeReplacements) > 0 {
+		podList, err := rc.ListAllStartedDatacenterPods()
+		if err != nil {
+			return err
+		}
+
+		for _, pod := range podList.Items {
+			// Since pod is labeled as started, it should be done being replaced
+			if findValueIndexFromStringArray(dc.Status.NodeReplacements, pod.Name) > -1 {
+				logger.Info("Finished replacing pod", "pod", pod.Name)
+				dc.Status.NodeReplacements = removeValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
+			}
+		}
+	}
+
+	return nil
+}
+
+func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error {
+	dc := rc.Datacenter
+	if len(dc.Spec.ReplaceNodes) > 0 {
+		rc.ReqLogger.Info("Replacing pods", "pods", dc.Spec.ReplaceNodes)
+		dc.Status.NodeReplacements = appendValuesToStringArrayIfNotPresent(
+			dc.Status.NodeReplacements, 
+			dc.Spec.ReplaceNodes...)
+
+		// Now that we've recorded these nodes in the status, we can blank
+		// out this field on the spec
+		dc.Spec.ReplaceNodes = []string{}
+	}
+
+	return nil
+}
+
+func (rc *ReconciliationContext) UpdateStatusForUserActions() error {
+	var err error
+
+	err = rc.updateCurrentReplacePodsProgress()
+	if err != nil {
+		return err
+	}
+
+	err = rc.startReplacePodsIfReplacePodsSpecified()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
+	dc := rc.Datacenter
+	oldDc := rc.Datacenter.DeepCopy()
+
+	err := rc.UpdateCassandraNodeStatus()
+	if err != nil {
+		return result.Error(err)
+	}
+
+	err = rc.UpdateStatusForUserActions()
+	if err != nil {
+		return result.Error(err)
+	}
+
+	// Update the status if it changed
+	patch := client.MergeFrom(oldDc)
+	if !reflect.DeepEqual(dc, oldDc) {
+		// If we update the status to account for some user action, for example a 
+		// pod replace, then we may have also updated the datacenter spec, so patch
+		// it as well.
+		if err := rc.Client.Patch(rc.Ctx, dc, patch); err != nil {
+			return result.Error(err)
+		}
+
+		if err := rc.Client.Status().Patch(rc.Ctx, dc, patch); err != nil {
+			return result.Error(err)
+		}
+	}
+
+	return result.Continue()
+}
+
 // Apply reconcileRacks determines if a rack needs to be reconciled.
 func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	rc.ReqLogger.Info("reconcile_racks::Apply")
+
+	if recResult := rc.UpdateStatus(); recResult.Completed() {
+		return recResult.Output()
+	}
 
 	if recResult := rc.CheckSuperuserSecretCreation(); recResult.Completed() {
 		return recResult.Output()
@@ -694,7 +878,7 @@ func (rc *ReconciliationContext) getCassMetadataEndpoints(podList *corev1.PodLis
 			continue
 		}
 
-		result, _ := rc.NodeMgmtClient.CallNodeMetadataEndpointsEndpoint(&pod)
+		result, _ := rc.NodeMgmtClient.CallMetadataEndpointsEndpoint(&pod)
 		if len(result.Entity) == 0 {
 			continue
 		}
@@ -1190,6 +1374,109 @@ func (rc *ReconciliationContext) findStartedNotReadyNodes(podList *corev1.PodLis
 	return false, nil
 }
 
+func (rc *ReconciliationContext) ListAllDatacenterPods() (*corev1.PodList, error) {
+	selector := rc.Datacenter.GetDatacenterLabels()
+	return listPods(rc, selector)
+} 
+
+func (rc *ReconciliationContext) ListAllStartedDatacenterPods() (*corev1.PodList, error) {
+	selector := rc.Datacenter.GetDatacenterLabels()
+	selector[api.CassNodeState] = "Started"
+	return listPods(rc, selector)
+}
+
+func (rc *ReconciliationContext) ListAllStartedClusterPods() (*corev1.PodList, error) {
+	selector := rc.Datacenter.GetClusterLabels()
+	selector[api.CassNodeState] = "Started"
+	return listPods(rc, selector)
+}
+
+func (rc *ReconciliationContext) findIpForHostId(hostId string) (string, error) {
+	podList, err := rc.ListAllStartedClusterPods()
+	if err != nil {
+		return "", err
+	}
+
+	// If there are no nodes to ask, then of course we will not find an IP. We
+	// treat this as an error since we have not way to determine the mapping.
+	if len(podList.Items) < 1 {
+		return "", fmt.Errorf("No pods available to ask for the IP address of %s", hostId)
+	}
+
+	// Search for a cassandra node that knows about the given hostId
+	var lastError error = nil
+	for idx, _ := range podList.Items {
+		pod := &podList.Items[idx]
+		endpointsResponse, err := rc.NodeMgmtClient.CallMetadataEndpointsEndpoint(pod)
+		if err != nil {
+			lastError = err
+		}
+		for _, endpointData := range endpointsResponse.Entity {
+			if endpointData.HostID == hostId && len(endpointData.GetRpcAddress()) > 0 {
+				return endpointData.GetRpcAddress(), nil
+			}
+		}
+	}
+
+	if lastError != nil {
+		// We didn't find the IP address, but also had issues talking to at 
+		// least one cassandra node while searching. We return an error in this
+		// case as resolving the issue with the node management API communication 
+		// may allow us to determine the IP address.
+		return "", lastError
+	} else {
+		// This indicates the cassandra node with the given hostId never
+		// actually joined the ring
+		return "", nil
+	}
+}
+
+func (rc *ReconciliationContext) startCassandra(pod *corev1.Pod) error {
+	dc := rc.Datacenter
+	mgmtClient := rc.NodeMgmtClient
+
+	// Are we replacing this node?
+	shouldReplacePod := findValueIndexFromStringArray(dc.Status.NodeReplacements, pod.Name) > -1
+
+	replaceAddress := ""
+
+	if shouldReplacePod {
+		// Get the HostID for pod if it has one
+		nodeStatus, ok := dc.Status.NodeStatuses[pod.Name]
+		hostId := ""
+		if ok {
+			hostId = nodeStatus.HostID
+		}
+
+		// Get the replace address
+		var err error
+		if hostId != "" {
+			replaceAddress, err = rc.findIpForHostId(hostId)
+			if err != nil {
+				return fmt.Errorf("Failed to start replace of cassandra node %s for pod %s due to error: %w", hostId, pod.Name, err)
+			}
+		}
+	}
+
+	var err error
+	if shouldReplacePod && replaceAddress != "" {
+		// If we have a replace address that means the cassandra node did
+		// join the ring previously and is marked for replacement, so we 
+		// start it accordingly
+		err = mgmtClient.CallLifecycleStartEndpointWithReplaceIp(pod, replaceAddress)
+	} else {
+		// Either we are not replacing this pod or the relevant cassandra node
+		// never joined the ring in the first place and can be started normally
+		err = mgmtClient.CallLifecycleStartEndpoint(pod)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return rc.labelServerPodStarting(pod)
+}
+
 // returns the name of one rack without any ready node
 func (rc *ReconciliationContext) startOneNodePerRack(readySeeds int) (string, error) {
 	rc.ReqLogger.Info("reconcile_racks::startOneNodePerRack")
@@ -1240,10 +1527,7 @@ func (rc *ReconciliationContext) startOneNodePerRack(readySeeds int) (string, er
 					// sleeping five seconds for DNS paranoia
 					time.Sleep(5 * time.Second)
 				}
-				if err = rc.callNodeManagementStart(pod); err != nil {
-					return "", err
-				}
-				if err = rc.labelServerPodStarting(pod); err != nil {
+				if err = rc.startCassandra(pod); err != nil {
 					return "", err
 				}
 				return rackName, nil
@@ -1261,10 +1545,7 @@ func (rc *ReconciliationContext) startAllNodes(podList *corev1.PodList) (bool, e
 	for idx := range podList.Items {
 		pod := &podList.Items[idx]
 		if isMgmtApiRunning(pod) && !isServerReady(pod) && !isServerStarted(pod) {
-			if err := rc.callNodeManagementStart(pod); err != nil {
-				return false, err
-			}
-			if err := rc.labelServerPodStarting(pod); err != nil {
+			if err := rc.startCassandra(pod); err != nil {
 				return false, err
 			}
 			return true, nil

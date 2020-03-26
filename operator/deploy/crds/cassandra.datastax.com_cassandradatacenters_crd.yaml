@@ -92,6 +92,11 @@ spec:
                 - name
                 type: object
               type: array
+            replaceNodes:
+              description: A list of pod names that need to be replaced.
+              items:
+                type: string
+              type: array
             resources:
               description: Kubernetes resource requests and limits, per pod
               properties:
@@ -281,6 +286,19 @@ spec:
                 with the management API
               format: date-time
               type: string
+            nodeReplacements:
+              items:
+                type: string
+              type: array
+            nodeStatuses:
+              additionalProperties:
+                properties:
+                  hostID:
+                    type: string
+                  nodeIP:
+                    type: string
+                type: object
+              type: object
             superUserUpserted:
               description: The timestamp at which CQL superuser credentials were last
                 upserted to the management API

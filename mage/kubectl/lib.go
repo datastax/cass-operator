@@ -3,8 +3,8 @@ package kubectl
 import (
 	"fmt"
 	"os"
-	"strings"
 	"time"
+	"regexp"
 
 	shutil "github.com/riptano/dse-operator/mage/sh"
 )
@@ -162,7 +162,9 @@ func PatchMerge(resource string, data string) KCmd {
 	return KCmd{Command: "patch", Args: args}
 }
 
-func WaitForOutput(k KCmd, expected string, seconds int, exactMatch bool) error {
+func waitForOutputPattern(k KCmd, pattern string, expected string, seconds int) error {
+	re := regexp.MustCompile(pattern)
+
 	c := make(chan string)
 	timer := time.NewTimer(time.Duration(seconds) * time.Second)
 	cquit := make(chan bool)
@@ -171,16 +173,8 @@ func WaitForOutput(k KCmd, expected string, seconds int, exactMatch bool) error 
 	var actual string
 	var err error
 
-	matchFunc := func(actualVal string) bool {
-		if exactMatch {
-			return actualVal == expected
-		} else {
-			return strings.Contains(actualVal, expected)
-		}
-	}
-
 	go func() {
-		for !matchFunc(actual) {
+		for !re.MatchString(actual) {
 			select {
 			case <-cquit:
 				return
@@ -196,12 +190,7 @@ func WaitForOutput(k KCmd, expected string, seconds int, exactMatch bool) error 
 	select {
 	case <-timer.C:
 		var expectedPhrase string
-		if exactMatch {
-			expectedPhrase = "Expected to output to match exactly:"
-		} else {
-
-			expectedPhrase = "Expected to output to contain:"
-		}
+		expectedPhrase = "Expected to output to contain:"
 		msg := fmt.Sprintf("Timed out waiting for value. %s %s, but got %s.", expectedPhrase, expected, actual)
 		if err != nil {
 			msg = fmt.Sprintf("%s\nThe following error occured while querying k8s: %v", msg, err)
@@ -211,6 +200,18 @@ func WaitForOutput(k KCmd, expected string, seconds int, exactMatch bool) error 
 	case <-c:
 		return nil
 	}
+}
+
+func WaitForOutputPattern(k KCmd, pattern string, seconds int) error {
+	return waitForOutputPattern(k, pattern, pattern, seconds)
+}
+
+func WaitForOutput(k KCmd, expected string, seconds int) error {
+	return waitForOutputPattern(k, fmt.Sprintf("^%s$", regexp.QuoteMeta(expected)), expected, seconds)
+}
+
+func WaitForOutputContains(k KCmd, expected string, seconds int) error {
+	return waitForOutputPattern(k, regexp.QuoteMeta(expected), expected, seconds)
 }
 
 func DumpAllLogs(path string) KCmd {
