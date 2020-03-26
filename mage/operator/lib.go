@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	"github.com/magefile/mage/mg"
-	"github.com/riptano/dse-operator/mage/config"
-	"github.com/riptano/dse-operator/mage/docker"
-	"github.com/riptano/dse-operator/mage/git"
-	"github.com/riptano/dse-operator/mage/sh"
-	"github.com/riptano/dse-operator/mage/util"
+	cfgutil "github.com/riptano/dse-operator/mage/config"
+	dockerutil "github.com/riptano/dse-operator/mage/docker"
+	gitutil "github.com/riptano/dse-operator/mage/git"
+	shutil "github.com/riptano/dse-operator/mage/sh"
+	mageutil "github.com/riptano/dse-operator/mage/util"
 	"gopkg.in/yaml.v2"
 )
 
@@ -330,25 +330,28 @@ func calcFullVersion(settings cfgutil.BuildSettings, git GitData) FullVersion {
 	}
 }
 
-func runInitContainerDockerBuild(version FullVersion) {
+func runInitContainerDockerBuild(version FullVersion) []string {
 	fmt.Println("- Building operator init container docker image")
-	versionedTag := fmt.Sprintf("datastax/cass-operator-initcontainer:%v", version)
+	repoPath := "datastax/cass-operator-init"
+	versionedTag := fmt.Sprintf("%s:%v", repoPath, version)
 	tagsToPush := []string{
 		versionedTag,
-		fmt.Sprintf("datastax/cass-operator-initcontainer:%s", version.Hash),
+		fmt.Sprintf("%s:%s", repoPath, version.Hash),
 	}
-	tags := append(tagsToPush, "datastax/cass-operator-initcontainer:latest")
+	tags := append(tagsToPush, fmt.Sprintf("%s:latest", repoPath))
 	buildArgs := []string{fmt.Sprintf("VERSION_STAMP=%s", versionedTag)}
 	dockerutil.Build("./tools/initcontainer", "", "", tags, buildArgs).ExecVPanic()
+	return tagsToPush
 }
 
 func runDockerBuild(version FullVersion) []string {
-	versionedTag := fmt.Sprintf("datastax/dse-operator:%v", version)
+	repoPath := "datastax/cass-operator"
+	versionedTag := fmt.Sprintf("%s:%v", repoPath, version)
 	tagsToPush := []string{
 		versionedTag,
-		fmt.Sprintf("datastax/dse-operator:%s", version.Hash),
+		fmt.Sprintf("%s:%s", repoPath, version.Hash),
 	}
-	tags := append(tagsToPush, "datastax/dse-operator:latest")
+	tags := append(tagsToPush, fmt.Sprintf("%s:latest", repoPath))
 	buildArgs := []string{fmt.Sprintf("VERSION_STAMP=%s", versionedTag)}
 	dockerutil.Build(".", "", "./operator/Dockerfile", tags, buildArgs).ExecVPanic()
 	return tagsToPush
@@ -357,7 +360,7 @@ func runDockerBuild(version FullVersion) []string {
 func runGoBuild(version string) {
 	os.Chdir("./operator")
 	os.Setenv("CGO_ENABLED", "0")
-	binaryPath := fmt.Sprintf("../build/bin/dse-operator-%s-%s", runtime.GOOS, runtime.GOARCH)
+	binaryPath := fmt.Sprintf("../build/bin/cass-operator-%s-%s", runtime.GOOS, runtime.GOARCH)
 	goArgs := []string{
 		"build", "-o", binaryPath,
 		"-ldflags", fmt.Sprintf("-X main.version=%s", version),
@@ -415,13 +418,14 @@ func BuildDocker() {
 	settings := cfgutil.ReadBuildSettings()
 	git := getGitData()
 	version := calcFullVersion(settings, git)
-	runInitContainerDockerBuild(version)
-	tags := runDockerBuild(version)
+	initTags := runInitContainerDockerBuild(version)
+	operatorTags := runDockerBuild(version)
 	// Write the versioned image tags to a file in our build
 	// directory so that other targets in the build process can identify
 	// what was built. This is particularly important to know
 	// for targets that retag and deploy to external docker repositories
-	outputText := strings.Join(tags, "|")
+	tagsToPush := append(operatorTags, initTags...)
+	outputText := strings.Join(tagsToPush, "|")
 	writeBuildFile("tagsToPush.txt", outputText)
 }
 

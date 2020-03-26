@@ -1,9 +1,9 @@
-package park_unpark
+package node_replace
 
 import (
 	"fmt"
-	"testing"
 	"regexp"
+	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,18 +44,18 @@ func TestLifecycle(t *testing.T) {
 }
 
 type NodetoolNodeInfo struct {
-	Status string
-	State string
+	Status  string
+	State   string
 	Address string
-	HostId string
-	Rack string
+	HostId  string
+	Rack    string
 }
 
 func RetrieveStatusFromNodetool(podName string) []NodetoolNodeInfo {
 	k := kubectl.KCmd{Command: "exec", Args: []string{podName, "-i", "-c", "cassandra", "--namespace", ns.Namespace, "--", "nodetool", "status"}}
 	output, err := k.Output()
 	Expect(err).ToNot(HaveOccurred())
-	
+
 	getFullName := func(s string) string {
 		status, ok := map[string]string{
 			"U": "up",
@@ -66,7 +66,7 @@ func RetrieveStatusFromNodetool(podName string) []NodetoolNodeInfo {
 			"M": "moving",
 			"S": "stopped",
 		}[string(s)]
-		
+
 		if !ok {
 			status = s
 		}
@@ -79,11 +79,11 @@ func RetrieveStatusFromNodetool(podName string) []NodetoolNodeInfo {
 		comps := regexp.MustCompile(`[[:space:]]+`).Split(nodeText, -1)
 		nodeInfo = append(nodeInfo,
 			NodetoolNodeInfo{
-				Status: getFullName(string(comps[0][0])),
-				State: getFullName(string(comps[0][1])),
+				Status:  getFullName(string(comps[0][0])),
+				State:   getFullName(string(comps[0][1])),
 				Address: comps[1],
-				HostId: comps[len(comps)-2],
-				Rack: comps[len(comps)-1],
+				HostId:  comps[len(comps)-2],
+				Rack:    comps[len(comps)-1],
 			})
 	}
 	return nodeInfo

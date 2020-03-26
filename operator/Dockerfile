@@ -16,7 +16,7 @@ ENV GOARCH amd64
 ENV GOPATH=/go
 
 
-WORKDIR /dse-operator
+WORKDIR /cass-operator
 
 # Grab mage files
 COPY go.mod go.sum ./
@@ -59,6 +59,6 @@ ENV GOPATH=/go
 WORKDIR /go
 
 # All we need from the builder image is operator executable
-COPY --from=builder /dse-operator/build/bin/dse-operator-linux-amd64 bin/operator
+COPY --from=builder /cass-operator/build/bin/cass-operator-linux-amd64 bin/operator
 
 CMD [ "/go/bin/operator" ]

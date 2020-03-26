@@ -17,21 +17,16 @@ spec:
         - name: cass-operator-certs-volume
           emptyDir: {}
       # initContainers:
-      #   - name: cass-operator-initcontainer
-      #     image: datastax/cass-operator-initcontainer:latest
+      #   - name: cass-operator-init
+      #     image: datastax/cass-operator-init:latest
       #     imagePullPolicy: IfNotPresent
       #     volumeMounts:
       #       - mountPath: /tmp/k8s-webhook-server/serving-certs
       #         name: cass-operator-certs-volume
       containers:
         - name: dse-operator
-          # Replace this with the built image name
-          # echo "datastax-docker.jfrog.io/dse-operator/operator:$(git symbolic-ref --short HEAD).$(git rev-parse HEAD)"
-          image: datastax/dse-operator:latest
+          image: datastax/cass-operator:latest
           imagePullPolicy: IfNotPresent
-          volumeMounts:
-            - mountPath: /tmp/k8s-webhook-server/serving-certs
-              name: cass-operator-certs-volume
           livenessProbe:
             exec:
               command:
@@ -41,6 +36,9 @@ spec:
             periodSeconds: 5
             timeoutSeconds: 5
             failureThreshold: 3
+          volumeMounts:
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: cass-operator-certs-volume
           readinessProbe:
             exec:
               command:

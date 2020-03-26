@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/riptano/dse-operator/mage/docker"
-	"github.com/riptano/dse-operator/mage/sh"
-	"github.com/riptano/dse-operator/mage/util"
+	dockerutil "github.com/riptano/dse-operator/mage/docker"
+	shutil "github.com/riptano/dse-operator/mage/sh"
+	mageutil "github.com/riptano/dse-operator/mage/util"
 )
 
 const (
@@ -16,8 +16,8 @@ const (
 	envEcrId           = "MO_ECR_ID"
 	envEcrSecret       = "MO_ECR_SECRET"
 	envTags            = "MO_TAGS"
-	artifactoryRepo    = "datastax-docker.jfrog.io"
-	ecrRepo            = "237073351946.dkr.ecr.us-east-1.amazonaws.com"
+	envArtRepo         = "MO_ART_REPO"
+	envEcrRepo         = "MO_ECR_REPO"
 )
 
 func dockerTag(src string, target string) {
@@ -27,26 +27,18 @@ func dockerTag(src string, target string) {
 	dockerutil.Tag(src, target).ExecVPanic()
 }
 
-func retagImage(currentTag string, newRepo string) string {
-	newPath := fmt.Sprintf("%s/dse-operator/operator", newRepo)
-
-	// We just want to grab the version part of the tag and discard
-	// the old repo path
-	// For example:
-	// datastax/dse-operator:someversion
-	// ^ only keep 'someversion'
-	// so that we can put a new repo path in front of it
-	split := strings.Split(currentTag, ":")
-	versionTag := split[len(split)-1]
-
-	newImage := fmt.Sprintf("%s:%s", newPath, versionTag)
-	dockerTag(currentTag, newImage)
-	return newImage
+// This function is meant to simply retag a
+// locally built image by adding a remote url
+// to the front of it.
+func retagLocalImageForRemotePush(localTag string, remoteUrl string) string {
+	newTag := fmt.Sprintf("%s/%s", remoteUrl, localTag)
+	dockerTag(localTag, newTag)
+	return newTag
 }
 
-func retagAndPush(tags []string, newRepo string) {
+func retagAndPush(tags []string, remoteUrl string) {
 	for _, t := range tags {
-		newTag := retagImage(strings.TrimSpace(t), newRepo)
+		newTag := retagLocalImageForRemotePush(strings.TrimSpace(t), remoteUrl)
 		fmt.Printf("- Pushing image %s\n", newTag)
 		dockerutil.Push(newTag).WithCfg(rootBuildDir).ExecVPanic()
 	}
@@ -77,6 +69,7 @@ func awsDockerLogin(keyId string, keySecret string) {
 // MO_ECR_SECRET - ECR secret access key
 // MO_TAGS - pipe-delimited docker tags to retag/push to ECR
 func DeployToECR() {
+	ecrRepo := mageutil.RequireEnv(envEcrRepo)
 	keyId := mageutil.RequireEnv(envEcrId)
 	keySecret := mageutil.RequireEnv(envEcrSecret)
 	awsDockerLogin(keyId, keySecret)
@@ -95,6 +88,7 @@ func DeployToECR() {
 // MO_ART_PSW - artifactory password/api key
 // MO_TAGS - pipe-delimited docker tags to retag/push to Artifactory
 func DeployToArtifactory() {
+	artifactoryRepo := mageutil.RequireEnv(envArtRepo)
 	user := mageutil.RequireEnv(envArtifactoryUser)
 	pw := mageutil.RequireEnv(envArtifactoryPw)
 	dockerutil.Login(rootBuildDir, user, pw, artifactoryRepo).

@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	operatorImage              = "datastax/dse-operator:latest"
-	operatorInitContainerImage = "datastax/cass-operator-initcontainer:latest"
+	operatorImage              = "datastax/cass-operator:latest"
+	operatorInitContainerImage = "datastax/cass-operator-init:latest"
 	envLoadDevImages           = "M_LOAD_DEV_IMAGES"
 )
 
@@ -92,12 +92,12 @@ func ReloadOperator() {
 	for _, c := range containers {
 		if strings.HasPrefix(c.Image, "kindest") {
 			fmt.Printf("Deleting old operator image from Docker container: %s\n", c.Id)
-			execArgs := []string{"crictl", "rmi", "docker.io/datastax/dse-operator:latest"}
+			execArgs := []string{"crictl", "rmi", "docker.io/datastax/cass-operator:latest"}
 			dockerutil.Exec(c.Id, nil, false, "", "", execArgs).ExecVPanic()
 		}
 	}
 	fmt.Println("Loading new operator Docker image into KIND cluster")
-	shutil.RunVPanic("kind", "load", "docker-image", "datastax/dse-operator:latest")
+	shutil.RunVPanic("kind", "load", "docker-image", "datastax/cass-operator:latest")
 	fmt.Println("Finished loading new operator image into Kind.")
 }
 

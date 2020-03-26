@@ -3,8 +3,8 @@ package kubectl
 import (
 	"fmt"
 	"os"
-	"time"
 	"regexp"
+	"time"
 
 	shutil "github.com/riptano/dse-operator/mage/sh"
 )
@@ -162,9 +162,13 @@ func PatchMerge(resource string, data string) KCmd {
 	return KCmd{Command: "patch", Args: args}
 }
 
+func PatchJson(resource string, data string) KCmd {
+	args := []string{resource, "--patch", data, "--type", "json"}
+	return KCmd{Command: "patch", Args: args}
+}
+
 func waitForOutputPattern(k KCmd, pattern string, expected string, seconds int) error {
 	re := regexp.MustCompile(pattern)
-
 	c := make(chan string)
 	timer := time.NewTimer(time.Duration(seconds) * time.Second)
 	cquit := make(chan bool)
