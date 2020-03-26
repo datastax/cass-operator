@@ -1,22 +1,22 @@
+# 1 rack, 2 nodes, DSE
+
 apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
 metadata:
   name: dtcntr
 spec:
   clusterName: clstr
-  serverImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-master-20190923204409-d9e0344
+  serverImage: datastaxlabs/apache-cassandra-with-mgmtapi:3.11.6-20200316
   serverVersion: 6.8.0
+  serverType: cassandra
   managementApiAuth:
     insecure: {}
+  configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.9.0-20200316
   size: 2
-  resources:
-    requests:
-      memory: "512Mi"
-    limits:
-      memory: "6000Mi"
+  superuserSecret: cassandra-superuser-secret
   storageConfig:
       cassandraDataVolumeClaimSpec:
-        storageClassName: standard
+        storageClassName: server-storage
         accessModes:
           - ReadWriteOnce
         resources:
@@ -24,7 +24,3 @@ spec:
             storage: 1Gi
   racks:
     - name: r0
-  config:
-    cassandra-yaml:
-      authenticator: AllowAllAuthenticator
-      batch_size_fail_threshold_in_kb: 1280

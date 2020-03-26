@@ -1,7 +1,0 @@
-apiVersion: cassandra.datastax.com/v1beta1
-kind: CassandraDatacenter
-metadata:
-  name: example-cassandradatacenter
-spec:
-  # Add fields here
-  size: 3

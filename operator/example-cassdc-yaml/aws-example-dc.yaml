@@ -1,28 +1,26 @@
+# 3 racks, 3 nodes, DSE, 
+
 apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
 metadata:
-  name: dtcntr
+  name: example-cassandradatacenter
 spec:
-  clusterName: clstr
-  serverType: "dse"
+  clusterName: example-cluster
   serverImage: datastax-docker.jfrog.io/datastax/dse-server:6.8.0-master-20190923204409-d9e0344
   serverVersion: 6.8.0
-  size: 2
-  resources:
-    requests:
-      memory: "512Mi"
-    limits:
-      memory: "8000Mi"
+  size: 3
   storageConfig:
-      cassandraDataVolumeClaimSpec:
-        storageClassName: standard
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 1Gi
+    cassandraDataVolumeClaimSpec:
+      storageClassName: server-storage
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
   racks:
-    - name: r0
+    - name: rack0
+    - name: rack1
+    - name: rack2
   config:
     cassandra-yaml:
       authenticator: AllowAllAuthenticator
