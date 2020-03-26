@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strconv"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -128,10 +129,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = controllerRuntime.NewWebhookManagedBy(mgr).For(&api.CassandraDatacenter{}).Complete()
+	skipWebhookEnvVal := os.Getenv("SKIP_VALIDATING_WEBHOOK")
+	if skipWebhookEnvVal == "" {
+		skipWebhookEnvVal = "FALSE"
+	}
+	skipWebhook, err := strconv.ParseBool(skipWebhookEnvVal)
 	if err != nil {
-		log.Error(err, "unable to create validating webhook for CassandraDatacenter")
+		log.Error(err, "bad value for SKIP_VALIDATING_WEBHOOK env")
 		os.Exit(1)
+	}
+
+	if !skipWebhook {
+		err = controllerRuntime.NewWebhookManagedBy(mgr).For(&api.CassandraDatacenter{}).Complete()
+		if err != nil {
+			log.Error(err, "unable to create validating webhook for CassandraDatacenter")
+			os.Exit(1)
+		}
 	}
 
 	if err = serveCRMetrics(cfg); err != nil {

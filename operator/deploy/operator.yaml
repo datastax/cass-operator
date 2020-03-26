@@ -16,13 +16,13 @@ spec:
       volumes:
         - name: cass-operator-certs-volume
           emptyDir: {}
-      initContainers:
-        - name: cass-operator-initcontainer
-          image: datastax/cass-operator-initcontainer:latest
-          imagePullPolicy: IfNotPresent
-          volumeMounts:
-            - mountPath: /tmp/k8s-webhook-server/serving-certs
-              name: cass-operator-certs-volume
+      # initContainers:
+      #   - name: cass-operator-initcontainer
+      #     image: datastax/cass-operator-initcontainer:latest
+      #     imagePullPolicy: IfNotPresent
+      #     volumeMounts:
+      #       - mountPath: /tmp/k8s-webhook-server/serving-certs
+      #         name: cass-operator-certs-volume
       containers:
         - name: dse-operator
           # Replace this with the built image name
@@ -61,3 +61,5 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "dse-operator"
+            - name: SKIP_VALIDATING_WEBHOOK
+              value: "TRUE"

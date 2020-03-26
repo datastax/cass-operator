@@ -13,10 +13,25 @@ spec:
         name: dse-operator
     spec:
       serviceAccountName: dse-operator
+      volumes:
+        - name: cass-operator-certs-volume
+          emptyDir: {}
+      # initContainers:
+      #   - name: cass-operator-initcontainer
+      #     image: datastax/cass-operator-initcontainer:latest
+      #     imagePullPolicy: IfNotPresent
+      #     volumeMounts:
+      #       - mountPath: /tmp/k8s-webhook-server/serving-certs
+      #         name: cass-operator-certs-volume
       containers:
         - name: dse-operator
+          # Replace this with the built image name
+          # echo "datastax-docker.jfrog.io/dse-operator/operator:$(git symbolic-ref --short HEAD).$(git rev-parse HEAD)"
           image: datastax/dse-operator:latest
           imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - mountPath: /tmp/k8s-webhook-server/serving-certs
+              name: cass-operator-certs-volume
           livenessProbe:
             exec:
               command:
@@ -46,3 +61,5 @@ spec:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
               value: "dse-operator"
+            - name: SKIP_VALIDATING_WEBHOOK
+              value: "TRUE"
