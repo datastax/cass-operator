@@ -1,7 +1,7 @@
 package apis
 
 import (
-	"github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 )
 
 func init() {

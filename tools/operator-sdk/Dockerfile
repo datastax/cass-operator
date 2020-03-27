@@ -8,13 +8,13 @@ FROM golang:1.13-stretch as install-operator-sdk
 
 # This Dockerfile sets up a clean go 1.13 environment with operator-sdk installed and tested.
 #
-# It is not part of any DSE operator build system, but rather exists to serve as reference clean
+# It is not part of any operator build system, but rather exists to serve as reference clean
 # install of operator-sdk (pinned to a released version), their example project, and the kubernetes
 # CLI tools, including the client-gen code generator.
 #
-# A good way for a developer to use it would be to mount the dse-operator git repo into the GOPATH
+# A good way for a developer to use it would be to mount the cass-operator git repo into the GOPATH
 # inside the container. Something like...
-# docker run -v /Users/jim/datastax/dse-operator:/go/src/github.com/riptano/dse-operator ...
+# docker run -v /Users/jim/datastax/cass-operator:/go/src/github.com/datastax/cass-operator ...
 
 ENV OP_SDK_VERSION=v0.12.0
 ENV GOPROXY=https://proxy.golang.org,https://gocenter.io,direct

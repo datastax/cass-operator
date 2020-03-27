@@ -1,7 +1,7 @@
 package controller
 
 import (
-	"github.com/riptano/dse-operator/operator/pkg/controller/cassandradatacenter"
+	"github.com/datastax/cass-operator/operator/pkg/controller/cassandradatacenter"
 )
 
 func init() {

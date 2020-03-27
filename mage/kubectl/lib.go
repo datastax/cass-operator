@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"time"
 
-	shutil "github.com/riptano/dse-operator/mage/sh"
+	shutil "github.com/datastax/cass-operator/mage/sh"
 )
 
 func WatchPods() {

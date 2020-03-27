@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/magefile/mage/mg"
-	cfgutil "github.com/riptano/dse-operator/mage/config"
-	dockerutil "github.com/riptano/dse-operator/mage/docker"
-	integutil "github.com/riptano/dse-operator/mage/integ-tests"
-	"github.com/riptano/dse-operator/mage/kubectl"
-	"github.com/riptano/dse-operator/mage/operator"
-	shutil "github.com/riptano/dse-operator/mage/sh"
-	mageutil "github.com/riptano/dse-operator/mage/util"
+	cfgutil "github.com/datastax/cass-operator/mage/config"
+	dockerutil "github.com/datastax/cass-operator/mage/docker"
+	integutil "github.com/datastax/cass-operator/mage/integ-tests"
+	"github.com/datastax/cass-operator/mage/kubectl"
+	"github.com/datastax/cass-operator/mage/operator"
+	shutil "github.com/datastax/cass-operator/mage/sh"
+	mageutil "github.com/datastax/cass-operator/mage/util"
 )
 
 const (

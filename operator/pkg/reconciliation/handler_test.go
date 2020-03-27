@@ -20,8 +20,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
-	"github.com/riptano/dse-operator/operator/pkg/mocks"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/mocks"
 )
 
 func TestCalculateReconciliationActions(t *testing.T) {

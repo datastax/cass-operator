@@ -12,9 +12,9 @@ import (
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/riptano/dse-operator/operator/pkg/httphelper"
+	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 )
 
 // ReconciliationContext contains all of the input necessary to calculate a list of ReconciliationActions

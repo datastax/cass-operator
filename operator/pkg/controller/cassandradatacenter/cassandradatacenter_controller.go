@@ -1,9 +1,9 @@
 package cassandradatacenter
 
 import (
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 
-	"github.com/riptano/dse-operator/operator/pkg/oplabels"
+	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -11,7 +11,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 
-	"github.com/riptano/dse-operator/operator/pkg/reconciliation"
+	"github.com/datastax/cass-operator/operator/pkg/reconciliation"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"

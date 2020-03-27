@@ -4,7 +4,7 @@ metadata:
   name: cass-operator
 subjects:
 - kind: ServiceAccount
-  name: dse-operator
+  name: cass-operator
   namespace: default
 roleRef:
   kind: ClusterRole

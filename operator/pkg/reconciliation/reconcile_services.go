@@ -3,8 +3,8 @@ package reconciliation
 import (
 	"reflect"
 
-	"github.com/riptano/dse-operator/operator/internal/result"
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/internal/result"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -54,7 +54,7 @@ func (rc *ReconciliationContext) CheckHeadlessServices() result.ReconcileResult 
 
 	cqlService := newServiceForCassandraDatacenter(dc)
 	seedService := newSeedServiceForCassandraDatacenter(dc)
-	allPodsService := newAllDsePodsServiceForCassandraDatacenter(dc)
+	allPodsService := newAllPodsServiceForCassandraDatacenter(dc)
 
 	services := []*corev1.Service{cqlService, seedService, allPodsService}
 

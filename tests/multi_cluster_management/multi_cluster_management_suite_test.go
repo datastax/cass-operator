@@ -7,8 +7,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	ginkgo_util "github.com/riptano/dse-operator/mage/ginkgo"
-	"github.com/riptano/dse-operator/mage/kubectl"
+	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
+	"github.com/datastax/cass-operator/mage/kubectl"
 )
 
 var (
@@ -57,14 +57,14 @@ var _ = Describe(testName, func() {
 			k := kubectl.ApplyFiles(defaultResources...)
 			ns.ExecAndLog(step, k)
 
-			step = "creating the dse operator resource"
+			step = "creating the cass-operator resource"
 			k = kubectl.ApplyFiles(operatorYaml)
 			ns.ExecAndLog(step, k)
 
 			step = "waiting for the operator to become ready"
 			json := "jsonpath={.items[0].status.containerStatuses[0].ready}"
 			k = kubectl.Get("pods").
-				WithLabel("name=dse-operator").
+				WithLabel("name=cass-operator").
 				WithFlag("field-selector", "status.phase=Running").
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true", 120)
@@ -77,7 +77,7 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(dcYamls[1])
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the dse node to become ready"
+			step = "waiting for the node to become ready"
 			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
 			k = kubectl.Get("pods").
 				WithLabel(dcLabelForName(dcNames[0])).

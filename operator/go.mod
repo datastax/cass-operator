@@ -1,4 +1,4 @@
-module github.com/riptano/dse-operator/operator
+module github.com/datastax/cass-operator/operator
 
 go 1.13
 

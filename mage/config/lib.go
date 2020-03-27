@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"regexp"
 
-	"github.com/riptano/dse-operator/mage/util"
+	"github.com/datastax/cass-operator/mage/util"
 	"gopkg.in/yaml.v2"
 )
 

@@ -19,8 +19,8 @@ limitations under the License.
 package v1beta1
 
 import (
-	v1beta1 "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
-	"github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/scheme"
+	v1beta1 "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/generated/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
 

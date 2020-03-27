@@ -16,11 +16,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
-	"github.com/riptano/dse-operator/operator/internal/result"
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
-	"github.com/riptano/dse-operator/operator/pkg/oplabels"
-	"github.com/riptano/dse-operator/operator/pkg/utils"
-	"github.com/riptano/dse-operator/operator/pkg/httphelper"
+	"github.com/datastax/cass-operator/operator/internal/result"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/oplabels"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
+	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 )
 
 var (

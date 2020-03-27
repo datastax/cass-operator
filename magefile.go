@@ -6,17 +6,17 @@ import (
 	"github.com/magefile/mage/mg"
 
 	// mage:import jenkins
-	"github.com/riptano/dse-operator/mage/jenkins"
+	"github.com/datastax/cass-operator/mage/jenkins"
 	// mage:import operator
-	"github.com/riptano/dse-operator/mage/operator"
+	"github.com/datastax/cass-operator/mage/operator"
 	// mage:import kind
-	_ "github.com/riptano/dse-operator/mage/kind"
+	_ "github.com/datastax/cass-operator/mage/kind"
 	// mage:import integ
-	_ "github.com/riptano/dse-operator/mage/integ-tests"
+	_ "github.com/datastax/cass-operator/mage/integ-tests"
 	// mage:import lint
-	_ "github.com/riptano/dse-operator/mage/linting"
+	_ "github.com/datastax/cass-operator/mage/linting"
 	// mage:import gcp
-	_ "github.com/riptano/dse-operator/mage/gcloud"
+	_ "github.com/datastax/cass-operator/mage/gcloud"
 )
 
 // Clean all build artifacts, does not clean up old docker images.

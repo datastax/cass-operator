@@ -11,11 +11,11 @@ import (
 	"strings"
 
 	"github.com/magefile/mage/mg"
-	cfgutil "github.com/riptano/dse-operator/mage/config"
-	dockerutil "github.com/riptano/dse-operator/mage/docker"
-	gitutil "github.com/riptano/dse-operator/mage/git"
-	shutil "github.com/riptano/dse-operator/mage/sh"
-	mageutil "github.com/riptano/dse-operator/mage/util"
+	cfgutil "github.com/datastax/cass-operator/mage/config"
+	dockerutil "github.com/datastax/cass-operator/mage/docker"
+	gitutil "github.com/datastax/cass-operator/mage/git"
+	shutil "github.com/datastax/cass-operator/mage/sh"
+	mageutil "github.com/datastax/cass-operator/mage/util"
 	"gopkg.in/yaml.v2"
 )
 
@@ -26,7 +26,7 @@ const (
 	testSdkImage               = "operator-sdk-binary-tester"
 	genClientImage             = "operator-gen-client"
 	generatedDseDataCentersCrd = "operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml"
-	packagePath                = "github.com/riptano/dse-operator/operator"
+	packagePath                = "github.com/datastax/cass-operator/operator"
 	envGitBranch               = "MO_BRANCH"
 	envVersionString           = "MO_VERSION"
 	envGitHash                 = "MO_HASH"
@@ -97,7 +97,7 @@ func createTestSdkDockerImage() {
 func generateK8sAndOpenApi() {
 	cwd, _ := os.Getwd()
 	runArgs := []string{"-t", "--rm"}
-	repoPath := "/go/src/github.com/riptano/dse-operator"
+	repoPath := "/go/src/github.com/datastax/cass-operator"
 	execArgs := []string{
 		"/bin/bash", "-c",
 		fmt.Sprintf("export GO111MODULE=on; cd %s/operator && operator-sdk generate k8s && operator-sdk generate openapi && rm -rf build", repoPath),
@@ -457,9 +457,9 @@ func doGenerateClient() {
 	usr, err := user.Current()
 	mageutil.PanicOnError(err)
 	runArgs := []string{"-t", "--rm", "-u", fmt.Sprintf("%s:%s", usr.Uid, usr.Gid)}
-	execArgs := []string{"client", "github.com/riptano/dse-operator/operator/pkg/generated",
-		"github.com/riptano/dse-operator/operator/pkg/apis", "cassandra:v1beta1"}
-	volumes := []string{fmt.Sprintf("%s/operator:/go/src/github.com/riptano/dse-operator/operator", cwd)}
+	execArgs := []string{"client", "github.com/datastax/cass-operator/operator/pkg/generated",
+		"github.com/datastax/cass-operator/operator/pkg/apis", "cassandra:v1beta1"}
+	volumes := []string{fmt.Sprintf("%s/operator:/go/src/github.com/datastax/cass-operator/operator", cwd)}
 	dockerutil.Run(genClientImage, volumes, nil, nil, runArgs, execArgs).ExecVPanic()
 }
 

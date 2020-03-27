@@ -24,9 +24,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	log2 "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
-	"github.com/riptano/dse-operator/operator/pkg/httphelper"
-	"github.com/riptano/dse-operator/operator/pkg/mocks"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/httphelper"
+	"github.com/datastax/cass-operator/operator/pkg/mocks"
 )
 
 // MockSetControllerReference returns a method that will automatically reverse the mock

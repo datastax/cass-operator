@@ -10,8 +10,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"github.com/riptano/dse-operator/operator/pkg/serverconfig"
-	"github.com/riptano/dse-operator/operator/pkg/utils"
+	"github.com/datastax/cass-operator/operator/pkg/serverconfig"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 )
 
 const (
@@ -50,9 +50,7 @@ const (
 // this type exists so there's no chance of pushing random strings to our progress status
 type ProgressState string
 
-// getDseImageFromVersion tries to look up a known DSE image
-// from a DSE version number.
-//
+// getImageForServerVersion tries to look up a known image for a server type and version number.
 // In the event that no image is found, an error is returned
 func getImageForServerVersion(server, version string) (string, error) {
 	sv := server + "-" + version
@@ -143,7 +141,7 @@ type StorageConfig struct {
 
 // GetRacks is a getter for the Rack slice in the spec
 // It ensures there is always at least one rack
-// FIXME move this onto the DseDatacenter for consistency?
+// FIXME move this onto the CassandraDatacenter for consistency?
 func (s *CassandraDatacenterSpec) GetRacks() []Rack {
 	if len(s.Racks) >= 1 {
 		return s.Racks

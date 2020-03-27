@@ -10,8 +10,8 @@ import (
 	ginkgo "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/riptano/dse-operator/mage/kubectl"
-	mageutil "github.com/riptano/dse-operator/mage/util"
+	"github.com/datastax/cass-operator/mage/kubectl"
+	mageutil "github.com/datastax/cass-operator/mage/util"
 )
 
 const (

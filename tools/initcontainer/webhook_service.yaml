@@ -9,4 +9,4 @@ spec:
   - port: 443
     targetPort: 443
   selector:
-    name: dse-operator
+    name: cass-operator

@@ -9,7 +9,7 @@ import (
 
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
-	"github.com/riptano/dse-operator/mage/util"
+	"github.com/datastax/cass-operator/mage/util"
 )
 
 // Run command.

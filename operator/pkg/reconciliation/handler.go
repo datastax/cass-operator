@@ -15,9 +15,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
-	"github.com/riptano/dse-operator/operator/internal/result"
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
-	"github.com/riptano/dse-operator/operator/pkg/httphelper"
+	"github.com/datastax/cass-operator/operator/internal/result"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 )
 
 // Use a var so we can mock this function

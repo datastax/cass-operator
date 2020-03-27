@@ -19,9 +19,9 @@ limitations under the License.
 package fake
 
 import (
-	clientset "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned"
-	cassandrav1beta1 "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/typed/cassandra/v1beta1"
-	fakecassandrav1beta1 "github.com/riptano/dse-operator/operator/pkg/generated/clientset/versioned/typed/cassandra/v1beta1/fake"
+	clientset "github.com/datastax/cass-operator/operator/pkg/generated/clientset/versioned"
+	cassandrav1beta1 "github.com/datastax/cass-operator/operator/pkg/generated/clientset/versioned/typed/cassandra/v1beta1"
+	fakecassandrav1beta1 "github.com/datastax/cass-operator/operator/pkg/generated/clientset/versioned/typed/cassandra/v1beta1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"

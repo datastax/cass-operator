@@ -1,11 +1,11 @@
 kind: RoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: dse-operator
+  name: cass-operator
 subjects:
 - kind: ServiceAccount
-  name: dse-operator
+  name: cass-operator
 roleRef:
   kind: Role
-  name: dse-operator
+  name: cass-operator
   apiGroup: rbac.authorization.k8s.io

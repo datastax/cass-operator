@@ -7,8 +7,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	ginkgo_util "github.com/riptano/dse-operator/mage/ginkgo"
-	"github.com/riptano/dse-operator/mage/kubectl"
+	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
+	"github.com/datastax/cass-operator/mage/kubectl"
 )
 
 var (
@@ -42,7 +42,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator can stop, resume, and terminate a dse datacenter", func() {
+		Specify("the operator can stop, resume, and terminate a datacenter", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
@@ -51,14 +51,14 @@ var _ = Describe(testName, func() {
 			k := kubectl.ApplyFiles(defaultResources...)
 			ns.ExecAndLog(step, k)
 
-			step = "creating the dse operator resource"
+			step = "creating the cass-operator resource"
 			k = kubectl.ApplyFiles(operatorYaml)
 			ns.ExecAndLog(step, k)
 
 			step = "waiting for the operator to become ready"
 			json := "jsonpath={.items[0].status.containerStatuses[0].ready}"
 			k = kubectl.Get("pods").
-				WithLabel("name=dse-operator").
+				WithLabel("name=cass-operator").
 				WithFlag("field-selector", "status.phase=Running").
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true", 120)
@@ -67,7 +67,7 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the dse nodes to become ready"
+			step = "waiting for the nodes to become ready"
 			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
 			k = kubectl.Get("pods").
 				WithLabel(dcLabel).
@@ -104,7 +104,7 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the dse nodes to become ready"
+			step = "waiting for the nodes to become ready"
 			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
 			k = kubectl.Get("pods").
 				WithLabel(dcLabel).

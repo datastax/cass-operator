@@ -3,8 +3,8 @@ package gitutil
 import (
 	"strings"
 
-	"github.com/riptano/dse-operator/mage/sh"
-	"github.com/riptano/dse-operator/mage/util"
+	"github.com/datastax/cass-operator/mage/sh"
+	"github.com/datastax/cass-operator/mage/util"
 )
 
 func GetUnstagedChanges() string {

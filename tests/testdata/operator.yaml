@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: dse-operator
+  name: cass-operator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      name: dse-operator
+      name: cass-operator
   template:
     metadata:
       labels:
-        name: dse-operator
+        name: cass-operator
     spec:
-      serviceAccountName: dse-operator
+      serviceAccountName: cass-operator
       volumes:
         - name: cass-operator-certs-volume
           emptyDir: {}
@@ -24,7 +24,7 @@ spec:
       #       - mountPath: /tmp/k8s-webhook-server/serving-certs
       #         name: cass-operator-certs-volume
       containers:
-        - name: dse-operator
+        - name: cass-operator
           image: datastax/cass-operator:latest
           imagePullPolicy: IfNotPresent
           volumeMounts:
@@ -58,6 +58,6 @@ spec:
                 fieldRef:
                   fieldPath: metadata.name
             - name: OPERATOR_NAME
-              value: "dse-operator"
+              value: "cass-operator"
             - name: SKIP_VALIDATING_WEBHOOK
               value: "TRUE"

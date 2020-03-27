@@ -29,10 +29,10 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 
+	"github.com/datastax/cass-operator/operator/pkg/apis"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/controller"
 	"github.com/operator-framework/operator-sdk/pkg/ready"
-	"github.com/riptano/dse-operator/operator/pkg/apis"
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
-	"github.com/riptano/dse-operator/operator/pkg/controller"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -98,7 +98,7 @@ func main() {
 	ctx := context.Background()
 
 	// Become the leader before proceeding
-	err = leader.Become(ctx, "dse-operator-lock")
+	err = leader.Become(ctx, "cass-operator-lock")
 	if err != nil {
 		log.Error(err, "could not become leader")
 		os.Exit(1)

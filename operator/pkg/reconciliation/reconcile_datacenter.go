@@ -1,14 +1,14 @@
 package reconciliation
 
 import (
-	"github.com/riptano/dse-operator/operator/internal/result"
+	"github.com/datastax/cass-operator/operator/internal/result"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 )
 
 // ProcessDeletion ...

@@ -11,7 +11,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"github.com/riptano/dse-operator/operator/pkg/mocks"
+	"github.com/datastax/cass-operator/operator/pkg/mocks"
 )
 
 func TestDeletePVCs(t *testing.T) {

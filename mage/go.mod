@@ -1,4 +1,4 @@
-module github.com/riptano/dse-operator/mage
+module github.com/datastax/cass-operator/mage
 
 go 1.13
 
@@ -15,4 +15,4 @@ require (
 	k8s.io/apimachinery v0.0.0-20191123233150-4c4803ed55e3 // indirect
 )
 
-replace github.com/riptano/dse-operator/mage => ./
+replace github.com/datastax/cass-operator/mage => ./

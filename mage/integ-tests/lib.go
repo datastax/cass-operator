@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	shutil "github.com/riptano/dse-operator/mage/sh"
-	mageutil "github.com/riptano/dse-operator/mage/util"
+	shutil "github.com/datastax/cass-operator/mage/sh"
+	mageutil "github.com/datastax/cass-operator/mage/util"
 )
 
 const (

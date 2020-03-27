@@ -7,14 +7,14 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 )
 
 func Test_buildDefaultSuperuserSecret(t *testing.T) {
 	t.Run("test default superuser secret is created", func(t *testing.T) {
 		dc := &api.CassandraDatacenter{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "exampleDC",
+				Name:      "exampleDC",
 				Namespace: "examplens",
 			},
 			Spec: api.CassandraDatacenterSpec{
@@ -45,7 +45,7 @@ func Test_buildDefaultSuperuserSecret(t *testing.T) {
 	t.Run("test default superuser secret not created when explicitly defined", func(t *testing.T) {
 		dc := &api.CassandraDatacenter{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: "exampleDC",
+				Name:      "exampleDC",
 				Namespace: "examplens",
 			},
 			Spec: api.CassandraDatacenterSpec{
@@ -69,9 +69,9 @@ func Test_buildDefaultSuperuserSecret(t *testing.T) {
 
 func Test_validateSuperuserSecretContent(t *testing.T) {
 	var (
-		name            = "datacenter-example"
-		namespace       = "default"
-		ClusterName     = "bob"
+		name        = "datacenter-example"
+		namespace   = "default"
+		ClusterName = "bob"
 	)
 
 	tests := []struct {
@@ -83,42 +83,42 @@ func Test_validateSuperuserSecretContent(t *testing.T) {
 	}{
 		{
 			secretNil: true,
-			valid: true,
-			message: "validation should pass when a secret is going to be auto-generated",
+			valid:     true,
+			message:   "validation should pass when a secret is going to be auto-generated",
 		},
 		{
 			superuserSecret: "my-fun-secret",
-			secretNil: true,
-			valid: false,
-			message: "validation should fail when the user explicitly specifies a secret but it does not exist",
+			secretNil:       true,
+			valid:           false,
+			message:         "validation should fail when the user explicitly specifies a secret but it does not exist",
 		},
 		{
 			superuserSecret: "my-fun-secret",
-			secretNil: false,
-			data: map[string][]byte {
+			secretNil:       false,
+			data: map[string][]byte{
 				"username": []byte("bob-the-admin"),
 				"password": []byte("12345"),
 			},
-			valid: true,
+			valid:   true,
 			message: "validation should pass when secret contains valid username and password",
 		},
 		{
 			superuserSecret: "my-fun-secret",
-			secretNil: false,
-			data: map[string][]byte {
+			secretNil:       false,
+			data: map[string][]byte{
 				"password": []byte("12345"),
 			},
-			valid: false,
+			valid:   false,
 			message: "validation should fail when secret is missing a required key",
 		},
 		{
 			superuserSecret: "my-fun-secret",
-			secretNil: false,
-			data: map[string][]byte {
+			secretNil:       false,
+			data: map[string][]byte{
 				"username": []byte("bob-the-admin"),
 				"password": []byte("\xf0\x28\x8c\x28"),
 			},
-			valid: false,
+			valid:   false,
 			message: "validation should fail when secret contains non-utf8 data",
 		},
 	}
@@ -126,11 +126,11 @@ func Test_validateSuperuserSecretContent(t *testing.T) {
 	for _, test := range tests {
 		dc := &api.CassandraDatacenter{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:              name,
-				Namespace:         namespace,
+				Name:      name,
+				Namespace: namespace,
 			},
 			Spec: api.CassandraDatacenterSpec{
-				ClusterName: ClusterName,
+				ClusterName:         ClusterName,
 				SuperuserSecretName: test.superuserSecret,
 			},
 		}
@@ -140,7 +140,7 @@ func Test_validateSuperuserSecretContent(t *testing.T) {
 			secretNamespacedName := dc.GetSuperuserSecretNamespacedName()
 			secret = &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
-					Name: secretNamespacedName.Name,
+					Name:      secretNamespacedName.Name,
 					Namespace: secretNamespacedName.Namespace,
 				},
 				Data: test.data,

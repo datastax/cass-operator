@@ -5,9 +5,9 @@ import (
 	"os"
 	"strings"
 
-	dockerutil "github.com/riptano/dse-operator/mage/docker"
-	shutil "github.com/riptano/dse-operator/mage/sh"
-	mageutil "github.com/riptano/dse-operator/mage/util"
+	dockerutil "github.com/datastax/cass-operator/mage/docker"
+	shutil "github.com/datastax/cass-operator/mage/sh"
+	mageutil "github.com/datastax/cass-operator/mage/util"
 )
 
 const (

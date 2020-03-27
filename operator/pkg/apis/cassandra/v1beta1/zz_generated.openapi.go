@@ -11,9 +11,9 @@ import (
 
 func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenAPIDefinition {
 	return map[string]common.OpenAPIDefinition{
-		"github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenter":       schema_pkg_apis_cassandra_v1beta1_CassandraDatacenter(ref),
-		"github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenterSpec":   schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref),
-		"github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenterStatus": schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterStatus(ref),
+		"github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenter":       schema_pkg_apis_cassandra_v1beta1_CassandraDatacenter(ref),
+		"github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenterSpec":   schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref),
+		"github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenterStatus": schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterStatus(ref),
 	}
 }
 
@@ -45,19 +45,19 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenter(ref common.ReferenceC
 					},
 					"spec": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenterSpec"),
+							Ref: ref("github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenterSpec"),
 						},
 					},
 					"status": {
 						SchemaProps: spec.SchemaProps{
-							Ref: ref("github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenterStatus"),
+							Ref: ref("github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenterStatus"),
 						},
 					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenterSpec", "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
+			"github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenterSpec", "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.CassandraDatacenterStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.ObjectMeta"},
 	}
 }
 
@@ -106,7 +106,7 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref common.Refere
 					"managementApiAuth": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Config for the Management API certificates",
-							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.ManagementApiAuthConfig"),
+							Ref:         ref("github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.ManagementApiAuthConfig"),
 						},
 					},
 					"resources": {
@@ -122,7 +122,7 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref common.Refere
 							Items: &spec.SchemaOrArray{
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.Rack"),
+										Ref: ref("github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.Rack"),
 									},
 								},
 							},
@@ -131,7 +131,7 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref common.Refere
 					"storageConfig": {
 						SchemaProps: spec.SchemaProps{
 							Description: "Describes the persistent storage request of each server node",
-							Ref:         ref("github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.StorageConfig"),
+							Ref:         ref("github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.StorageConfig"),
 						},
 					},
 					"replaceNodes": {
@@ -209,7 +209,7 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref common.Refere
 			},
 		},
 		Dependencies: []string{
-			"github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.ManagementApiAuthConfig", "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.Rack", "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.StorageConfig", "k8s.io/api/core/v1.ResourceRequirements"},
+			"github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.ManagementApiAuthConfig", "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.Rack", "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.StorageConfig", "k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 
@@ -251,7 +251,7 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterStatus(ref common.Refe
 								Allows: true,
 								Schema: &spec.Schema{
 									SchemaProps: spec.SchemaProps{
-										Ref: ref("github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.CassandraNodeStatus"),
+										Ref: ref("github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.CassandraNodeStatus"),
 									},
 								},
 							},
@@ -274,6 +274,6 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterStatus(ref common.Refe
 			},
 		},
 		Dependencies: []string{
-			"github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1.CassandraNodeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.CassandraNodeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }

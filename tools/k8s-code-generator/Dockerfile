@@ -8,8 +8,8 @@ ENV GOPATH=/go
 ENV GO111MODULE=on
 
 # Assume that when this image gets run, the operator code directory
-# is mounted to /go/src/github.com/riptano/dse-operator/operator
-ENV OPERATOR_DIR=/go/src/github.com/riptano/dse-operator/operator
+# is mounted to /go/src/github.com/datastax/cass-operator/operator
+ENV OPERATOR_DIR=/go/src/github.com/datastax/cass-operator/operator
 
 # We download a version of the code-generator that matches the build-arg CODEGEN_VERSION.
 # For regular use, we would use the version here that is specified in the operator's go.mod file
@@ -32,7 +32,7 @@ RUN go install ./cmd/informer-gen
 
 # The code-generator wants to be executed while your working directory
 # is set to your repo location, in the GOPATH style.
-WORKDIR $GOPATH/src/github.com/riptano/dse-operator/operator
+WORKDIR $GOPATH/src/github.com/datastax/cass-operator/operator
 
 
 # We don't want newly generated files to be owned by root
@@ -49,9 +49,9 @@ RUN chmod -R 777 /.cache
 #
 # For example, you could run this image with:
 # docker run --rm -t \
-#   -v /home/chris/go/src/github.com/riptano/dse-operator/operator:/go/src/github.com/riptano/dse-operator/operator operator-gen-client \
+#   -v /home/chris/go/src/github.com/datastax/cass-operator/operator:/go/src/github.com/datastax/cass-operator/operator operator-gen-client \
 #   client \
-#   github.com/riptano/dse-operator/operator/pkg/generated \
-#   github.com/riptano/dse-operator/operator/pkg/apis \
+#   github.com/datastax/cass-operator/operator/pkg/generated \
+#   github.com/datastax/cass-operator/operator/pkg/apis \
 #   cassandra:v1beta1
 ENTRYPOINT ["/go/src/k8s.io/code-generator/generate-groups.sh"]

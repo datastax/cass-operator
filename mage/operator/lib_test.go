@@ -3,7 +3,7 @@ package operator
 import (
 	"testing"
 
-	"github.com/riptano/dse-operator/mage/config"
+	"github.com/datastax/cass-operator/mage/config"
 	"github.com/stretchr/testify/assert"
 )
 

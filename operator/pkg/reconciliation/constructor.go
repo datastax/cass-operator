@@ -5,9 +5,9 @@ package reconciliation
 import (
 	"fmt"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
-	"github.com/riptano/dse-operator/operator/pkg/httphelper"
-	"github.com/riptano/dse-operator/operator/pkg/oplabels"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/httphelper"
+	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -60,9 +60,9 @@ func newSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.S
 	return service
 }
 
-// newAllDsePodsServiceForCassandraDatacenter creates a headless service owned by the CassandraDatacenter,
+// newAllPodsServiceForCassandraDatacenter creates a headless service owned by the CassandraDatacenter,
 // which covers all server pods in the datacenter, whether they are ready or not
-func newAllDsePodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Service {
+func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Service {
 	service := makeGenericHeadlessService(dc)
 	service.ObjectMeta.Name = dc.GetAllPodsServiceName()
 	service.Spec.PublishNotReadyAddresses = true
@@ -423,7 +423,7 @@ func calculateNodeAffinity(zone string) *corev1.NodeAffinity {
 	}
 }
 
-// calculatePodAntiAffinity provides a way to keep the dse pods of a statefulset away from other dse pods
+// calculatePodAntiAffinity provides a way to keep the db pods of a statefulset away from other db pods
 func calculatePodAntiAffinity(allowMultipleNodesPerWorker bool) *corev1.PodAntiAffinity {
 	if allowMultipleNodesPerWorker {
 		return nil

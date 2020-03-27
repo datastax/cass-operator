@@ -19,7 +19,7 @@ limitations under the License.
 package scheme
 
 import (
-	cassandrav1beta1 "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
+	cassandrav1beta1 "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"

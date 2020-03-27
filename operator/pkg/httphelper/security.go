@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	api "github.com/riptano/dse-operator/operator/pkg/apis/cassandra/v1beta1"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -138,16 +138,16 @@ func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(pod *core
 	tlsCrt := "/management-api-certs/tls.crt"
 	tlsKey := "/management-api-certs/tls.key"
 
-	// Find the DSE container
+	// find the container
 	var container *corev1.Container = nil
-	for i, _ := range pod.Spec.Containers {
-		if pod.Spec.Containers[i].Name == "dse" {
+	for i := range pod.Spec.Containers {
+		if pod.Spec.Containers[i].Name == "cassandra" {
 			container = &pod.Spec.Containers[i]
 		}
 	}
 
 	if container == nil {
-		return fmt.Errorf("Could not find container with name '%s'", "dse")
+		return fmt.Errorf("Could not find cassandra container")
 	}
 
 	// Add volume containing certificates
@@ -167,7 +167,7 @@ func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(pod *core
 
 	pod.Spec.Volumes = append(pod.Spec.Volumes, secretVolume)
 
-	// Mount certificates volume in DSE container
+	// Mount certificates volume in container
 	secretVolumeMount := corev1.VolumeMount{
 		Name:      secretVolumeName,
 		ReadOnly:  true,
