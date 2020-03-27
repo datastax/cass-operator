@@ -33,7 +33,7 @@ spec:
         metadata:
           type: object
         spec:
-          description: CassandraDatacenterSpec defines the desired state of CassandraDatacenter
+          description: CassandraDatacenterSpec defines the desired state of a CassandraDatacenter
           properties:
             allowMultipleNodesPerWorker:
               description: Turning this option on allows multiple server pods to be
@@ -41,8 +41,8 @@ spec:
                 one server pod per k8s worker node using k8s podAntiAffinity and requiredDuringSchedulingIgnoredDuringExecution.
               type: boolean
             canaryUpgrade:
-              description: Indicates configuration and container image changes should
-                only be pushed to the first rack of the datacenter
+              description: Indicates that configuration and container image changes
+                should only be pushed to the first rack of the datacenter
               type: boolean
             clusterName:
               description: The name by which CQL clients and instances will know the
@@ -52,8 +52,7 @@ spec:
               minLength: 2
               type: string
             configBuilderImage:
-              description: Container image for the config builder init container,
-                with host, path, and tag
+              description: Container image for the config builder init container.
               type: string
             managementApiAuth:
               description: Config for the Management API certificates
@@ -120,7 +119,7 @@ spec:
                 The operator will set this back to false once the restart is in progress.
               type: boolean
             serverImage:
-              description: 'Server image name. More info: https://kubernetes.io/docs/concepts/containers/images'
+              description: 'Cassandra server image name. More info: https://kubernetes.io/docs/concepts/containers/images'
               type: string
             serverType:
               description: 'Server type: "cassandra" or "dse"'
@@ -129,7 +128,8 @@ spec:
               - dse
               type: string
             serverVersion:
-              description: Version number
+              description: Version string for config builder, used to generate Cassandra
+                server configuration
               enum:
               - 6.8.0
               - 3.11.6
@@ -138,7 +138,7 @@ spec:
               description: The k8s service account to use for the server pods
               type: string
             size:
-              description: Desired number of server nodes
+              description: Desired number of Cassandra server nodes
               format: int32
               minimum: 1
               type: integer
@@ -269,8 +269,8 @@ spec:
                   type: object
               type: object
             superuserSecretName:
-              description: This secret defines the username and password for the Server
-                superuser.
+              description: This secret defines the username and password for the Cassandra
+                server superuser. If it is omitted, we will generate a secret instead.
               type: string
           required:
           - clusterName

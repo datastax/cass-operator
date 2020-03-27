@@ -47,7 +47,7 @@ const (
 	ProgressReady    ProgressState = "Ready"
 )
 
-// this type exists so there's no chance of pushing random strings to our progress status
+// This type exists so there's no chance of pushing random strings to our progress status
 type ProgressState string
 
 // getImageForServerVersion tries to look up a known image for a server type and version number.
@@ -64,23 +64,23 @@ func getImageForServerVersion(server, version string) (string, error) {
 	return "", err
 }
 
-// CassandraDatacenterSpec defines the desired state of CassandraDatacenter
+// CassandraDatacenterSpec defines the desired state of a CassandraDatacenter
 // +k8s:openapi-gen=true
 type CassandraDatacenterSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+	// Important: Run "mage operator:sdkGenerate" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags:
 	// https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 
-	// Desired number of server nodes
+	// Desired number of Cassandra server nodes
 	// +kubebuilder:validation:Minimum=1
 	Size int32 `json:"size"`
 
-	// Version number
+	// Version string for config builder,
+	// used to generate Cassandra server configuration
 	// +kubebuilder:validation:Enum="6.8.0";"3.11.6"
 	ServerVersion string `json:"serverVersion"`
 
-	// Server image name.
+	// Cassandra server image name.
 	// More info: https://kubernetes.io/docs/concepts/containers/images
 	ServerImage string `json:"serverImage,omitempty"`
 
@@ -90,14 +90,18 @@ type CassandraDatacenterSpec struct {
 
 	// Config for the server, in YAML format
 	Config json.RawMessage `json:"config,omitempty"`
+
 	// Config for the Management API certificates
 	ManagementApiAuth ManagementApiAuthConfig `json:"managementApiAuth,omitempty"`
+
 	// Kubernetes resource requests and limits, per pod
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+
 	// A list of the named racks in the datacenter, representing independent failure domains. The
 	// number of racks should match the replication factor in the keyspaces you plan to create, and
 	// the number of racks cannot easily be changed once a datacenter is deployed.
 	Racks []Rack `json:"racks,omitempty"`
+
 	// Describes the persistent storage request of each server node
 	StorageConfig StorageConfig `json:"storageConfig"`
 
@@ -115,18 +119,22 @@ type CassandraDatacenterSpec struct {
 	// will re-attach when the CassandraDatacenter workload is resumed.
 	Stopped bool `json:"stopped,omitempty"`
 
-	// Container image for the config builder init container, with host, path, and tag
+	// Container image for the config builder init container.
 	ConfigBuilderImage string `json:"configBuilderImage,omitempty"`
 
-	// Indicates configuration and container image changes should only be pushed to
+	// Indicates that configuration and container image changes should only be pushed to
 	// the first rack of the datacenter
 	CanaryUpgrade bool `json:"canaryUpgrade,omitempty"`
+
 	// Turning this option on allows multiple server pods to be created on a k8s worker node.
 	// By default the operator creates just one server pod per k8s worker node using k8s
 	// podAntiAffinity and requiredDuringSchedulingIgnoredDuringExecution.
 	AllowMultipleNodesPerWorker bool `json:"allowMultipleNodesPerWorker,omitempty"`
-	// This secret defines the username and password for the Server superuser.
+
+	// This secret defines the username and password for the Cassandra server superuser.
+	// If it is omitted, we will generate a secret instead.
 	SuperuserSecretName string `json:"superuserSecretName,omitempty"`
+
 	// The k8s service account to use for the server pods
 	ServiceAccount string `json:"serviceAccount,omitempty"`
 

@@ -65,26 +65,26 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref common.Refere
 	return common.OpenAPIDefinition{
 		Schema: spec.Schema{
 			SchemaProps: spec.SchemaProps{
-				Description: "CassandraDatacenterSpec defines the desired state of CassandraDatacenter",
+				Description: "CassandraDatacenterSpec defines the desired state of a CassandraDatacenter",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
 					"size": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Desired number of server nodes",
+							Description: "Desired number of Cassandra server nodes",
 							Type:        []string{"integer"},
 							Format:      "int32",
 						},
 					},
 					"serverVersion": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Version number",
+							Description: "Version string for config builder, used to generate Cassandra server configuration",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"serverImage": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Server image name. More info: https://kubernetes.io/docs/concepts/containers/images",
+							Description: "Cassandra server image name. More info: https://kubernetes.io/docs/concepts/containers/images",
 							Type:        []string{"string"},
 							Format:      "",
 						},
@@ -164,14 +164,14 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref common.Refere
 					},
 					"configBuilderImage": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Container image for the config builder init container, with host, path, and tag",
+							Description: "Container image for the config builder init container.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
 					},
 					"canaryUpgrade": {
 						SchemaProps: spec.SchemaProps{
-							Description: "Indicates configuration and container image changes should only be pushed to the first rack of the datacenter",
+							Description: "Indicates that configuration and container image changes should only be pushed to the first rack of the datacenter",
 							Type:        []string{"boolean"},
 							Format:      "",
 						},
@@ -185,7 +185,7 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref common.Refere
 					},
 					"superuserSecretName": {
 						SchemaProps: spec.SchemaProps{
-							Description: "This secret defines the username and password for the Server superuser.",
+							Description: "This secret defines the username and password for the Cassandra server superuser. If it is omitted, we will generate a secret instead.",
 							Type:        []string{"string"},
 							Format:      "",
 						},
