@@ -13,11 +13,11 @@ spec:
         name: cass-operator
     spec:
       serviceAccountName: cass-operator
-      volumes:
-        - name: cass-operator-certs-volume
-          emptyDir: {}
+      # volumes:
+      #   - name: cass-operator-certs-volume
+      #     emptyDir: {}
       # initContainers:
-      #   - name: cass-operator-initc
+      #   - name: cass-operator-init
       #     image: datastax/cass-operator-init:latest
       #     imagePullPolicy: IfNotPresent
       #     volumeMounts:
@@ -27,9 +27,9 @@ spec:
         - name: cass-operator
           image: datastax/cass-operator:latest
           imagePullPolicy: IfNotPresent
-          volumeMounts:
-            - mountPath: /tmp/k8s-webhook-server/serving-certs
-              name: cass-operator-certs-volume
+          # volumeMounts:
+          #   - mountPath: /tmp/k8s-webhook-server/serving-certs
+          #     name: cass-operator-certs-volume
           livenessProbe:
             exec:
               command:
