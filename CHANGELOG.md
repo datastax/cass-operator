@@ -7,6 +7,7 @@
 * Node replace added.
 * The operator will work to revive nodes that fail readiness for over 10 minutes
   by deleting pods.
+* Rolling restart added.
 
 ## v0.9.0
 

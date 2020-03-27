@@ -6,7 +6,7 @@ metadata:
   name: dtcntr
 spec:
   clusterName: clstr
-  serverImage: datastaxlabs/apache-cassandra-with-mgmtapi:3.11.6-20200316
+  serverImage: datastax/cassandra-mgmtapi-3_11_6:v0.1.0
   serverVersion: 3.11.6
   serverType: cassandra
   managementApiAuth:

@@ -16,8 +16,8 @@ import (
 
 const (
 	// For now we will define defaults for both server image types
-	defaultCassRepository = "datastaxlabs/apache-cassandra-with-mgmtapi"
-	defaultCassVersion    = "3.11.6-20200316"
+	defaultCassRepository = "datastax/cassandra-mgmtapi-3_11_6"
+	defaultCassVersion    = "v0.1.0"
 
 	defaultDseRepository = "datastaxlabs/dse-k8s-server"
 	defaultDseVersion    = "6.8.0-20200316"
@@ -77,7 +77,7 @@ type CassandraDatacenterSpec struct {
 
 	// Version string for config builder,
 	// used to generate Cassandra server configuration
-	// +kubebuilder:validation:Enum="6.8.0";"3.11.6"
+	// +kubebuilder:validation:Enum="6.8.0";"3.11.6";"4.0.0"
 	ServerVersion string `json:"serverVersion"`
 
 	// Cassandra server image name.

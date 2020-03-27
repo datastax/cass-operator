@@ -37,7 +37,7 @@ func Test_makeImage(t *testing.T) {
 				serverType:    "cassandra",
 				serverVersion: "3.11.6",
 			},
-			want:      "datastaxlabs/apache-cassandra-with-mgmtapi:3.11.6-20200316",
+			want:      "datastax/cassandra-mgmtapi-3_11_6:v0.1.0",
 			errString: "",
 		},
 		{

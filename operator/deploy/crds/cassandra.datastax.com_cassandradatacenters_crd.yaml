@@ -133,6 +133,7 @@ spec:
               enum:
               - 6.8.0
               - 3.11.6
+              - 4.0.0
               type: string
             serviceAccount:
               description: The k8s service account to use for the server pods
