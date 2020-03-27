@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"regexp"
 
-	"github.com/datastax/cass-operator/mage/util"
+	mageutil "github.com/datastax/cass-operator/mage/util"
 	"gopkg.in/yaml.v2"
 )
 
@@ -43,8 +43,7 @@ type Jenkins struct {
 }
 
 type Dev struct {
-	DseImage           string `yaml:"dseImage"`
-	ConfigBuilderImage string `yaml:"configBuilderImage"`
+	Images []string `yaml:"images"`
 }
 
 type BuildSettings struct {

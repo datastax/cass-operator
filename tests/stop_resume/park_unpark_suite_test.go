@@ -13,7 +13,7 @@ import (
 
 var (
 	testName         = "Stop and Resume"
-	namespace        = "stop-resume"
+	namespace        = "test-stop-resume"
 	dcName           = "dc1"
 	dcYaml           = "../testdata/default-three-rack-three-node-dc.yaml"
 	operatorYaml     = "../testdata/operator.yaml"

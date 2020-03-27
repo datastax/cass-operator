@@ -16,5 +16,7 @@ jenkins:
       - timestamper
       - simple-theme-plugin
 dev:
-  dseImage: datastaxlabs/dse-k8s-server:6.8.0-20200316
-  configBuilderImage: datastaxlabs/dse-k8s-config-builder:0.9.0-20200316
+  images:
+    - datastaxlabs/dse-k8s-server:6.8.0-20200316
+    - datastaxlabs/dse-k8s-config-builder:0.9.0-20200316
+    - datastaxlabs/apache-cassandra-with-mgmtapi:3.11.6-20200316

@@ -6,14 +6,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/magefile/mage/mg"
 	cfgutil "github.com/datastax/cass-operator/mage/config"
 	dockerutil "github.com/datastax/cass-operator/mage/docker"
+	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
 	integutil "github.com/datastax/cass-operator/mage/integ-tests"
 	"github.com/datastax/cass-operator/mage/kubectl"
 	"github.com/datastax/cass-operator/mage/operator"
 	shutil "github.com/datastax/cass-operator/mage/sh"
 	mageutil "github.com/datastax/cass-operator/mage/util"
+	"github.com/magefile/mage/mg"
 )
 
 const (
@@ -24,6 +25,11 @@ const (
 
 func deleteCluster() error {
 	return shutil.RunV("kind", "delete", "cluster")
+}
+
+func clusterExists() bool {
+	out := shutil.OutputPanic("kind", "get", "clusters")
+	return strings.TrimSpace(out) == "kind"
 }
 
 func createCluster() {
@@ -57,17 +63,20 @@ func loadImage(image string) {
 	shutil.RunVPanic("kind", "load", "docker-image", image)
 }
 
-func loadImagesFromBuildSettings() {
-	settings := cfgutil.ReadBuildSettings()
-	//TODO: cass image will get put into build settings
-	// once the dev image section gets more generalized
-	cass311 := "datastaxlabs/apache-cassandra-with-mgmtapi:3.11.6-20200316"
-	shutil.RunVPanic("docker", "pull", settings.Dev.DseImage)
-	shutil.RunVPanic("docker", "pull", settings.Dev.ConfigBuilderImage)
-	shutil.RunVPanic("docker", "pull", cass311)
-	loadImage(settings.Dev.DseImage)
-	loadImage(settings.Dev.ConfigBuilderImage)
-	loadImage(cass311)
+func loadImagesFromBuildSettings(settings cfgutil.BuildSettings) {
+	for _, image := range settings.Dev.Images {
+		shutil.RunVPanic("docker", "pull", image)
+		loadImage(image)
+	}
+}
+
+func loadSettings() {
+	loadDevImages := os.Getenv(envLoadDevImages)
+	if strings.ToLower(loadDevImages) == "true" {
+		fmt.Println("Pulling and loading images from buildsettings.yaml")
+		settings := cfgutil.ReadBuildSettings()
+		loadImagesFromBuildSettings(settings)
+	}
 }
 
 // Currently there is no concept of "global tool install"
@@ -86,18 +95,20 @@ func Install() {
 	os.Chdir(cwd)
 }
 
-// Load the latest operator docker image into a runing kind cluster.
-func ReloadOperator() {
+// Load the latest copy of a local image into kind
+func reloadLocalImage(image string) {
+	fullImage := fmt.Sprintf("docker.io/%s", image)
 	containers := dockerutil.GetAllContainersPanic()
 	for _, c := range containers {
 		if strings.HasPrefix(c.Image, "kindest") {
-			fmt.Printf("Deleting old operator image from Docker container: %s\n", c.Id)
-			execArgs := []string{"crictl", "rmi", "docker.io/datastax/cass-operator:latest"}
-			dockerutil.Exec(c.Id, nil, false, "", "", execArgs).ExecVPanic()
+			fmt.Printf("Deleting old image from Docker container: %s\n", c.Id)
+			execArgs := []string{"crictl", "rmi", fullImage}
+			//TODO properly check for existing image before deleting..
+			_ = dockerutil.Exec(c.Id, nil, false, "", "", execArgs).ExecV()
 		}
 	}
 	fmt.Println("Loading new operator Docker image into KIND cluster")
-	shutil.RunVPanic("kind", "load", "docker-image", "datastax/cass-operator:latest")
+	shutil.RunVPanic("kind", "load", "docker-image", image)
 	fmt.Println("Finished loading new operator image into Kind.")
 }
 
@@ -113,14 +124,8 @@ func SetupEmptyCluster() {
 	deleteCluster()
 	createCluster()
 	kubectl.ClusterInfoForContext("kind-kind").ExecVPanic()
-
-	loadDevImages := os.Getenv(envLoadDevImages)
-	if strings.ToLower(loadDevImages) == "true" {
-		fmt.Println("Pulling and loading images from buildsettings.yaml")
-		loadImagesFromBuildSettings()
-	}
-
-	kubectl.ApplyFiles("operator/deploy/kind/rancher-local-path-storage.yaml").
+	loadSettings()
+	kubectl.ApplyFiles("operator/k8s-flavors/kind/rancher-local-path-storage.yaml").
 		ExecVPanic()
 	//TODO make this part optional
 	operator.BuildDocker()
@@ -138,8 +143,11 @@ func SetupEmptyCluster() {
 func RunIntegTests() {
 	mg.Deps(SetupEmptyCluster)
 	integutil.Run()
-	err := deleteCluster()
-	mageutil.PanicOnError(err)
+	noCleanup := os.Getenv(ginkgo_util.EnvNoCleanup)
+	if strings.ToLower(noCleanup) != "true" {
+		err := deleteCluster()
+		mageutil.PanicOnError(err)
+	}
 }
 
 // Perform all the steps to stand up an example Kind cluster,
@@ -148,15 +156,8 @@ func RunIntegTests() {
 // or SetupDCECluster
 func SetupExampleCluster() {
 	mg.Deps(SetupEmptyCluster)
-	settings := cfgutil.ReadBuildSettings()
-	loadImage(settings.Dev.DseImage)
-	loadImage(settings.Dev.ConfigBuilderImage)
-	operator.BuildDocker()
-	loadImage(operatorInitContainerImage)
-	loadImage(operatorImage)
 	kubectl.CreateSecretLiteral("cassandra-superuser-secret", "devuser", "devpass").ExecVPanic()
 	kubectl.ApplyFiles(
-		"operator/deploy/kind/rancher-local-path-storage.yaml",
 		"operator/deploy/role.yaml",
 		"operator/deploy/role_binding.yaml",
 		"operator/deploy/cluster_role.yaml",
@@ -176,7 +177,7 @@ func SetupExampleCluster() {
 func SetupCassandraCluster() {
 	mg.Deps(SetupExampleCluster)
 	kubectl.ApplyFiles(
-		"operator/deploy/kind/cassandradatacenter-one-rack-example.yaml",
+		"operator/example-cassdc-yaml/cassandradatacenter-one-rack-example-again.yaml",
 	).ExecVPanic()
 	kubectl.WatchPods()
 }
@@ -186,7 +187,7 @@ func SetupCassandraCluster() {
 func SetupDSECluster() {
 	mg.Deps(SetupExampleCluster)
 	kubectl.ApplyFiles(
-		"operator/deploy/kind/dsedatacenter-one-rack-example.yaml",
+		"operator/example-cassdc-yaml/cassandradatacenter-one-rack-example.yaml",
 	).ExecVPanic()
 	kubectl.WatchPods()
 }
@@ -195,4 +196,38 @@ func SetupDSECluster() {
 func DeleteCluster() {
 	err := deleteCluster()
 	mageutil.PanicOnError(err)
+}
+
+func EnsureEmptyCluster() {
+	if !clusterExists() {
+		SetupEmptyCluster()
+	} else {
+		// we should still ensure that the storage is set up
+		// correctly every time
+		kubectl.ApplyFiles("operator/k8s-flavors/kind/rancher-local-path-storage.yaml").
+			ExecVPanic()
+		// we still need to build and load an updated
+		// set of our local operator images
+		operator.BuildDocker()
+		reloadLocalImage(operatorInitContainerImage)
+		reloadLocalImage(operatorImage)
+	}
+
+	//Find any lingering test namespaces and delete them
+	output := kubectl.Get("namespaces").OutputPanic()
+	rows := strings.Split(output, "\n")
+	for _, row := range rows {
+		name := strings.Fields(row)[0]
+		if strings.HasPrefix(name, "test-") {
+			fmt.Printf("Cleaning up namespace: %s\n", name)
+			_ = kubectl.Delete("cassandradatacenter", "--all").ExecV()
+			kubectl.DeleteByTypeAndName("namespace", name).ExecVPanic()
+		}
+	}
+}
+
+func ReloadOperator() {
+	operator.BuildDocker()
+	reloadLocalImage(operatorInitContainerImage)
+	reloadLocalImage(operatorImage)
 }

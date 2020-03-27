@@ -13,7 +13,7 @@ import (
 
 var (
 	testName         = "Delete Node that lost readiness and isn't becoming ready"
-	namespace        = "delete-node-lost-readiness"
+	namespace        = "test-delete-node-lost-readiness"
 	dcName           = "dc1"
 	dcYaml           = "../testdata/default-three-rack-three-node-dc.yaml"
 	operatorYaml     = "../testdata/operator.yaml"

@@ -13,7 +13,7 @@ import (
 
 var (
 	testName         = "Scale Up Stop Resume"
-	namespace        = "scale-up-stop-resume"
+	namespace        = "test-scale-up-stop-resume"
 	dcName           = "dc1"
 	dcYaml           = "../testdata/default-three-rack-three-node-dc.yaml"
 	operatorYaml     = "../testdata/operator.yaml"

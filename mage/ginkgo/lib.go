@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	envNoCleanup = "M_NO_CLEANUP"
+	EnvNoCleanup = "M_NO_CLEANUP"
 )
 
 // Wrapper type to make it simpler to
@@ -89,7 +89,7 @@ func (k *NsWrapper) countStep() int {
 }
 
 func (k NsWrapper) Terminate() error {
-	noCleanup := os.Getenv(envNoCleanup)
+	noCleanup := os.Getenv(EnvNoCleanup)
 	if strings.ToLower(noCleanup) == "true" {
 		fmt.Println("Skipping namespace cleanup and deletion.")
 		return nil

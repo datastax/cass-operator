@@ -17,7 +17,7 @@ import (
 
 var (
 	testName         = "Node Replace"
-	namespace        = "node-replace"
+	namespace        = "test-node-replace"
 	dcName           = "dc1"
 	podNames         = []string{"cluster1-dc1-r1-sts-0","cluster1-dc1-r2-sts-0", "cluster1-dc1-r3-sts-0"}
 	podNameToReplace = podNames[2]

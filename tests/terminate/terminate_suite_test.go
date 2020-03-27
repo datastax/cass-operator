@@ -13,7 +13,7 @@ import (
 
 var (
 	testName         = "Cluster resource cleanup after termination"
-	namespace        = "terminate-cleanup"
+	namespace        = "test-terminate-cleanup"
 	dcName           = "dc2"
 	dcYaml           = "../testdata/default-single-rack-single-node-dc.yaml"
 	operatorYaml     = "../testdata/operator.yaml"

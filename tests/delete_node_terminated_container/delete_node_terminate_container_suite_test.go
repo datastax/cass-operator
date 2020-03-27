@@ -14,7 +14,7 @@ import (
 
 var (
 	testName         = "Delete Node where Cassandra container terminated, restarted, and isn't becoming ready"
-	namespace        = "delete-node-terminated-container"
+	namespace        = "test-delete-node-terminated-container"
 	dcName           = "dc1"
 	dcYaml           = "../testdata/default-three-rack-three-node-dc.yaml"
 	operatorYaml     = "../testdata/operator.yaml"

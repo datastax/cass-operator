@@ -184,8 +184,8 @@ func waitForOutputPattern(k KCmd, pattern string, expected string, seconds int) 
 				return
 			default:
 				actual, err = k.Output()
-				// Execute at most once every second
-				time.Sleep(time.Second)
+				// Execute at most once every two seconds
+				time.Sleep(time.Second * 2)
 			}
 		}
 		c <- actual

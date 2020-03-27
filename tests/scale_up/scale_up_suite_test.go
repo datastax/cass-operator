@@ -13,7 +13,7 @@ import (
 
 var (
 	testName         = "Scale up"
-	namespace        = "scale-up"
+	namespace        = "test-scale-up"
 	dcName           = "dc2"
 	dcYaml           = "../testdata/default-single-rack-single-node-dc.yaml"
 	operatorYaml     = "../testdata/operator.yaml"

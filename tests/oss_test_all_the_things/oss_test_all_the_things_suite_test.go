@@ -13,7 +13,7 @@ import (
 
 var (
 	testName         = "OSS test all the things"
-	namespace        = "oss-test-all-the-things"
+	namespace        = "test-oss-test-all-the-things"
 	dcName           = "dc1"
 	dcYaml           = "../testdata/oss-three-rack-three-node-dc.yaml"
 	operatorYaml     = "../testdata/operator.yaml"

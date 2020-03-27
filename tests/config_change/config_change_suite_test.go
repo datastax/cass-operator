@@ -13,7 +13,7 @@ import (
 
 var (
 	testName         = "Config change rollout"
-	namespace        = "config-change-rollout"
+	namespace        = "test-config-change-rollout"
 	dcName           = "dc1"
 	dcYaml           = "../testdata/default-three-rack-three-node-dc.yaml"
 	operatorYaml     = "../testdata/operator.yaml"

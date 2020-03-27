@@ -13,7 +13,7 @@ import (
 
 var (
 	testName         = "Multi-cluster Management"
-	namespace        = "multi-cluster-management"
+	namespace        = "test-multi-cluster-management"
 	dcNames          = [2]string{"dc1", "dc2"}
 	dcYamls          = [2]string{"../testdata/default-three-rack-three-node-dc.yaml", "../testdata/default-single-rack-single-node-dc.yaml"}
 	operatorYaml     = "../testdata/operator.yaml"
