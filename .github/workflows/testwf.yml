@@ -38,7 +38,10 @@ jobs:
       - name: Build docker
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          sudo --preserve-env=PATH echo $PATH
+          sudo --preserve-env=PATH env
+
+          echo "**** bin"
+          ls -lrt $GOPATH/bin
           sudo --preserve-env=PATH mage operator:buildDocker
       - name: Deploy to ECR
         env: 
