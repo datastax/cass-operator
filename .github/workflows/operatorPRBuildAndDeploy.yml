@@ -34,13 +34,3 @@ jobs:
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
           sudo -E env "PATH=$PATH" mage operator:deployToECR
-      - name: Deploy to Artifactory
-        if: github.ref == 'master'
-        env: 
-          MO_ART_USR: ${{ secrets.ART_USR }}
-          MO_ART_PSW: ${{ secrets.ART_PSW }}
-          MO_ART_REPO: ${{ secrets.ART_REPO }}
-        run: |
-          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          export MO_TAGS=$(cat ./build/tagsToPush.txt)
-          sudo -E env "PATH=$PATH" mage operator:deployToArtifactory
