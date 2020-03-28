@@ -32,13 +32,14 @@ jobs:
         uses: actions/cache@v1
         with:
           path: /var/lib/docker
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          key: ${{ runner.os }}-go-${{ hashFiles('/var/lib/docker/image/overlay2/layerdb/sha256/*') }}
           restore-keys: |
             ${{ runner.os }}-docker-
       - name: Build docker
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          sudo /go/bin/mage operator:buildDocker
+          chmomd -R 777 .
+          mage operator:buildDocker
       - name: Deploy to ECR
         env: 
           MO_ECR_ID: ${{ secrets.ECR_ID }}
@@ -46,5 +47,4 @@ jobs:
           MO_ECR_REPO: ${{ secrets.ECR_REPO }}
         run: |
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
-          chmomd -R 777 .
-          /go/bin/mage operator:deployToECR
+          mage operator:deployToECR
