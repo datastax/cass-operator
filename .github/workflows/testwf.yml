@@ -27,7 +27,7 @@ jobs:
           cd /tmp
           git clone https://github.com/magefile/mage
           cd mage
-          go run bootstrap.go
+          sudo go run bootstrap.go
       - name: Cache go pkgs
         uses: actions/cache@v1
         with:
