@@ -31,8 +31,8 @@ jobs:
       - name: Cache docker
         uses: actions/cache@v1
         with:
-          path: /var/lib/docker
-          key: ${{ runner.os }}-go-${{ hashFiles('/var/lib/docker/image/overlay2/layerdb/sha256/*') }}
+          path: /var/lib/docker/image/overlay2/layerdb/sha256
+          key: ${{ runner.os }}-go-${{ hashFiles('*') }}
           restore-keys: |
             ${{ runner.os }}-docker-
       - name: Build docker
