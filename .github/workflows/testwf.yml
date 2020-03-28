@@ -34,9 +34,9 @@ jobs:
           sudo /go/bin/mage operator:buildDocker
       - name: Deploy to ECR
         env: 
-          "MO_ECR_ID": ${{ secrets.ECR_ID }}
-          "MO_ECR_SECRET": ${{ secrets.ECR_SECRET }}
-          "MO_ECR_REPO": ${{ secrets.ECR_REPO }}
+          MO_ECR_ID: ${{ secrets.ECR_ID }}
+          MO_ECR_SECRET: ${{ secrets.ECR_SECRET }}
+          MO_ECR_REPO: ${{ secrets.ECR_REPO }}
         run: |
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
           sudo /go/bin/mage operator:deployToECR
