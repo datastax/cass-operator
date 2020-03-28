@@ -23,5 +23,6 @@ jobs:
           GOPATH: /go
           GO111MODULE: on
         run: |
+          export PATH=$PATH:$GOPATH
           mage operator:buildDocker
 
