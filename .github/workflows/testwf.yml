@@ -21,16 +21,6 @@ jobs:
           sudo mkdir -p $GOPATH/bin
           sudo mv mage $GOPATH/bin/mage
           sudo chmod +x $GOPATH/bin/mage
-      - name: Update permissions on docker cache dir (for restoring cache)
-        run: |
-          sudo chmod -R 777 /var/lib/docker/image/
-      - name: Cache docker
-        uses: actions/cache@v1
-        with:
-          path: /var/lib/docker/image/overlay2/layerdb/sha256
-          key: ${{ runner.os }}-docker-${{ hashFiles('*') }}
-          restore-keys: |
-            ${{ runner.os }}-docker-
       - name: Build docker
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
@@ -53,6 +43,3 @@ jobs:
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
           sudo -E env "PATH=$PATH" mage operator:deployToArtifactory
-      - name: Update permissions on docker cache dir - (for gathering cache)
-        run: |
-          sudo chmod -R 777 /var/lib/docker/image/
