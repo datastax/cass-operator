@@ -20,8 +20,8 @@ jobs:
           sudo mv mage /go/bin
       - name: Build docker
         env:
-          GOPATH=/go
-          GO111MODULE=on
+          GOPATH: /go
+          GO111MODULE: on
         run: |
           mage operator:buildDocker
 
