@@ -18,6 +18,7 @@ jobs:
           tar -xvf mage_1.9.0_Linux-ARM64.tar.gz
           sudo mkdir -p /go/bin
           sudo mv mage /go/bin
+          sudo chmod +x /go/bin/mage
       - name: Build docker
         env:
           GOPATH: /go
