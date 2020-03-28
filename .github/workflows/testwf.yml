@@ -24,7 +24,7 @@ jobs:
       - name: Cache go pkgs
         uses: actions/cache@v1
         with:
-          path: $GOPATH/pkg/mod
+          path: /go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
@@ -37,6 +37,8 @@ jobs:
           MO_ECR_ID: ${{ secrets.ECR_ID }}
           MO_ECR_SECRET: ${{ secrets.ECR_SECRET }}
           MO_ECR_REPO: ${{ secrets.ECR_REPO }}
+          TESTING: ${{ secrets.TEST }}
         run: |
+          echo "TESTING: ${TESTING}"
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
           sudo /go/bin/mage operator:deployToECR
