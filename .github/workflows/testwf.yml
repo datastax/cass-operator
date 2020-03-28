@@ -5,7 +5,7 @@ jobs:
     name: Build Cass Operator Docker Image
     runs-on: ubuntu-latest
     env:
-      GOPATH: /go
+      GOPATH: ~/go
       GOROOT: /usr/local/go1.13
     steps:
       - uses: actions/checkout@v2
@@ -23,7 +23,7 @@ jobs:
       #     sudo chmod +X /go/bin/mage
       - name: Install Mage
         run: |
-          sudo mkdir -p /go/bin
+          sudo mkdir -p ~/go/bin
           cd /tmp
           git clone https://github.com/magefile/mage
           cd mage
@@ -31,7 +31,7 @@ jobs:
       - name: Cache go pkgs
         uses: actions/cache@v1
         with:
-          path: /go/pkg/mod
+          path: ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
