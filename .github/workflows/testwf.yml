@@ -24,9 +24,9 @@ jobs:
           GOROOT: /usr/local/go1.13
           GO111MODULE: on
         run: |
-          export PATH=$GOROOT/bin:$PATH
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           go version
           go env
           ls -lrt
-          /go/bin/mage -debug -v operator:buildDocker
+          mage -debug -v operator:buildDocker
 
