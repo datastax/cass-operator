@@ -24,6 +24,7 @@ jobs:
           GOPATH: /go
           GO111MODULE: on
         run: |
+          go version
           go env
           /go/bin/mage -debug -v operator:buildDocker
 
