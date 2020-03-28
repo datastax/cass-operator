@@ -24,5 +24,6 @@ jobs:
           GOROOT: /usr/local/go1.13
           PATH: $GOROOT/bin:$GOPATH/bin:$PATH
         run: |
+          whoami
           sudo /go/bin/mage operator:buildDocker
 
