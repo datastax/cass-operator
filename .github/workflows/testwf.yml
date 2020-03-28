@@ -21,6 +21,10 @@ jobs:
           sudo mkdir -p $GOPATH/bin
           sudo mv mage $GOPATH/bin/mage
           sudo chmod +x $GOPATH/bin/mage
+      - name: Give user privileges
+        run: |
+          sudo usermod -aG sudo $USER
+          sudo gpasswd -a $USER docker
       - name: Cache docker
         uses: actions/cache@v1
         with:
