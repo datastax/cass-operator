@@ -23,8 +23,9 @@ jobs:
           sudo chmod +x $GOPATH/bin/mage
       - name: Give user privileges
         run: |
-          sudo usermod -aG sudo $USER
+          sudo gpasswd -a $USER sudo
           sudo gpasswd -a $USER docker
+          sudo chmod -R 777 /var/lib/docker/image/
       - name: Cache docker
         uses: actions/cache@v1
         with:
