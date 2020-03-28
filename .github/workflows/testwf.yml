@@ -18,6 +18,15 @@ jobs:
           sudo mkdir -p /go/bin
           sudo mv mage /go/bin
           sudo chmod +x /go/bin/mage
+      - name: Mage hack
+        env:
+          GOPATH: /go
+          GOROOT: /usr/local/go1.13
+        run: |
+          mkdir .mage
+          cd .mage
+          cp ../magefile.go .
+          mage -compile ../staticmage
       - name: Build docker
         env:
           GOPATH: /go
@@ -27,5 +36,5 @@ jobs:
           go version
           go env
           ls -lrt
-          mage -debug -v operator:buildDocker
+          ./staticmage -debug -v operator:buildDocker
 
