@@ -18,24 +18,23 @@ jobs:
           sudo mkdir -p /go/bin
           sudo mv mage /go/bin
           sudo chmod +x /go/bin/mage
-      - name: Mage hack
+      - name: Run Mage
+        uses: crazy-max/ghaction-mage@v1
         env:
           GOPATH: /go
           GOROOT: /usr/local/go1.13
-        run: |
-          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          mkdir .mage
-          cd .mage
-          cp ../magefile.go .
-          /go/bin/mage -compile ../staticmage
-      - name: Build docker
-        env:
-          GOPATH: /go
-          GOROOT: /usr/local/go1.13
-        run: |
-          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          go version
-          go env
-          ls -lrt
-          ./staticmage -debug -v operator:buildDocker
+          PATH: $GOROOT/bin:$PATH
+        with:
+          version: latest
+          args: operator:buildDocker
+      # - name: Build docker
+      #   env:
+      #     GOPATH: /go
+      #     GOROOT: /usr/local/go1.13
+      #   run: |
+      #     export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+      #     go version
+      #     go env
+      #     ls -lrt
+      #     ./staticmage -debug -v operator:buildDocker
 
