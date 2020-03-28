@@ -27,5 +27,5 @@ jobs:
           go version
           go env
           ls -lrt
-          mage -debug -v -l
+          sudo mage -debug -v -l
 
