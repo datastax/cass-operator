@@ -24,6 +24,6 @@ jobs:
           GOPATH: /go
           GO111MODULE: on
         run: |
-          pwd
+          go version
           /go/bin/mage operator:buildDocker
 
