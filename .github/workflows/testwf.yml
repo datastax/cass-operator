@@ -22,10 +22,7 @@ jobs:
         env:
           GOPATH: /go
           GOROOT: /usr/local/go1.13
+          PATH: $GOROOT/bin:$GOPATH/bin:$PATH
         run: |
-          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          go version
-          go env
-          ls -lrt
-          sudo /go/bin/mage -debug -v -l
+          sudo /go/bin/mage operator:buildDocker
 
