@@ -46,5 +46,5 @@ jobs:
           MO_ECR_REPO: ${{ secrets.ECR_REPO }}
         run: |
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
-          export MO_ECR_REPO=$MO_ECR_REPO
-          sudo /go/bin/mage operator:deployToECR
+          chmomd -R 777 .
+          /go/bin/mage operator:deployToECR
