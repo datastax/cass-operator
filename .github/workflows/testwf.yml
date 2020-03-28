@@ -35,9 +35,6 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           sudo -E env "PATH=$PATH" mage operator:buildDocker
-      - name: Update permissions on docker cache dir - (for gathering cache)
-        run: |
-          sudo chmod -R 777 /var/lib/docker/image/
       - name: Deploy to ECR
         env: 
           MO_ECR_ID: ${{ secrets.ECR_ID }}
@@ -56,3 +53,6 @@ jobs:
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
           sudo -E env "PATH=$PATH" mage operator:deployToArtifactory
+      - name: Update permissions on docker cache dir - (for gathering cache)
+        run: |
+          sudo chmod -R 777 /var/lib/docker/image/
