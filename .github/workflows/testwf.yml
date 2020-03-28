@@ -26,5 +26,6 @@ jobs:
           export PATH=$GOROOT/bin:$PATH
           go version
           go env
+          ls -lrt
           /go/bin/mage -debug -v operator:buildDocker
 
