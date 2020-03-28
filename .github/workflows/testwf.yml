@@ -26,7 +26,7 @@ jobs:
           mkdir .mage
           cd .mage
           cp ../magefile.go .
-          mage -compile ../staticmage
+          /go/bin/mage -compile ../staticmage
       - name: Build docker
         env:
           GOPATH: /go
