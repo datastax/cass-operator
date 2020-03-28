@@ -23,6 +23,7 @@ jobs:
       #     sudo chmod +X /go/bin/mage
       - name: Install Mage
         run: |
+          sudo mkdir -p /go/bin
           cd /tmp
           git clone https://github.com/magefile/mage
           cd mage
