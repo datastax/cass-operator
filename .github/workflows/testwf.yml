@@ -20,8 +20,7 @@ jobs:
           tar -xvf mage_1.9.0_Linux-64bit.tar.gz
           sudo mkdir -p $GOPATH/bin
           sudo mv mage $GOPATH/bin/mage
-          sudo chmod +x $GOPATH/bin/mage
-          ls -lrt $GOPATH/bin
+          sudo chmod 777 $GOPATH/bin/mage
       - name: Cache go pkgs
         uses: actions/cache@v1
         with:
@@ -39,7 +38,7 @@ jobs:
       - name: Build docker
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          sudo --preserve-env=PATH env
+          sudo -E env
 
           echo "**** bin"
           ls -lrt $GOPATH/bin
