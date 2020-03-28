@@ -1,8 +1,5 @@
 name: Testing Workflow
-on:
-  pull_request:
-    branches:
-      - KO-354-gh-actions
+on: pull_request
 jobs:
   build_operator_docker:
     name: Build Cass Operator Docker Image
