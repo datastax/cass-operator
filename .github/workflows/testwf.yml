@@ -28,6 +28,13 @@ jobs:
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
+      - name: Cache docker
+        uses: actions/cache@v1
+        with:
+          path: /var/lib/docker
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-docker-
       - name: Build docker
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
@@ -37,8 +44,7 @@ jobs:
           MO_ECR_ID: ${{ secrets.ECR_ID }}
           MO_ECR_SECRET: ${{ secrets.ECR_SECRET }}
           MO_ECR_REPO: ${{ secrets.ECR_REPO }}
-          TESTING: ${{ secrets.TEST }}
         run: |
-          echo "TESTING: ${TESTING}"
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
+          export MO_ECR_REPO=$MO_ECR_REPO
           sudo /go/bin/mage operator:deployToECR
