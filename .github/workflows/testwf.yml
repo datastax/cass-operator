@@ -10,14 +10,14 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.13
-      - name: Install Mage
-        run: |
-          cd /tmp
-          wget https://github.com/magefile/mage/releases/download/v1.9.0/mage_1.9.0_Linux-64bit.tar.gz
-          tar -xvf mage_1.9.0_Linux-64bit.tar.gz
-          sudo mkdir -p /go/bin
-          sudo mv mage /go/bin
-          sudo chmod +x /go/bin/mage
+      # - name: Install Mage
+      #   run: |
+      #     cd /tmp
+      #     wget https://github.com/magefile/mage/releases/download/v1.9.0/mage_1.9.0_Linux-64bit.tar.gz
+      #     tar -xvf mage_1.9.0_Linux-64bit.tar.gz
+      #     sudo mkdir -p /go/bin
+      #     sudo mv mage /go/bin
+      #     sudo chmod +x /go/bin/mage
       - name: Run Mage
         uses: crazy-max/ghaction-mage@v1
         env:
