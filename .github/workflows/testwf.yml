@@ -8,7 +8,7 @@ jobs:
       - name: install Go 1.13
         run: |
           wget https://dl.google.com/go/go1.13.9.linux-amd64.tar.gz
-          tar -xvf go1.13.3.linux-amd64.tar.gz
+          tar -xvf go1.13.9.linux-amd64.tar.gz
           mv go /usr/local
       - name: Build docker
         run: |
