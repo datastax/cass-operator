@@ -20,14 +20,7 @@ jobs:
           tar -xvf mage_1.9.0_Linux-64bit.tar.gz
           sudo mkdir -p $GOPATH/bin
           sudo mv mage $GOPATH/bin/mage
-          sudo chmod 777 $GOPATH/bin/mage
-      - name: Cache go pkgs
-        uses: actions/cache@v1
-        with:
-          path: /home/runner/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
+          sudo chmod +x $GOPATH/bin/mage
       - name: Cache docker
         uses: actions/cache@v1
         with:
@@ -45,5 +38,6 @@ jobs:
           MO_ECR_SECRET: ${{ secrets.ECR_SECRET }}
           MO_ECR_REPO: ${{ secrets.ECR_REPO }}
         run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
           sudo -E env "PATH=$PATH" mage operator:deployToECR
