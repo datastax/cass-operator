@@ -38,7 +38,7 @@ jobs:
       - name: Build docker
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          mage operator:buildDocker
+          sudo -E mage operator:buildDocker
       - name: Deploy to ECR
         env: 
           MO_ECR_ID: ${{ secrets.ECR_ID }}
@@ -46,4 +46,4 @@ jobs:
           MO_ECR_REPO: ${{ secrets.ECR_REPO }}
         run: |
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
-          mage operator:deployToECR
+          sudo -E mage operator:deployToECR
