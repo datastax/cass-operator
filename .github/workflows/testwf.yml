@@ -22,7 +22,6 @@ jobs:
         env:
           GOPATH: /go
           GOROOT: /usr/local/go1.13
-          GO111MODULE: on
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           go version
