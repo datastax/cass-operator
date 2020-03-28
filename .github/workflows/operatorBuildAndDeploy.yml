@@ -1,4 +1,4 @@
-name: Testing Workflow
+name: Cass Operator Build & Deploy
 on: pull_request
 jobs:
   build_operator_docker:
