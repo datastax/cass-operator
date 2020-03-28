@@ -4,6 +4,9 @@ jobs:
   build_operator_docker:
     name: Build Cass Operator Docker Image
     runs-on: ubuntu-latest
+    env:
+      GOPATH: /go
+      GOROOT: /usr/local/go1.13
     steps:
       - uses: actions/checkout@v2
       - name: Set up Go 1.13
@@ -18,12 +21,15 @@ jobs:
           sudo mkdir -p /go/bin
           sudo mv mage /go/bin
           sudo chmod +x /go/bin/mage
+      - name: Cache go pkgs
+        uses: actions/cache@v1
+        with:
+          path: $GOPATH/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
       - name: Build docker
-        env:
-          GOPATH: /go
-          GOROOT: /usr/local/go1.13
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          whoami
           sudo /go/bin/mage operator:buildDocker
 
