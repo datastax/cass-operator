@@ -1,0 +1,14 @@
+name: Testing Workflow
+on:
+  pull_request:
+    branches:
+      - KO-354-gh-actions
+jobs:
+  build_operator_docker:
+    name: Build Cass Operator Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build docker
+        run: |
+          mage operator:buildDocker
+
