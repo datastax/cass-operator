@@ -7,9 +7,10 @@ jobs:
     steps:
       - name: install Go 1.13
         run: |
+          cd /tmp
           wget https://dl.google.com/go/go1.13.9.linux-amd64.tar.gz
           tar -xvf go1.13.9.linux-amd64.tar.gz
-          mv go /usr/local
+          sudo mv go /usr/local
       - name: Build docker
         run: |
           mage operator:buildDocker
