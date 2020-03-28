@@ -24,9 +24,6 @@ jobs:
           GOPATH: /go
           GO111MODULE: on
         run: |
-          sudo mkdir -p /go/src/datastax
-          cd ..
-          sudo mv cass-operator /go/src/datastax/cass-operator
-          cd /go/src/datastax/cass-operator
-          /go/bin/mage -debug operator:buildDocker
+          go env
+          /go/bin/mage -debug -v operator:buildDocker
 
