@@ -1,0 +1,36 @@
+name: Cass Operator Build & Deploy
+on: pull_request
+jobs:
+  build_operator_docker:
+    name: Build Cass Operator Docker Image
+    runs-on: ubuntu-latest
+    env:
+      GOPATH: /home/runner/go
+      GOROOT: /usr/local/go1.13
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Go 1.13
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.13
+      - name: Install Mage
+        run: |
+          cd /tmp
+          wget https://github.com/magefile/mage/releases/download/v1.9.0/mage_1.9.0_Linux-64bit.tar.gz
+          tar -xvf mage_1.9.0_Linux-64bit.tar.gz
+          sudo mkdir -p $GOPATH/bin
+          sudo mv mage $GOPATH/bin/mage
+          sudo chmod +x $GOPATH/bin/mage
+      - name: Build docker
+        run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+          sudo -E env "PATH=$PATH" mage operator:buildDocker
+      - name: Deploy to ECR
+        env: 
+          MO_ECR_ID: ${{ secrets.ECR_ID }}
+          MO_ECR_SECRET: ${{ secrets.ECR_SECRET }}
+          MO_ECR_REPO: ${{ secrets.ECR_REPO }}
+        run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+          export MO_TAGS=$(cat ./build/tagsToPush.txt)
+          sudo -E env "PATH=$PATH" mage operator:deployToECR
