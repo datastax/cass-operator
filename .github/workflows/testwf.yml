@@ -23,6 +23,7 @@ jobs:
           GOPATH: /go
           GOROOT: /usr/local/go1.13
         run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mkdir .mage
           cd .mage
           cp ../magefile.go .
