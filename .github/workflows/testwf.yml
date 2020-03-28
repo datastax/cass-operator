@@ -21,10 +21,8 @@ jobs:
           sudo mkdir -p $GOPATH/bin
           sudo mv mage $GOPATH/bin/mage
           sudo chmod +x $GOPATH/bin/mage
-      - name: Give user privileges
+      - name: Update permissions on docker cache dir (for restoring cache)
         run: |
-          sudo gpasswd -a $USER sudo
-          sudo gpasswd -a $USER docker
           sudo chmod -R 777 /var/lib/docker/image/
       - name: Cache docker
         uses: actions/cache@v1
@@ -37,6 +35,9 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           sudo -E env "PATH=$PATH" mage operator:buildDocker
+      - name: Update permissions on docker cache dir - (for gathering cache)
+        run: |
+          sudo chmod -R 777 /var/lib/docker/image/
       - name: Deploy to ECR
         env: 
           MO_ECR_ID: ${{ secrets.ECR_ID }}
@@ -46,3 +47,12 @@ jobs:
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
           sudo -E env "PATH=$PATH" mage operator:deployToECR
+      - name: Deploy to Artifactory
+        env: 
+          MO_ART_USR: ${{ secrets.ART_USR }}
+          MO_ART_PSW: ${{ secrets.ART_PSW }}
+          MO_ART_REPO: ${{ secrets.ART_REPO }}
+        run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+          export MO_TAGS=$(cat ./build/tagsToPush.txt)
+          sudo -E env "PATH=$PATH" mage operator:deployToArtifactory
