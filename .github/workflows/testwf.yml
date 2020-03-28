@@ -14,7 +14,7 @@ jobs:
         env:
           GOPATH: /go
           GOROOT: /usr/local/go1.13
-        uses: actions/action-setup-mage@v1
+        uses: actions/setup-mage@v1
         with:
           version: 1.9.0
       #- name: Install Mage
