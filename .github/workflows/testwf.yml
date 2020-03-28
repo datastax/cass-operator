@@ -10,7 +10,7 @@ jobs:
           cd /tmp
           wget https://dl.google.com/go/go1.13.9.linux-amd64.tar.gz
           tar -xvf go1.13.9.linux-amd64.tar.gz
-          sudo mv go /usr/local
+          sudo mv go /usr/local/go1.13
       - name: Install Mage
         run: |
           cd /tmp
@@ -22,6 +22,7 @@ jobs:
       - name: Build docker
         env:
           GOPATH: /go
+          GOROOT: /usr/local/go1.13
           GO111MODULE: on
         run: |
           go version
