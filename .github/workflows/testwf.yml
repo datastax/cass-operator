@@ -5,13 +5,23 @@ jobs:
     name: Build Cass Operator Docker Image
     runs-on: ubuntu-latest
     steps:
-      - name: install Go 1.13
+      - name: Install Go 1.13
         run: |
           cd /tmp
           wget https://dl.google.com/go/go1.13.9.linux-amd64.tar.gz
           tar -xvf go1.13.9.linux-amd64.tar.gz
           sudo mv go /usr/local
+      - name: Install Mage
+        run: |
+          cd /tmp
+          wget https://github.com/magefile/mage/releases/download/v1.9.0/mage_1.9.0_Linux-ARM64.tar.gz
+          tar -xvf mage_1.9.0_Linux-ARM64.tar.gz
+          sudo mkdir -p /go/bin
+          sudo mv mage /go/bin
       - name: Build docker
+        env:
+          GOPATH=/go
+          GO111MODULE=on
         run: |
           mage operator:buildDocker
 
