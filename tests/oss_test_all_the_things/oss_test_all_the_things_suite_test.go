@@ -1,3 +1,6 @@
+// Copyright DataStax, Inc.
+// Please see the included license file for details.
+
 package oss_test_all_the_things
 
 import (

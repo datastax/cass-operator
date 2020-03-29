@@ -1,3 +1,6 @@
+// Copyright DataStax, Inc.
+// Please see the included license file for details.
+
 // This file exists to indicate to "go mod tidy" that the following
 // libraries are needed, even though those libraries are not directly
 // used by the project.
