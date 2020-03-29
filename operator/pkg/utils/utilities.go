@@ -1,3 +1,6 @@
+// Copyright DataStax, Inc.
+// Please see the included license file for details.
+
 package utils
 
 // MergeMap will take two maps, merging the entries of the source map into destination map. If both maps share the same key

@@ -1,3 +1,6 @@
+// Copyright DataStax, Inc.
+// Please see the included license file for details.
+
 // Package cassandra contains cassandra API versions.
 //
 // This file ensures Go source parsers acknowledge the cassandra package
