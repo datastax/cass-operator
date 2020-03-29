@@ -3,7 +3,7 @@
 set -euf -o pipefail
 set -x
 
-filelist=$(mktemp)
+filelist="$(mktemp)"
 
 git ls-files | fgrep '.go' > "$filelist"
 
@@ -11,6 +11,6 @@ for i in $(cat "$filelist")
 do
   if ! grep -q 'Please see the included license file for details' "$i"
   then
-    cat hack/license-prepend/license-header.txt "$i" > "$i.new" && mv "$i.new" "$i"
+    cat hack/license-prepend/license-header.txt "$i" > "$i.TEMP" && mv "$i.TEMP" "$i"
   fi
 done
