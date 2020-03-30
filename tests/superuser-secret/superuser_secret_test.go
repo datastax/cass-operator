@@ -49,15 +49,6 @@ func TestLifecycle(t *testing.T) {
 	RunSpecs(t, testName)
 }
 
-func duplicate(value string, count int) string {
-	result := []string{}
-	for i := 0; i < count; i++ {
-		result = append(result, value)
-	}
-
-	return strings.Join(result, " ")
-}
-
 var _ = Describe(testName, func() {
 	Context("when in a new cluster where superuserSecretName is unspecified", func() {
 		Specify("the operator generates an appropriate superuser secret", func() {
