@@ -100,6 +100,16 @@ func main() {
 
 	ctx := context.Background()
 
+	// Use the operator-sdk ready pkg
+	readyFile := ready.NewFileReady()
+	err = readyFile.Set()
+	if err != nil {
+		log.Error(err, "Problem creating readyFile. Exited non-zero")
+		os.Exit(1)
+	}
+	log.Info("created the readyFile.")
+	defer readyFile.Unset()
+
 	// Become the leader before proceeding
 	err = leader.Become(ctx, "cass-operator-lock")
 	if err != nil {
@@ -164,16 +174,6 @@ func main() {
 	if err != nil {
 		log.Error(err, "could not expose metrics port, continuing anyway")
 	}
-
-	// Use the operator-sdk ready pkg
-	readyFile := ready.NewFileReady()
-	err = readyFile.Set()
-	if err != nil {
-		log.Error(err, "Problem creating readyFile. Exited non-zero")
-		os.Exit(1)
-	}
-	log.Info("created the readyFile.")
-	defer readyFile.Unset()
 
 	log.Info("Starting the Cmd.")
 
