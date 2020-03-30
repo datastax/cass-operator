@@ -1,3 +1,6 @@
+// Copyright DataStax, Inc.
+// Please see the included license file for details.
+
 package delete_node_lost_readiness
 
 import (

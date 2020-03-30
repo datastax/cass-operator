@@ -1,3 +1,6 @@
+// Copyright DataStax, Inc.
+// Please see the included license file for details.
+
 // NOTE: Boilerplate only.  Ignore this file.
 
 // Package v1beta1 contains API Schema definitions for the cassandra v1beta1 API group

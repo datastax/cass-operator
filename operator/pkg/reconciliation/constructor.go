@@ -1,3 +1,6 @@
+// Copyright DataStax, Inc.
+// Please see the included license file for details.
+
 package reconciliation
 
 // This file defines constructors for k8s objects
