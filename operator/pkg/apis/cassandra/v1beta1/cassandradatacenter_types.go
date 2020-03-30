@@ -18,14 +18,7 @@ import (
 )
 
 const (
-	// For now we will define defaults for both server image types
-	defaultCassRepository = "datastax/cassandra-mgmtapi-3_11_6"
-	defaultCassVersion    = "v0.1.0"
-
-	defaultDseRepository = "datastaxlabs/dse-k8s-server"
-	defaultDseVersion    = "6.8.0-20200316"
-
-	defaultConfigBuilderImage = "datastaxlabs/dse-k8s-config-builder:0.9.0-20200316"
+	defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.0-20200327"
 
 	// ClusterLabel is the operator's label for the cluster name
 	ClusterLabel = "cassandra.datastax.com/cluster"
@@ -56,12 +49,19 @@ type ProgressState string
 // getImageForServerVersion tries to look up a known image for a server type and version number.
 // In the event that no image is found, an error is returned
 func getImageForServerVersion(server, version string) (string, error) {
+	const (
+		cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.0"
+		cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.0"
+		dse_6_8_0        = "datastax/dse-server:6.8.0"
+	)
 	sv := server + "-" + version
 	switch sv {
 	case "dse-6.8.0":
-		return fmt.Sprintf("%s:%s", defaultDseRepository, defaultDseVersion), nil
+		return dse_6_8_0, nil
 	case "cassandra-3.11.6":
-		return fmt.Sprintf("%s:%s", defaultCassRepository, defaultCassVersion), nil
+		return cassandra_3_11_6, nil
+	case "cassandra-4.0.0":
+		return cassandra_4_0_0, nil
 	}
 	err := fmt.Errorf("server '%s' and version '%s' do not work together", server, version)
 	return "", err
