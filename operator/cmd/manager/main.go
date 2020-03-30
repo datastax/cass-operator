@@ -5,11 +5,15 @@ package main
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"runtime"
-	"strconv"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -23,10 +27,14 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/restmapper"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
-	v1 "k8s.io/api/core/v1"
+	"k8s.io/api/core/v1"
+	//admissionregistration "k8s.io/api/admissionregistration/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	controllerRuntime "sigs.k8s.io/controller-runtime"
+	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
@@ -44,6 +52,13 @@ var (
 	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
 	version                   = "DEV"
+
+	altCertDir = filepath.Join(os.TempDir(), "k8s-webhook-server") //Alt directory is necessary because regular key/cert mountpoint is read-only
+	certDir    = filepath.Join(os.TempDir(), "k8s-webhook-server", "serving-certs")
+
+	serverCertFile    = filepath.Join(os.TempDir(), "k8s-webhook-server", "serving-certs", "tls.crt")
+	altServerCertFile = filepath.Join(os.TempDir(), "k8s-webhook-server", "tls.crt")
+	altServerKeyFile  = filepath.Join(os.TempDir(), "k8s-webhook-server", "tls.key")
 )
 var log = logf.Log.WithName("cmd")
 
@@ -110,11 +125,11 @@ func main() {
 	log.Info("created the readyFile.")
 	defer readyFile.Unset()
 
-	// Become the leader before proceeding
-	err = leader.Become(ctx, "cass-operator-lock")
-	if err != nil {
-		log.Error(err, "could not become leader")
-		os.Exit(1)
+	if err = ensureWebhookConfigVolume(cfg, namespace); err != nil {
+		log.Error(err, "Failed to ensure webhook volume")
+	}
+	if err = ensureWebhookCertificate(cfg, namespace); err != nil {
+		log.Error(err, "Failed to ensure webhook CA configuration"))
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
@@ -122,6 +137,7 @@ func main() {
 		Namespace:          namespace,
 		MapperProvider:     restmapper.NewDynamicRESTMapper,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+		CertDir:            certDir,
 	})
 	if err != nil {
 		log.Error(err, "could not make manager")
@@ -142,26 +158,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	skipWebhookEnvVal := os.Getenv("SKIP_VALIDATING_WEBHOOK")
-	if skipWebhookEnvVal == "" {
-		skipWebhookEnvVal = "FALSE"
-	}
-	skipWebhook, err := strconv.ParseBool(skipWebhookEnvVal)
-	if err != nil {
-		log.Error(err, "bad value for SKIP_VALIDATING_WEBHOOK env")
-		os.Exit(1)
-	}
-
-	if !skipWebhook {
-		err = controllerRuntime.NewWebhookManagedBy(mgr).For(&api.CassandraDatacenter{}).Complete()
-		if err != nil {
-			log.Error(err, "unable to create validating webhook for CassandraDatacenter")
-			os.Exit(1)
-		}
-	}
+	err = controllerRuntime.NewWebhookManagedBy(mgr).For(&api.CassandraDatacenter{}).Complete()
 
 	if err = serveCRMetrics(cfg); err != nil {
-		log.Error(err, "Could not generate and serve custom resource metrics", "error")
+		log.Error(err, "Could not generate and serve custom resource metrics")
 	}
 
 	// Add to the below struct any other metrics ports you want to expose.
@@ -206,4 +206,109 @@ func serveCRMetrics(cfg *rest.Config) error {
 		return err
 	}
 	return nil
+}
+
+func ensureWebhookCertificate(cfg *rest.Config, namespace string) (err error) {
+	var contents []byte
+	if contents, err = ioutil.ReadFile(serverCertFile); err == nil && len(contents) > 0 {
+		certpool := x509.NewCertPool()
+		var block *pem.Block
+		if block, _ = pem.Decode(contents); err == nil && block != nil {
+			var cert *x509.Certificate
+			if cert, err = x509.ParseCertificate(block.Bytes); err == nil {
+				certpool.AddCert(cert)
+				log.Info("Attempting to validate operator CA")
+				verify_opts := x509.VerifyOptions{
+					DNSName: fmt.Sprintf("cassandradatacenter-webhook-service.%s.svc", namespace),
+					Roots:   certpool,
+				}
+				if _, err = cert.Verify(verify_opts); err == nil {
+					log.Info("Found valid certificate for webhook")
+					return nil
+				}
+			}
+		}
+	}
+	return updateSecretAndWebhook(cfg, namespace)
+}
+
+func updateSecretAndWebhook(cfg *rest.Config, namespace string) (err error) {
+	var key, cert string
+	var client crclient.Client
+	if key, cert, err = getNewCertAndKey(namespace); err == nil {
+		if client, err = crclient.New(cfg, crclient.Options{}); err == nil {
+			secret := &v1.Secret{}
+			err = client.Get(context.Background(), crclient.ObjectKey{
+				Namespace: namespace,
+				Name:      "cass-operator-webhook-config",
+			}, secret)
+			if err == nil {
+				secret.StringData = make(map[string]string)
+				secret.StringData["tls.key"] = key
+				secret.StringData["tls.crt"] = cert
+				if err = client.Update(context.Background(), secret); err == nil {
+					log.Info("TLS secret for webhook updated")
+					if err = ioutil.WriteFile(altServerCertFile, []byte(cert), 0600); err == nil {
+						if err = ioutil.WriteFile(altServerKeyFile, []byte(key), 0600); err == nil {
+							certDir = altCertDir
+							log.Info("TLS secret updated in pod mount")
+							return updateWebhook(client, cert, namespace)
+						}
+					}
+				}
+
+			}
+		}
+	}
+	log.Error(err, "Failed to update certificates")
+	return err
+}
+
+func updateWebhook(client crclient.Client, cert, namespace string) (err error) {
+	u := &unstructured.Unstructured{}
+	u.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "admissionregistration.k8s.io",
+		Kind:    "ValidatingWebhookConfiguration",
+		Version: "v1beta1",
+	})
+	err = client.Get(context.Background(), crclient.ObjectKey{
+		Name: "cassandradatacenter-webhook-registration",
+	}, u)
+	if err == nil {
+		var webhook_slice []interface{}
+		var webhook map[string]interface{}
+		var ok, present bool
+		webhook_slice, present, err = unstructured.NestedSlice(u.Object, "webhooks")
+		webhook, ok = webhook_slice[0].(map[string]interface{})
+		if !ok || !present || err != nil {
+			log.Info(fmt.Sprintf("Error loading webhook for modification: %+v %+v %+v", ok, present, err))
+			return err
+		}
+		if err = unstructured.SetNestedField(webhook, namespace, "clientConfig", "service", "namespace"); err == nil {
+			if err = unstructured.SetNestedField(webhook, base64.StdEncoding.EncodeToString([]byte(cert)), "clientConfig", "caBundle"); err == nil {
+				webhook_slice[0] = webhook
+				if err = unstructured.SetNestedSlice(u.Object, webhook_slice, "webhooks"); err == nil {
+					err = client.Update(context.Background(), u)
+				}
+			}
+		}
+	}
+	return err
+}
+
+func ensureWebhookConfigVolume(cfg *rest.Config, namespace string) (err error) {
+	var pod *v1.Pod
+	var client crclient.Client
+	if client, err = crclient.New(cfg, crclient.Options{}); err == nil {
+		if pod, err = k8sutil.GetPod(context.Background(), client, namespace); err == nil {
+			for _, volume := range pod.Spec.Volumes {
+				if "cass-operator-certs-volume" == volume.Name {
+					return nil
+				}
+			}
+			log.Error(fmt.Errorf("Secrets volume not found, unable to start webhook"), "")
+			os.Exit(1)
+		}
+	}
+	return err
 }
