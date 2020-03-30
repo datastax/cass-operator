@@ -243,7 +243,9 @@ kubectl delete -f https://raw.githubusercontent.com/datastax/cass-operator/maste
 
 ## Contacts
 
-Please reach out on Gitter, or by opening an issue on GitHub.
+For developement questions, please reach out on Gitter, or by opening an issue on GitHub.
+
+For usage questions, please visit our Community Forums: https://community.datastax.com
 
 ## License
 
