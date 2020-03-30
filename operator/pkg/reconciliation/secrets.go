@@ -18,7 +18,19 @@ import (
 )
 
 func generateUtf8Password() (string, error) {
-	buf := make([]byte, 100)
+	// Note that bcrypt has a maximum password length of 55 characters:
+	//
+	// https://security.stackexchange.com/questions/39849/does-bcrypt-have-a-maximum-password-length
+	//
+	// Since 1 ASCII character equals one byte in UTF-8, and base64 
+	// encoding generates 4 bytes (4 ASCII characters) for every 3 
+	// bytes encoded, we have:
+	//
+	//   55 encoded bytes * (3 unencoded bytes / 4 encoded bytes) = 41.25 unencoded bytes
+	//
+	// So we must generate 41 bytes or less below to ensure we end up
+	// with a password no greater than 55 characters.
+	buf := make([]byte, 40)
 	_, err := rand.Read(buf)
 	if err != nil {
 		return "", fmt.Errorf("Failed to generate password: %w", err)
@@ -31,7 +43,7 @@ func generateUtf8Password() (string, error) {
 	//
 	//   7GOZOdMuQdjzJceJyla/72FkX0ymJDNNEyKKWVUxTP4IXtAUzYp8U0z0d8Wqh+p7J+K+D0NepgoEjqA79bBC6UkVtcorTFH+BBYaAetd3FsZdZ6V5Nn+UQ/VhpGNxU0fb7FOVg
 	//
-	password := base64.RawStdEncoding.EncodeToString(buf)
+	password := base64.RawURLEncoding.EncodeToString(buf)
 
 	return password, nil
 }
