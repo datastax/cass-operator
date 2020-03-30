@@ -4,8 +4,8 @@ metadata:
   name: dc1
 spec:
   clusterName: cluster2
-  serverType: cassandra
-  serverVersion: "3.11.6"
+  serverType: dse
+  serverVersion: "6.8.0"
   managementApiAuth:
     insecure: {}
   size: 3
@@ -28,9 +28,9 @@ spec:
   config:    
     cassandra-yaml:
       num_tokens: 8    
-      authenticator: org.apache.cassandra.auth.PasswordAuthenticator
-      authorizer: org.apache.cassandra.auth.CassandraAuthorizer
-      role_manager: org.apache.cassandra.auth.CassandraRoleManager
+      authenticator: com.datastax.bdp.cassandra.auth.DseAuthenticator
+      authorizer: com.datastax.bdp.cassandra.auth.DseAuthorizer
+      role_manager: com.datastax.bdp.cassandra.auth.DseRoleManager
     dse-yaml:
       authorization_options:
         enabled: true
@@ -41,5 +41,5 @@ spec:
       initial_heap_size: "2G"
       max_heap_size: "2G"
       additional-jvm-opts:
-        - "-Dcassandra.system_distributed_replication_dc_names=dc1"
-        - "-Dcassandra.system_distributed_replication_per_dc=3"
+        - "-Ddse.system_distributed_replication_dc_names=dc1"
+        - "-Ddse.system_distributed_replication_per_dc=3"
