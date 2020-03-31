@@ -8,6 +8,11 @@ jobs:
       GOPATH: /home/runner/go
       GOROOT: /usr/local/go1.13
     steps:
+      - name: Test actions property
+        env: 
+         ACTOR: github.actor
+        run: |
+          echo "ACTOR: ${ACTOR}"
       - uses: actions/checkout@v2
       - name: Set up Go 1.13
         uses: actions/setup-go@v1
