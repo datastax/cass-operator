@@ -1,11 +1,10 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package superuser_secret
+package superuser_secret_generated
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"encoding/base64"
@@ -18,8 +17,8 @@ import (
 )
 
 var (
-	testName          = "Superuser Secret"
-	namespace         = "test-superuser-secret"
+	testName          = "Superuser Secret Generated"
+	namespace         = "test-superuser-secret-generated"
 	defaultSecretName = "cluster2-superuser"
 	secretResource    = fmt.Sprintf("secret/%s", defaultSecretName)
 	dcName            = "dc2"
