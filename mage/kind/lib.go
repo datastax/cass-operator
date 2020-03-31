@@ -180,7 +180,7 @@ func SetupExampleCluster() {
 func SetupCassandraCluster() {
 	mg.Deps(SetupExampleCluster)
 	kubectl.ApplyFiles(
-		"operator/example-cassdc-yaml/cassandradatacenter-one-rack-example-again.yaml",
+		"operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml",
 	).ExecVPanic()
 	kubectl.WatchPods()
 }
@@ -190,7 +190,7 @@ func SetupCassandraCluster() {
 func SetupDSECluster() {
 	mg.Deps(SetupExampleCluster)
 	kubectl.ApplyFiles(
-		"operator/example-cassdc-yaml/cassandradatacenter-one-rack-example.yaml",
+		"operator/example-cassdc-yaml/dse-6.8.0/example-cassdc-minimal.yaml",
 	).ExecVPanic()
 	kubectl.WatchPods()
 }

@@ -4,12 +4,12 @@ The DataStax Kubernetes Operator for Apache Cassandra&reg;
 
 ## Getting Started
 
-TL;DR
+Quick start:
 ```console
 kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/docs/user/cass-operator-manifests.yaml
 # *** This is for GKE -> Adjust based on your cloud or storage options
 kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/gke/storage.yaml
-kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/example-cassdc-yaml/cassandradatacenter-one-rack-example.yaml
+kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
 ```
 
 ### Loading the operator
@@ -55,7 +55,7 @@ kubectl apply -f https://raw.githubusercontent.com/datastax/cass-operator/master
 
 ### Creating a CassandraDatacenter
 
-The following resource defines a Cassandra 3.11.6 datacenter with 3 nodes on one rack, which you can also find at [operator/example-cassdc-yaml/cassandradatacenter-one-rack-example.yaml](operator/example-cassdc-yaml/cassandradatacenter-one-rack-example.yaml):
+The following resource defines a Cassandra 3.11.6 datacenter with 3 nodes on one rack, which you can also find at [operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml](operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml):
 
 ```yaml
 apiVersion: cassandra.datastax.com/v1beta1
@@ -65,7 +65,7 @@ metadata:
 spec:
   clusterName: cluster1
   serverType: cassandra
-  serverVersion: "3.11.6"
+  serverVersion: 3.11.6
   managementApiAuth:
     insecure: {}
   size: 3
@@ -73,26 +73,34 @@ spec:
     cassandraDataVolumeClaimSpec:
       storageClassName: server-storage
       accessModes:
-        - ReadWriteOnce
+      - ReadWriteOnce
       resources:
         requests:
           storage: 5Gi
+  config:
+    cassandra-yaml:
+      authenticator: org.apache.cassandra.auth.PasswordAuthenticator
+      authorizer: org.apache.cassandra.auth.CassandraAuthorizer
+      role_manager: org.apache.cassandra.auth.CassandraRoleManager
+    jvm-options:
+      initial_heap_size: 800M
+      max_heap_size: 800M
 ```
 
 Apply the above as follows:
 
 ```console
-kubectl -n cass-operator apply -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/example-cassdc-yaml/cassandradatacenter-one-rack-example.yaml
+kubectl -n cass-operator apply -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
 ```
 
 You can check the status of pods in the Cassandra cluster as follows:
 
 ```console
 $ kubectl -n cass-operator get pods --selector cassandra.datastax.com/cluster=cluster1
-NAME                    READY   STATUS    RESTARTS   AGE
-cluster1-dc1-r1-sts-0   2/2     Running   0          26h
-cluster1-dc1-r1-sts-1   2/2     Running   0          26h
-cluster1-dc1-r1-sts-2   2/2     Running   0          26h
+NAME                         READY   STATUS    RESTARTS   AGE
+cluster1-dc1-default-sts-0   2/2     Running   0          26h
+cluster1-dc1-default-sts-1   2/2     Running   0          26h
+cluster1-dc1-default-sts-2   2/2     Running   0          26h
 ```
 
 You can check to see the current progress of bringing the Cassandra datacenter online by checking the `cassandraOperatorProgress` field of the `CassandraDatacenter`'s `status` sub-resource as follows:
@@ -109,7 +117,7 @@ A value of "Ready", as above, means the operator has finished setting up the Cas
 You can also check the Cassandra cluster status using `nodetool` by invoking it on one of the pods in the Cluster as follows:
 
 ```console
-$ kubectl -n cass-operator exec -it -c cassandra cluster1-dc1-r1-sts-0 -- nodetool status
+$ kubectl -n cass-operator exec -it -c cassandra cluster1-dc1-default-sts-0 -- nodetool status
 Datacenter: dc1
 ===============
 Status=Up/Down
@@ -140,14 +148,14 @@ The operator is comprised of the following container images working in concert:
 * The config builder init container, built from sources in [datastax/cass-config-builder](https://github.com/datastax/cass-config-builder).
 * Cassandra, built from
   [datastax/management-api-for-apache-cassandra](https://github.com/datastax/management-api-for-apache-cassandra),
-  with Cassandra 3.11.6 suport, and experimental support for Cassandra
+  with Cassandra 3.11.6 support, and experimental support for Cassandra
   4.0.0-alpha3.
 * ... or DSE, built from [datastax/docker-images](https://github.com/datastax/docker-images).
 
 ## Requirements
 
 - Kubernetes cluster, 1.12 or newer.
-- Users who want to use a Kubernetes version from before 1.15 can use a manifest that supports x-preserve-unknown-fields on the CassandraDatacnter CRD - [manifest](docs/user/cass-operator-manifests-pre-1.15.yaml)
+- Users who want to use a Kubernetes version from before 1.15 can use a manifest that supports x-preserve-unknown-fields on the CassandraDatacenter CRD - [manifest](docs/user/cass-operator-manifests-pre-1.15.yaml)
 
 ## Contributing
 
@@ -243,7 +251,9 @@ kubectl delete -f https://raw.githubusercontent.com/datastax/cass-operator/maste
 
 ## Contacts
 
-Please reach out on Gitter, or by opening an issue on GitHub.
+For developement questions, please reach out on Gitter, or by opening an issue on GitHub.
+
+For usage questions, please visit our Community Forums: https://community.datastax.com
 
 ## License
 
