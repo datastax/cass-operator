@@ -3,11 +3,12 @@
 ## v1.0.0
 
 * Project renamed to `cass-operator`.
-* Validating webhook added.
-* Node replace added.
-* The operator will work to revive nodes that fail readiness for over 10 minutes
+* KO-281 Node replace added.
+* KO-310 The operator will work to revive nodes that fail readiness for over 10 minutes
   by deleting pods.
-* Rolling restart added.
+* KO-317 Rolling restart added.
+* K0-83 Stop the cluster more gracefully.
+* KO-329 API version bump to v1beta1.
 
 ## v0.9.0
 

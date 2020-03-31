@@ -1,3 +1,5 @@
+# Sized to work on 3 k8s workers nodes with 2 cores / 8 GB RAM
+# See neighboring example-cassdc-full.yaml for docs for each parameter
 apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
 metadata:
@@ -16,7 +18,7 @@ spec:
   resources:
     requests:
       memory: 4Gi
-      cpu: 2000m
+      cpu: 1000m
   storageConfig:
     cassandraDataVolumeClaimSpec:
       storageClassName: server-storage

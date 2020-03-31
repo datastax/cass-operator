@@ -4,7 +4,7 @@ The DataStax Kubernetes Operator for Apache Cassandra&reg;
 
 ## Getting Started
 
-TL;DR
+Quick start:
 ```console
 kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/docs/user/cass-operator-manifests.yaml
 # *** This is for GKE -> Adjust based on your cloud or storage options
@@ -65,7 +65,7 @@ metadata:
 spec:
   clusterName: cluster1
   serverType: cassandra
-  serverVersion: "3.11.6"
+  serverVersion: 3.11.6
   managementApiAuth:
     insecure: {}
   size: 3
@@ -73,10 +73,18 @@ spec:
     cassandraDataVolumeClaimSpec:
       storageClassName: server-storage
       accessModes:
-        - ReadWriteOnce
+      - ReadWriteOnce
       resources:
         requests:
           storage: 5Gi
+  config:
+    cassandra-yaml:
+      authenticator: org.apache.cassandra.auth.PasswordAuthenticator
+      authorizer: org.apache.cassandra.auth.CassandraAuthorizer
+      role_manager: org.apache.cassandra.auth.CassandraRoleManager
+    jvm-options:
+      initial_heap_size: 800M
+      max_heap_size: 800M
 ```
 
 Apply the above as follows:

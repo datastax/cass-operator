@@ -133,9 +133,12 @@ spec:
 
     jvm-options:
 
+      # Set the database to use 14 GB of Java heap
       initial_heap_size: "14G"
       max_heap_size: "14G"
 
       additional-jvm-opts:
+
+        # As the database comes up for the first time, set system keyspaces to RF=3
         - "-Dcassandra.system_distributed_replication_dc_names=dc1"
         - "-Dcassandra.system_distributed_replication_per_dc=3"
