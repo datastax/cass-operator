@@ -97,10 +97,10 @@ You can check the status of pods in the Cassandra cluster as follows:
 
 ```console
 $ kubectl -n cass-operator get pods --selector cassandra.datastax.com/cluster=cluster1
-NAME                    READY   STATUS    RESTARTS   AGE
-cluster1-dc1-r1-sts-0   2/2     Running   0          26h
-cluster1-dc1-r1-sts-1   2/2     Running   0          26h
-cluster1-dc1-r1-sts-2   2/2     Running   0          26h
+NAME                         READY   STATUS    RESTARTS   AGE
+cluster1-dc1-default-sts-0   2/2     Running   0          26h
+cluster1-dc1-default-sts-1   2/2     Running   0          26h
+cluster1-dc1-default-sts-2   2/2     Running   0          26h
 ```
 
 You can check to see the current progress of bringing the Cassandra datacenter online by checking the `cassandraOperatorProgress` field of the `CassandraDatacenter`'s `status` sub-resource as follows:
@@ -117,7 +117,7 @@ A value of "Ready", as above, means the operator has finished setting up the Cas
 You can also check the Cassandra cluster status using `nodetool` by invoking it on one of the pods in the Cluster as follows:
 
 ```console
-$ kubectl -n cass-operator exec -it -c cassandra cluster1-dc1-r1-sts-0 -- nodetool status
+$ kubectl -n cass-operator exec -it -c cassandra cluster1-dc1-default-sts-0 -- nodetool status
 Datacenter: dc1
 ===============
 Status=Up/Down
@@ -148,14 +148,14 @@ The operator is comprised of the following container images working in concert:
 * The config builder init container, built from sources in [datastax/cass-config-builder](https://github.com/datastax/cass-config-builder).
 * Cassandra, built from
   [datastax/management-api-for-apache-cassandra](https://github.com/datastax/management-api-for-apache-cassandra),
-  with Cassandra 3.11.6 suport, and experimental support for Cassandra
+  with Cassandra 3.11.6 support, and experimental support for Cassandra
   4.0.0-alpha3.
 * ... or DSE, built from [datastax/docker-images](https://github.com/datastax/docker-images).
 
 ## Requirements
 
 - Kubernetes cluster, 1.12 or newer.
-- Users who want to use a Kubernetes version from before 1.15 can use a manifest that supports x-preserve-unknown-fields on the CassandraDatacnter CRD - [manifest](docs/user/cass-operator-manifests-pre-1.15.yaml)
+- Users who want to use a Kubernetes version from before 1.15 can use a manifest that supports x-preserve-unknown-fields on the CassandraDatacenter CRD - [manifest](docs/user/cass-operator-manifests-pre-1.15.yaml)
 
 ## Contributing
 
