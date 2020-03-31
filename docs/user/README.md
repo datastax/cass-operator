@@ -380,7 +380,7 @@ cluster is an advanced topic, for which a detailed discussion is outside the
 scope of this document.
 
 Note that exposing Cassandra or DSE on the public internet with authentication disabled or
-with the default username and password in place is extremely dangerous. Its
+with the default username and password in place is extremely dangerous. It's
 strongly recommended to protect your cluster with a network firewall during
 deployment, and [secure the default superuser
 account](https://docs.datastax.com/en/security/6.7/security/Auth/secCreateRootAccount.html)
