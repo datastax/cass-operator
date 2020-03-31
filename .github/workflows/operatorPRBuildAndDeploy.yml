@@ -9,6 +9,6 @@ jobs:
       GOROOT: /usr/local/go1.13
     steps:
       - name: Test actions property
-        if: github.repository == "datastax/cass-operator"
+        if: github.repository == 'datastax/cass-operator'
         run: |
           echo "repository check success"
