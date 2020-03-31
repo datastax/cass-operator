@@ -10,7 +10,7 @@ jobs:
     steps:
       - name: Test actions property
         run: |
-          echo "ACTOR: ${GITHUB_ACTOR}"
+          echo "repo: ${GITHUB_REPOSITORY}"
       - uses: actions/checkout@v2
       - name: Set up Go 1.13
         uses: actions/setup-go@v1
