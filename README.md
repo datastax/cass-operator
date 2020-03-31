@@ -4,7 +4,7 @@ The DataStax Kubernetes Operator for Apache Cassandra&reg;
 
 ## Getting Started
 
-TL;DR
+Quick start:
 ```console
 kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/docs/user/cass-operator-manifests.yaml
 # *** This is for GKE -> Adjust based on your cloud or storage options
