@@ -934,8 +934,9 @@ func isClusterHealthy(rc *ReconciliationContext) bool {
 		return false
 	}
 
+	numRacks := len(rc.Datacenter.Spec.GetRacks())
 	for _, pod := range podList.Items {
-		err := rc.NodeMgmtClient.CallProbeClusterEndpoint(&pod, "LOCAL_QUORUM", len(rc.Datacenter.Spec.Racks))
+		err := rc.NodeMgmtClient.CallProbeClusterEndpoint(&pod, "LOCAL_QUORUM", numRacks)
 		if err != nil {
 			return false
 		}
