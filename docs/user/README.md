@@ -104,6 +104,85 @@ define a cluster topology for the operator to create and monitor. In this
 guide, a three node cluster is provisioned, with one datacenter made up of three
 racks, with one node per rack.
 
+## Example Config
+
+The following example illustrates a `CassandraDatacenter` resource.
+
+```yaml
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: dc1
+spec:
+  clusterName: cluster1
+  serverType: cassandra
+  serverVersion: 3.11.6
+  managementApiAuth:
+    insecure: {}
+  size: 3
+  racks:
+  - name: rack1
+  - name: rack2
+  - name: rack3
+  resources:
+    requests:
+      memory: 4Gi
+      cpu: 1000m
+  storageConfig:
+    cassandraDataVolumeClaimSpec:
+      storageClassName: server-storage
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+  config:
+    cassandra-yaml:
+      num_tokens: 8
+      authenticator: org.apache.cassandra.auth.PasswordAuthenticator
+      authorizer: org.apache.cassandra.auth.CassandraAuthorizer
+      role_manager: org.apache.cassandra.auth.CassandraRoleManager
+    jvm-options:
+      initial_heap_size: 2G
+      max_heap_size: 2G
+      additional-jvm-opts:
+      - -Dcassandra.system_distributed_replication_dc_names=dc1
+      - -Dcassandra.system_distributed_replication_per_dc=3
+```
+
+Consider customizing the example above to suit your requirements, and save it as
+`cluster1-dc1.yaml`. Apply this file via `kubectl` and watch the list of pods as
+the operator deploys them. Completing a deployment may take several minutes per
+node. The best way to track the operator's progress is by using
+`kubectl -n my-db-ns describe cassdc dc1` and checking the `status` and events.
+
+```shell
+$ kubectl -n my-db-ns apply -f ./cluster1-dc1.yaml
+
+$ kubectl -n my-db-ns get pods
+NAME                            READY   STATUS    RESTARTS   AGE
+cass-operator-f74447c57-kdf2p   1/1     Running   0          13m
+gke-cluster1-dc1-r1-sts-0       1/1     Running   0          5m38s
+gke-cluster1-dc1-r2-sts-0       1/1     Running   0          42s
+gke-cluster1-dc1-r3-sts-0       1/1     Running   0          6m7s
+
+$ kubectl -n my-db-ns describe cassdc dc1
+...
+Status:
+  Cassandra Operator Progress:  Updating
+  Last Server Node Started:     2020-03-10T11:37:28Z
+  Super User Upserted:          2020-03-10T11:38:37Z
+Events:
+  Type     Reason           Age                  From                Message
+  ----     ------           ----                 ----                -------
+  Normal   CreatedResource  9m49s                cassandra-operator  Created service cluster1-dc1-service
+  Normal   CreatedResource  9m49s                cassandra-operator  Created service cluster1-seed-service
+  Normal   CreatedResource  9m49s                cassandra-operator  Created service cluster1-dc1-all-pods-service
+  Normal   CreatedResource  9m49s                cassandra-operator  Created statefulset cluster1-dc1-r1-sts
+  Normal   CreatedResource  9m49s                cassandra-operator  Created statefulset cluster1-dc1-r2-sts
+  Normal   CreatedResource  9m49s                cassandra-operator  Created statefulset cluster1-dc1-r3-sts
+```
+
 ## Cluster and Datacenter
 
 A logical datacenter is the primary resource managed by the
@@ -223,7 +302,7 @@ To use this new superuser secret, specify the name of the secret from
 within the `CassandraDatacenter` config yaml that you load into the cluster:
 
 ```yaml
-apiVersion: cassandra.datastax.com/v1alpha2
+apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
 metadata:
   name: dtcntr
@@ -248,7 +327,7 @@ If `serverImage` is not specified, a default image for the provided `serverType`
 ### Using a default image
 
 ```yaml
-apiVersion: cassandra.datastax.com/v1alpha2
+apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
 metadata:
   name: dtcntr
@@ -262,104 +341,26 @@ spec:
 
 Cassandra:
 ```yaml
-apiVersion: cassandra.datastax.com/v1alpha2
+apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
 metadata:
   name: dtcntr
 spec:
   serverType: cassandra
   imageVersion: 3.11.6
-  serverImage: datastaxlabs/apache-cassandra-with-mgmtapi:3.11.6-20200316
+  serverImage: private-docker-registry.example.com/cass-img/cassandra-with-mgmtapi:1a2b3c4d
 ```
 
 DSE:
 ```yaml
-apiVersion: cassandra.datastax.com/v1alpha2
+apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
 metadata:
   name: dtcntr
 spec:
   serverType: dse
   imageVersion: 6.8.0
-  serverImage: datastaxlabs/dse-k8s-server:6.8.0-20200316
-```
-
-## Example Config
-
-The following example illustrates a `CassandraDatacenter` resource.
-
-```yaml
-apiVersion: cassandra.datastax.com/v1alpha2
-kind: CassandraDatacenter
-metadata:
-  name: dc1
-spec:
-  clusterName: cluster1
-  serverImage: datastaxlabs/dse-k8s-server:6.8.0-20200316
-  serverType: dse
-  imageVersion: 6.8.0
-  managementApiAuth:
-    insecure: {}
-  size: 3
-  storageConfig:
-    cassandraDataVolumeClaimSpec:
-      storageClassName: server-storage
-      accessModes:
-        - ReadWriteOnce
-      resources:
-        requests:
-          storage: 10Gi
-  racks:
-    - name: r1
-      # zone: us-central1-a
-    - name: r2
-      # zone: us-central1-b
-    - name: r3
-      # zone: us-central1-f
-  config:
-    dse-yaml:
-      authentication_options:
-        enabled: False
-    #cassandra-yaml:
-    #  num_tokens: 32
-    #jvm-server-options:
-    #  initial_heap_size: "16g"
-    #  max_heap_size: "16g"
-    #10-write-prom-conf:
-    #  enabled: True
-```
-
-Consider customizing the example above to suit your requirements, and save it as
-`cluster1-dc1.yaml`. Apply this file via `kubectl` and watch the list of pods as
-the operator deploys them. Completing a deployment may take several minutes per
-node. The best way to track the operator's progress is by using
-`kubectl -n my-db-ns describe caasdc dc1` and checking the `status` and events.
-
-```shell
-$ kubectl -n my-db-ns apply -f ./cluster1-dc1.yaml
-
-$ kubectl -n my-db-ns get pods
-NAME                            READY   STATUS    RESTARTS   AGE
-cass-operator-f74447c57-kdf2p   1/1     Running   0          13m
-gke-cluster1-dc1-r1-sts-0       1/1     Running   0          5m38s
-gke-cluster1-dc1-r2-sts-0       1/1     Running   0          42s
-gke-cluster1-dc1-r3-sts-0       1/1     Running   0          6m7s
-
-$ kubectl -n my-db-ns describe cassdc dc1
-...
-Status:
-  Cassandra Operator Progress:  Updating
-  Last Server Node Started:     2020-03-10T11:37:28Z
-  Super User Upserted:          2020-03-10T11:38:37Z
-Events:
-  Type     Reason           Age                  From                Message
-  ----     ------           ----                 ----                -------
-  Normal   CreatedResource  9m49s                cassandra-operator  Created service cluster1-dc1-service
-  Normal   CreatedResource  9m49s                cassandra-operator  Created service cluster1-seed-service
-  Normal   CreatedResource  9m49s                cassandra-operator  Created service cluster1-dc1-all-pods-service
-  Normal   CreatedResource  9m49s                cassandra-operator  Created statefulset cluster1-dc1-r1-sts
-  Normal   CreatedResource  9m49s                cassandra-operator  Created statefulset cluster1-dc1-r2-sts
-  Normal   CreatedResource  9m49s                cassandra-operator  Created statefulset cluster1-dc1-r3-sts
+  serverImage: private-docker-registry.example.com/dse-img/dse:5f6e7d8c
 ```
 
 # Using Your Cluster
@@ -434,70 +435,8 @@ this time.
 
 # Known Issues and Limitations
 
-1. The DSE Operator is not recommended nor supported for production use.  This
-   release is an early preview of an unfinished product intended to allow proof
-   of concept deployments and to facilitate early customer feedback into the
-   software development process.
-2. The operator is compatible with DSE 6.8.0 and above. It will not function
-   with prior releases of DSE. Furthermore, version 0.4.1 of the operator is
-   compatible only with a specific DSE docker image co-hosted in the labs
-   [Docker Hub
-   repository](https://cloud.docker.com/u/datastaxlabs/repository/docker/datastaxlabs/dse-k8s-server).
-   Other labs releases of DSE 6.8.0 will not function with the operator.
-3. The operator is compatible with DSE and the Cassandra workload only. It does
-   not support DDAC or Advanced Workloads like Analytics, Graph, and Search.
-4. There is no facility for multi-region DSE clusters. The operator functions
+1. There is no facility for multi-region clusters. The operator functions
    within the context of a single Kubernetes cluster, which typically also
    implies a single geographic region.
-5. The operator does not automate the repair or decommission/bootstrap of nodes
-   that lose access to their data volume. With NodeSync enabled, the DSE
-   instance should recover over time. The operator will not be aware that the
-   DSE instance is unable to serve traffic and might make incorrect
-   `podDisruptionBudget` decisions. Due to this limitation, it's not recommended
-   to use local volumes.
-6. The operator does not automate the creation of key stores and trust stores
+2. The operator does not automate the creation of key stores and trust stores
    for client-to-node and internode encryption.
-
-# Changelog
-
-## v0.9.0
-
-* KO-146 Create a secret for superuser creation if one is not provided.
-* KO-288 The operator can provision Cassandra clusters using images from
-  https://github.com/datastax/management-api-for-apache-cassandra and the primary
-  CRD the operator works on is a `v1alpha2` `cassandra.datastax.com/CassandraDatacenter`
-* KO-210 Certain `CassandraDatacenter` inputs were not rolled out to pods during
-  rolling upgrades of the cluster. The new process considers everything in the
-  statefulset pod template.
-* KO-276 Greatly improved integration tests on real KIND / GKE Kubernetes clusters
-  using Ginkgo.
-* KO-223 Watch fewer Kubernetes resources.
-* KO-232 Following best practices for assigning seed nodes during cluster start.
-* KO-92 Added a container that tails the system log.
-
-## v0.4.1
-* KO-190 Fix bug introduced in v0.4.0 that prevented scaling up or deleting
-  datacenters.
-* KO-177 Create a headless service that includes pods that are not ready. While
-  this is not useful for routing CQL traffic, it can be helpful for monitoring
-  infrastructure like Prometheus that would like to attempt to collect metrics
-  from pods even if they are unhealthy, and which can tolerate connection
-  failure.
-
-## v0.4.0
-* KO-97  Faster cluster deployments
-* KO-123 Custom CQL super user. Clusters can now be provisioned without the
-  publicly known super user `cassandra` and publicly known default password
-  `cassandra`.
-* KO-42  Preliminary support for DSE upgrades
-* KO-87  Preliminary support for two-way SSL authentication to the DSE
-  management API. At this time, the operator does not automatically create
-  certificates.
-* KO-116 Fix pod disruption budget calculation. It was incorrectly calculated
-  per-rack instead of per-datacenter.
-* KO-129 Provide `allowMultipleNodesPerWorker` parameter to enable testing
-  on small k8s clusters.
-* KO-136 Rework how DSE images and versions are specified.
-
-## v0.3.0
-* Initial labs release.
