@@ -131,7 +131,7 @@ spec:
         enabled: true
         default_scheme: internal
 
-    # See https://docs.datastax.com/en/opscenter/6.7/opsc/LCM/opscLCMconfigMetricsCollector.html#opscLCMconfigMetricsCollector__prometheusConfiguration
+    # Enable the DSE metrics collector, and stand up collectd for prometheus to scrape
     10-write-prom-conf:
       enabled: true
       port: 9103
@@ -148,13 +148,14 @@ spec:
       authorizer: com.datastax.bdp.cassandra.auth.DseAuthorizer
       role_manager: com.datastax.bdp.cassandra.auth.DseRoleManager
 
-    # See https://docs.datastax.com/en/dse/6.7/dse-dev/datastax_enterprise/config/configStartUpParams.html
     jvm-server-options:
 
+      # Set the database to use 14 GB of Java heap
       initial_heap_size: "14G"
       max_heap_size: "14G"
 
-      # See https://docs.datastax.com/en/dse/6.7/dse-dev/datastax_enterprise/config/cassandraSystemProperties.html
       additional-jvm-opts:
+      
+        # As the database comes up for the first time, set system keyspaces to RF=3
         - "-Ddse.system_distributed_replication_dc_names=dc1"
         - "-Ddse.system_distributed_replication_per_dc=3"
