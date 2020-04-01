@@ -26,4 +26,5 @@ jobs:
           sudo chmod +x $GOPATH/bin/mage
       - name: List targets
         run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage -debug -v -l
