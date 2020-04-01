@@ -27,4 +27,4 @@ jobs:
       - name: List targets
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          mage -debug -v -l
+          go list -tags=mage -e -f '{{join .GoFiles "||"}}'
