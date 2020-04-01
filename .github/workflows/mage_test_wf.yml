@@ -8,6 +8,7 @@ jobs:
     name: Test Mage
     runs-on: ubuntu-latest
     env:
+      GOPATH: /home/runner/go
       GOROOT: /usr/local/go1.13
     steps:
       - uses: actions/checkout@v2
@@ -20,10 +21,9 @@ jobs:
           cd /tmp
           wget https://github.com/magefile/mage/releases/download/v1.9.0/mage_1.9.0_Linux-64bit.tar.gz
           tar -xvf mage_1.9.0_Linux-64bit.tar.gz
-          sudo mkdir -p ~/go/bin
-          sudo mkdir -p ~/go/pkg/mod/cache
-          sudo mv mage ~/go/bin/mage
-          sudo chmod +x ~/go/bin/mage
+          mkdir -p $GOPATH/bin
+          mv mage $GOPATH/bin/mage
+          sudo chmod +x $GOPATH/bin/mage
       - name: List targets
         run: |
           go list -tags=mage -e -f '{{join .GoFiles "||"}}'
