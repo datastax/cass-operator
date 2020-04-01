@@ -26,4 +26,4 @@ jobs:
           sudo chmod +x $GOPATH/bin/mage
       - name: List targets
         run: |
-          go list -tags=mage -e -f '{{join .GoFiles "||"}}'
+          mage -l
