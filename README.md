@@ -15,7 +15,7 @@ kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/maste
 # For AWS
 kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/eks/storage.yaml
 # For minikube
-kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/eks/storage.yaml
+kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/minikube/storage.yaml
 # For kind
 kubectl create -f  https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/kind/rancher-local-path-storage.yaml
 
