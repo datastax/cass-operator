@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
@@ -125,11 +126,18 @@ func main() {
 	log.Info("created the readyFile.")
 	defer readyFile.Unset()
 
+	// Become the leader before proceeding
+	err = leader.Become(ctx, "cass-operator-lock")
+	if err != nil {
+		log.Error(err, "could not become leader")
+		os.Exit(1)
+	}
+
 	if err = ensureWebhookConfigVolume(cfg, namespace); err != nil {
 		log.Error(err, "Failed to ensure webhook volume")
 	}
 	if err = ensureWebhookCertificate(cfg, namespace); err != nil {
-		log.Error(err, "Failed to ensure webhook CA configuration"))
+		log.Error(err, "Failed to ensure webhook CA configuration")
 	}
 
 	// Create a new Cmd to provide shared dependencies and start components
@@ -158,7 +166,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = controllerRuntime.NewWebhookManagedBy(mgr).For(&api.CassandraDatacenter{}).Complete()
+	skipWebhookEnvVal := os.Getenv("SKIP_VALIDATING_WEBHOOK")
+	if skipWebhookEnvVal == "" {
+		skipWebhookEnvVal = "FALSE"
+	}
+	skipWebhook, err := strconv.ParseBool(skipWebhookEnvVal)
+	if err != nil {
+		log.Error(err, "bad value for SKIP_VALIDATING_WEBHOOK env")
+		os.Exit(1)
+	}
+
+	if !skipWebhook {
+		err = controllerRuntime.NewWebhookManagedBy(mgr).For(&api.CassandraDatacenter{}).Complete()
+		if err != nil {
+			log.Error(err, "unable to create validating webhook for CassandraDatacenter")
+			os.Exit(1)
+		}
+	}
 
 	if err = serveCRMetrics(cfg); err != nil {
 		log.Error(err, "Could not generate and serve custom resource metrics")
