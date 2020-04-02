@@ -26,7 +26,8 @@ jobs:
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           sudo -E env "PATH=$PATH" mage operator:buildDocker
       - name: Deploy to ECR
-        env: 
+        if: github.repository == 'datastax/cass-operator'
+        env:
           MO_ECR_ID: ${{ secrets.ECR_ID }}
           MO_ECR_SECRET: ${{ secrets.ECR_SECRET }}
           MO_ECR_REPO: ${{ secrets.ECR_REPO }}
