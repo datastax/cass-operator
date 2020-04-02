@@ -6,9 +6,20 @@ The DataStax Kubernetes Operator for Apache Cassandra&reg;
 
 Quick start:
 ```console
+# Install the operator
 kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/docs/user/cass-operator-manifests.yaml
-# *** This is for GKE -> Adjust based on your cloud or storage options
+
+# Pick one storage class:
+# For GKE 
 kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/gke/storage.yaml
+# For AWS
+kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/eks/storage.yaml
+# For minikube
+kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/eks/storage.yaml
+# For kind
+kubectl create -f  https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/kind/rancher-local-path-storage.yaml
+
+# Create a cluster!
 kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
 ```
 
