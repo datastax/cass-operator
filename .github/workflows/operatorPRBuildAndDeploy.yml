@@ -18,13 +18,13 @@ jobs:
           cd /tmp
           wget https://github.com/magefile/mage/releases/download/v1.9.0/mage_1.9.0_Linux-64bit.tar.gz
           tar -xvf mage_1.9.0_Linux-64bit.tar.gz
-          sudo mkdir -p $GOPATH/bin
-          sudo mv mage $GOPATH/bin/mage
+          mkdir -p $GOPATH/bin
+          mv mage $GOPATH/bin/mage
           sudo chmod +x $GOPATH/bin/mage
       - name: Build docker
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          sudo -E env "PATH=$PATH" mage operator:buildDocker
+          mage operator:buildDocker
       - name: Deploy to ECR
         if: github.repository == 'datastax/cass-operator'
         env:
@@ -34,4 +34,4 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
-          sudo -E env "PATH=$PATH" mage operator:deployToECR
+          mage operator:deployToECR
