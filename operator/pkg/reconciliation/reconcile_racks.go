@@ -21,9 +21,9 @@ import (
 
 	"github.com/datastax/cass-operator/operator/internal/result"
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
-	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 )
 
 var (
@@ -277,7 +277,7 @@ func (rc *ReconciliationContext) CheckRackLabels() result.ReconcileResult {
 	return result.Continue()
 }
 
-func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult {
+func (rc *ReconciliationContext) CheckRackStoppedState(dcPods []*corev1.Pod) result.ReconcileResult {
 	logger := rc.ReqLogger
 
 	racksUpdated := false
@@ -295,19 +295,15 @@ func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult 
 				"currentSize", currentPodCount,
 			)
 
-			podList, err := listPods(rc, rc.Datacenter.GetRackLabels(rackInfo.RackName))
-			if err != nil {
-				return result.Error(err)
-			}
+			rackPods := FilterPodListByLabels(dcPods, rc.Datacenter.GetRackLabels(rackInfo.RackName))
 
 			nodesDrained := 0
 			nodeDrainErrors := 0
 
-			for _, pod := range podList.Items {
-				podPtr := &pod
-				if isMgmtApiRunning(podPtr) {
+			for _, pod := range rackPods {
+				if isMgmtApiRunning(pod) {
 					nodesDrained++
-					err := rc.NodeMgmtClient.CallDrainEndpoint(&pod)
+					err := rc.NodeMgmtClient.CallDrainEndpoint(pod)
 					// if we got an error during drain, just log it and count it
 					// and then keep going, because we don't want to try restarting
 					// the server just to bring it down
@@ -325,7 +321,7 @@ func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult 
 				"nodeDrainErrors", nodeDrainErrors,
 			)
 
-			err = rc.UpdateRackNodeCount(statefulSet, 0)
+			err := rc.UpdateRackNodeCount(statefulSet, 0)
 			if err != nil {
 				return result.Error(err)
 			}
@@ -340,12 +336,12 @@ func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult 
 }
 
 // checkSeedLabels loops over all racks and makes sure that the proper pods are labelled as seeds.
-func (rc *ReconciliationContext) checkSeedLabels() (int, error) {
+func (rc *ReconciliationContext) checkSeedLabels(dcPods []*corev1.Pod) (int, error) {
 	rc.ReqLogger.Info("reconcile_racks::CheckSeedLabels")
 	seedCount := 0
 	for idx := range rc.desiredRackInformation {
 		rackInfo := rc.desiredRackInformation[idx]
-		n, err := rc.labelSeedPods(rackInfo)
+		n, err := rc.labelSeedPods(dcPods, rackInfo)
 		seedCount += n
 		if err != nil {
 			return 0, err
@@ -355,7 +351,7 @@ func (rc *ReconciliationContext) checkSeedLabels() (int, error) {
 }
 
 // CheckPodsReady loops over all the server pods and starts them
-func (rc *ReconciliationContext) CheckPodsReady() result.ReconcileResult {
+func (rc *ReconciliationContext) CheckPodsReady(dcPods []*corev1.Pod, clusterPods []*corev1.Pod, endpointData httphelper.CassMetadataEndpoints) result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_racks::CheckPodsReady")
 
 	if rc.Datacenter.Spec.Stopped {
@@ -369,14 +365,9 @@ func (rc *ReconciliationContext) CheckPodsReady() result.ReconcileResult {
 	// because stuff is happening concurrently in k8s (getting pods from pending to running)
 	// or Cassandra (getting a node bootstrapped and ready), so we use ResultShouldRequeueSoon to try again soon
 
-	podList, err := listPods(rc, rc.Datacenter.GetDatacenterLabels())
-	if err != nil {
-		return result.Error(err)
-	}
-
 	// step 0 - see if any nodes lost their readiness
 	// or gained it back
-	nodeStartedNotReady, err := rc.findStartedNotReadyNodes(podList)
+	nodeStartedNotReady, err := rc.findStartedNotReadyNodes(dcPods)
 	if err != nil {
 		return result.Error(err)
 	}
@@ -386,7 +377,7 @@ func (rc *ReconciliationContext) CheckPodsReady() result.ReconcileResult {
 
 	// delete stuck nodes
 
-	deletedNode, err := rc.deleteStuckNodes(podList)
+	deletedNode, err := rc.deleteStuckNodes(dcPods)
 	if err != nil {
 		return result.Error(err)
 	}
@@ -396,18 +387,18 @@ func (rc *ReconciliationContext) CheckPodsReady() result.ReconcileResult {
 
 	// get the nodes labelled as seeds before we start any nodes
 
-	seedCount, err := rc.checkSeedLabels()
+	seedCount, err := rc.checkSeedLabels(dcPods)
 	if err != nil {
 		return result.Error(err)
 	}
-	err = refreshSeeds(rc)
+	err = rc.refreshSeeds(clusterPods)
 	if err != nil {
 		return result.Error(err)
 	}
 
 	// step 1 - see if any nodes are already coming up
 
-	nodeIsStarting, err := rc.findStartingNodes(podList)
+	nodeIsStarting, err := rc.findStartingNodes(dcPods)
 
 	if err != nil {
 		return result.Error(err)
@@ -418,7 +409,7 @@ func (rc *ReconciliationContext) CheckPodsReady() result.ReconcileResult {
 
 	// step 2 - get one node up per rack
 
-	rackWaitingForANode, err := rc.startOneNodePerRack(seedCount)
+	rackWaitingForANode, err := rc.startOneNodePerRack(dcPods, endpointData, seedCount)
 
 	if err != nil {
 		return result.Error(err)
@@ -429,7 +420,7 @@ func (rc *ReconciliationContext) CheckPodsReady() result.ReconcileResult {
 
 	// step 3 - get all nodes up
 	// if the cluster isn't healthy, that's ok, but go back to step 1
-	if !isClusterHealthy(rc) {
+	if !rc.isClusterHealthy(clusterPods) {
 		rc.ReqLogger.Info(
 			"cluster isn't healthy",
 		)
@@ -437,7 +428,7 @@ func (rc *ReconciliationContext) CheckPodsReady() result.ReconcileResult {
 		return result.RequeueSoon(2)
 	}
 
-	needsMoreNodes, err := rc.startAllNodes(podList)
+	needsMoreNodes, err := rc.startAllNodes(dcPods, endpointData)
 	if err != nil {
 		return result.Error(err)
 	}
@@ -447,7 +438,7 @@ func (rc *ReconciliationContext) CheckPodsReady() result.ReconcileResult {
 
 	// step 5 sanity check that all pods are labelled as started and are ready
 
-	readyPodCount, startedLabelCount := rc.countReadyAndStarted(podList)
+	readyPodCount, startedLabelCount := rc.countReadyAndStarted(dcPods)
 	desiredSize := int(rc.Datacenter.Spec.Size)
 
 	if desiredSize == readyPodCount && desiredSize == startedLabelCount {
@@ -524,7 +515,7 @@ func shouldUpsertSuperUser(dc api.CassandraDatacenter) bool {
 	return time.Now().After(lastCreated.Add(time.Minute * 4))
 }
 
-func (rc *ReconciliationContext) CreateSuperuser() result.ReconcileResult {
+func (rc *ReconciliationContext) CreateSuperuser(clusterPods []*corev1.Pod) result.ReconcileResult {
 	if rc.Datacenter.Spec.Stopped {
 		rc.ReqLogger.Info("cluster is stopped, skipping CreateSuperuser")
 		return result.Continue()
@@ -547,19 +538,10 @@ func (rc *ReconciliationContext) CreateSuperuser() result.ReconcileResult {
 
 	// We will call mgmt API on the first pod
 
-	selector := map[string]string{
-		api.ClusterLabel: rc.Datacenter.Spec.ClusterName,
-	}
-	podList, err := listPods(rc, selector)
-	if err != nil {
-		rc.ReqLogger.Error(err, "no pods found for CassandraDatacenter")
-		return result.Error(err)
-	}
-
-	pod := podList.Items[0]
+	pod := clusterPods[0]
 
 	err = rc.NodeMgmtClient.CallCreateRoleEndpoint(
-		&pod,
+		pod,
 		string(secret.Data["username"]),
 		string(secret.Data["password"]))
 	if err != nil {
@@ -620,30 +602,25 @@ func appendValuesToStringArrayIfNotPresent(a []string, values ...string) []strin
 	return a
 }
 
-func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
+func (rc *ReconciliationContext) UpdateCassandraNodeStatus(dcPods []*corev1.Pod) error {
 	dc := rc.Datacenter
 	status := &dc.Status
 	logger := rc.ReqLogger
 
-	podList, err := rc.ListAllStartedDatacenterPods()
-	if err != nil {
-		return err
-	}
+	pods := ListAllStartedPods(dcPods)
 
 	if status.NodeStatuses == nil {
 		status.NodeStatuses = map[string]api.CassandraNodeStatus{}
 	}
 
-	for idx := range podList.Items {
-		pod := &podList.Items[idx]
-
+	for _, pod := range pods {
 		nodeStatus, ok := status.NodeStatuses[pod.Name]
 		if !ok {
 			nodeStatus = api.CassandraNodeStatus{}
 		}
 
 		if pod.Status.PodIP != "" && isMgmtApiRunning(pod) {
-			// Getting the HostID requires a call to the node management API which is 
+			// Getting the HostID requires a call to the node management API which is
 			// moderately expensive, so if we already have a HostID, don't bother. This
 			// would only change if something has gone horribly horribly wrong.
 			if nodeStatus.HostID == "" {
@@ -655,7 +632,7 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 						logger.Info("Failed to find host ID", pod, pod.Name)
 					}
 				} else {
-					rc.ReqLogger.Error(err, "Could not get enpoints data")	
+					rc.ReqLogger.Error(err, "Could not get enpoints data")
 				}
 			}
 
@@ -666,22 +643,18 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 
 		status.NodeStatuses[pod.Name] = nodeStatus
 	}
-	
+
 	return nil
 }
 
-func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
+func (rc *ReconciliationContext) updateCurrentReplacePodsProgress(dcPods []*corev1.Pod) error {
 	dc := rc.Datacenter
 	logger := rc.ReqLogger
+	startedPods := ListAllStartedPods(dcPods)
 
 	// Update current progress of replacing pods
 	if len(dc.Status.NodeReplacements) > 0 {
-		podList, err := rc.ListAllStartedDatacenterPods()
-		if err != nil {
-			return err
-		}
-
-		for _, pod := range podList.Items {
+		for _, pod := range startedPods {
 			// Since pod is labeled as started, it should be done being replaced
 			if findValueIndexFromStringArray(dc.Status.NodeReplacements, pod.Name) > -1 {
 				logger.Info("Finished replacing pod", "pod", pod.Name)
@@ -698,7 +671,7 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 	if len(dc.Spec.ReplaceNodes) > 0 {
 		rc.ReqLogger.Info("Replacing pods", "pods", dc.Spec.ReplaceNodes)
 		dc.Status.NodeReplacements = appendValuesToStringArrayIfNotPresent(
-			dc.Status.NodeReplacements, 
+			dc.Status.NodeReplacements,
 			dc.Spec.ReplaceNodes...)
 
 		// Now that we've recorded these nodes in the status, we can blank
@@ -709,10 +682,10 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 	return nil
 }
 
-func (rc *ReconciliationContext) UpdateStatusForUserActions() error {
+func (rc *ReconciliationContext) UpdateStatusForUserActions(dcPods []*corev1.Pod) error {
 	var err error
 
-	err = rc.updateCurrentReplacePodsProgress()
+	err = rc.updateCurrentReplacePodsProgress(dcPods)
 	if err != nil {
 		return err
 	}
@@ -725,16 +698,16 @@ func (rc *ReconciliationContext) UpdateStatusForUserActions() error {
 	return nil
 }
 
-func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
+func (rc *ReconciliationContext) UpdateStatus(dcPods []*corev1.Pod) result.ReconcileResult {
 	dc := rc.Datacenter
 	oldDc := rc.Datacenter.DeepCopy()
 
-	err := rc.UpdateCassandraNodeStatus()
+	err := rc.UpdateCassandraNodeStatus(dcPods)
 	if err != nil {
 		return result.Error(err)
 	}
 
-	err = rc.UpdateStatusForUserActions()
+	err = rc.UpdateStatusForUserActions(dcPods)
 	if err != nil {
 		return result.Error(err)
 	}
@@ -742,7 +715,7 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	// Update the status if it changed
 	patch := client.MergeFrom(oldDc)
 	if !reflect.DeepEqual(dc, oldDc) {
-		// If we update the status to account for some user action, for example a 
+		// If we update the status to account for some user action, for example a
 		// pod replace, then we may have also updated the datacenter spec, so patch
 		// it as well.
 		if err := rc.Client.Patch(rc.Ctx, dc, patch); err != nil {
@@ -755,67 +728,6 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	}
 
 	return result.Continue()
-}
-
-// Apply reconcileRacks determines if a rack needs to be reconciled.
-func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
-	rc.ReqLogger.Info("reconcile_racks::Apply")
-
-	if recResult := rc.UpdateStatus(); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if recResult := rc.CheckSuperuserSecretCreation(); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if recResult := rc.CheckRackCreation(); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if recResult := rc.CheckRackLabels(); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if recResult := rc.CheckRackStoppedState(); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if recResult := rc.CheckRackScale(); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if recResult := rc.CheckPodsReady(); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if recResult := rc.CheckRollingRestart(); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if recResult := rc.CheckDcPodDisruptionBudget(); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if recResult := rc.CheckRackPodTemplate(); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if recResult := rc.CheckRackPodLabels(); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if recResult := rc.CreateSuperuser(); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
-		return result.Error(err).Output()
-	}
-
-	rc.ReqLogger.Info("All StatefulSets should now be reconciled.")
-
-	return result.Done().Output()
 }
 
 func hasBeenXMinutes(x int, sinceTime time.Time) bool {
@@ -877,66 +789,53 @@ func isNodeStuckAfterLosingReadiness(pod *corev1.Pod) bool {
 	return hasBeenXMinutesSinceReady(10, pod)
 }
 
-func (rc *ReconciliationContext) getCassMetadataEndpoints(podList *corev1.PodList) map[string]httphelper.EndpointState {
-	var endpoints = make(map[string]httphelper.EndpointState)
-	for _, pod := range podList.Items {
+func (rc *ReconciliationContext) getCassMetadataEndpoints(pods []*corev1.Pod) httphelper.CassMetadataEndpoints {
+	var metadata httphelper.CassMetadataEndpoints
+	for _, pod := range pods {
 		// Try to query the first ready pod we find.
 		// We won't get any endpoints back if no pods are ready yet.
-		if !isServerReady(&pod) {
+		if !isServerReady(pod) {
 			continue
 		}
 
-		result, _ := rc.NodeMgmtClient.CallMetadataEndpointsEndpoint(&pod)
-		if len(result.Entity) == 0 {
+		metadata, _ := rc.NodeMgmtClient.CallMetadataEndpointsEndpoint(pod)
+		if len(metadata.Entity) == 0 {
 			continue
-		}
-
-		for _, ep := range result.Entity {
-			endpoints[ep.GetRpcAddress()] = ep
 		}
 		break
 	}
 
-	return endpoints
+	return metadata
 }
 
-func (rc *ReconciliationContext) deleteStuckNodes(podList *corev1.PodList) (bool, error) {
+func (rc *ReconciliationContext) deleteStuckNodes(dcPods []*corev1.Pod) (bool, error) {
 	rc.ReqLogger.Info("reconcile_racks::deleteStuckNodes")
-	for _, pod := range podList.Items {
+	for _, pod := range dcPods {
 		shouldDelete := false
 		reason := ""
-		if isNodeStuckAfterTerminating(&pod) {
+		if isNodeStuckAfterTerminating(pod) {
 			reason = "Pod got stuck after Cassandra container terminated"
 			shouldDelete = true
-		} else if isNodeStuckAfterLosingReadiness(&pod) {
+		} else if isNodeStuckAfterLosingReadiness(pod) {
 			reason = "Pod got stuck after losing readiness"
 			shouldDelete = true
 		}
 
 		if shouldDelete {
 			rc.ReqLogger.Info(fmt.Sprintf("Deleting stuck pod: %s. Reason: %s", pod.Name, reason))
-			return true, rc.Client.Delete(rc.Ctx, &pod)
+			return true, rc.Client.Delete(rc.Ctx, pod)
 		}
 	}
 
 	return false, nil
 }
 
-func isClusterHealthy(rc *ReconciliationContext) bool {
-	selector := map[string]string{
-		api.ClusterLabel: rc.Datacenter.Spec.ClusterName,
-		// FIXME make a enum, pods should start in an Init state
-		api.CassNodeState: stateStarted,
-	}
-	podList, err := listPods(rc, selector)
-	if err != nil {
-		rc.ReqLogger.Error(err, "no started pods found for CassandraDatacenter")
-		return false
-	}
+func (rc *ReconciliationContext) isClusterHealthy(clusterPods []*corev1.Pod) bool {
+	pods := FilterPodListByCassNodeState(clusterPods, stateStarted)
 
 	numRacks := len(rc.Datacenter.Spec.GetRacks())
-	for _, pod := range podList.Items {
-		err := rc.NodeMgmtClient.CallProbeClusterEndpoint(&pod, "LOCAL_QUORUM", numRacks)
+	for _, pod := range pods {
+		err := rc.NodeMgmtClient.CallProbeClusterEndpoint(pod, "LOCAL_QUORUM", numRacks)
 		if err != nil {
 			return false
 		}
@@ -948,24 +847,16 @@ func isClusterHealthy(rc *ReconciliationContext) bool {
 // labelSeedPods iterates over all pods for a statefulset and makes sure the right number of
 // ready pods are labelled as seeds, so that they are picked up by the headless seed service
 // Returns the number of ready seeds.
-func (rc *ReconciliationContext) labelSeedPods(rackInfo *RackInformation) (int, error) {
+func (rc *ReconciliationContext) labelSeedPods(dcPods []*corev1.Pod, rackInfo *RackInformation) (int, error) {
 	logger := rc.ReqLogger.WithName("labelSeedPods")
 
 	rackLabels := rc.Datacenter.GetRackLabels(rackInfo.RackName)
-	podList, err := listPods(rc, rackLabels)
-	if err != nil {
-		logger.Error(
-			err, "Unable to list pods for rack",
-			"rackName", rackInfo.RackName)
-		return 0, err
-	}
-	pods := podList.Items
-	sort.SliceStable(pods, func(i, j int) bool {
-		return pods[i].Name < pods[j].Name
+	rackPods := FilterPodListByLabels(dcPods, rackLabels)
+	sort.SliceStable(rackPods, func(i, j int) bool {
+		return rackPods[i].Name < rackPods[j].Name
 	})
 	count := 0
-	for idx := range pods {
-		pod := &pods[idx]
+	for _, pod := range rackPods {
 		patch := client.MergeFrom(pod.DeepCopy())
 
 		newLabels := make(map[string]string)
@@ -1333,11 +1224,10 @@ func (rc *ReconciliationContext) callNodeManagementStart(pod *corev1.Pod) error 
 	return err
 }
 
-func (rc *ReconciliationContext) findStartingNodes(podList *corev1.PodList) (bool, error) {
+func (rc *ReconciliationContext) findStartingNodes(dcPods []*corev1.Pod) (bool, error) {
 	rc.ReqLogger.Info("reconcile_racks::findStartingNodes")
 
-	for idx := range podList.Items {
-		pod := &podList.Items[idx]
+	for _, pod := range dcPods {
 		if pod.Labels[api.CassNodeState] == stateStarting {
 			if isServerReady(pod) {
 				if err := rc.labelServerPodStarted(pod); err != nil {
@@ -1358,12 +1248,10 @@ func (rc *ReconciliationContext) findStartingNodes(podList *corev1.PodList) (boo
 	return false, nil
 }
 
-func (rc *ReconciliationContext) findStartedNotReadyNodes(podList *corev1.PodList) (bool, error) {
+func (rc *ReconciliationContext) findStartedNotReadyNodes(dcPods []*corev1.Pod) (bool, error) {
 	rc.ReqLogger.Info("reconcile_racks::findStartedNotReadyNodes")
 
-	for idx := range podList.Items {
-		pod := &podList.Items[idx]
-
+	for _, pod := range dcPods {
 		if didServerLoseReadiness(pod) {
 			if err := rc.labelServerPodStartedNotReady(pod); err != nil {
 				return false, err
@@ -1383,39 +1271,17 @@ func (rc *ReconciliationContext) findStartedNotReadyNodes(podList *corev1.PodLis
 	return false, nil
 }
 
-func (rc *ReconciliationContext) ListAllDatacenterPods() (*corev1.PodList, error) {
-	selector := rc.Datacenter.GetDatacenterLabels()
-	return listPods(rc, selector)
-} 
-
-func (rc *ReconciliationContext) ListAllStartedDatacenterPods() (*corev1.PodList, error) {
-	selector := rc.Datacenter.GetDatacenterLabels()
-	selector[api.CassNodeState] = "Started"
-	return listPods(rc, selector)
-}
-
-func (rc *ReconciliationContext) ListAllStartedClusterPods() (*corev1.PodList, error) {
-	selector := rc.Datacenter.GetClusterLabels()
-	selector[api.CassNodeState] = "Started"
-	return listPods(rc, selector)
-}
-
-func (rc *ReconciliationContext) findIpForHostId(hostId string) (string, error) {
-	podList, err := rc.ListAllStartedClusterPods()
-	if err != nil {
-		return "", err
-	}
-
+func (rc *ReconciliationContext) findIpForHostId(clusterPods []*corev1.Pod, hostId string) (string, error) {
+	pods := ListAllStartedPods(clusterPods)
 	// If there are no nodes to ask, then of course we will not find an IP. We
 	// treat this as an error since we have not way to determine the mapping.
-	if len(podList.Items) < 1 {
+	if len(pods) < 1 {
 		return "", fmt.Errorf("No pods available to ask for the IP address of %s", hostId)
 	}
 
 	// Search for a cassandra node that knows about the given hostId
 	var lastError error = nil
-	for idx, _ := range podList.Items {
-		pod := &podList.Items[idx]
+	for _, pod := range pods {
 		endpointsResponse, err := rc.NodeMgmtClient.CallMetadataEndpointsEndpoint(pod)
 		if err != nil {
 			lastError = err
@@ -1428,9 +1294,9 @@ func (rc *ReconciliationContext) findIpForHostId(hostId string) (string, error) 
 	}
 
 	if lastError != nil {
-		// We didn't find the IP address, but also had issues talking to at 
+		// We didn't find the IP address, but also had issues talking to at
 		// least one cassandra node while searching. We return an error in this
-		// case as resolving the issue with the node management API communication 
+		// case as resolving the issue with the node management API communication
 		// may allow us to determine the IP address.
 		return "", lastError
 	} else {
@@ -1440,7 +1306,7 @@ func (rc *ReconciliationContext) findIpForHostId(hostId string) (string, error) 
 	}
 }
 
-func (rc *ReconciliationContext) startCassandra(pod *corev1.Pod) error {
+func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMetadataEndpoints, pod *corev1.Pod) error {
 	dc := rc.Datacenter
 	mgmtClient := rc.NodeMgmtClient
 
@@ -1460,7 +1326,7 @@ func (rc *ReconciliationContext) startCassandra(pod *corev1.Pod) error {
 		// Get the replace address
 		var err error
 		if hostId != "" {
-			replaceAddress, err = rc.findIpForHostId(hostId)
+			replaceAddress, err = FindIpForHostId(endpointData, hostId)
 			if err != nil {
 				return fmt.Errorf("Failed to start replace of cassandra node %s for pod %s due to error: %w", hostId, pod.Name, err)
 			}
@@ -1470,7 +1336,7 @@ func (rc *ReconciliationContext) startCassandra(pod *corev1.Pod) error {
 	var err error
 	if shouldReplacePod && replaceAddress != "" {
 		// If we have a replace address that means the cassandra node did
-		// join the ring previously and is marked for replacement, so we 
+		// join the ring previously and is marked for replacement, so we
 		// start it accordingly
 		err = mgmtClient.CallLifecycleStartEndpointWithReplaceIp(pod, replaceAddress)
 	} else {
@@ -1487,22 +1353,15 @@ func (rc *ReconciliationContext) startCassandra(pod *corev1.Pod) error {
 }
 
 // returns the name of one rack without any ready node
-func (rc *ReconciliationContext) startOneNodePerRack(readySeeds int) (string, error) {
+func (rc *ReconciliationContext) startOneNodePerRack(dcPods []*corev1.Pod, endpointData httphelper.CassMetadataEndpoints, readySeeds int) (string, error) {
 	rc.ReqLogger.Info("reconcile_racks::startOneNodePerRack")
-
-	selector := rc.Datacenter.GetDatacenterLabels()
-	podList, err := listPods(rc, selector)
-	if err != nil {
-		return "", err
-	}
 
 	rackReadyCount := map[string]int{}
 	for _, rackInfo := range rc.desiredRackInformation {
 		rackReadyCount[rackInfo.RackName] = 0
 	}
 
-	for idx := range podList.Items {
-		pod := &podList.Items[idx]
+	for _, pod := range dcPods {
 		rackName := pod.Labels[api.RackLabel]
 		if isServerReady(pod) {
 			rackReadyCount[rackName]++
@@ -1518,8 +1377,7 @@ func (rc *ReconciliationContext) startOneNodePerRack(readySeeds int) (string, er
 			continue
 		}
 		rackThatNeedsNode = rackName
-		for idx := range podList.Items {
-			pod := &podList.Items[idx]
+		for _, pod := range dcPods {
 			mgmtApiUp := isMgmtApiRunning(pod)
 			if !isServerReadyToStart(pod) || !mgmtApiUp {
 				continue
@@ -1536,7 +1394,7 @@ func (rc *ReconciliationContext) startOneNodePerRack(readySeeds int) (string, er
 					// sleeping five seconds for DNS paranoia
 					time.Sleep(5 * time.Second)
 				}
-				if err = rc.startCassandra(pod); err != nil {
+				if err := rc.startCassandra(endpointData, pod); err != nil {
 					return "", err
 				}
 				return rackName, nil
@@ -1548,13 +1406,12 @@ func (rc *ReconciliationContext) startOneNodePerRack(readySeeds int) (string, er
 }
 
 // returns whether one or more server nodes is not running or ready
-func (rc *ReconciliationContext) startAllNodes(podList *corev1.PodList) (bool, error) {
+func (rc *ReconciliationContext) startAllNodes(dcPods []*corev1.Pod, endpointData httphelper.CassMetadataEndpoints) (bool, error) {
 	rc.ReqLogger.Info("reconcile_racks::startAllNodes")
 
-	for idx := range podList.Items {
-		pod := &podList.Items[idx]
+	for _, pod := range dcPods {
 		if isMgmtApiRunning(pod) && !isServerReady(pod) && !isServerStarted(pod) {
-			if err := rc.startCassandra(pod); err != nil {
+			if err := rc.startCassandra(endpointData, pod); err != nil {
 				return false, err
 			}
 			return true, nil
@@ -1563,8 +1420,7 @@ func (rc *ReconciliationContext) startAllNodes(podList *corev1.PodList) (bool, e
 
 	// this extra pass only does anything when we have a combination of
 	// ready server pods and pods that are not running - possibly stuck pending
-	for idx := range podList.Items {
-		pod := &podList.Items[idx]
+	for _, pod := range dcPods {
 		if !isMgmtApiRunning(pod) {
 			rc.ReqLogger.Info(
 				"management api is not running on pod",
@@ -1577,11 +1433,10 @@ func (rc *ReconciliationContext) startAllNodes(podList *corev1.PodList) (bool, e
 	return false, nil
 }
 
-func (rc *ReconciliationContext) countReadyAndStarted(podList *corev1.PodList) (int, int) {
+func (rc *ReconciliationContext) countReadyAndStarted(dcPods []*corev1.Pod) (int, int) {
 	ready := 0
 	started := 0
-	for idx := range podList.Items {
-		pod := &podList.Items[idx]
+	for _, pod := range dcPods {
 		if isServerReady(pod) {
 			ready++
 			rc.ReqLogger.Info(
@@ -1590,9 +1445,7 @@ func (rc *ReconciliationContext) countReadyAndStarted(podList *corev1.PodList) (
 				"runningCountReady", ready,
 			)
 		}
-	}
-	for idx := range podList.Items {
-		pod := &podList.Items[idx]
+
 		if isServerStarted(pod) {
 			started++
 			rc.ReqLogger.Info(
@@ -1659,24 +1512,17 @@ func isServerReady(pod *corev1.Pod) bool {
 	return false
 }
 
-func refreshSeeds(rc *ReconciliationContext) error {
+func (rc *ReconciliationContext) refreshSeeds(clusterPods []*corev1.Pod) error {
 	rc.ReqLogger.Info("reconcile_racks::refreshSeeds")
 	if rc.Datacenter.Spec.Stopped {
 		rc.ReqLogger.Info("cluster is stopped, skipping refreshSeeds")
 		return nil
 	}
 
-	selector := rc.Datacenter.GetClusterLabels()
-	selector[api.CassNodeState] = stateStarted
+	startedPods := FilterPodListByCassNodeState(clusterPods, stateStarted)
 
-	podList, err := listPods(rc, selector)
-	if err != nil {
-		rc.ReqLogger.Error(err, "error listing pods during refreshSeeds")
-		return err
-	}
-
-	for _, pod := range podList.Items {
-		if err := rc.NodeMgmtClient.CallReloadSeedsEndpoint(&pod); err != nil {
+	for _, pod := range startedPods {
+		if err := rc.NodeMgmtClient.CallReloadSeedsEndpoint(pod); err != nil {
 			return err
 		}
 	}
@@ -1684,7 +1530,7 @@ func refreshSeeds(rc *ReconciliationContext) error {
 	return nil
 }
 
-func listPods(rc *ReconciliationContext, selector map[string]string) (*corev1.PodList, error) {
+func (rc *ReconciliationContext) listPods(selector map[string]string) (*corev1.PodList, error) {
 	rc.ReqLogger.Info("reconcile_racks::listPods")
 
 	listOptions := &client.ListOptions{
@@ -1702,7 +1548,7 @@ func listPods(rc *ReconciliationContext, selector map[string]string) (*corev1.Po
 	return podList, rc.Client.List(rc.Ctx, podList, listOptions)
 }
 
-func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
+func (rc *ReconciliationContext) CheckRollingRestart(dcPods []*corev1.Pod) result.ReconcileResult {
 	dc := rc.Datacenter
 	logger := rc.ReqLogger
 
@@ -1724,18 +1570,12 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 		}
 	}
 
-	pods, err := listPods(rc, dc.GetDatacenterLabels())
-	if err != nil {
-		return result.Error(err)
-	}
-
 	cutoff := &dc.Status.LastRollingRestart
-	for idx := range pods.Items {
-		pod := &pods.Items[idx]
+	for _, pod := range dcPods {
 		podStartTime := pod.GetCreationTimestamp()
 		if podStartTime.Before(cutoff) {
 			// drain the node
-			err = rc.NodeMgmtClient.CallDrainEndpoint(pod)
+			err := rc.NodeMgmtClient.CallDrainEndpoint(pod)
 			if err != nil {
 				logger.Error(err, "error during drain during rolling restart",
 					"pod", pod.Name)
@@ -1751,4 +1591,80 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 	}
 
 	return result.Continue()
+}
+
+// Apply reconcileRacks determines if a rack needs to be reconciled.
+func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
+	logger := rc.ReqLogger
+	logger.Info("reconcile_racks::Apply")
+
+	podList, err := rc.listPods(nil)
+	if err != nil {
+		logger.Error(err, "error listing all pods")
+	}
+	pods := podPtrsFromPodList(podList)
+
+	dcSelector := rc.Datacenter.GetDatacenterLabels()
+	dcPods := FilterPodListByLabels(pods, dcSelector)
+
+	clusterSelector := rc.Datacenter.GetClusterLabels()
+	clusterPods := FilterPodListByLabels(pods, clusterSelector)
+
+	endpointData := rc.getCassMetadataEndpoints(clusterPods)
+
+	if recResult := rc.UpdateStatus(dcPods); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckSuperuserSecretCreation(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckRackCreation(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckRackLabels(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckRackStoppedState(dcPods); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckRackScale(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckPodsReady(dcPods, clusterPods, endpointData); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckRollingRestart(dcPods); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckDcPodDisruptionBudget(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckRackPodTemplate(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckRackPodLabels(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CreateSuperuser(clusterPods); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
+		return result.Error(err).Output()
+	}
+
+	rc.ReqLogger.Info("All StatefulSets should now be reconciled.")
+
+	return result.Done().Output()
 }

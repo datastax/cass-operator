@@ -935,7 +935,8 @@ func TestReconcileRacks_countReadyAndStarted(t *testing.T) {
 			rc.desiredRackInformation = tt.fields.desiredRackInformation
 			rc.statefulSets = tt.fields.statefulSets
 
-			ready, started := rc.countReadyAndStarted(tt.args.podList)
+			pods := podPtrsFromPodList(tt.args.podList)
+			ready, started := rc.countReadyAndStarted(pods)
 			if ready != tt.wantReady {
 				t.Errorf("ReconcileRacks.countReadyAndStarted() ready = %v, want %v", ready, tt.wantReady)
 			}
