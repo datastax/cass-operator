@@ -424,10 +424,6 @@ spec:
     targetPort: 443
   selector:
     name: cass-operator
-  template:
-    spec:
-      containers:
-      - image: datastax/cass-operator:1.0.0
 ---
 apiVersion: v1
 data:
