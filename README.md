@@ -1,4 +1,5 @@
 # Cass Operator
+[![Gitter](https://badges.gitter.im/cass-operator/community.svg)](https://gitter.im/cass-operator/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 
 The DataStax Kubernetes Operator for Apache Cassandra&reg;
 
@@ -251,7 +252,7 @@ kubectl delete -f https://raw.githubusercontent.com/datastax/cass-operator/maste
 
 ## Contacts
 
-For developement questions, please reach out on Gitter, or by opening an issue on GitHub.
+For developement questions, please reach out on [Gitter](https://gitter.im/cass-operator/community), or by opening an issue on GitHub.
 
 For usage questions, please visit our Community Forums: https://community.datastax.com
 
