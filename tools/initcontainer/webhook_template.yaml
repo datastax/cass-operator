@@ -17,7 +17,7 @@ webhooks:
       path: /validate-cassandra-datastax-com-v1beta1-cassandradatacenter
     caBundle: AUTOMATICALLY_REPLACED_CA_BUNDLE
   admissionReviewVersions: ["v1beta1"]
-  failurePolicy: "Fail"
+  failurePolicy: "Ignore"
   matchPolicy: "Equivalent"
   sideEffects: None
   timeoutSeconds: 10

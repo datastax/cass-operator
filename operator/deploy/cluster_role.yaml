@@ -46,6 +46,10 @@ rules:
   - validatingwebhookconfigurations
   verbs:
   - create
+  - get
+  - update
+  resourceNames: 
+  - "cassandradatacenter-webhook-registration"
 - apiGroups:
   - ""
   resources:
