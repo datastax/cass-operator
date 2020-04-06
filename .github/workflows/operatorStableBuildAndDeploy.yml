@@ -27,7 +27,7 @@ jobs:
       - name: Build docker
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          mage operator:buildDocker
+          mage operator:testAndBuild
       - name: Deploy to ECR
         env: 
           MO_ECR_ID: ${{ secrets.ECR_ID }}
