@@ -798,7 +798,8 @@ func (rc *ReconciliationContext) getCassMetadataEndpoints() httphelper.CassMetad
 			continue
 		}
 
-		metadata, _ := rc.NodeMgmtClient.CallMetadataEndpointsEndpoint(pod)
+		metadata, _ = rc.NodeMgmtClient.CallMetadataEndpointsEndpoint(pod)
+
 		if len(metadata.Entity) == 0 {
 			continue
 		}
@@ -1271,41 +1272,6 @@ func (rc *ReconciliationContext) findStartedNotReadyNodes() (bool, error) {
 	return false, nil
 }
 
-func (rc *ReconciliationContext) findIpForHostId(hostId string) (string, error) {
-	pods := ListAllStartedPods(rc.clusterPods)
-	// If there are no nodes to ask, then of course we will not find an IP. We
-	// treat this as an error since we have not way to determine the mapping.
-	if len(pods) < 1 {
-		return "", fmt.Errorf("No pods available to ask for the IP address of %s", hostId)
-	}
-
-	// Search for a cassandra node that knows about the given hostId
-	var lastError error = nil
-	for _, pod := range pods {
-		endpointsResponse, err := rc.NodeMgmtClient.CallMetadataEndpointsEndpoint(pod)
-		if err != nil {
-			lastError = err
-		}
-		for _, endpointData := range endpointsResponse.Entity {
-			if endpointData.HostID == hostId && len(endpointData.GetRpcAddress()) > 0 {
-				return endpointData.GetRpcAddress(), nil
-			}
-		}
-	}
-
-	if lastError != nil {
-		// We didn't find the IP address, but also had issues talking to at
-		// least one cassandra node while searching. We return an error in this
-		// case as resolving the issue with the node management API communication
-		// may allow us to determine the IP address.
-		return "", lastError
-	} else {
-		// This indicates the cassandra node with the given hostId never
-		// actually joined the ring
-		return "", nil
-	}
-}
-
 func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMetadataEndpoints, pod *corev1.Pod) error {
 	dc := rc.Datacenter
 	mgmtClient := rc.NodeMgmtClient
@@ -1354,6 +1320,7 @@ func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMeta
 
 // returns the name of one rack without any ready node
 func (rc *ReconciliationContext) startOneNodePerRack(endpointData httphelper.CassMetadataEndpoints, readySeeds int) (string, error) {
+
 	rc.ReqLogger.Info("reconcile_racks::startOneNodePerRack")
 
 	rackReadyCount := map[string]int{}
