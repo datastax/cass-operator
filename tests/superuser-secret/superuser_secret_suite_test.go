@@ -5,7 +5,6 @@ package superuser_secret
 
 import (
 	"fmt"
-	"strings"
 	"testing"
 
 	"encoding/base64"
@@ -103,7 +102,7 @@ var _ = Describe(testName, func() {
 			step = "get superuser password"
 			json = "jsonpath={.data.password}"
 			k = kubectl.Get(secretResource).FormatOutput(json)
-			passwordBase64 := ns.OutputAndLog(step, k)			
+			passwordBase64 := ns.OutputAndLog(step, k)
 			Expect(passwordBase64).ToNot(Equal(""), "Expected secret to specify a password")
 			passwordDecoded, err := base64.StdEncoding.DecodeString(passwordBase64)
 			Expect(err).ToNot(HaveOccurred())
@@ -111,18 +110,18 @@ var _ = Describe(testName, func() {
 
 			step = "check superuser credentials work"
 			k = kubectl.ExecOnPod(
-				"cluster2-dc2-r1-sts-0", "--", "cqlsh", 
-				"--user", string(usernameDecoded), 
-				"--password", string(passwordDecoded), 
+				"cluster2-dc2-r1-sts-0", "--", "cqlsh",
+				"--user", string(usernameDecoded),
+				"--password", string(passwordDecoded),
 				"-e", "select * from system_schema.keyspaces;").
 				WithFlag("container", "cassandra")
 			ns.ExecAndLog(step, k)
 
 			step = "check that bad credentials don't work"
 			k = kubectl.ExecOnPod(
-				"cluster2-dc2-r1-sts-0", "--", "cqlsh", 
-				"--user", string(usernameDecoded), 
-				"--password", "notthepassword", 
+				"cluster2-dc2-r1-sts-0", "--", "cqlsh",
+				"--user", string(usernameDecoded),
+				"--password", "notthepassword",
 				"-e", "select * from system_schema.keyspaces;").
 				WithFlag("container", "cassandra")
 			By(step)
