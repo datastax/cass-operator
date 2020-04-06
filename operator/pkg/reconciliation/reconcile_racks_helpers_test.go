@@ -2,6 +2,10 @@ package reconciliation
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestMapContains(t *testing.T) {
@@ -36,4 +40,28 @@ func TestMapContainsDoesntContain(t *testing.T) {
 	if isMatch {
 		t.Fatalf("mapContains should not have found match.")
 	}
+}
+
+func TestPodPrtsFromPodList(t *testing.T) {
+	pod1 := corev1.Pod{}
+	pod1.Name = "pod1"
+
+	pod2 := corev1.Pod{}
+	pod2.Name = "pod2"
+
+	pod3 := corev1.Pod{}
+	pod3.Name = "pod3"
+	podList := corev1.PodList{
+		Items: []corev1.Pod{pod1, pod2, pod3},
+	}
+
+	prts := PodPtrsFromPodList(&podList)
+
+	expectedNames := []string{"pod1", "pod2", "pod3"}
+	var actualNames []string
+	for _, p := range prts {
+		actualNames = append(actualNames, p.Name)
+	}
+	assert.ElementsMatch(t, expectedNames, actualNames)
+
 }

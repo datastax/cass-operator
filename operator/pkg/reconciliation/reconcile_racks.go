@@ -1602,7 +1602,8 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	if err != nil {
 		logger.Error(err, "error listing all pods")
 	}
-	pods := podPtrsFromPodList(podList)
+
+	pods := PodPtrsFromPodList(podList)
 
 	dcSelector := rc.Datacenter.GetDatacenterLabels()
 	rc.dcPods = FilterPodListByLabels(pods, dcSelector)
