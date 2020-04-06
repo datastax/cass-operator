@@ -314,15 +314,15 @@ spec:
 
 With the release of the operator v0.4.0 comes a new way to specify
 which version of Cassandra or  DSE and image you want to use. From within the config yaml
-for your `CassandraDatacenter` resource, you can use the `serverType`, `imageVersion`, and `serverImage`
+for your `CassandraDatacenter` resource, you can use the `serverType`, `serverVersion`, and `serverImage`
 spec properties.
 
-`serverType` is required and must be either `dse` or `cassandra`. `imageVersion` is also required,
+`serverType` is required and must be either `dse` or `cassandra`. `serverVersion` is also required,
 and the supported version for DSE is `6.8.0` and for Cassandra it is `3.11.6`. More versions
 will be supported in the future.
 
 If `serverImage` is not specified, a default image for the provided `serverType` and
-`imageVersion` will automatically be used. If you want to use a different image, specify the image in the format `<qualified path>:<tag>`.
+`serverVersion` will automatically be used. If you want to use a different image, specify the image in the format `<qualified path>:<tag>`.
 
 ### Using a default image
 
@@ -333,7 +333,7 @@ metadata:
   name: dtcntr
 spec:
   serverType: dse
-  imageVersion: 6.8.0
+  serverVersion: 6.8.0
 
 ```
 
@@ -347,7 +347,7 @@ metadata:
   name: dtcntr
 spec:
   serverType: cassandra
-  imageVersion: 3.11.6
+  serverVersion: 3.11.6
   serverImage: private-docker-registry.example.com/cass-img/cassandra-with-mgmtapi:1a2b3c4d
 ```
 
@@ -359,7 +359,7 @@ metadata:
   name: dtcntr
 spec:
   serverType: dse
-  imageVersion: 6.8.0
+  serverVersion: 6.8.0
   serverImage: private-docker-registry.example.com/dse-img/dse:5f6e7d8c
 ```
 
