@@ -12,7 +12,7 @@ import (
 
 var log = logf.Log.WithName("api")
 
-// +kubebuilder:webhook:path=/validate-cassandradatacenter,mutating=false,failurePolicy=ignore,groups=cassandra.datastax.com,resources=cassandradatacenters,verbs=create;update;delete,versions=v1alpha2,name=validate-cassandradatacenter-webhook
+// +kubebuilder:webhook:path=/validate-cassandradatacenter,mutating=false,failurePolicy=ignore,groups=cassandra.datastax.com,resources=cassandradatacenters,verbs=create;update;delete,versions=v1beta1,name=validate-cassandradatacenter-webhook
 var _ webhook.Validator = &CassandraDatacenter{}
 
 func (dc *CassandraDatacenter) ValidateCreate() error {
