@@ -31,6 +31,29 @@ NAME                             READY   STATUS    RESTARTS   AGE
 cass-operator-555577b9f8-zgx6j   1/1     Running   0          25h
 ```
 
+### (Optional) Loading the operator via Helm
+
+Helm may be used to load the operator.
+
+```console
+helm install --set cass-op-namespace=my-custom-namespace cass-operator ./charts/cass-operator-chart
+```
+
+The following Helm default values may be overridden:
+
+```yaml
+cassOperatorNamespace: cass-operator
+serviceAccountName: cass-operator
+roleName: cass-operator
+roleBindingName: cass-operator
+deploymentName: cass-operator
+deploymentReplicas: 1
+cassOperatorImage: "datastax/cass-operator:1.0.0"
+cassOperatorImagePullPolicy: IfNotPresent
+```
+
+NOTE: Helm does not install a storage-class for the cassandra pods.
+
 ### Creating a storage class
 
 You will need to create an appropriate storage class which will define the type of storage to use for Cassandra nodes in a cluster. For example, here is a storage class for using SSDs in GKE, which you can also find at [operator/deploy/k8s-flavors/gke/storage.yaml](operator/k8s-flavors/gke/storage.yaml):
