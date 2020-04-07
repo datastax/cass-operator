@@ -37,6 +37,8 @@ type ReconciliationContext struct {
 	Services               []*corev1.Service
 	desiredRackInformation []*RackInformation
 	statefulSets           []*appsv1.StatefulSet
+	dcPods                 []*corev1.Pod
+	clusterPods            []*corev1.Pod
 }
 
 // CreateReconciliationContext gathers all information needed for computeReconciliationActions into a struct.
