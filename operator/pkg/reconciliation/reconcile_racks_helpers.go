@@ -71,14 +71,6 @@ func FindIpForHostId(endpointData httphelper.CassMetadataEndpoints, hostId strin
 	return "", nil
 }
 
-func mapCassMetadataEndpointsByIp(metadata httphelper.CassMetadataEndpoints) map[string]httphelper.EndpointState {
-	var endpoints = make(map[string]httphelper.EndpointState)
-	for _, ep := range metadata.Entity {
-		endpoints[ep.GetRpcAddress()] = ep
-	}
-	return endpoints
-}
-
 func PodPtrsFromPodList(podList *corev1.PodList) []*corev1.Pod {
 	var pods []*corev1.Pod
 	for idx := range podList.Items {
