@@ -1565,18 +1565,15 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	logger := rc.ReqLogger
 	logger.Info("reconcile_racks::Apply")
 
-	podList, err := rc.listPods(nil)
+	podList, err := rc.listPods(rc.Datacenter.GetClusterLabels())
 	if err != nil {
-		logger.Error(err, "error listing all pods")
+		logger.Error(err, "error listing all pods in the cluster")
 	}
 
-	pods := PodPtrsFromPodList(podList)
+	rc.clusterPods = PodPtrsFromPodList(podList)
 
 	dcSelector := rc.Datacenter.GetDatacenterLabels()
-	rc.dcPods = FilterPodListByLabels(pods, dcSelector)
-
-	clusterSelector := rc.Datacenter.GetClusterLabels()
-	rc.clusterPods = FilterPodListByLabels(pods, clusterSelector)
+	rc.dcPods = FilterPodListByLabels(rc.clusterPods, dcSelector)
 
 	endpointData := rc.getCassMetadataEndpoints()
 
