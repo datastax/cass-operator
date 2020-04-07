@@ -1,2 +1,9 @@
-# default values
+# Default values
 cassOperatorNamespace: cass-operator
+serviceAccountName: cass-operator
+roleName: cass-operator
+roleBindingName: cass-operator
+deploymentName: cass-operator
+deploymentReplicas: 1
+cassOperatorImage: "datastax/cass-operator:1.0.0"
+cassOperatorImagePullPolicy: IfNotPresent
