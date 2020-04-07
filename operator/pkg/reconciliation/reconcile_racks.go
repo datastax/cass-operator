@@ -1228,7 +1228,7 @@ func (rc *ReconciliationContext) callNodeManagementStart(pod *corev1.Pod) error 
 func (rc *ReconciliationContext) findStartingNodes() (bool, error) {
 	rc.ReqLogger.Info("reconcile_racks::findStartingNodes")
 
-	for _, pod := range rc.dcPods {
+	for _, pod := range rc.clusterPods {
 		if pod.Labels[api.CassNodeState] == stateStarting {
 			if isServerReady(pod) {
 				if err := rc.labelServerPodStarted(pod); err != nil {
