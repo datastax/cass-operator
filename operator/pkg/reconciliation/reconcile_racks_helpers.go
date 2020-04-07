@@ -19,6 +19,8 @@ func mapContains(base map[string]string, submap map[string]string) bool {
 	return true
 }
 
+// Takes a list of *Pod and filters down to only the pods that
+// match every label/val in the provided label map.
 func FilterPodListByLabels(pods []*corev1.Pod, labelMap map[string]string) []*corev1.Pod {
 	filtered := []*corev1.Pod{}
 	for _, p := range pods {
@@ -30,13 +32,10 @@ func FilterPodListByLabels(pods []*corev1.Pod, labelMap map[string]string) []*co
 }
 
 func FilterPodListByLabel(pods []*corev1.Pod, labelName string, labelVal string) []*corev1.Pod {
-	filtered := []*corev1.Pod{}
-	for _, p := range pods {
-		if val, ok := p.Labels[labelName]; ok && val == labelVal {
-			filtered = append(filtered, p)
-		}
+	labels := map[string]string{
+		labelName: labelVal,
 	}
-	return filtered
+	return FilterPodListByLabels(pods, labels)
 }
 
 func FilterPodListByCassNodeState(pods []*corev1.Pod, state string) []*corev1.Pod {
