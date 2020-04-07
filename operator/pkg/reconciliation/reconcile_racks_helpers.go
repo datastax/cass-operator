@@ -82,7 +82,7 @@ func mapCassMetadataEndpointsByIp(metadata httphelper.CassMetadataEndpoints) map
 
 func PodPtrsFromPodList(podList *corev1.PodList) []*corev1.Pod {
 	var pods []*corev1.Pod
-	for idx, _ := range podList.Items {
+	for idx := range podList.Items {
 		pod := &podList.Items[idx]
 		pods = append(pods, pod)
 	}

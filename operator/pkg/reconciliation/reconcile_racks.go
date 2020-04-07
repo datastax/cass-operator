@@ -538,7 +538,7 @@ func (rc *ReconciliationContext) CreateSuperuser() result.ReconcileResult {
 
 	// We will call mgmt API on the first pod
 
-	pod := rc.clusterPods[0]
+	pod := rc.dcPods[0]
 
 	err = rc.NodeMgmtClient.CallCreateRoleEndpoint(
 		pod,
@@ -1560,7 +1560,7 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 	return result.Continue()
 }
 
-// Apply reconcileRacks determines if a rack needs to be reconciled.
+// ReconcileAllRacks determines if a rack needs to be reconciled.
 func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	logger := rc.ReqLogger
 	logger.Info("reconcile_racks::Apply")
