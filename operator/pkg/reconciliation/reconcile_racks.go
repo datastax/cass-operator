@@ -400,6 +400,7 @@ func (rc *ReconciliationContext) CheckPodsReady() result.ReconcileResult {
 	if err != nil {
 		return result.Error(err)
 	}
+	time.Sleep(10*time.Second)
 	err = refreshSeeds(rc)
 	if err != nil {
 		return result.Error(err)
