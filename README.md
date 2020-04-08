@@ -7,10 +7,10 @@ The DataStax Kubernetes Operator for Apache Cassandra&reg;
 
 Quick start:
 ```console
-kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/docs/user/cass-operator-manifests.yaml
+kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/v1.0.0/docs/user/cass-operator-manifests.yaml
 # *** This is for GKE -> Adjust based on your cloud or storage options
-kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/gke/storage.yaml
-kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
+kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/v1.0.0/operator/k8s-flavors/gke/storage.yaml
+kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/cass-operator/v1.0.0/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
 ```
 
 ### Loading the operator
