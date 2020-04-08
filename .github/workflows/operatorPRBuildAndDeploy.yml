@@ -7,7 +7,11 @@ jobs:
     steps:
       - name: Testing
         run: |
+          echo "This is running from within the cass operator repo"
           echo "Repo: ${GITHUB_REPOSITORY}"
           echo "Base Ref: ${GITHUB_BASE_REF}"
           echo "Head Ref: ${GITHUB_HEAD_REF}"
-          echo "Actor: ${GITHUB_ACTOR}"
+          echo "Event: ${GITHUB_EVENT}"
+          echo "Event Path: ${GITHUB_EVENT_PATH}"
+          echo "Event Name: ${GITHUB_EVENT_NAME}"
+          echo "Ref: ${GITHUB_REF}"
