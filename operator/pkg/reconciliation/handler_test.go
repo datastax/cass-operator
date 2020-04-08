@@ -20,8 +20,9 @@ import (
 	"k8s.io/client-go/tools/record"
 
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/mocks"
@@ -112,7 +113,7 @@ func TestReconcile(t *testing.T) {
 	t.Skip()
 
 	// Set up verbose logging
-	logger := logf.ZapLogger(true)
+	logger := zap.Logger(true)
 	logf.SetLogger(logger)
 
 	var (
@@ -184,7 +185,7 @@ func TestReconcile(t *testing.T) {
 
 func TestReconcile_NotFound(t *testing.T) {
 	// Set up verbose logging
-	logger := logf.ZapLogger(true)
+	logger := zap.Logger(true)
 	logf.SetLogger(logger)
 
 	var (
@@ -253,7 +254,7 @@ func TestReconcile_NotFound(t *testing.T) {
 
 func TestReconcile_Error(t *testing.T) {
 	// Set up verbose logging
-	logger := logf.ZapLogger(true)
+	logger := zap.Logger(true)
 	logf.SetLogger(logger)
 
 	var (
@@ -318,7 +319,7 @@ func TestReconcile_Error(t *testing.T) {
 func TestReconcile_CassandraDatacenterToBeDeleted(t *testing.T) {
 	t.Skip()
 	// Set up verbose logging
-	logger := logf.ZapLogger(true)
+	logger := zap.Logger(true)
 	logf.SetLogger(logger)
 
 	var (
