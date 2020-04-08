@@ -127,13 +127,13 @@ func retrieveDatacenterInfo() DatacenterInfo {
 		}
 	}
 
-	cluster := DatacenterInfo{
+	dc := DatacenterInfo{
 		Size: int(spec["size"].(float64)),
 		Nodes: retrieveNodes(),
 		RackNames: rackNames,
 	}
 	
-	return cluster
+	return dc
 }
 
 func retrieveNameSeedNodeForRack(rack string) string {
@@ -233,6 +233,7 @@ func checkSeedConstraints() {
 	checkDesignatedSeedNodesAreStartedAndReady(info)
 
 	// Ensure seed lists actually align
+	//
 	// NOTE: The following check does not presently work due to 
 	// the lag time between when we update a seed label and when
 	// that change is reflected in DNS. Since we reload seed lists
@@ -250,7 +251,6 @@ func duplicate(value string, count int) string {
 
 	return strings.Join(result, " ")
 }
-
 
 func waitDatacenterReady() {
 	info := retrieveDatacenterInfo()
