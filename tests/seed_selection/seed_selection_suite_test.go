@@ -30,7 +30,6 @@ var (
 	dcLabel             = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
 	ns                  = ginkgo_util.NewWrapper(testName, namespace)
 	defaultResources    = []string{
-		"../../operator/deploy/secret-ecr.yaml",
 		"../../operator/deploy/role.yaml",
 		"../../operator/deploy/role_binding.yaml",
 		"../../operator/deploy/service_account.yaml",
