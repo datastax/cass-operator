@@ -18,7 +18,7 @@ kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/ca
 Installing the Cass Operator itself is straightforward. Apply the provided manifest as follows:
 
 ```console
-kubectl apply -f https://raw.githubusercontent.com/datastax/cass-operator/v1.0.0/docs/user/cass-operator-manifests.yaml
+kubectl apply -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/docs/user/cass-operator-manifests.yaml
 ```
 
 Note that since the manifest will install a [Custom Resource Definition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/), the user running the above command will need cluster-admin privileges.
