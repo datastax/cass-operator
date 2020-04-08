@@ -391,10 +391,7 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 	if err != nil {
 		return result.Error(err)
 	}
-
-	time.Sleep(10*time.Second)
 	err = rc.refreshSeeds()
-
 	if err != nil {
 		return result.Error(err)
 	}
