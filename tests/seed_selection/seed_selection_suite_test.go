@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package superuser_secret_provided
+package seed_selection
 
 import (
 	"fmt"
