@@ -66,7 +66,7 @@ func retrievePodNames(ns ginkgo_util.NsWrapper, dcName string) []string {
 type Node struct {
 	Name    string
 	Rack    string
-	Running bool
+	Ready   bool
 	Seed    bool
 	Started bool
 	IP      string
@@ -100,7 +100,7 @@ func retrieveNodes() []Node {
 		node.Started = hasStartedLabel && isStarted == "Started"
 		for _, condition := range pod.Status.Conditions {
 			if condition.Type == "Ready" {
-				node.Running = condition.Status == "True"
+				node.Ready = condition.Status == "True"
 			}
 		}
 		result = append(result, node)
@@ -187,11 +187,11 @@ func checkThereIsAtLeastOneSeedNodePerRack(info DatacenterInfo) {
 	}
 }
 
-func checkDesignatedSeedNodesAreStartedAndRunning(info DatacenterInfo) {
+func checkDesignatedSeedNodesAreStartedAndReady(info DatacenterInfo) {
 	for _, node := range info.Nodes {
 		if node.Seed {
 			Expect(node.Started).To(BeTrue(), "Expected %s to be labeled as started but was not.", node.Name)
-			Expect(node.Running).To(BeTrue(), "Expected %s to be running but was not.", node.Name)
+			Expect(node.Ready).To(BeTrue(), "Expected %s to be ready but was not.", node.Name)
 		}
 	}
 }
@@ -207,7 +207,7 @@ func checkCassandraSeedListsAlignWithSeedLabels(info DatacenterInfo) {
 
 	re := regexp.MustCompile(`[0-9]+[.][0-9]+[.][0-9]+[.][0-9]+`)
 	for _, node := range info.Nodes {
-		if node.Running && node.Started {
+		if node.Ready && node.Started {
 			k := kubectl.ExecOnPod(node.Name, "--", "nodetool", "getseeds")
 			output := ns.OutputPanic(k)
 			seeds := re.FindAllString(output, -1)
@@ -230,7 +230,7 @@ func checkSeedConstraints() {
 	checkThereIsAtLeastOneSeedNodePerRack(info)
 
 	// Seed nodes should not be down
-	checkDesignatedSeedNodesAreStartedAndRunning(info)
+	checkDesignatedSeedNodesAreStartedAndReady(info)
 
 	// Ensure seed lists actually align
 	// NOTE: The following check does not presently work due to 
@@ -252,7 +252,7 @@ func duplicate(value string, count int) string {
 }
 
 
-func waitClusterReady() {
+func waitDatacenterReady() {
 	info := retrieveDatacenterInfo()
 
 	step := "waiting for the node to become ready"
@@ -347,7 +347,7 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			waitClusterReady()
+			waitDatacenterReady()
 
 			checkSeedConstraints()
 
@@ -356,7 +356,7 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			waitClusterReady()
+			waitDatacenterReady()
 
 			checkSeedConstraints()
 
