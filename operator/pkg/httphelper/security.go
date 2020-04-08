@@ -41,9 +41,7 @@ func AddManagementApiServerSecurity(dc *api.CassandraDatacenter, pod *corev1.Pod
 	if err != nil {
 		return err
 	}
-	provider.AddServerSecurity(pod)
-
-	return nil
+	return provider.AddServerSecurity(pod)
 }
 
 func BuildManagmenetApiSecurityProvider(dc *api.CassandraDatacenter) (ManagementApiSecurityProvider, error) {
@@ -367,8 +365,8 @@ func validateKeyAndCertificate(certificate []byte, privateKey []byte, caCertific
 		certificateValidationErrors...)
 
 	validationErrors = append(
-		caValidationErrors,
-		certificateValidationErrors...)
+		validationErrors,
+		caValidationErrors...)
 
 	// This will catch errors with the certificate and check whether it matches
 	// the private key.
@@ -413,10 +411,9 @@ func validateCertificateChain(chain []*x509.Certificate) error {
 		certificateB := chain[i+1]
 		err := certificateA.CheckSignatureFrom(certificateB)
 		if err != nil {
-			fmt.Errorf(
+			return fmt.Errorf(
 				"Failed to validate chain, certificate %s not signed by certificate %s. %w",
 				certificateA.Subject.CommonName, certificateB.Subject.CommonName, err)
-			break
 		}
 	}
 	return nil
@@ -662,9 +659,10 @@ func (provider *ManualManagementApiSecurityProvider) BuildHttpClient(client clie
 	}
 
 	// Load client key pair
-	cert, err := tls.X509KeyPair(
-		secret.Data["tls.crt"],
-		secret.Data["tls.key"])
+	cert, err := tls.X509KeyPair(secret.Data["tls.crt"], secret.Data["tls.key"])
+	if err != nil {
+		return nil, err
+	}
 
 	// Build the client
 	tlsConfig := &tls.Config{
