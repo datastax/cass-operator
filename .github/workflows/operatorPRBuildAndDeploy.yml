@@ -10,3 +10,4 @@ jobs:
           echo "Repo: ${GITHUB_REPOSITORY}"
           echo "Base Ref: ${GITHUB_BASE_REF}"
           echo "Head Ref: ${GITHUB_HEAD_REF}"
+          echo "Actor: ${GITHUB_ACTOR}"
