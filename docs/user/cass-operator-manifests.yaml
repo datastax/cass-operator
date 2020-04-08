@@ -416,6 +416,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
+  namespace: cass-operator
   name: cassandradatacenter-webhook-service
   labels:
     name: cass-operator-webhook
@@ -432,6 +433,7 @@ data:
   tls.key: ""
 kind: Secret
 metadata:
+  namespace: cass-operator
   name: cass-operator-webhook-config
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1
@@ -449,7 +451,7 @@ webhooks:
   clientConfig:
     service:
       name: "cassandradatacenter-webhook-service"
-      namespace: "default"
+      namespace: "cass-operator"
       path: /validate-cassandra-datastax-com-v1beta1-cassandradatacenter
   admissionReviewVersions: ["v1beta1"]
   failurePolicy: "Ignore"
