@@ -26,7 +26,7 @@ jobs:
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testAndBuild
       - name: Deploy to ECR
-        if: github.repository == 'datastax/cass-operator'
+        if: github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
         env:
           MO_ECR_ID: ${{ secrets.ECR_ID }}
           MO_ECR_SECRET: ${{ secrets.ECR_SECRET }}
