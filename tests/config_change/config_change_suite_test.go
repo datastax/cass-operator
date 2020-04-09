@@ -94,7 +94,7 @@ var _ = Describe(testName, func() {
 			ns.WaitForOutputAndLog(step, k, "Ready", 1800)
 
 			step = "change the config"
-			json = "{\"spec\": {\"config\": {\"cassandra-yaml\": {\"file_cache_size_in_mb\": 123}, \"jvm-options\": {\"garbage_collector\": \"CMS\"}}}}"
+			json = "{\"spec\": {\"config\": {\"cassandra-yaml\": {\"file_cache_size_in_mb\": 123}, \"jvm-server-options\": {\"garbage_collector\": \"CMS\"}}}}"
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
