@@ -7,7 +7,7 @@ jobs:
     steps:
       - name: Testing
         env:
-          EVENT_FULL: github.event.pull_request.head.repo.full_name
+          EVENT_FULL: ${{github.event.pull_request.head.repo.full_name}}
         run: |
           echo "This is running from a fork"
           echo "Repo: ${GITHUB_REPOSITORY}"
