@@ -3,14 +3,14 @@ kind: CassandraDatacenter
 metadata:
   name: dc2
 spec:
-  clusterName: cluster2
+  clusterName: cluster1
   serverType: dse
   serverVersion: "6.8.0"
   serverImage: datastax/dse-server:6.8.0
   configBuilderImage: datastax/cass-config-builder:1.0.0
   managementApiAuth:
     insecure: {}
-  size: 2
+  size: 1
   storageConfig:
       cassandraDataVolumeClaimSpec:
         storageClassName: server-storage

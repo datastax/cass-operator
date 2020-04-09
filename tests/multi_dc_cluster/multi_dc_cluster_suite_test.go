@@ -20,11 +20,11 @@ var (
 
 	dcNames = []string{"dc1", "dc2"}
 	dcYamls = []string{"../testdata/dse-multi-dc-1-rack-1-node-dc1.yaml",
-		"../testdata/dse-multi-dc-1-rack-1-node-dc1.yaml"}
+		"../testdata/dse-multi-dc-1-rack-1-node-dc2.yaml"}
 	dcResources = []string{fmt.Sprintf("CassandraDatacenter/%s", dcNames[0]),
 		fmt.Sprintf("CassandraDatacenter/%s", dcNames[1])}
 	dcLabels = []string{fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcNames[0]),
-		fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcNames[0])}
+		fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcNames[1])}
 
 	operatorYaml     = "../testdata/operator.yaml"
 	ns               = ginkgo_util.NewWrapper(testName, namespace)
@@ -103,7 +103,7 @@ var _ = Describe(testName, func() {
 
 			step = "checking the cassandra operator progress status is set to Ready"
 			json = "jsonpath={.status.cassandraOperatorProgress}"
-			k = kubectl.Get(dcResources[0]).
+			k = kubectl.Get(dcResources[1]).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
 
