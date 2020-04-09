@@ -5,6 +5,7 @@ package v1beta1
 
 import (
 	"errors"
+	"fmt"
 	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -28,10 +29,42 @@ func (dc *CassandraDatacenter) ValidateUpdate(old runtime.Object) error {
 	}
 
 	if dc.Spec.ClusterName != oldDc.Spec.ClusterName {
-		log.Info("attempt to change clustername")
 		return errors.New("CassandraDatacenter attempted to change ClusterName")
 	}
-	log.Info("no attempt to change clustername")
+
+	if dc.Spec.AllowMultipleNodesPerWorker != oldDc.Spec.AllowMultipleNodesPerWorker {
+		return errors.New("CassandraDatacenter attempted to change AllowMultipleNodesPerWorker")
+	}
+
+	// Topology changes - Racks
+	// - Rack Name and Zone changes are disallowed.
+	// - Removing racks is not supported.
+	// - Reordering the rack list is not supported.
+	// - Any new racks must be added to the end of the current rack list.
+
+	if len(oldDc.Spec.Racks) > len(dc.Spec.Racks) {
+		return fmt.Errorf("CassandraDatacenter attempted to remove Rack")
+	}
+
+	for index, oldRack := range oldDc.Spec.Racks {
+		newRack := dc.Spec.Racks[index]
+		if oldRack.Name != newRack.Name {
+			return fmt.Errorf("CassandraDatacenter attempted to change Rack Name from '%s' to '%s'",
+				oldRack.Name,
+				newRack.Name)
+		}
+		if oldRack.Zone != newRack.Zone {
+			return fmt.Errorf("CassandraDatacenter attempted to change Rack Zone from '%s' to '%s'",
+				oldRack.Zone,
+				newRack.Zone)
+		}
+	}
+
+	// TODO - no allowMultipleNodesPerWorker changes
+
+	// TODO - no storage config changes
+
+	// TODO ensure serverVersion and serverType are compatible
 
 	return nil
 }
