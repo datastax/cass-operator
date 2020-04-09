@@ -31,40 +31,28 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 	return nil
 }
 
-// +kubebuilder:webhook:path=/validate-cassandradatacenter,mutating=false,failurePolicy=ignore,groups=cassandra.datastax.com,resources=cassandradatacenters,verbs=create;update;delete,versions=v1beta1,name=validate-cassandradatacenter-webhook
-var _ webhook.Validator = &CassandraDatacenter{}
+// Ensure that no values are improperly set
+func ValidateDatacenterFieldChanges(oldDc CassandraDatacenter, newDc CassandraDatacenter) error {
 
-func (dc *CassandraDatacenter) ValidateCreate() error {
-	return nil
-}
-
-func (dc *CassandraDatacenter) ValidateUpdate(old runtime.Object) error {
-	log.Info("validating webhook called")
-	oldDc, ok := old.(*CassandraDatacenter)
-	if !ok {
-		log.Info("validating webhook could not cast")
-		return errors.New("old object in ValidateUpdate cannot be cast to CassandraDatacenter")
-	}
-
-	err := ValidateSingleDatacenter(*dc)
-	if err != nil {
-		return err
-	}
-
-	if dc.Spec.ClusterName != oldDc.Spec.ClusterName {
+	if oldDc.Spec.ClusterName != newDc.Spec.ClusterName {
 		return errors.New("CassandraDatacenter attempted to change ClusterName")
 	}
 
-	if dc.Spec.AllowMultipleNodesPerWorker != oldDc.Spec.AllowMultipleNodesPerWorker {
+	if oldDc.Spec.AllowMultipleNodesPerWorker != newDc.Spec.AllowMultipleNodesPerWorker {
 		return errors.New("CassandraDatacenter attempted to change AllowMultipleNodesPerWorker")
 	}
 
-	if dc.Spec.SuperuserSecretName != oldDc.Spec.SuperuserSecretName {
+	if oldDc.Spec.SuperuserSecretName != newDc.Spec.SuperuserSecretName {
 		return errors.New("CassandraDatacenter attempted to change SuperuserSecretName")
 	}
 
-	if dc.Spec.ServiceAccount != oldDc.Spec.ServiceAccount {
+	if oldDc.Spec.ServiceAccount != newDc.Spec.ServiceAccount {
 		return errors.New("CassandraDatacenter attempted to change ServiceAccount")
+	}
+
+	// StorageConfig changes are disallowed
+	if !reflect.DeepEqual(oldDc.Spec.StorageConfig, newDc.Spec.StorageConfig) {
+		return fmt.Errorf("CassandraDatacenter attempted to change StorageConfig")
 	}
 
 	// Topology changes - Racks
@@ -73,12 +61,12 @@ func (dc *CassandraDatacenter) ValidateUpdate(old runtime.Object) error {
 	// - Reordering the rack list is not supported.
 	// - Any new racks must be added to the end of the current rack list.
 
-	if len(oldDc.Spec.Racks) > len(dc.Spec.Racks) {
+	if len(oldDc.Spec.Racks) > len(newDc.Spec.Racks) {
 		return fmt.Errorf("CassandraDatacenter attempted to remove Rack")
 	}
 
 	for index, oldRack := range oldDc.Spec.Racks {
-		newRack := dc.Spec.Racks[index]
+		newRack := newDc.Spec.Racks[index]
 		if oldRack.Name != newRack.Name {
 			return fmt.Errorf("CassandraDatacenter attempted to change Rack Name from '%s' to '%s'",
 				oldRack.Name,
@@ -91,11 +79,35 @@ func (dc *CassandraDatacenter) ValidateUpdate(old runtime.Object) error {
 		}
 	}
 
-	// StorageConfig changes are disallowed
-	if !reflect.DeepEqual(oldDc.Spec.StorageConfig, dc.Spec.StorageConfig) {
-		return fmt.Errorf("CassandraDatacenter attempted to change StorageConfig")
-	}
 	return nil
+}
+
+// +kubebuilder:webhook:path=/validate-cassandradatacenter,mutating=false,failurePolicy=ignore,groups=cassandra.datastax.com,resources=cassandradatacenters,verbs=create;update;delete,versions=v1beta1,name=validate-cassandradatacenter-webhook
+var _ webhook.Validator = &CassandraDatacenter{}
+
+func (dc *CassandraDatacenter) ValidateCreate() error {
+	log.Info("Validating webhook called for create")
+	err := ValidateSingleDatacenter(*dc)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (dc *CassandraDatacenter) ValidateUpdate(old runtime.Object) error {
+	log.Info("Validating webhook called for update")
+	oldDc, ok := old.(*CassandraDatacenter)
+	if !ok {
+		return errors.New("old object in ValidateUpdate cannot be cast to CassandraDatacenter")
+	}
+
+	err := ValidateSingleDatacenter(*dc)
+	if err != nil {
+		return err
+	}
+
+	return ValidateDatacenterFieldChanges(*oldDc, *dc)
 }
 
 func (dc *CassandraDatacenter) ValidateDelete() error {
