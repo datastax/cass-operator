@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"k8s.io/apimachinery/pkg/runtime"
+	"reflect"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 )
@@ -36,6 +37,14 @@ func (dc *CassandraDatacenter) ValidateUpdate(old runtime.Object) error {
 		return errors.New("CassandraDatacenter attempted to change AllowMultipleNodesPerWorker")
 	}
 
+	if dc.Spec.SuperuserSecretName != oldDc.Spec.SuperuserSecretName {
+		return errors.New("CassandraDatacenter attempted to change SuperuserSecretName")
+	}
+
+	if dc.Spec.ServiceAccount != oldDc.Spec.ServiceAccount {
+		return errors.New("CassandraDatacenter attempted to change ServiceAccount")
+	}
+
 	// Topology changes - Racks
 	// - Rack Name and Zone changes are disallowed.
 	// - Removing racks is not supported.
@@ -60,11 +69,22 @@ func (dc *CassandraDatacenter) ValidateUpdate(old runtime.Object) error {
 		}
 	}
 
-	// TODO - no allowMultipleNodesPerWorker changes
+	// StorageConfig changes are disallowed
+	if !reflect.DeepEqual(oldDc.Spec.StorageConfig, dc.Spec.StorageConfig) {
+		return fmt.Errorf("CassandraDatacenter attempted to change StorageConfig")
+	}
 
-	// TODO - no storage config changes
+	// Ensure serverVersion and serverType are compatible
 
-	// TODO ensure serverVersion and serverType are compatible
+	if dc.Spec.ServerType == "dse" && dc.Spec.ServerVersion != "6.8.0" {
+		return fmt.Errorf("CassandraDatacenter attempted to use unsupported DSE version '%s'",
+			dc.Spec.ServerVersion)
+	}
+
+	if dc.Spec.ServerType == "cassandra" && dc.Spec.ServerVersion != "3.11.6" && dc.Spec.ServerVersion != "4.0.0" {
+		return fmt.Errorf("CassandraDatacenter attempted to use unsupported Cassandra version '%s'",
+			dc.Spec.ServerVersion)
+	}
 
 	return nil
 }
