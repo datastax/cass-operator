@@ -33,7 +33,7 @@ cass-operator-555577b9f8-zgx6j   1/1     Running   0          25h
 
 ### Creating a storage class
 
-You will need to create an appropriate storage class which will define the type of storage to use for Cassandra nodes in a cluster. For example, here is a storage class for using SSDs in GKE, which you can also find at [operator/deploy/k8s-flavors/gke/storage.yaml](operator/k8s-flavors/gke/storage.yaml):
+You will need to create an appropriate storage class which will define the type of storage to use for Cassandra nodes in a cluster. For example, here is a storage class for using SSDs in GKE, which you can also find at [operator/deploy/k8s-flavors/gke/storage.yaml](https://github.com/datastax/cass-operator/blob/master/operator/k8s-flavors/gke/storage.yaml):
 
 ```yaml
 apiVersion: storage.k8s.io/v1
@@ -56,7 +56,7 @@ kubectl apply -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52
 
 ### Creating a CassandraDatacenter
 
-The following resource defines a Cassandra 3.11.6 datacenter with 3 nodes on one rack, which you can also find at [operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml](operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml):
+The following resource defines a Cassandra 3.11.6 datacenter with 3 nodes on one rack, which you can also find at [operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml](https://github.com/datastax/cass-operator/blob/master/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml):
 
 ```yaml
 apiVersion: cassandra.datastax.com/v1beta1
@@ -140,12 +140,12 @@ UN  10.233.90.54    205.1 KiB   1            73.1%             0a96e814-dcf6-48b
 - Replace dead/unrecoverable nodes
 - Multi DC clusters (limited to one Kubernetes namespace)
 
-All features are documented in the [User Documentation](docs/user/README.md).
+All features are documented in the [User Documentation](https://github.com/datastax/cass-operator/blob/master/docs/user/README.md).
 
 ### Containers
 
 The operator is comprised of the following container images working in concert:
-* The operator, built from sources in the [operator](operator/) directory.
+* The operator, built from sources in the [operator](https://github.com/datastax/cass-operator/blob/master/operator/) directory.
 * The config builder init container, built from sources in [datastax/cass-config-builder](https://github.com/datastax/cass-config-builder).
 * Cassandra, built from
   [datastax/management-api-for-apache-cassandra](https://github.com/datastax/management-api-for-apache-cassandra),
@@ -156,7 +156,7 @@ The operator is comprised of the following container images working in concert:
 ## Requirements
 
 - Kubernetes cluster, 1.12 or newer.
-- Users who want to use a Kubernetes version from before 1.15 can use a manifest that supports x-preserve-unknown-fields on the CassandraDatacenter CRD - [manifest](docs/user/cass-operator-manifests-pre-1.15.yaml)
+- Users who want to use a Kubernetes version from before 1.15 can use a manifest that supports x-preserve-unknown-fields on the CassandraDatacenter CRD - [manifest](https://github.com/datastax/cass-operator/blob/master/docs/user/cass-operator-manifests-pre-1.15.yaml)
 
 ## Contributing
 
@@ -175,7 +175,7 @@ pre-requisites...
 * Docker, either the docker.io packages on Ubuntu, Docker Desktop for Mac,
   or your preferred docker distribution.
 * [mage](https://magefile.org/): There are some tips for using mage in
-  [docs/developer/mage.md](docs/developer/mage.md)
+  [docs/developer/mage.md](https://github.com/datastax/cass-operator/blob/master/docs/developer/mage.md)
 
 ### Building
 
@@ -217,13 +217,13 @@ cluster with six or more worker nodes.
 #### Manual Local Testing
 There are a number of ways to run the operator, see the following docs for
 more information:
-* [kind](docs/developer/kind.md): Kubernetes in Docker is the recommended
+* [kind](https://github.com/datastax/cass-operator/blob/master/docs/developer/kind.md): Kubernetes in Docker is the recommended
   Kubernetes distribution for use by software engineers working on the operator.
   KIND can simulate a k8s cluster with multiple worker nodes on a single
   physical machine, though it's necessary to dial down the database memory
   requests.
 
-The [user documentation](docs/user/README.md) also contains information on
+The [user documentation](https://github.com/datastax/cass-operator/blob/master/docs/user/README.md) also contains information on
 spinning up your first operator instance that is useful regardless of what
 Kubernetes distribution you're using to do so.
 
