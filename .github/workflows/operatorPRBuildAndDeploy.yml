@@ -5,16 +5,10 @@ jobs:
     name: Build Cass Operator Docker Image - Testing
     runs-on: ubuntu-latest
     steps:
-      - name: Testing
-        env:
-          EVENT_FULL: ${{github.event.pull_request.head.repo.full_name}}
+      - name: Guarded Step
+        if: github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
         run: |
-          echo "This is running from within the cass operator repo"
-          echo "Repo: ${GITHUB_REPOSITORY}"
-          echo "Base Ref: ${GITHUB_BASE_REF}"
-          echo "Head Ref: ${GITHUB_HEAD_REF}"
-          echo "Event: ${GITHUB_EVENT}"
-          echo "Event Path: ${GITHUB_EVENT_PATH}"
-          echo "Event Name: ${GITHUB_EVENT_NAME}"
-          echo "Ref: ${GITHUB_REF}"
-          echo "Event Full: ${EVENT_FULL}"
+          echo "This should NOT run from fork PR"
+      - name: Regular Step
+        run: |
+          echo "This should run from fork PR"
