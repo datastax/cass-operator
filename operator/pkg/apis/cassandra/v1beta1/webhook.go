@@ -14,6 +14,23 @@ import (
 
 var log = logf.Log.WithName("api")
 
+// Ensure that no values are improperly set
+func ValidateSingleDatacenter(dc CassandraDatacenter) error {
+	// Ensure serverVersion and serverType are compatible
+
+	if dc.Spec.ServerType == "dse" && dc.Spec.ServerVersion != "6.8.0" {
+		return fmt.Errorf("CassandraDatacenter attempted to use unsupported DSE version '%s'",
+			dc.Spec.ServerVersion)
+	}
+
+	if dc.Spec.ServerType == "cassandra" && dc.Spec.ServerVersion != "3.11.6" && dc.Spec.ServerVersion != "4.0.0" {
+		return fmt.Errorf("CassandraDatacenter attempted to use unsupported Cassandra version '%s'",
+			dc.Spec.ServerVersion)
+	}
+
+	return nil
+}
+
 // +kubebuilder:webhook:path=/validate-cassandradatacenter,mutating=false,failurePolicy=ignore,groups=cassandra.datastax.com,resources=cassandradatacenters,verbs=create;update;delete,versions=v1beta1,name=validate-cassandradatacenter-webhook
 var _ webhook.Validator = &CassandraDatacenter{}
 
@@ -27,6 +44,11 @@ func (dc *CassandraDatacenter) ValidateUpdate(old runtime.Object) error {
 	if !ok {
 		log.Info("validating webhook could not cast")
 		return errors.New("old object in ValidateUpdate cannot be cast to CassandraDatacenter")
+	}
+
+	err := ValidateSingleDatacenter(*dc)
+	if err != nil {
+		return err
 	}
 
 	if dc.Spec.ClusterName != oldDc.Spec.ClusterName {
@@ -73,19 +95,6 @@ func (dc *CassandraDatacenter) ValidateUpdate(old runtime.Object) error {
 	if !reflect.DeepEqual(oldDc.Spec.StorageConfig, dc.Spec.StorageConfig) {
 		return fmt.Errorf("CassandraDatacenter attempted to change StorageConfig")
 	}
-
-	// Ensure serverVersion and serverType are compatible
-
-	if dc.Spec.ServerType == "dse" && dc.Spec.ServerVersion != "6.8.0" {
-		return fmt.Errorf("CassandraDatacenter attempted to use unsupported DSE version '%s'",
-			dc.Spec.ServerVersion)
-	}
-
-	if dc.Spec.ServerType == "cassandra" && dc.Spec.ServerVersion != "3.11.6" && dc.Spec.ServerVersion != "4.0.0" {
-		return fmt.Errorf("CassandraDatacenter attempted to use unsupported Cassandra version '%s'",
-			dc.Spec.ServerVersion)
-	}
-
 	return nil
 }
 
