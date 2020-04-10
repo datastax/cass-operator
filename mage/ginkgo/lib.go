@@ -264,7 +264,7 @@ func (ns *NsWrapper) EnableGossip(podName string) {
 	ns.ExecVPanic(k)
 }
 
-func (ns *NsWrapper) RetrieveCassandraPodNames(dcName string) []string {
+func (ns *NsWrapper) RetrieveDatacenterPodNames(dcName string) []string {
 	json := "jsonpath={.items[*].metadata.name}"
 	k := kubectl.Get("pods").
 		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).

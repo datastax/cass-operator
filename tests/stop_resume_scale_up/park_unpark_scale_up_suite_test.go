@@ -91,7 +91,7 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForDatacenterReady(dcName)
 
-			podNames := ns.RetrieveCassandraPodNames(dcName)
+			podNames := ns.RetrieveDatacenterPodNames(dcName)
 			Expect(len(podNames)).To(Equal(4), "Did not find expected number of pods in the datacenter.")
 
 			step = "deleting the dc"
