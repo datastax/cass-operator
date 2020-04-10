@@ -20,8 +20,8 @@ spec:
           secretName: cass-operator-webhook-config
       containers:
       - name: cass-operator
-        image: {{ .Values.cassOperatorImage }}
-        imagePullPolicy: {{ .Values.cassOperatorImagePullPolicy }}
+        image: {{ .Values.image }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cass-operator-certs-volume
