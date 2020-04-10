@@ -21,9 +21,9 @@ import (
 
 	"github.com/datastax/cass-operator/operator/internal/result"
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
-	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 )
 
 var (
@@ -48,7 +48,7 @@ func (rc *ReconciliationContext) CalculateRackInformation() error {
 	// Create RackInformation
 
 	nodeCount := int(rc.Datacenter.Spec.Size)
-	racks := rc.Datacenter.Spec.GetRacks()
+	racks := rc.Datacenter.GetRacks()
 	rackCount := len(racks)
 
 	// TODO error if nodeCount < rackCount
@@ -643,7 +643,7 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 		}
 
 		if pod.Status.PodIP != "" && isMgmtApiRunning(pod) {
-			// Getting the HostID requires a call to the node management API which is 
+			// Getting the HostID requires a call to the node management API which is
 			// moderately expensive, so if we already have a HostID, don't bother. This
 			// would only change if something has gone horribly horribly wrong.
 			if nodeStatus.HostID == "" {
@@ -655,7 +655,7 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 						logger.Info("Failed to find host ID", pod, pod.Name)
 					}
 				} else {
-					rc.ReqLogger.Error(err, "Could not get enpoints data")	
+					rc.ReqLogger.Error(err, "Could not get endpoints data")
 				}
 			}
 
@@ -666,7 +666,7 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 
 		status.NodeStatuses[pod.Name] = nodeStatus
 	}
-	
+
 	return nil
 }
 
@@ -698,7 +698,7 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 	if len(dc.Spec.ReplaceNodes) > 0 {
 		rc.ReqLogger.Info("Replacing pods", "pods", dc.Spec.ReplaceNodes)
 		dc.Status.NodeReplacements = appendValuesToStringArrayIfNotPresent(
-			dc.Status.NodeReplacements, 
+			dc.Status.NodeReplacements,
 			dc.Spec.ReplaceNodes...)
 
 		// Now that we've recorded these nodes in the status, we can blank
@@ -742,7 +742,7 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	// Update the status if it changed
 	patch := client.MergeFrom(oldDc)
 	if !reflect.DeepEqual(dc, oldDc) {
-		// If we update the status to account for some user action, for example a 
+		// If we update the status to account for some user action, for example a
 		// pod replace, then we may have also updated the datacenter spec, so patch
 		// it as well.
 		if err := rc.Client.Patch(rc.Ctx, dc, patch); err != nil {
@@ -934,7 +934,7 @@ func isClusterHealthy(rc *ReconciliationContext) bool {
 		return false
 	}
 
-	numRacks := len(rc.Datacenter.Spec.GetRacks())
+	numRacks := len(rc.Datacenter.GetRacks())
 	for _, pod := range podList.Items {
 		err := rc.NodeMgmtClient.CallProbeClusterEndpoint(&pod, "LOCAL_QUORUM", numRacks)
 		if err != nil {
@@ -1386,7 +1386,7 @@ func (rc *ReconciliationContext) findStartedNotReadyNodes(podList *corev1.PodLis
 func (rc *ReconciliationContext) ListAllDatacenterPods() (*corev1.PodList, error) {
 	selector := rc.Datacenter.GetDatacenterLabels()
 	return listPods(rc, selector)
-} 
+}
 
 func (rc *ReconciliationContext) ListAllStartedDatacenterPods() (*corev1.PodList, error) {
 	selector := rc.Datacenter.GetDatacenterLabels()
@@ -1428,9 +1428,9 @@ func (rc *ReconciliationContext) findIpForHostId(hostId string) (string, error) 
 	}
 
 	if lastError != nil {
-		// We didn't find the IP address, but also had issues talking to at 
+		// We didn't find the IP address, but also had issues talking to at
 		// least one cassandra node while searching. We return an error in this
-		// case as resolving the issue with the node management API communication 
+		// case as resolving the issue with the node management API communication
 		// may allow us to determine the IP address.
 		return "", lastError
 	} else {
@@ -1470,7 +1470,7 @@ func (rc *ReconciliationContext) startCassandra(pod *corev1.Pod) error {
 	var err error
 	if shouldReplacePod && replaceAddress != "" {
 		// If we have a replace address that means the cassandra node did
-		// join the ring previously and is marked for replacement, so we 
+		// join the ring previously and is marked for replacement, so we
 		// start it accordingly
 		err = mgmtClient.CallLifecycleStartEndpointWithReplaceIp(pod, replaceAddress)
 	} else {

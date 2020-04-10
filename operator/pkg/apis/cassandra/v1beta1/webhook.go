@@ -61,12 +61,15 @@ func ValidateDatacenterFieldChanges(oldDc CassandraDatacenter, newDc CassandraDa
 	// - Reordering the rack list is not supported.
 	// - Any new racks must be added to the end of the current rack list.
 
-	if len(oldDc.Spec.Racks) > len(newDc.Spec.Racks) {
+	oldRacks := oldDc.GetRacks()
+	newRacks := newDc.GetRacks()
+
+	if len(oldRacks) > len(newRacks) {
 		return fmt.Errorf("CassandraDatacenter attempted to remove Rack")
 	}
 
-	for index, oldRack := range oldDc.Spec.Racks {
-		newRack := newDc.Spec.Racks[index]
+	for index, oldRack := range oldRacks {
+		newRack := newRacks[index]
 		if oldRack.Name != newRack.Name {
 			return fmt.Errorf("CassandraDatacenter attempted to change Rack Name from '%s' to '%s'",
 				oldRack.Name,
