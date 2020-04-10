@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"strconv"
+	"sort"
 
 	ginkgo "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -20,6 +22,16 @@ import (
 const (
 	EnvNoCleanup = "M_NO_CLEANUP"
 )
+
+func duplicate(value string, count int) string {
+	result := []string{}
+	for i := 0; i < count; i++ {
+		result = append(result, value)
+	}
+
+	return strings.Join(result, " ")
+}
+
 
 // Wrapper type to make it simpler to
 // set a namespace one time and execute all of your
@@ -165,4 +177,112 @@ func (ns *NsWrapper) WaitForOutputContainsAndLog(description string, kcmd kubect
 	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
 	execErr := ns.WaitForOutputContains(kcmd, expected, seconds)
 	Expect(execErr).ToNot(HaveOccurred())
+}
+
+func (ns *NsWrapper) WaitForDatacenterToHaveNoPods(dcName string) {
+	step := "checking that no dc pods remain"
+	json := "jsonpath={.items[*]}"
+	k := kubectl.Get("pods").
+		WithLabel(fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, "[]", 300)
+}
+
+func (ns *NsWrapper) WaitForDatacenterOperatorProgress(dcName string, progressValue string) {
+	step := fmt.Sprintf("checking the cassandra operator progress status is set to %s", progressValue)
+	json := "jsonpath={.status.cassandraOperatorProgress}"
+	k := kubectl.Get("CassandraDatacenter", dcName).
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, progressValue, 30)
+}
+
+func (ns *NsWrapper) WaitForDatacenterReadyPodCount(dcName string, count int) {
+	timeout := count * 400
+	step := "waiting for the node to become ready"
+	json := "jsonpath={.items[*].status.containerStatuses[0].ready}"
+	k := kubectl.Get("pods").
+		WithLabel(fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		WithFlag("field-selector", "status.phase=Running").
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, duplicate("true", count), timeout)
+}
+
+func (ns *NsWrapper) WaitForDatacenterReady(dcName string) {
+	json := "jsonpath={.spec.size}"
+	k := kubectl.Get("CassandraDatacenter", dcName).FormatOutput(json)
+	sizeString := ns.OutputPanic(k)
+	size, err := strconv.Atoi(sizeString)
+	Expect(err).ToNot(HaveOccurred())
+
+	ns.WaitForDatacenterReadyPodCount(dcName, size)
+	ns.WaitForDatacenterOperatorProgress(dcName, "Ready")
+}
+
+func (ns *NsWrapper) WaitForPodNotStarted(podName string) {
+	step := "verify that the pod is no longer marked as started"
+	k := kubectl.Get("pod").
+		WithFlag("field-selector", "metadata.name="+podName).
+		WithFlag("selector", "cassandra.datastax.com/node-state=Started")
+	ns.WaitForOutputAndLog(step, k, "", 60)
+}
+
+func (ns *NsWrapper) WaitForPodStarted(podName string) {
+	step := "verify that the pod is marked as started"
+	json := "jsonpath={.items[*].metadata.name}"
+	k := kubectl.Get("pod").
+		WithFlag("field-selector", "metadata.name="+podName).
+		WithFlag("selector", "cassandra.datastax.com/node-state=Started").
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, podName, 60)
+}
+
+func (ns *NsWrapper) DisableGossipWaitNotReady(podName string) {
+	ns.DisableGossip(podName)
+	ns.WaitForPodNotStarted(podName)
+}
+
+func (ns *NsWrapper) EnableGossipWaitReady(podName string) {
+	ns.EnableGossip(podName)
+	ns.WaitForPodStarted(podName)
+}
+
+func (ns *NsWrapper) DisableGossip(podName string) {
+	execArgs := []string{"-c", "cassandra",
+		"--", "bash", "-c",
+		"nodetool disablegossip",
+	}
+	k := kubectl.ExecOnPod(podName, execArgs...)
+	ns.ExecVPanic(k)
+}
+
+func (ns *NsWrapper) EnableGossip(podName string) {
+	execArgs := []string{"-c", "cassandra",
+		"--", "bash", "-c",
+		"nodetool enablegossip",
+	}
+	k := kubectl.ExecOnPod(podName, execArgs...)
+	ns.ExecVPanic(k)
+}
+
+func (ns *NsWrapper) RetrieveCassandraPodNames(dcName string) []string {
+	json := "jsonpath={.items[*].metadata.name}"
+	k := kubectl.Get("pods").
+		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		FormatOutput(json)
+
+	output := ns.OutputPanic(k)
+	podNames := strings.Split(output, " ")
+	sort.Sort(sort.StringSlice(podNames))
+
+	return podNames
+}
+
+func (ns *NsWrapper) WaitForOperatorReady() {
+	step := "waiting for the operator to become ready"
+	json := "jsonpath={.items[0].status.containerStatuses[0].ready}"
+	k := kubectl.Get("pods").
+		WithLabel("name=cass-operator").
+		WithFlag("field-selector", "status.phase=Running").
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, "true", 120)
 }
