@@ -181,7 +181,7 @@ func (ns *NsWrapper) WaitForOutputContainsAndLog(description string, kcmd kubect
 
 func (ns *NsWrapper) WaitForDatacenterToHaveNoPods(dcName string) {
 	step := "checking that no dc pods remain"
-	json := "jsonpath={.items[*]}"
+	json := "jsonpath={.items}"
 	k := kubectl.Get("pods").
 		WithLabel(fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
 		FormatOutput(json)
