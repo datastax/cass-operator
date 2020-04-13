@@ -71,7 +71,7 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterOperatorProgress(dcName, "Updating")
+			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
 			ns.WaitForDatacenterReady(dcName)
 
 			step = "change the config"
@@ -79,8 +79,8 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterOperatorProgress(dcName, "Updating")
-			ns.WaitForDatacenterReady(dcName)
+			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
+			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 1800)
 
 			step = "checking that the init container got the updated config file_cache_size_in_mb=123, garbage_collector=CMS"
 			json = "jsonpath={.spec.initContainers[0].env[0].value}"

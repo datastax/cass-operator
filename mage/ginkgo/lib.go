@@ -188,12 +188,12 @@ func (ns *NsWrapper) WaitForDatacenterToHaveNoPods(dcName string) {
 	ns.WaitForOutputAndLog(step, k, "[]", 300)
 }
 
-func (ns *NsWrapper) WaitForDatacenterOperatorProgress(dcName string, progressValue string) {
+func (ns *NsWrapper) WaitForDatacenterOperatorProgress(dcName string, progressValue string, timeout int) {
 	step := fmt.Sprintf("checking the cassandra operator progress status is set to %s", progressValue)
 	json := "jsonpath={.status.cassandraOperatorProgress}"
 	k := kubectl.Get("CassandraDatacenter", dcName).
 		FormatOutput(json)
-	ns.WaitForOutputAndLog(step, k, progressValue, 30)
+	ns.WaitForOutputAndLog(step, k, progressValue, timeout)
 }
 
 func (ns *NsWrapper) WaitForDatacenterReadyPodCount(dcName string, count int) {
@@ -215,7 +215,7 @@ func (ns *NsWrapper) WaitForDatacenterReady(dcName string) {
 	Expect(err).ToNot(HaveOccurred())
 
 	ns.WaitForDatacenterReadyPodCount(dcName, size)
-	ns.WaitForDatacenterOperatorProgress(dcName, "Ready")
+	ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 30)
 }
 
 func (ns *NsWrapper) WaitForPodNotStarted(podName string) {
