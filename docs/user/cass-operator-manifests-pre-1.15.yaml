@@ -90,6 +90,38 @@ roleRef:
   name: cass-operator
   apiGroup: rbac.authorization.k8s.io
 ---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: cass-operator-cluster-role
+  namespace: cass-operator
+rules:
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - create
+  - get
+  - update
+  resourceNames:
+  - "cassandradatacenter-webhook-registration"
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cass-operator
+  namespace: cass-operator
+subjects:
+- kind: ServiceAccount
+  name: cass-operator
+  namespace: "cass-operator"
+roleRef:
+  kind: ClusterRole
+  name: cass-operator-cluster-role
+  apiGroup: rbac.authorization.k8s.io
+---
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
@@ -426,6 +458,7 @@ spec:
     targetPort: 443
   selector:
     name: cass-operator
+webhooks: {}
 ---
 apiVersion: v1
 data:
@@ -452,7 +485,7 @@ webhooks:
   clientConfig:
     service:
       name: "cassandradatacenter-webhook-service"
-      namespace: cass-operator
+      namespace: "default"
       path: /validate-cassandra-datastax-com-v1beta1-cassandradatacenter
   admissionReviewVersions: ["v1beta1"]
   failurePolicy: "Ignore"
@@ -518,4 +551,4 @@ spec:
         - name: OPERATOR_NAME
           value: "cass-operator"
         - name: SKIP_VALIDATING_WEBHOOK
-          value: "TRUE"
+          value: "FALSE"
