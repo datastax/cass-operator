@@ -18,6 +18,12 @@ echo '---' >> "$bundle"
 cat operator/deploy/role_binding.yaml | yq r - >> "$bundle"
 
 echo '---' >> "$bundle"
+cat operator/deploy/cluster_role.yaml | yq r - >> "$bundle"
+
+echo '---' >> "$bundle"
+cat operator/deploy/cluster_role_binding.yaml | yq r - >> "$bundle"
+
+echo '---' >> "$bundle"
 cat operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml | yq r - >> "$bundle"
 
 echo '---' >> "$bundle"
