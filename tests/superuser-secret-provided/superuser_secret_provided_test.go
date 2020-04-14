@@ -79,7 +79,7 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForDatacenterReady(dcName)
 
-			podNames := ns.RetrieveDatacenterPodNames(dcName)
+			podNames := ns.GetDatacenterPodNames(dcName)
 
 			step = "check superuser credentials work"
 			k = kubectl.ExecOnPod(

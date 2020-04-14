@@ -66,7 +66,7 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForDatacenterReady(dcName)
 
-			podNames := ns.RetrieveDatacenterPodNames(dcName)
+			podNames := ns.GetDatacenterPodNames(dcName)
 			podName := podNames[0]
 
 			step = "verifying that the pod is labeled as Started"
