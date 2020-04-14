@@ -94,7 +94,7 @@ var _ = Describe(testName, func() {
 			ns.WaitForOutputAndLog(step, k, "Ready", 1800)
 
 			step = "change the config"
-			json = "{\"spec\": {\"config\": {\"cassandra-yaml\": {\"file_cache_size_in_mb\": 123}}}}"
+			json = "{\"spec\": {\"config\": {\"cassandra-yaml\": {\"file_cache_size_in_mb\": 123}, \"jvm-server-options\": {\"garbage_collector\": \"CMS\"}}}}"
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
@@ -110,11 +110,12 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 1800)
 
-			step = "checking that the init container got the updated config file_cache_size_in_mb=123"
+			step = "checking that the init container got the updated config file_cache_size_in_mb=123, garbage_collector=CMS"
 			json = "jsonpath={.spec.initContainers[0].env[0].value}"
 			k = kubectl.Get("pod/cluster1-dc1-r1-sts-0").
 				FormatOutput(json)
 			ns.WaitForOutputContainsAndLog(step, k, "\"file_cache_size_in_mb\":123", 30)
+			ns.WaitForOutputContainsAndLog(step, k, "\"garbage_collector\":\"CMS\"", 30)
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)

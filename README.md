@@ -7,10 +7,10 @@ The DataStax Kubernetes Operator for Apache Cassandra&reg;
 
 Quick start:
 ```console
-kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/docs/user/cass-operator-manifests.yaml
+kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/docs/user/cass-operator-manifests.yaml
 # *** This is for GKE -> Adjust based on your cloud or storage options
-kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/gke/storage.yaml
-kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
+kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/operator/k8s-flavors/gke/storage.yaml
+kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
 ```
 
 ### Loading the operator
@@ -18,7 +18,7 @@ kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/ca
 Installing the Cass Operator itself is straightforward. Apply the provided manifest as follows:
 
 ```console
-kubectl apply -f https://raw.githubusercontent.com/datastax/cass-operator/master/docs/user/cass-operator-manifests.yaml
+kubectl apply -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/docs/user/cass-operator-manifests.yaml
 ```
 
 Note that since the manifest will install a [Custom Resource Definition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/), the user running the above command will need cluster-admin privileges.
@@ -51,7 +51,7 @@ reclaimPolicy: Delete
 Apply the above as follows:
 
 ```
-kubectl apply -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/gke/storage.yaml
+kubectl apply -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/operator/k8s-flavors/gke/storage.yaml
 ```
 
 ### Creating a CassandraDatacenter
@@ -91,7 +91,7 @@ spec:
 Apply the above as follows:
 
 ```console
-kubectl -n cass-operator apply -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
+kubectl -n cass-operator apply -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
 ```
 
 You can check the status of pods in the Cassandra cluster as follows:
@@ -247,7 +247,7 @@ kubectl delete cassdcs --all-namespaces
 
 Remove the operator Deployment, CRD, etc.
 ```
-kubectl delete -f https://raw.githubusercontent.com/datastax/cass-operator/master/docs/user/cass-operator-manifests.yaml
+kubectl delete -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/docs/user/cass-operator-manifests.yaml
 ```
 
 ## Contacts

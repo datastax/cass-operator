@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -78,6 +79,9 @@ var _ = Describe(testName, func() {
 				WithFlag("field-selector", "status.phase=Running").
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Starting", 1200)
+
+			// give the cassandra container some time to get created
+			time.Sleep(20 * time.Second)
 
 			step = "finding name of the first pod"
 			json = "jsonpath={.items[0].metadata.name}"

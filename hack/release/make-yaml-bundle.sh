@@ -25,3 +25,9 @@ yq w --doc 3 operator/deploy/operator.yaml 'spec.template.spec.containers[0].ima
 
 grep -v x-kubernetes-preserve-unknown-fields < "$bundle" > docs/user/cass-operator-manifests-pre-1.15.yaml
 mv "$bundle" docs/user/cass-operator-manifests.yaml
+
+yq w -d'*' -i docs/user/cass-operator-manifests.yaml metadata.namespace 'cass-operator'
+yq w -d7 -i docs/user/cass-operator-manifests.yaml 'webhooks[*].clientConfig.service.namespace' 'cass-operator'
+#
+yq w -d'*' -i docs/user/cass-operator-manifests-pre-1.15.yaml metadata.namespace 'cass-operator'
+yq w -d7 -i docs/user/cass-operator-manifests-pre-1.15.yaml 'webhooks[*].clientConfig.service.namespace' 'cass-operator'
