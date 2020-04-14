@@ -6,7 +6,6 @@ package seed_selection
 import (
 	"fmt"
 	"testing"
-	"strings"
 	"sort"
 	"regexp"
 	"encoding/json"
@@ -48,19 +47,6 @@ func TestLifecycle(t *testing.T) {
 
 	RegisterFailHandler(Fail)
 	RunSpecs(t, testName)
-}
-
-func retrievePodNames(ns ginkgo_util.NsWrapper, dcName string) []string {
-	json := "jsonpath={.items[*].metadata.name}"
-	k := kubectl.Get("pods").
-		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
-		FormatOutput(json)
-
-	output := ns.OutputPanic(k)
-	podNames := strings.Split(output, " ")
-	sort.Sort(sort.StringSlice(podNames))
-
-	return podNames
 }
 
 type Node struct {
@@ -243,59 +229,14 @@ func checkSeedConstraints() {
 	// checkCassandraSeedListsAlignWithSeedLabels(info)
 }
 
-func duplicate(value string, count int) string {
-	result := []string{}
-	for i := 0; i < count; i++ {
-		result = append(result, value)
-	}
-
-	return strings.Join(result, " ")
-}
-
-func waitDatacenterReady() {
-	info := retrieveDatacenterInfo()
-
-	step := "waiting for the node to become ready"
-	json := "jsonpath={.items[*].status.containerStatuses[0].ready}"
-	k := kubectl.Get("pods").
-		WithLabel(dcLabel).
-		WithFlag("field-selector", "status.phase=Running").
-		FormatOutput(json)
-	ns.WaitForOutputAndLog(step, k, duplicate("true", info.Size), 1200)
-
-	step = "checking the cassandra operator progress status is set to Ready"
-	json = "jsonpath={.status.cassandraOperatorProgress}"
-	k = kubectl.Get(dcResource).
-		FormatOutput(json)
-	ns.WaitForOutputAndLog(step, k, "Ready", 30)
-}
-
-func waitPodNotStarted(podName string) {
-	step := "verify that the pod is no longer marked as started"
-	k := kubectl.Get("pod").
-		WithFlag("field-selector", "metadata.name="+podName).
-		WithFlag("selector", "cassandra.datastax.com/node-state=Started")
-	ns.WaitForOutputAndLog(step, k, "", 60)
-}
-
-func waitPodStarted(podName string) {
-	step := "verify that the pod is marked as started"
-	json := "jsonpath={.items[*].metadata.name}"
-	k := kubectl.Get("pod").
-		WithFlag("field-selector", "metadata.name="+podName).
-		WithFlag("selector", "cassandra.datastax.com/node-state=Started").
-		FormatOutput(json)
-	ns.WaitForOutputAndLog(step, k, podName, 60)
-}
-
-func makePodNotReady(podName string) {
+func disableGossipWaitNotReady(podName string) {
 	disableGossip(podName)
-	waitPodNotStarted(podName)
+	ns.WaitForPodNotStarted(podName)
 }
 
-func makePodReady(podName string) {
+func enableGossipWaitReady(podName string) {
 	enableGossip(podName)
-	waitPodStarted(podName)
+	ns.WaitForPodStarted(podName)
 }
 
 func disableGossip(podName string) {
@@ -335,19 +276,13 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(operatorYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the operator to become ready"
-			json = "jsonpath={.items[0].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel("name=cass-operator").
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true", 120)
+			ns.WaitForOperatorReady()
 
 			step = "creating a datacenter resource with 3 racks/3 nodes"
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			waitDatacenterReady()
+			ns.WaitForDatacenterReady(dcName)
 
 			checkSeedConstraints()
 
@@ -356,16 +291,16 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			waitDatacenterReady()
+			ns.WaitForDatacenterReady(dcName)
 
 			checkSeedConstraints()
 
 			rack1Seed := retrieveNameSeedNodeForRack("r1")
-			makePodNotReady(rack1Seed)
+			ns.DisableGossipWaitNotReady(rack1Seed)
 
 			checkSeedConstraints()
 
-			makePodReady(rack1Seed)
+			ns.EnableGossipWaitReady(rack1Seed)
 
 			checkSeedConstraints()
 		})

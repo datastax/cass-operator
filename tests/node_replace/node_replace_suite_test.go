@@ -165,31 +165,13 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(operatorYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the operator to become ready"
-			json = "jsonpath={.items[0].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel("name=cass-operator").
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true", 120)
+			ns.WaitForOperatorReady()
 
 			step = "creating a datacenter resource with 3 racks/3 nodes"
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the nodes to become ready"
-			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, duplicate("true", len(podNames)), 1200)
-
-			step = "checking the cassandra operator progress status is set to Ready"
-			json = "jsonpath={.status.cassandraOperatorProgress}"
-			k = kubectl.Get(dcResource).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "Ready", 30)
+			ns.WaitForDatacenterReady(dcName)
 
 			step = "ensure we actually recorded the host IDs for our cassandra nodes"
 			json = fmt.Sprintf("jsonpath={.status.nodeStatuses[%s].hostID}", quotedList(podNames))
@@ -206,25 +188,8 @@ var _ = Describe(testName, func() {
 			k = kubectl.Get("pvc", pvcName).FormatOutput(json)
 			pvName := ns.OutputAndLog(step, k)
 
-			step = "disabling gossip on pod to remove readiness"
-			execArgs := []string{"-c", "cassandra",
-				"--", "bash", "-c",
-				"nodetool disablegossip",
-			}
-			k = kubectl.ExecOnPod(podNameToReplace, execArgs...)
-			ns.ExecAndLog(step, k)
-
-			step = "verifying that the pod lost readiness"
-			json = "jsonpath={.status.containerStatuses[0].ready}"
-			k = kubectl.GetByTypeAndName("pod", podNameToReplace).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "false", 60)
-
-			step = "verify that the pod is no longer marked as started"
-			k = kubectl.Get("pod").
-				WithFlag("field-selector", "metadata.name="+podNameToReplace).
-				WithFlag("selector", "cassandra.datastax.com/node-state=Started")
-			ns.WaitForOutputAndLog(step, k, "", 60)
+			ns.DisableGossipWaitNotReady(podNameToReplace)
+			ns.WaitForPodNotStarted(podNameToReplace)
 
 			step = "patch CassandraDatacenter with appropriate replaceNodes setting"
 			patch := fmt.Sprintf(`{"spec":{"replaceNodes":["%s"]}}`, podNameToReplace)

@@ -6,8 +6,6 @@ package superuser_secret_provided
 import (
 	"fmt"
 	"testing"
-	"strings"
-	"sort"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -51,24 +49,10 @@ func TestLifecycle(t *testing.T) {
 	RunSpecs(t, testName)
 }
 
-func retrievePodNames(ns ginkgo_util.NsWrapper, dcName string) []string {
-	json := "jsonpath={.items[*].metadata.name}"
-	k := kubectl.Get("pods").
-		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
-		FormatOutput(json)
-
-	output := ns.OutputPanic(k)
-	podNames := strings.Split(output, " ")
-	sort.Sort(sort.StringSlice(podNames))
-
-	return podNames
-}
-
 var _ = Describe(testName, func() {
 	Context("when in a new cluster where superuserSecretName is unspecified", func() {
 		Specify("the operator generates an appropriate superuser secret", func() {
 			var step string
-			var json string
 			var k kubectl.KCmd
 
 			By("creating a namespace")
@@ -83,13 +67,7 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(operatorYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the operator to become ready"
-			json = "jsonpath={.items[0].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel("name=cass-operator").
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true", 120)
+			ns.WaitForOperatorReady()
 
 			step = "create superuser secret"
 			k = kubectl.CreateSecretLiteral(superuserSecretName, superuserName, superuserPass)
@@ -99,13 +77,9 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "checking the cassandra operator progress status is set to Ready"
-			json = "jsonpath={.status.cassandraOperatorProgress}"
-			k = kubectl.Get(dcResource).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "Ready", 1200)
+			ns.WaitForDatacenterReady(dcName)
 
-			podNames := retrievePodNames(ns, dcName)
+			podNames := ns.GetDatacenterPodNames(dcName)
 
 			step = "check superuser credentials work"
 			k = kubectl.ExecOnPod(
