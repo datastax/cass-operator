@@ -152,10 +152,9 @@ type StorageConfig struct {
 
 // GetRacks is a getter for the Rack slice in the spec
 // It ensures there is always at least one rack
-// FIXME move this onto the CassandraDatacenter for consistency?
-func (s *CassandraDatacenterSpec) GetRacks() []Rack {
-	if len(s.Racks) >= 1 {
-		return s.Racks
+func (dc *CassandraDatacenter) GetRacks() []Rack {
+	if len(dc.Spec.Racks) >= 1 {
+		return dc.Spec.Racks
 	}
 
 	return []Rack{{
