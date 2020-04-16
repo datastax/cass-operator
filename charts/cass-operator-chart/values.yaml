@@ -1,5 +1,7 @@
 # Default values
 serviceAccountName: cass-operator
+clusterRoleName: cass-operator-cluster-role
+clusterRoleBindingName: cass-operator
 roleName: cass-operator
 roleBindingName: cass-operator
 deploymentName: cass-operator
