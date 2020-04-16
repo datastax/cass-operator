@@ -144,6 +144,11 @@ type CassandraDatacenterSpec struct {
 	// Whether to do a rolling restart at the next opportunity. The operator will set this back
 	// to false once the restart is in progress.
 	RollingRestartRequested bool `json:"rollingRestartRequested,omitempty"`
+
+	// A map of label keys and values to restrict Cassandra node scheduling to k8s workers
+	// with matchiing labels.
+	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 type StorageConfig struct {
