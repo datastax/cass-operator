@@ -60,20 +60,14 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(operatorYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the operator to become ready"
-			json := "jsonpath={.items[0].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel("name=cass-operator").
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true", 120)
+			ns.WaitForOperatorReady()
 
 			step = "creating a datacenter resource with 3 racks/3 nodes"
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
 			step = "waiting for the first pod to start up"
-			json = `jsonpath={.items[0].metadata.labels.cassandra\.datastax\.com/node-state}`
+			json := `jsonpath={.items[0].metadata.labels.cassandra\.datastax\.com/node-state}`
 			k = kubectl.Get("pods").
 				WithLabel(dcLabel).
 				WithFlag("field-selector", "status.phase=Running").

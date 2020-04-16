@@ -48,7 +48,7 @@ func (rc *ReconciliationContext) CalculateRackInformation() error {
 	// Create RackInformation
 
 	nodeCount := int(rc.Datacenter.Spec.Size)
-	racks := rc.Datacenter.Spec.GetRacks()
+	racks := rc.Datacenter.GetRacks()
 	rackCount := len(racks)
 
 	// TODO error if nodeCount < rackCount
@@ -632,7 +632,7 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 						logger.Info("Failed to find host ID", pod, pod.Name)
 					}
 				} else {
-					rc.ReqLogger.Error(err, "Could not get enpoints data")
+					rc.ReqLogger.Error(err, "Could not get endpoints data")
 				}
 			}
 
@@ -834,7 +834,7 @@ func (rc *ReconciliationContext) deleteStuckNodes() (bool, error) {
 func (rc *ReconciliationContext) isClusterHealthy() bool {
 	pods := FilterPodListByCassNodeState(rc.clusterPods, stateStarted)
 
-	numRacks := len(rc.Datacenter.Spec.GetRacks())
+	numRacks := len(rc.Datacenter.GetRacks())
 	for _, pod := range pods {
 		err := rc.NodeMgmtClient.CallProbeClusterEndpoint(pod, "LOCAL_QUORUM", numRacks)
 		if err != nil {
