@@ -131,17 +131,19 @@ UN  10.233.90.54    205.1 KiB   1            73.1%             0a96e814-dcf6-48b
 
 ### (Optional) Loading the operator via Helm
 
-Helm may be used to load the operator.
+Helm may be used to load the operator.  The destination namespace must be created first.
 
 ```console
-helm install --set cass-op-namespace=my-custom-namespace cass-operator ./charts/cass-operator-chart
+kubectl create namespace my-custom-namespace
+helm install --namespace=my-custom-namespace cass-operator ./charts/cass-operator-chart
 ```
 
 The following Helm default values may be overridden:
 
 ```yaml
-cassOperatorNamespace: cass-operator
 serviceAccountName: cass-operator
+clusterRoleName: cass-operator-cluster-role
+clusterRoleBindingName: cass-operator
 roleName: cass-operator
 roleBindingName: cass-operator
 deploymentName: cass-operator
