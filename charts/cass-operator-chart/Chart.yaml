@@ -2,6 +2,3 @@ apiVersion: v2
 name: Cass Operator
 version: 1.0.0
 description: Helm chart for Cass Operator.
-maintainers:
-  - name: Ryan Springer
-    email: ryan.springer@datastax.com
