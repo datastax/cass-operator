@@ -1,8 +1,8 @@
----
 apiVersion: v1
 kind: Namespace
 metadata:
   name: cass-operator
+  namespace: cass-operator
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -94,6 +94,7 @@ apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
   name: cassandradatacenters.cassandra.datastax.com
+  namespace: cass-operator
 spec:
   group: cassandra.datastax.com
   names:
@@ -418,6 +419,7 @@ metadata:
   name: cassandradatacenter-webhook-service
   labels:
     name: cass-operator-webhook
+  namespace: cass-operator
 spec:
   ports:
   - port: 443
@@ -432,11 +434,13 @@ data:
 kind: Secret
 metadata:
   name: cass-operator-webhook-config
+  namespace: cass-operator
 ---
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
   name: "cassandradatacenter-webhook-registration"
+  namespace: cass-operator
 webhooks:
 - name: "cassandradatacenter-webhook.cassandra.datastax.com"
   rules:
@@ -448,7 +452,7 @@ webhooks:
   clientConfig:
     service:
       name: "cassandradatacenter-webhook-service"
-      namespace: "default"
+      namespace: cass-operator
       path: /validate-cassandra-datastax-com-v1beta1-cassandradatacenter
   admissionReviewVersions: ["v1beta1"]
   failurePolicy: "Ignore"

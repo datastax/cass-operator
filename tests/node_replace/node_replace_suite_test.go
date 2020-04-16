@@ -6,10 +6,10 @@ package node_replace
 import (
 	"fmt"
 	"regexp"
-	"time"
-	"sync"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -22,7 +22,7 @@ var (
 	testName         = "Node Replace"
 	namespace        = "test-node-replace"
 	dcName           = "dc1"
-	podNames         = []string{"cluster1-dc1-r1-sts-0","cluster1-dc1-r2-sts-0", "cluster1-dc1-r3-sts-0"}
+	podNames         = []string{"cluster1-dc1-r1-sts-0", "cluster1-dc1-r2-sts-0", "cluster1-dc1-r3-sts-0"}
 	podNameToReplace = podNames[2]
 	dcYaml           = "../testdata/default-three-rack-three-node-dc.yaml"
 	operatorYaml     = "../testdata/operator.yaml"
@@ -118,7 +118,7 @@ func DeleteIgnoreFinalizersAndLog(description string, resourceName string) {
 	var wg sync.WaitGroup
 
 	wg.Add(1)
-	
+
 	// Delete might hang due to a finalizer such as kubernetes.io/pvc-protection
 	// so we run it asynchronously and then remove any finalizers to unblock it.
 	go func() {
@@ -130,7 +130,7 @@ func DeleteIgnoreFinalizersAndLog(description string, resourceName string) {
 	// Give the resource a second to get to a terminating state. Note that this
 	// may not be reflected in the resource's status... hence the sleep here as
 	// opposed to checking the status.
-	time.Sleep(5*time.Second) 
+	time.Sleep(5 * time.Second)
 
 	// In the case of PVCs at least, finalizers removed before deletion can be
 	// automatically added back. Consequently, we delete the resource first,
@@ -141,7 +141,7 @@ func DeleteIgnoreFinalizersAndLog(description string, resourceName string) {
 	// deleted (which is what we want).
 	_ = ns.ExecV(k)
 
-	// Wait for the delete to finish, which should have been unblocked by 
+	// Wait for the delete to finish, which should have been unblocked by
 	// removing the finalizers.
 	wg.Wait()
 }
@@ -165,36 +165,18 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(operatorYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the operator to become ready"
-			json = "jsonpath={.items[0].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel("name=cass-operator").
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true", 120)
+			ns.WaitForOperatorReady()
 
 			step = "creating a datacenter resource with 3 racks/3 nodes"
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the nodes to become ready"
-			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, duplicate("true", len(podNames)), 1200)
-
-			step = "checking the cassandra operator progress status is set to Ready"
-			json = "jsonpath={.status.cassandraOperatorProgress}"
-			k = kubectl.Get(dcResource).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "Ready", 30)
+			ns.WaitForDatacenterReady(dcName)
 
 			step = "ensure we actually recorded the host IDs for our cassandra nodes"
 			json = fmt.Sprintf("jsonpath={.status.nodeStatuses[%s].hostID}", quotedList(podNames))
 			k = kubectl.Get("cassandradatacenter", dcName).FormatOutput(json)
-			ns.WaitForOutputPatternAndLog(step, k, duplicate(`[a-zA-Z0-9-]{36}`, len(podNames)), 30)
+			ns.WaitForOutputPatternAndLog(step, k, duplicate(`[a-zA-Z0-9-]{36}`, len(podNames)), 60)
 
 			step = "retrieve the persistent volume claim"
 			json = "jsonpath={.spec.volumes[?(.name=='server-data')].persistentVolumeClaim.claimName}"
@@ -206,25 +188,8 @@ var _ = Describe(testName, func() {
 			k = kubectl.Get("pvc", pvcName).FormatOutput(json)
 			pvName := ns.OutputAndLog(step, k)
 
-			step = "disabling gossip on pod to remove readiness"
-			execArgs := []string{"-c", "cassandra",
-				"--", "bash", "-c",
-				"nodetool disablegossip",
-			}
-			k = kubectl.ExecOnPod(podNameToReplace, execArgs...)
-			ns.ExecAndLog(step, k)
-
-			step = "verifying that the pod lost readiness"
-			json = "jsonpath={.status.containerStatuses[0].ready}"
-			k = kubectl.GetByTypeAndName("pod", podNameToReplace).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "false", 60)
-
-			step = "verify that the pod is no longer marked as started"
-			k = kubectl.Get("pod").
-				WithFlag("field-selector", "metadata.name="+podNameToReplace).
-				WithFlag("selector", "cassandra.datastax.com/node-state=Started")
-			ns.WaitForOutputAndLog(step, k, "", 60)
+			ns.DisableGossipWaitNotReady(podNameToReplace)
+			ns.WaitForPodNotStarted(podNameToReplace)
 
 			step = "patch CassandraDatacenter with appropriate replaceNodes setting"
 			patch := fmt.Sprintf(`{"spec":{"replaceNodes":["%s"]}}`, podNameToReplace)
@@ -248,7 +213,7 @@ var _ = Describe(testName, func() {
 			k = kubectl.Get("pv").WithFlag("field-selector", "metadata.name="+pvName)
 			ns.WaitForOutputPanic(k, "", 30)
 
-			// Now we can delete the pod. The statefulset controller _should_ 
+			// Now we can delete the pod. The statefulset controller _should_
 			// create both a new pod and a new PVC for us.
 			k = kubectl.Delete("pod", podNameToReplace)
 			ns.ExecAndLog(step, k)

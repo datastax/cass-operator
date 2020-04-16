@@ -128,7 +128,7 @@ func newStatefulSetForCassandraDatacenter(
 	var serverVolumeMounts []corev1.VolumeMount
 	initContainerImage := dc.GetConfigBuilderImage()
 
-	racks := dc.Spec.GetRacks()
+	racks := dc.GetRacks()
 	var zone string
 	for _, rack := range racks {
 		if rack.Name == rackName {
