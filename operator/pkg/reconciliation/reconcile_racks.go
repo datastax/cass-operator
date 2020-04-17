@@ -911,7 +911,7 @@ func (rc *ReconciliationContext) labelSeedPods(rackInfo *RackInformation) (int, 
 		shouldUpdate := false
 		if isSeed && currentVal != "true" {
 			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.LabeledPodAsSeed,
-				"Making pod %s a seed node", pod.Name)
+				"Labeled as seed node pod %s", pod.Name)
 
 			newLabels[api.SeedNodeLabel] = "true"
 			shouldUpdate = true
@@ -919,7 +919,7 @@ func (rc *ReconciliationContext) labelSeedPods(rackInfo *RackInformation) (int, 
 		// if this pod is starting, we should leave the seed label alone
 		if !isSeed && currentVal == "true" && !starting {
 			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, "UnsetPodAsSeed",
-				"Making pod %s a non-seed node", pod.Name)
+				"Unlabled as seed node pod %s", pod.Name)
 
 			delete(newLabels, api.SeedNodeLabel)
 			shouldUpdate = true
@@ -1410,7 +1410,7 @@ func (rc *ReconciliationContext) startOneNodePerRack(endpointData httphelper.Cas
 					}
 
 					rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.LabeledPodAsSeed,
-						"Making pod %s a seed node", pod.Name)
+						"Labeled pod a seed node %s", pod.Name)
 
 					// sleeping five seconds for DNS paranoia
 					time.Sleep(5 * time.Second)
