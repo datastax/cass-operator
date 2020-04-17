@@ -195,7 +195,7 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 
 		if needsUpdate {
 
-			rc.Recorder.Eventf(rc.Datacenter, "Normal", "UpdatingRack",
+			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.UpdatingRack,
 				"Updating rack %s", rackName)
 
 			if err := setOperatorProgressStatus(rc, api.ProgressUpdating); err != nil {
@@ -276,7 +276,7 @@ func (rc *ReconciliationContext) CheckRackLabels() result.ReconcileResult {
 				return result.Error(err)
 			}
 
-			rc.Recorder.Eventf(rc.Datacenter, "Normal", "UpateRackLabelsOnResource",
+			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.LabeledRackResource,
 				"Update rack labels for StatefulSet %s", statefulSet.Name)
 		}
 	}
@@ -304,7 +304,7 @@ func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult 
 			)
 
 			if !emittedStoppingEvent {
-				rc.Recorder.Eventf(rc.Datacenter, "Normal", "StoppingDatacenter",
+				rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.StoppingDatacenter,
 					"Stopping datacenter")
 				emittedStoppingEvent = true
 			}
@@ -487,7 +487,7 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 				"desiredSize", desiredNodeCount,
 			)
 
-			rc.Recorder.Eventf(rc.Datacenter, "ScaleUpRack",
+			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.ScalingUpRack,
 				"Scaling up rack %s", rackInfo.RackName)
 
 			err := rc.UpdateRackNodeCount(statefulSet, desiredNodeCount)
@@ -546,9 +546,6 @@ func (rc *ReconciliationContext) CreateSuperuser() result.ReconcileResult {
 
 	rc.ReqLogger.Info("reconcile_racks::CreateSuperuser")
 
-	rc.Recorder.Eventf(rc.Datacenter, "Normal", "CreateSuperuser",
-		"Creating superuser")
-
 	// Get the secret
 	secret, err := rc.retrieveSuperuserSecret()
 	if err != nil {
@@ -568,6 +565,9 @@ func (rc *ReconciliationContext) CreateSuperuser() result.ReconcileResult {
 		rc.ReqLogger.Error(err, "error creating superuser")
 		return result.Error(err)
 	}
+
+	rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.CreatedSuperuser,
+		"Created superuser")
 
 	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
 	rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
@@ -679,7 +679,7 @@ func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
 			if findValueIndexFromStringArray(dc.Status.NodeReplacements, pod.Name) > -1 {
 				logger.Info("Finished replacing pod", "pod", pod.Name)
 
-				rc.Recorder.Eventf(rc.Datacenter, "Normal", "FinishReplaceNode",
+				rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.FinishedReplaceNode,
 					"Finished replacing pod %s", pod.Name)
 
 				dc.Status.NodeReplacements = removeValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
@@ -696,7 +696,7 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 		rc.ReqLogger.Info("Replacing pods", "pods", dc.Spec.ReplaceNodes)
 
 		podNamesString := strings.Join(dc.Spec.ReplaceNodes, ", ")
-		rc.Recorder.Eventf(rc.Datacenter, "Normal", "StartReplaceNode",
+		rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.ReplacingNode,
 			"Replacing Cassandra nodes for pods %s", podNamesString)
 
 		dc.Status.NodeReplacements = appendValuesToStringArrayIfNotPresent(
@@ -853,7 +853,7 @@ func (rc *ReconciliationContext) deleteStuckNodes() (bool, error) {
 
 		if shouldDelete {
 			rc.ReqLogger.Info(fmt.Sprintf("Deleting stuck pod: %s. Reason: %s", pod.Name, reason))
-			rc.Recorder.Eventf(rc.Datacenter, "Normal", "DeletingStuckPod",
+			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeWarning, api.DeletingStuckPod,
 				reason)
 			return true, rc.Client.Delete(rc.Ctx, pod)
 		}
@@ -910,7 +910,7 @@ func (rc *ReconciliationContext) labelSeedPods(rackInfo *RackInformation) (int, 
 
 		shouldUpdate := false
 		if isSeed && currentVal != "true" {
-			rc.Recorder.Eventf(rc.Datacenter, "Normal", "SetPodAsSeed",
+			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.LabeledPodAsSeed,
 				"Making pod %s a seed node", pod.Name)
 
 			newLabels[api.SeedNodeLabel] = "true"
@@ -918,7 +918,7 @@ func (rc *ReconciliationContext) labelSeedPods(rackInfo *RackInformation) (int, 
 		}
 		// if this pod is starting, we should leave the seed label alone
 		if !isSeed && currentVal == "true" && !starting {
-			rc.Recorder.Eventf(rc.Datacenter, "Normal", "UnsetPodAsSeed",
+			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, "UnsetPodAsSeed",
 				"Making pod %s a non-seed node", pod.Name)
 
 			delete(newLabels, api.SeedNodeLabel)
@@ -999,7 +999,7 @@ func (rc *ReconciliationContext) ReconcileNextRack(statefulSet *appsv1.StatefulS
 		return err
 	}
 
-	rc.Recorder.Eventf(rc.Datacenter, "Normal", "CreatedResource",
+	rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.CreatedResource,
 		"Created statefulset %s", statefulSet.Name)
 
 	return nil
@@ -1061,7 +1061,7 @@ func (rc *ReconciliationContext) CheckDcPodDisruptionBudget() result.ReconcileRe
 		return result.Error(err)
 	}
 
-	rc.Recorder.Eventf(rc.Datacenter, "Normal", "CreatedResource",
+	rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.CreatedResource,
 		"Created PodDisruptionBudget %s", desiredBudget.Name)
 
 	return result.Continue()
@@ -1136,7 +1136,7 @@ func (rc *ReconciliationContext) ReconcilePods(statefulSet *appsv1.StatefulSet) 
 				)
 			}
 
-			rc.Recorder.Eventf(rc.Datacenter, "Normal", "UpateRackLabelsOnResource",
+			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.LabeledRackResource,
 				"Update rack labels for Pod %s", podName)
 		}
 
@@ -1191,7 +1191,7 @@ func (rc *ReconciliationContext) ReconcilePods(statefulSet *appsv1.StatefulSet) 
 				)
 			}
 
-			rc.Recorder.Eventf(rc.Datacenter, "Normal", "UpateRackLabelsOnResource",
+			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.LabeledRackResource,
 				"Update rack labels for PersistentVolumeClaim %s", pvc.Name)
 		}
 	}
@@ -1275,7 +1275,7 @@ func (rc *ReconciliationContext) findStartingNodes() (bool, error) {
 	for _, pod := range rc.clusterPods {
 		if pod.Labels[api.CassNodeState] == stateStarting {
 			if isServerReady(pod) {
-				rc.Recorder.Eventf(rc.Datacenter, "Normal", "StartedCassandra",
+				rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.StartedCassandra,
 					"Started Cassandra for pod %s", pod.Name)
 				if err := rc.labelServerPodStarted(pod); err != nil {
 					return false, err
@@ -1350,13 +1350,13 @@ func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMeta
 		// If we have a replace address that means the cassandra node did
 		// join the ring previously and is marked for replacement, so we
 		// start it accordingly
-		rc.Recorder.Eventf(rc.Datacenter, "Normal", "StartCassandraAndReplaceNode",
+		rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.StartingCassandraAndReplacingNode,
 			"Starting Cassandra for pod %s to replace Cassandra node with address %s", pod.Name, replaceAddress)
 		err = mgmtClient.CallLifecycleStartEndpointWithReplaceIp(pod, replaceAddress)
 	} else {
 		// Either we are not replacing this pod or the relevant cassandra node
 		// never joined the ring in the first place and can be started normally
-		rc.Recorder.Eventf(rc.Datacenter, "Normal", "StartCassandra",
+		rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.StartingCassandra,
 			"Starting Cassandra for pod %s", pod.Name)
 		err = mgmtClient.CallLifecycleStartEndpoint(pod)
 	}
@@ -1409,7 +1409,7 @@ func (rc *ReconciliationContext) startOneNodePerRack(endpointData httphelper.Cas
 						return "", err
 					}
 
-					rc.Recorder.Eventf(rc.Datacenter, "Normal", "SetPodAsSeed",
+					rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.LabeledPodAsSeed,
 						"Making pod %s a seed node", pod.Name)
 
 					// sleeping five seconds for DNS paranoia
@@ -1595,7 +1595,7 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 	for _, pod := range rc.dcPods {
 		podStartTime := pod.GetCreationTimestamp()
 		if podStartTime.Before(cutoff) {
-			rc.Recorder.Eventf(rc.Datacenter, "Normal", "RestartingCassandra",
+			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, api.RestartingCassandra,
 				"Restarting Cassandra for pod %s", pod.Name)
 
 			// drain the node
