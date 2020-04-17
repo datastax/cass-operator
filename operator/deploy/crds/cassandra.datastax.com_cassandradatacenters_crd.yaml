@@ -72,6 +72,12 @@ spec:
                   - serverSecretName
                   type: object
               type: object
+            nodeSelector:
+              additionalProperties:
+                type: string
+              description: 'A map of label keys and values to restrict Cassandra node
+                scheduling to k8s workers with matchiing labels. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector'
+              type: object
             racks:
               description: A list of the named racks in the datacenter, representing
                 independent failure domains. The number of racks should match the
