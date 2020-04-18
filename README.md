@@ -129,6 +129,31 @@ UN  10.233.92.96    186.48 KiB  1            61.6%             b119eae5-2ff4-4b0
 UN  10.233.90.54    205.1 KiB   1            73.1%             0a96e814-dcf6-48b9-a2ca-663686c8a495  r1
 ```
 
+### (Optional) Loading the operator via Helm
+
+Helm may be used to load the operator.  The destination namespace must be created first.
+
+```console
+kubectl create namespace my-custom-namespace
+helm install --namespace=my-custom-namespace cass-operator ./charts/cass-operator-chart
+```
+
+The following Helm default values may be overridden:
+
+```yaml
+serviceAccountName: cass-operator
+clusterRoleName: cass-operator-cluster-role
+clusterRoleBindingName: cass-operator
+roleName: cass-operator
+roleBindingName: cass-operator
+deploymentName: cass-operator
+deploymentReplicas: 1
+image: "datastax/cass-operator:1.0.0"
+imagePullPolicy: IfNotPresent
+```
+
+NOTE: Helm does not install a storage-class for the cassandra pods.
+
 ## Features
 
 - Proper token ring initialization, with only one node bootstrapping at a time

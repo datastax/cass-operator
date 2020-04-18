@@ -41,6 +41,23 @@ const (
 	// Progress states for status
 	ProgressUpdating ProgressState = "Updating"
 	ProgressReady    ProgressState = "Ready"
+
+	// Events
+	UpdatingRack                      string = "UpdatingRack"
+	StoppingDatacenter                string = "StoppingDatacenter"
+	DeletingStuckPod                  string = "DeletingStuckPod"
+	RestartingCassandra               string = "RestartingCassandra"
+	CreatedResource                   string = "CreatedResource"
+	StartedCassandra                  string = "StartedCassandra"
+	LabeledPodAsSeed                  string = "LabeledPodAsSeed"
+	UnlabeledPodAsSeed                string = "UnlabeledPodAsSeed"
+	LabeledRackResource               string = "LabeledRackResource"
+	ScalingUpRack                     string = "ScalingUpRack"
+	CreatedSuperuser                  string = "CreatedSuperuser"
+	FinishedReplaceNode               string = "FinishedReplaceNode"
+	ReplacingNode                     string = "ReplacingNode"
+	StartingCassandraAndReplacingNode string = "StartingCassandraAndReplacingNode"
+	StartingCassandra                 string = "StartingCassandra"
 )
 
 // This type exists so there's no chance of pushing random strings to our progress status
@@ -144,6 +161,11 @@ type CassandraDatacenterSpec struct {
 	// Whether to do a rolling restart at the next opportunity. The operator will set this back
 	// to false once the restart is in progress.
 	RollingRestartRequested bool `json:"rollingRestartRequested,omitempty"`
+
+	// A map of label keys and values to restrict Cassandra node scheduling to k8s workers
+	// with matchiing labels.
+	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 type StorageConfig struct {

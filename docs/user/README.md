@@ -20,10 +20,10 @@ cass-operator is built to watch over pods running Casandra or DSE in a Kubernete
 namespace. Create a namespace for the cluster with:
 
 ```shell
-$ kubectl create ns my-db-ns
+$ kubectl create ns cass-operator
 ```
 
-For the rest of this guide, we will be using the namespace `my-db-ns`. Adjust
+For the rest of this guide, we will be using the namespace `cass-operator`. Adjust
 further commands as necessary to match the namespace you defined.
 
 ## Define a storage class
@@ -52,9 +52,9 @@ defined a `StorageClass` and named it `server-storage`. You can apply that file 
 get the resulting storage classes from Kubernetes with:
 
 ```shell
-$ kubectl -n my-db-ns apply -f ./server-storage.yaml
+$ kubectl -n cass-operator apply -f ./server-storage.yaml
 
-$ kubectl -n my-db-ns get storageclass
+$ kubectl -n cass-operator get storageclass
 NAME                 PROVISIONER            AGE
 server-storage       kubernetes.io/gce-pd   1m
 standard (default)   kubernetes.io/gce-pd   16m
@@ -87,9 +87,9 @@ watch the progress by getting the list of pods for the namespace, as
 demonstrated below:
 
 ```shell
-$ kubectl -n my-db-ns apply -f ./cass-operator-manifests.yaml
+$ kubectl -n cass-operator apply -f ./cass-operator-manifests.yaml
 
-$ kubectl -n my-db-ns get pod
+$ kubectl -n cass-operator get pod
 NAME                               READY   STATUS    RESTARTS   AGE
 cass-operator-f74447c57-kdf2p       1/1     Running   0          1h
 ```
@@ -154,19 +154,19 @@ Consider customizing the example above to suit your requirements, and save it as
 `cluster1-dc1.yaml`. Apply this file via `kubectl` and watch the list of pods as
 the operator deploys them. Completing a deployment may take several minutes per
 node. The best way to track the operator's progress is by using
-`kubectl -n my-db-ns describe cassdc dc1` and checking the `status` and events.
+`kubectl -n cass-operator describe cassdc dc1` and checking the `status` and events.
 
 ```shell
-$ kubectl -n my-db-ns apply -f ./cluster1-dc1.yaml
+$ kubectl -n cass-operator apply -f ./cluster1-dc1.yaml
 
-$ kubectl -n my-db-ns get pods
+$ kubectl -n cass-operator get pods
 NAME                            READY   STATUS    RESTARTS   AGE
 cass-operator-f74447c57-kdf2p   1/1     Running   0          13m
 gke-cluster1-dc1-r1-sts-0       1/1     Running   0          5m38s
 gke-cluster1-dc1-r2-sts-0       1/1     Running   0          42s
 gke-cluster1-dc1-r3-sts-0       1/1     Running   0          6m7s
 
-$ kubectl -n my-db-ns describe cassdc dc1
+$ kubectl -n cass-operator describe cassdc dc1
 ...
 Status:
   Cassandra Operator Progress:  Updating
@@ -268,11 +268,11 @@ and `password` keys.
 ```shell
 # Run these commands AFTER you've created your CassandraDatacenter
 
-$ kubectl -n my-db-ns get secret cluster1-superuser
+$ kubectl -n cass-operator get secret cluster1-superuser
 NAME                       TYPE                                  DATA   AGE
 cluster1-superuser         Opaque                                2      13m
 
-$ kubectl -n my-db-ns get secret cluster1-superuser -o yaml
+$ kubectl -n cass-operator get secret cluster1-superuser -o yaml
 apiVersion: v1
 kind: Secret
 type: Opaque
@@ -370,7 +370,7 @@ spec:
 The operator makes a Kubernetes headless service available at
 `<clusterName>-<datacenterName>-service`. Any CQL client inside the
 Kubernetes cluster should be able to connect to
-`cluster1-dc1-service.my-db-ns` and use the nodes in a round-robin fashion
+`cluster1-dc1-service.cass-operator` and use the nodes in a round-robin fashion
 as contact points.
 
 ## Connecting from outside the Kubernetes cluster

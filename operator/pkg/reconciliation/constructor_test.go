@@ -8,7 +8,9 @@ import (
 	"testing"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestCassandraDatacenter_buildLabelSelectorForSeedService(t *testing.T) {
@@ -97,4 +99,42 @@ func Test_deepHashString(t *testing.T) {
 			t.Errorf("deepHash should have produced the same hash %s %s", hash4, hash5)
 		}
 	})
+}
+
+func Test_newStatefulSetForCassandraDatacenter(t *testing.T) {
+	type args struct {
+		rackName     string
+		dc           *api.CassandraDatacenter
+		replicaCount int
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "test nodeSelector",
+			args: args{
+				rackName:     "r1",
+				replicaCount: 1,
+				dc: &api.CassandraDatacenter{
+					Spec: api.CassandraDatacenterSpec{
+						ClusterName:  "c1",
+						NodeSelector: map[string]string{"dedicated": "cassandra"},
+						StorageConfig: api.StorageConfig{
+							CassandraDataVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{},
+						},
+						ServerType:    "cassandra",
+						ServerVersion: "3.11.6",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Log(tt.name)
+		got, err := newStatefulSetForCassandraDatacenter(tt.args.rackName, tt.args.dc, tt.args.replicaCount)
+		assert.NoError(t, err, "newStatefulSetForCassandraDatacenter should not have errored")
+		assert.NotNil(t, got, "newStatefulSetForCassandraDatacenter should not have returned a nil statefulset")
+		assert.Equal(t, map[string]string{"dedicated": "cassandra"}, got.Spec.Template.Spec.NodeSelector)
+	}
 }
