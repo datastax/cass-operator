@@ -158,7 +158,7 @@ func (ns *NsWrapper) ExecAndLogAndExpectErrorString(description string, kcmd kub
 	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
 	_, captureErr, execErr := ns.ExecVCapture(kcmd)
 	Expect(execErr).To(HaveOccurred())
-	Expect(captureErr).Should(Equal(expectedError))
+	Expect(captureErr).Should(ContainSubstring(expectedError))
 }
 
 func (ns *NsWrapper) OutputAndLog(description string, kcmd kubectl.KCmd) string {
