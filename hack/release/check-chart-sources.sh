@@ -3,6 +3,8 @@
 set -euf -o pipefail
 set -x
 
+# uses diff-so-fancy from https://github.com/so-fancy/diff-so-fancy
+
 opDeploy="operator/deploy"
 chartTmpl="charts/cass-operator-chart/templates"
 crdFilename="cassandra.datastax.com_cassandradatacenters_crd.yaml"
