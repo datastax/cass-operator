@@ -3,6 +3,8 @@
 set -euf -o pipefail
 set -x
 
+# uses helm v3.1.2, kubectl v1.18.2, yq v3.2.1
+
 bundle="$(mktemp)"
 
 echo '---' >> "$bundle"
