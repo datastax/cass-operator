@@ -5,7 +5,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: cass-operator
-  namespace: ""
+  namespace: "cass-operator"
 roleRef:
   kind: ClusterRole
   name: cass-operator-cluster-role
