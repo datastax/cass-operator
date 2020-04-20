@@ -1,0 +1,12 @@
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cass-operator
+subjects:
+- kind: ServiceAccount
+  name: cass-operator
+  namespace: test-webhook-validation 
+roleRef:
+  kind: ClusterRole
+  name: cass-operator-cluster-role
+  apiGroup: rbac.authorization.k8s.io

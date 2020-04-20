@@ -10,9 +10,9 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/datastax/cass-operator/mage/util"
 	"github.com/magefile/mage/mg"
 	"github.com/magefile/mage/sh"
-	"github.com/datastax/cass-operator/mage/util"
 )
 
 // Run command.
@@ -53,6 +53,20 @@ func RunVPanic(cmd string, args ...string) {
 	mageutil.PanicOnError(err)
 }
 
+// Run command and print any output to stdout/stderr
+// Also return stdout/stderr as strings
+func RunVCapture(cmd string, args ...string) (string, string, error) {
+	captureOut := new(bytes.Buffer)
+	captureErr := new(bytes.Buffer)
+
+	// Duplicate the output/error to our buffer and the test stdout/stderr
+	multiOut := io.MultiWriter(captureOut, os.Stdout)
+	multiErr := io.MultiWriter(captureErr, os.Stderr)
+
+	_, err := sh.Exec(nil, multiOut, multiErr, cmd, args...)
+	return captureOut.String(), captureErr.String(), err
+}
+
 // Returns output from stdout.
 // stderr gets used as normal here
 func Output(cmd string, args ...string) (string, error) {
@@ -87,7 +101,6 @@ func RunWithInput(cmd string, in string, args ...string) error {
 	c.Stdout = output
 	return c.Run()
 }
-
 
 func RunVWithInput(cmd string, in string, args ...string) error {
 	c := cmdWithStdIn(cmd, in, args...)

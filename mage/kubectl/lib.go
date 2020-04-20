@@ -43,6 +43,10 @@ func (k KCmd) ToCliArgs() []string {
 	return args
 }
 
+func (k KCmd) ExecVCapture() (string, string, error) {
+	return shutil.RunVCapture("kubectl", k.ToCliArgs()...)
+}
+
 func (k KCmd) ExecV() error {
 	return shutil.RunV("kubectl", k.ToCliArgs()...)
 }
