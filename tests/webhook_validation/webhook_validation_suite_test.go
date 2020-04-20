@@ -97,6 +97,17 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLogAndExpectErrorString(step, k,
 				"Error from server (CassandraDatacenter attempted to change ClusterName): admission webhook \"cassandradatacenter-webhook.cassandra.datastax.com\" denied the request: CassandraDatacenter attempted to change ClusterName\n")
+
+			step = "deleting the dc"
+			k = kubectl.DeleteFromFiles(dcYaml)
+			ns.ExecAndLog(step, k)
+
+			step = "checking that the dc no longer exists"
+			json = "jsonpath={.items}"
+			k = kubectl.Get("CassandraDatacenter").
+				WithLabel(dcLabel).
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "[]", 300)
 		})
 	})
 })
