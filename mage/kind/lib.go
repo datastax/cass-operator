@@ -12,6 +12,7 @@ import (
 	cfgutil "github.com/datastax/cass-operator/mage/config"
 	dockerutil "github.com/datastax/cass-operator/mage/docker"
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
+	helm_util "github.com/datastax/cass-operator/mage/helm"
 	integutil "github.com/datastax/cass-operator/mage/integ-tests"
 	"github.com/datastax/cass-operator/mage/kubectl"
 	"github.com/datastax/cass-operator/mage/operator"
@@ -141,8 +142,13 @@ func SetupEmptyCluster() {
 // Default behavior is to discover and run
 // all test suites located under the ./tests/ directory.
 //
-// To run a single test suite, specify the name of the suite
-// directory in env var M_INTEG_DIR
+// To run a subset of test suites, specify the name of the suite
+// directories in env var M_INTEG_DIR, separated by a comma
+//
+// Example:
+// M_INTEG_DIR=scale_up,stop_resume
+//
+// This target assumes that helm is installed and available on path.
 func RunIntegTests() {
 	mg.Deps(SetupEmptyCluster)
 	integutil.Run()
@@ -156,27 +162,25 @@ func RunIntegTests() {
 // Perform all the steps to stand up an example Kind cluster,
 // except for applying the final cassandra yaml specification.
 // This must either be applied manually or by calling SetupCassandraCluster
-// or SetupDCECluster
+// or SetupDCECluster.
+// This target assumes that helm is installed and available on path.
 func SetupExampleCluster() {
 	mg.Deps(SetupEmptyCluster)
 	kubectl.CreateSecretLiteral("cassandra-superuser-secret", "devuser", "devpass").ExecVPanic()
-	kubectl.ApplyFiles(
-		"operator/deploy/role.yaml",
-		"operator/deploy/role_binding.yaml",
-		"operator/deploy/cluster_role.yaml",
-		"operator/deploy/cluster_role_binding.yaml",
-		"operator/deploy/service_account.yaml",
-		"operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
-		"operator/deploy/operator.yaml",
-	).ExecVPanic()
+
+	var namespace = "default"
+	var overrides = map[string]string{"image": "datastax/cass-operator:latest"}
+	err := helm_util.Install("./charts/cass-operator-chart", "cass-operator", namespace, overrides)
+	mageutil.PanicOnError(err)
 
 	// Wait for 15 seconds for the operator to come up
 	// because the apiserver will call the webhook too soon and fail if we do not wait
 	time.Sleep(time.Second * 15)
 }
 
-// Stand up an example kind cluster running Apache Cassandra
+// Stand up an example kind cluster running Apache Cassandra.
 // Loads all necessary resources to get a running Apache Cassandra data center and operator
+// This target assumes that helm is installed and available on path.
 func SetupCassandraCluster() {
 	mg.Deps(SetupExampleCluster)
 	kubectl.ApplyFiles(
@@ -185,8 +189,9 @@ func SetupCassandraCluster() {
 	kubectl.WatchPods()
 }
 
-// Stand up an example kind cluster running DSE 6.8
+// Stand up an example kind cluster running DSE 6.8.
 // Loads all necessary resources to get a running DCE data center and operator
+// This target assumes that helm is installed and available on path.
 func SetupDSECluster() {
 	mg.Deps(SetupExampleCluster)
 	kubectl.ApplyFiles(
