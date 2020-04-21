@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
-	"sort"
 
 	ginkgo "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -32,7 +32,6 @@ func duplicate(value string, count int) string {
 	return strings.Join(result, " ")
 }
 
-
 // Wrapper type to make it simpler to
 // set a namespace one time and execute all of your
 // KCmd objects inside of it, and then use Gomega
@@ -52,6 +51,10 @@ func NewWrapper(suiteName string, namespace string) NsWrapper {
 		stepCounter:   1,
 	}
 
+}
+
+func (k NsWrapper) ExecVCapture(kcmd kubectl.KCmd) (string, string, error) {
+	return kcmd.InNamespace(k.Namespace).ExecVCapture()
 }
 
 func (k NsWrapper) ExecV(kcmd kubectl.KCmd) error {
@@ -148,6 +151,14 @@ func (ns *NsWrapper) ExecAndLog(description string, kcmd kubectl.KCmd) {
 	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
 	execErr := ns.ExecV(kcmd)
 	Expect(execErr).ToNot(HaveOccurred())
+}
+
+func (ns *NsWrapper) ExecAndLogAndExpectErrorString(description string, kcmd kubectl.KCmd, expectedError string) {
+	ginkgo.By(description)
+	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
+	_, captureErr, execErr := ns.ExecVCapture(kcmd)
+	Expect(execErr).To(HaveOccurred())
+	Expect(captureErr).Should(ContainSubstring(expectedError))
 }
 
 func (ns *NsWrapper) OutputAndLog(description string, kcmd kubectl.KCmd) string {

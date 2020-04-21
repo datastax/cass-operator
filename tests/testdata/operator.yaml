@@ -99,4 +99,4 @@ spec:
             - name: OPERATOR_NAME
               value: "cass-operator"
             - name: SKIP_VALIDATING_WEBHOOK
-              value: "TRUE"
+              value: "FALSE"
