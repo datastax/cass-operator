@@ -1630,10 +1630,16 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 
 	// if we were doing a rolling restart, it is done now
 	if dc.GetConditionStatus(api.DatacenterRollingRestart) != corev1.ConditionFalse {
+		dcPatch := client.MergeFrom(dc.DeepCopy())
 		dc.SetCondition(api.DatacenterCondition{
 			Type: api.DatacenterRollingRestart,
 			Status: corev1.ConditionFalse,
 		})
+		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
+		if err != nil {
+			logger.Error(err, "error patching datacenter status for rolling restart")
+			return result.Error(err)
+		}
 	}
 
 	return result.Continue()
