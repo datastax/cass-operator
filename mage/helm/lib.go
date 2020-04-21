@@ -21,7 +21,6 @@ func Install(chartPath string, releaseName string, namespace string, overrides m
 			if overrideString == "" {
 				overrideString = fmt.Sprintf("%s=%s", key, val)
 			} else {
-
 				overrideString = fmt.Sprintf("%s,%s=%s", overrideString, key, val)
 			}
 		}

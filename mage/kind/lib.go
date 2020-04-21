@@ -162,7 +162,7 @@ func RunIntegTests() {
 // Perform all the steps to stand up an example Kind cluster,
 // except for applying the final cassandra yaml specification.
 // This must either be applied manually or by calling SetupCassandraCluster
-// or SetupDCECluster.
+// or SetupDSECluster.
 // This target assumes that helm is installed and available on path.
 func SetupExampleCluster() {
 	mg.Deps(SetupEmptyCluster)
