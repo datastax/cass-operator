@@ -11,6 +11,7 @@ import (
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -321,6 +322,11 @@ func newStatefulSetForCassandraDatacenter(
 				},
 			},
 		},
+	}
+
+	// if the dc.Spec has a nodeSelector map, copy it into each sts pod template
+	if len(dc.Spec.NodeSelector) > 0 {
+		template.Spec.NodeSelector = utils.MergeMap(map[string]string{}, dc.Spec.NodeSelector)
 	}
 
 	// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
