@@ -67,23 +67,13 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(operatorYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the operator to become ready"
-			json = "jsonpath={.items[0].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel("name=cass-operator").
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true", 120)
+			ns.WaitForOperatorReady()
 
 			step = "creating a datacenter resource with 1 racks/2 nodes"
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "checking the cassandra operator progress status is set to Ready"
-			json = "jsonpath={.status.cassandraOperatorProgress}"
-			k = kubectl.Get(dcResource).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "Ready", 1200)
+			ns.WaitForDatacenterReady(dcName)
 
 			// verify the secret was created
 			step = "check that the superuser secret was created"

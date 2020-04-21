@@ -2,7 +2,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   creationTimestamp: null
-  name: cass-operator-cluster-role
+  name: {{ .Values.clusterRoleName }}
 rules:
 - apiGroups:
   - admissionregistration.k8s.io
@@ -12,5 +12,5 @@ rules:
   - create
   - get
   - update
-  resourceNames: 
+  resourceNames:
   - "cassandradatacenter-webhook-registration"

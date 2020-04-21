@@ -7,10 +7,10 @@ The DataStax Kubernetes Operator for Apache Cassandra&reg;
 
 Quick start:
 ```console
-kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/docs/user/cass-operator-manifests.yaml
+kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/docs/user/cass-operator-manifests.yaml
 # *** This is for GKE -> Adjust based on your cloud or storage options
-kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/gke/storage.yaml
-kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
+kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/operator/k8s-flavors/gke/storage.yaml
+kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
 ```
 
 ### Loading the operator
@@ -18,7 +18,7 @@ kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/ca
 Installing the Cass Operator itself is straightforward. Apply the provided manifest as follows:
 
 ```console
-kubectl apply -f https://raw.githubusercontent.com/datastax/cass-operator/master/docs/user/cass-operator-manifests.yaml
+kubectl apply -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/docs/user/cass-operator-manifests.yaml
 ```
 
 Note that since the manifest will install a [Custom Resource Definition](https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/), the user running the above command will need cluster-admin privileges.
@@ -51,7 +51,7 @@ reclaimPolicy: Delete
 Apply the above as follows:
 
 ```
-kubectl apply -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/k8s-flavors/gke/storage.yaml
+kubectl apply -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/operator/k8s-flavors/gke/storage.yaml
 ```
 
 ### Creating a CassandraDatacenter
@@ -91,7 +91,7 @@ spec:
 Apply the above as follows:
 
 ```console
-kubectl -n cass-operator apply -f https://raw.githubusercontent.com/datastax/cass-operator/master/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
+kubectl -n cass-operator apply -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
 ```
 
 You can check the status of pods in the Cassandra cluster as follows:
@@ -128,6 +128,31 @@ UN  10.233.105.125  224.82 KiB  1            65.4%             5e29b4c9-aa69-4d5
 UN  10.233.92.96    186.48 KiB  1            61.6%             b119eae5-2ff4-4b06-b20b-c492474e59a6  r1
 UN  10.233.90.54    205.1 KiB   1            73.1%             0a96e814-dcf6-48b9-a2ca-663686c8a495  r1
 ```
+
+### (Optional) Loading the operator via Helm
+
+Helm may be used to load the operator.  The destination namespace must be created first.
+
+```console
+kubectl create namespace my-custom-namespace
+helm install --namespace=my-custom-namespace cass-operator ./charts/cass-operator-chart
+```
+
+The following Helm default values may be overridden:
+
+```yaml
+serviceAccountName: cass-operator
+clusterRoleName: cass-operator-cluster-role
+clusterRoleBindingName: cass-operator
+roleName: cass-operator
+roleBindingName: cass-operator
+deploymentName: cass-operator
+deploymentReplicas: 1
+image: "datastax/cass-operator:1.0.0"
+imagePullPolicy: IfNotPresent
+```
+
+NOTE: Helm does not install a storage-class for the cassandra pods.
 
 ## Features
 
@@ -247,7 +272,7 @@ kubectl delete cassdcs --all-namespaces
 
 Remove the operator Deployment, CRD, etc.
 ```
-kubectl delete -f https://raw.githubusercontent.com/datastax/cass-operator/master/docs/user/cass-operator-manifests.yaml
+kubectl delete -f https://raw.githubusercontent.com/datastax/cass-operator/26ad52bfc8f450852f5573fa2904a5df407ce2d3/docs/user/cass-operator-manifests.yaml
 ```
 
 ## Contacts

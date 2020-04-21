@@ -204,6 +204,21 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref common.Refere
 							Format:      "",
 						},
 					},
+					"nodeSelector": {
+						SchemaProps: spec.SchemaProps{
+							Description: "A map of label keys and values to restrict Cassandra node scheduling to k8s workers with matchiing labels. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector",
+							Type:        []string{"object"},
+							AdditionalProperties: &spec.SchemaOrBool{
+								Allows: true,
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
 				},
 				Required: []string{"size", "serverVersion", "serverType", "storageConfig", "clusterName"},
 			},

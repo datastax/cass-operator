@@ -191,6 +191,6 @@ func NewReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileCassandraDatacenter{
 		client:   mgr.GetClient(),
 		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor("cassandra-operator"),
+		recorder: mgr.GetEventRecorderFor("cass-operator"),
 	}
 }

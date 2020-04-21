@@ -1,10 +1,9 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cass-operator
-  namespace: ""
+  name: {{ .Values.deploymentName }}
 spec:
-  replicas: 1
+  replicas: {{ .Values.deploymentReplicas }}
   selector:
     matchLabels:
       name: cass-operator
@@ -13,15 +12,15 @@ spec:
       labels:
         name: cass-operator
     spec:
-      serviceAccountName: cass-operator
+      serviceAccountName: {{ .Values.serviceAccountName }}
       volumes:
       - name: cass-operator-certs-volume
         secret:
           secretName: cass-operator-webhook-config
       containers:
       - name: cass-operator
-        image: datastax/cass-operator:latest
-        imagePullPolicy: IfNotPresent
+        image: {{ .Values.image }}
+        imagePullPolicy: {{ .Values.imagePullPolicy }}
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cass-operator-certs-volume

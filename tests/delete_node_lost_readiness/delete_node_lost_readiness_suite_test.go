@@ -58,52 +58,24 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(operatorYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the operator to become ready"
-			json := "jsonpath={.items[0].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel("name=cass-operator").
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true", 120)
+			ns.WaitForOperatorReady()
 
 			step = "creating a datacenter resource with 3 racks/3 nodes"
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the nodes to become ready"
-			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true true true", 1200)
+			ns.WaitForDatacenterReady(dcName)
 
-			step = "checking the cassandra operator progress status is set to Ready"
-			json = "jsonpath={.status.cassandraOperatorProgress}"
-			k = kubectl.Get(dcResource).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "Ready", 30)
-
-			step = "finding name of the first pod"
-			json = "jsonpath={.items[1].metadata.name}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				FormatOutput(json)
-			podName := ns.OutputAndLog(step, k)
+			podNames := ns.GetDatacenterPodNames(dcName)
+			podName := podNames[0]
 
 			step = "verifying that the pod is labeled as Started"
-			json = `jsonpath={.metadata.labels.cassandra\.datastax\.com/node-state}`
+			json := `jsonpath={.metadata.labels.cassandra\.datastax\.com/node-state}`
 			k = kubectl.GetByTypeAndName("pod", podName).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Started", 120)
 
-			step = "disabling gossip on first node to remove readiness"
-			execArgs := []string{"-c", "cassandra",
-				"--", "bash", "-c",
-				"nodetool disablegossip",
-			}
-			k = kubectl.ExecOnPod(podName, execArgs...)
-			ns.ExecAndLog(step, k)
+			ns.DisableGossip(podName)
 
 			step = "verifying that the pod lost readiness"
 			json = "jsonpath={.status.containerStatuses[0].ready}"
@@ -117,13 +89,7 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputContainsAndLog(step, k, "-", 700)
 
-			step = "waiting for the terminated pod to come back"
-			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true true true", 600)
+			ns.WaitForDatacenterReady(dcName)
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
