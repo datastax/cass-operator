@@ -15,18 +15,12 @@ import (
 )
 
 var (
-	testName         = "Multi-cluster Management"
-	namespace        = "test-multi-cluster-management"
-	dcNames          = [2]string{"dc1", "dc2"}
-	dcYamls          = [2]string{"../testdata/default-three-rack-three-node-dc.yaml", "../testdata/default-single-rack-single-node-dc.yaml"}
-	operatorYaml     = "../testdata/operator.yaml"
-	ns               = ginkgo_util.NewWrapper(testName, namespace)
-	defaultResources = []string{
-		"../../operator/deploy/role.yaml",
-		"../../operator/deploy/role_binding.yaml",
-		"../../operator/deploy/service_account.yaml",
-		"../../operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
-	}
+	testName     = "Multi-cluster Management"
+	namespace    = "test-multi-cluster-management"
+	dcNames      = [2]string{"dc1", "dc2"}
+	dcYamls      = [2]string{"../testdata/default-three-rack-three-node-dc.yaml", "../testdata/default-single-rack-single-node-dc.yaml"}
+	operatorYaml = "../testdata/operator.yaml"
+	ns           = ginkgo_util.NewWrapper(testName, namespace)
 )
 
 func dcResourceForName(dcName string) string {
@@ -42,7 +36,7 @@ func TestLifecycle(t *testing.T) {
 		logPath := fmt.Sprintf("%s/aftersuite", ns.LogDir)
 		kubectl.DumpAllLogs(logPath).ExecV()
 		fmt.Printf("\n\tPost-run logs dumped at: %s\n\n", logPath)
-		_ = ns.Terminate()
+		ns.Terminate()
 	})
 
 	RegisterFailHandler(Fail)
@@ -56,17 +50,12 @@ var _ = Describe(testName, func() {
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
 
-			step := "creating default resources"
-			k := kubectl.ApplyFiles(defaultResources...)
-			ns.ExecAndLog(step, k)
-
-			step = "creating the cass-operator resource"
-			k = kubectl.ApplyFiles(operatorYaml)
-			ns.ExecAndLog(step, k)
+			step := "setting up cass-operator resources via helm chart"
+			ns.HelmInstall("../../charts/cass-operator-chart")
 
 			step = "waiting for the operator to become ready"
 			json := "jsonpath={.items[0].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
+			k := kubectl.Get("pods").
 				WithLabel("name=cass-operator").
 				WithFlag("field-selector", "status.phase=Running").
 				FormatOutput(json)

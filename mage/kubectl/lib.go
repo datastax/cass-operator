@@ -16,6 +16,10 @@ func WatchPods() {
 	shutil.RunVPanic("watch", "-n1", "kubectl", "get", "pods")
 }
 
+func WatchPodsInNs(namespace string) {
+	shutil.RunVPanic("watch", "-n1", "kubectl", "get", "pods", fmt.Sprintf("--namespace=%s", namespace))
+}
+
 //==============================================
 // KCmd represents an executable kubectl command
 //==============================================
