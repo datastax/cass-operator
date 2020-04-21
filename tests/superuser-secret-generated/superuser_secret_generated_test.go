@@ -27,12 +27,6 @@ var (
 	dcResource        = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel           = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
 	ns                = ginkgo_util.NewWrapper(testName, namespace)
-	defaultResources  = []string{
-		"../../operator/deploy/role.yaml",
-		"../../operator/deploy/role_binding.yaml",
-		"../../operator/deploy/service_account.yaml",
-		"../../operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
-	}
 )
 
 func TestLifecycle(t *testing.T) {
@@ -41,7 +35,7 @@ func TestLifecycle(t *testing.T) {
 		kubectl.DumpAllLogs(logPath).ExecV()
 
 		fmt.Printf("\n\tPost-run logs dumped at: %s\n\n", logPath)
-		_ = ns.Terminate()
+		ns.Terminate()
 	})
 
 	RegisterFailHandler(Fail)
@@ -59,13 +53,8 @@ var _ = Describe(testName, func() {
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
 
-			step = "creating default resources"
-			k = kubectl.ApplyFiles(defaultResources...)
-			ns.ExecAndLog(step, k)
-
-			step = "creating the cass-operator resource"
-			k = kubectl.ApplyFiles(operatorYaml)
-			ns.ExecAndLog(step, k)
+			step = "setting up cass-operator resources via helm chart"
+			ns.HelmInstall("../../charts/cass-operator-chart")
 
 			ns.WaitForOperatorReady()
 
@@ -92,7 +81,7 @@ var _ = Describe(testName, func() {
 			step = "get superuser password"
 			json = "jsonpath={.data.password}"
 			k = kubectl.Get(secretResource).FormatOutput(json)
-			passwordBase64 := ns.OutputAndLog(step, k)			
+			passwordBase64 := ns.OutputAndLog(step, k)
 			Expect(passwordBase64).ToNot(Equal(""), "Expected secret to specify a password")
 			passwordDecoded, err := base64.StdEncoding.DecodeString(passwordBase64)
 			Expect(err).ToNot(HaveOccurred())
@@ -100,18 +89,18 @@ var _ = Describe(testName, func() {
 
 			step = "check superuser credentials work"
 			k = kubectl.ExecOnPod(
-				"cluster2-dc2-r1-sts-0", "--", "cqlsh", 
-				"--user", string(usernameDecoded), 
-				"--password", string(passwordDecoded), 
+				"cluster2-dc2-r1-sts-0", "--", "cqlsh",
+				"--user", string(usernameDecoded),
+				"--password", string(passwordDecoded),
 				"-e", "select * from system_schema.keyspaces;").
 				WithFlag("container", "cassandra")
 			ns.ExecAndLog(step, k)
 
 			step = "check that bad credentials don't work"
 			k = kubectl.ExecOnPod(
-				"cluster2-dc2-r1-sts-0", "--", "cqlsh", 
-				"--user", string(usernameDecoded), 
-				"--password", "notthepassword", 
+				"cluster2-dc2-r1-sts-0", "--", "cqlsh",
+				"--user", string(usernameDecoded),
+				"--password", "notthepassword",
 				"-e", "select * from system_schema.keyspaces;").
 				WithFlag("container", "cassandra")
 			By(step)

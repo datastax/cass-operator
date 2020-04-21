@@ -68,13 +68,18 @@ func runGinkgoTestSuite(path string) {
 // Default behavior is to discover and run
 // all test suites located under the ./tests/ directory.
 //
-// To run a single test suite, specify the name of the suite
-// directory in env var M_INTEG_DIR
+// To run a subset of test suites, specify the name of the suite
+// directories in env var M_INTEG_DIR, separated by a comma
+//
+// Example:
+// M_INTEG_DIR=scale_up,stop_resume
+//
+// This target assumes that helm is installed and available on path.
 func Run() {
 	var testDirs []string
 	integDir := os.Getenv(envIntegDir)
 	if integDir != "" {
-		testDirs = []string{integDir}
+		testDirs = strings.Split(integDir, ",")
 	} else {
 		testDirs = getTestSuiteDirs()
 	}

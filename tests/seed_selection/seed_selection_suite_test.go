@@ -4,11 +4,11 @@
 package seed_selection
 
 import (
-	"fmt"
-	"testing"
-	"sort"
-	"regexp"
 	"encoding/json"
+	"fmt"
+	"regexp"
+	"sort"
+	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -20,20 +20,14 @@ import (
 )
 
 var (
-	testName            = "Seed Selection"
-	namespace           = "test-seed-selection"
-	dcName              = "dc1"
-	dcYaml              = "../testdata/default-three-rack-three-node-dc.yaml"
-	operatorYaml        = "../testdata/operator.yaml"
-	dcResource          = fmt.Sprintf("CassandraDatacenter/%s", dcName)
-	dcLabel             = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
-	ns                  = ginkgo_util.NewWrapper(testName, namespace)
-	defaultResources    = []string{
-		"../../operator/deploy/role.yaml",
-		"../../operator/deploy/role_binding.yaml",
-		"../../operator/deploy/service_account.yaml",
-		"../../operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
-	}
+	testName     = "Seed Selection"
+	namespace    = "test-seed-selection"
+	dcName       = "dc1"
+	dcYaml       = "../testdata/default-three-rack-three-node-dc.yaml"
+	operatorYaml = "../testdata/operator.yaml"
+	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
+	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
+	ns           = ginkgo_util.NewWrapper(testName, namespace)
 )
 
 func TestLifecycle(t *testing.T) {
@@ -42,7 +36,7 @@ func TestLifecycle(t *testing.T) {
 		kubectl.DumpAllLogs(logPath).ExecV()
 
 		fmt.Printf("\n\tPost-run logs dumped at: %s\n\n", logPath)
-		_ = ns.Terminate()
+		ns.Terminate()
 	})
 
 	RegisterFailHandler(Fail)
@@ -103,7 +97,7 @@ func retrieveDatacenterInfo() DatacenterInfo {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = json.Unmarshal([]byte(output), &data)
-	
+
 	spec := data["spec"].(map[string]interface{})
 	rackNames := []string{}
 	for _, rackData := range spec["racks"].([]interface{}) {
@@ -114,11 +108,11 @@ func retrieveDatacenterInfo() DatacenterInfo {
 	}
 
 	dc := DatacenterInfo{
-		Size: int(spec["size"].(float64)),
-		Nodes: retrieveNodes(),
+		Size:      int(spec["size"].(float64)),
+		Nodes:     retrieveNodes(),
 		RackNames: rackNames,
 	}
-	
+
 	return dc
 }
 
@@ -135,7 +129,6 @@ func retrieveNameSeedNodeForRack(rack string) string {
 	Expect(name).ToNot(Equal(""))
 	return name
 }
-
 
 func MinInt(a, b int) int {
 	if a < b {
@@ -154,8 +147,8 @@ func checkThereAreAtLeastThreeSeedsPerDc(info DatacenterInfo) {
 	}
 
 	expectedSeedCount := MinInt(info.Size, 3)
-	Expect(seedCount >= expectedSeedCount).To(BeTrue(), 
-		"Expected there to be at least %d seed nodes, but only found %d.", 
+	Expect(seedCount >= expectedSeedCount).To(BeTrue(),
+		"Expected there to be at least %d seed nodes, but only found %d.",
 		expectedSeedCount, seedCount)
 }
 
@@ -166,7 +159,7 @@ func checkThereIsAtLeastOneSeedNodePerRack(info DatacenterInfo) {
 			rackToFoundSeed[node.Rack] = true
 		}
 	}
-	
+
 	for _, rackName := range info.RackNames {
 		value, ok := rackToFoundSeed[rackName]
 		Expect(ok && value).To(BeTrue(), "Expected rack %s to have a seed node, but none found.", rackName)
@@ -220,7 +213,7 @@ func checkSeedConstraints() {
 
 	// Ensure seed lists actually align
 	//
-	// NOTE: The following check does not presently work due to 
+	// NOTE: The following check does not presently work due to
 	// the lag time between when we update a seed label and when
 	// that change is reflected in DNS. Since we reload seed lists
 	// right after upating the label, some cassandra nodes will
@@ -268,13 +261,8 @@ var _ = Describe(testName, func() {
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
 
-			step = "creating default resources"
-			k = kubectl.ApplyFiles(defaultResources...)
-			ns.ExecAndLog(step, k)
-
-			step = "creating the cass-operator resource"
-			k = kubectl.ApplyFiles(operatorYaml)
-			ns.ExecAndLog(step, k)
+			step = "setting up cass-operator resources via helm chart"
+			ns.HelmInstall("../../charts/cass-operator-chart")
 
 			ns.WaitForOperatorReady()
 

@@ -15,6 +15,7 @@ import (
 	ginkgo "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	helm_util "github.com/datastax/cass-operator/mage/helm"
 	"github.com/datastax/cass-operator/mage/kubectl"
 	mageutil "github.com/datastax/cass-operator/mage/util"
 )
@@ -50,7 +51,6 @@ func NewWrapper(suiteName string, namespace string) NsWrapper {
 		LogDir:        genSuiteLogDir(suiteName),
 		stepCounter:   1,
 	}
-
 }
 
 func (k NsWrapper) ExecVCapture(kcmd kubectl.KCmd) (string, string, error) {
@@ -106,11 +106,11 @@ func (k *NsWrapper) countStep() int {
 	return n
 }
 
-func (k NsWrapper) Terminate() error {
+func (ns NsWrapper) Terminate() {
 	noCleanup := os.Getenv(EnvNoCleanup)
 	if strings.ToLower(noCleanup) == "true" {
 		fmt.Println("Skipping namespace cleanup and deletion.")
-		return nil
+		return
 	}
 
 	fmt.Println("Cleaning up and deleting namespace.")
@@ -120,8 +120,17 @@ func (k NsWrapper) Terminate() error {
 	// This is important because deleting the namespace itself
 	// can hang if this step is skipped.
 	kcmd := kubectl.Delete("cassandradatacenter", "--all")
-	_ = k.ExecV(kcmd)
-	return kubectl.DeleteByTypeAndName("namespace", k.Namespace).ExecV()
+	_ = ns.ExecV(kcmd)
+
+	// Must run helm uninstall before deleting namespace
+	// or else it won't see that it has an active release
+	// out there
+	_ = helm_util.Uninstall("cass-operator", ns.Namespace)
+
+	kcmd = kubectl.Delete("crd", "cassandradatacenters.cassandra.datastax.com")
+	_ = ns.ExecV(kcmd)
+
+	_ = kubectl.DeleteByTypeAndName("namespace", ns.Namespace).ExecV()
 }
 
 //===================================
@@ -296,4 +305,10 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 		WithFlag("field-selector", "status.phase=Running").
 		FormatOutput(json)
 	ns.WaitForOutputAndLog(step, k, "true", 120)
+}
+
+func (ns NsWrapper) HelmInstall(chartPath string) {
+	var overrides = map[string]string{"image": "datastax/cass-operator:latest"}
+	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
+	mageutil.PanicOnError(err)
 }
