@@ -53,6 +53,10 @@ func NewWrapper(suiteName string, namespace string) NsWrapper {
 	}
 }
 
+func (k NsWrapper) ExecVCapture(kcmd kubectl.KCmd) (string, string, error) {
+	return kcmd.InNamespace(k.Namespace).ExecVCapture()
+}
+
 func (k NsWrapper) ExecV(kcmd kubectl.KCmd) error {
 	err := kcmd.InNamespace(k.Namespace).ExecV()
 	return err
@@ -156,6 +160,14 @@ func (ns *NsWrapper) ExecAndLog(description string, kcmd kubectl.KCmd) {
 	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
 	execErr := ns.ExecV(kcmd)
 	Expect(execErr).ToNot(HaveOccurred())
+}
+
+func (ns *NsWrapper) ExecAndLogAndExpectErrorString(description string, kcmd kubectl.KCmd, expectedError string) {
+	ginkgo.By(description)
+	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
+	_, captureErr, execErr := ns.ExecVCapture(kcmd)
+	Expect(execErr).To(HaveOccurred())
+	Expect(captureErr).Should(ContainSubstring(expectedError))
 }
 
 func (ns *NsWrapper) OutputAndLog(description string, kcmd kubectl.KCmd) string {

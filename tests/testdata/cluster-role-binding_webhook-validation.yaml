@@ -5,7 +5,7 @@ metadata:
 subjects:
 - kind: ServiceAccount
   name: cass-operator
-  namespace: "cass-operator"
+  namespace: test-webhook-validation 
 roleRef:
   kind: ClusterRole
   name: cass-operator-cluster-role
