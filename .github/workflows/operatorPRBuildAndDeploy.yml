@@ -15,25 +15,12 @@ jobs:
         uses: actions/setup-go@v1
         with:
           go-version: 1.13
-      - name: Install Mage
-        run: |
-          cd /tmp
-          wget https://github.com/magefile/mage/releases/download/v1.9.0/mage_1.9.0_Linux-64bit.tar.gz
-          tar -xvf mage_1.9.0_Linux-64bit.tar.gz
-          mkdir -p $GOPATH/bin
-          mv mage $GOPATH/bin/mage
-          sudo chmod +x $GOPATH/bin/mage
-      - name: Build docker
-        run: |
-          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          mage operator:testAndBuild
-      - name: Deploy to ECR
-        if: github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
+      - name: Test
         env:
-          MO_ECR_ID: ${{ secrets.ECR_ID }}
-          MO_ECR_SECRET: ${{ secrets.ECR_SECRET }}
-          MO_ECR_REPO: ${{ secrets.ECR_REPO }}
+          GH_REF: ${{ github.ref }}
+          GH_PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          export MO_TAGS=$(cat ./build/tagsToPush.txt)
-          mage operator:deployToECR
+          echo "Base Ref: ${GITHUB_BASE_REF}"
+          echo "Head Ref: ${GITHUB_HEAD_REF}"
+          echo "Ref: ${GH_REF}"
+          echo "PR Head Ref: ${GH_PR_HEAD_REF}"
