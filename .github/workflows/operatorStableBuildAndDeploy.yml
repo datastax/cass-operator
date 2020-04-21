@@ -12,6 +12,8 @@ jobs:
       GOROOT: /usr/local/go1.13
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Set up Go 1.13
         uses: actions/setup-go@v1
         with:
