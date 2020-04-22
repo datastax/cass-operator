@@ -1638,10 +1638,6 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 			Type: api.DatacenterRollingRestart,
 			Status: corev1.ConditionFalse,
 		})
-		dc.SetCondition(api.DatacenterCondition{
-			Type: api.DatacenterInitialized,
-			Status: corev1.ConditionTrue,
-		})
 		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
 		if err != nil {
 			logger.Error(err, "error patching datacenter status for rolling restart")
