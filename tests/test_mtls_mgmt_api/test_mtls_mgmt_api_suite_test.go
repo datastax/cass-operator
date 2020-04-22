@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	testName     = "test mtls protecting mgmt api for cassandra"
-	namespace    = "test-mtls-for-mgmt-api-cass"
+	testName     = "test mtls protecting mgmt api"
+	namespace    = "test-mtls-for-mgmt-api"
 	dcName       = "dc1"
 	dcYaml       = "../testdata/dse-one-node-dc-with-mtls.yaml"
 	operatorYaml = "../testdata/operator.yaml"
@@ -39,7 +39,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator can scale up, stop, resume, and terminate a datacenter", func() {
+		Specify("the operator can start, scale up, and terminate a datacenter where the mgmt api is behind mtls", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
