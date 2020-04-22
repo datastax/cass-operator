@@ -9,6 +9,8 @@ jobs:
       GOROOT: /usr/local/go1.13
     steps:
       - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Set up Go 1.13
         uses: actions/setup-go@v1
         with:
@@ -22,6 +24,8 @@ jobs:
           mv mage $GOPATH/bin/mage
           sudo chmod +x $GOPATH/bin/mage
       - name: Build docker
+        env:
+          MO_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testAndBuild

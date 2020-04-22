@@ -32,11 +32,18 @@ func Install(chartPath string, releaseName string, namespace string, overrides m
 	return shutil.RunV("helm", args...)
 }
 
-func Uninstall(releaseName string, namespace string) error {
-	args := []string{
+func uninstallArgs(releaseName string, namespace string) []string {
+	return []string{
 		"uninstall",
 		fmt.Sprintf("--namespace=%s", namespace),
 		releaseName,
 	}
-	return shutil.RunV("helm", args...)
+}
+
+func Uninstall(releaseName string, namespace string) error {
+	return shutil.RunV("helm", uninstallArgs(releaseName, namespace)...)
+}
+
+func UninstallCapture(releaseName string, namespace string) (string, string, error) {
+	return shutil.RunVCapture("helm", uninstallArgs(releaseName, namespace)...)
 }
