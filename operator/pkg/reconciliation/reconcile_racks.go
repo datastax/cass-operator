@@ -1586,7 +1586,7 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 	if dc.Spec.RollingRestartRequested {
 		dcPatch := client.MergeFrom(dc.DeepCopy())
 		dc.Status.LastRollingRestart = metav1.Now()
-		dc.SetConditionIfNotSet(api.DatacenterCondition{
+		dc.SetCondition(api.DatacenterCondition{
 			Type: api.DatacenterRollingRestart,
 			Status: corev1.ConditionTrue,
 		})
@@ -1637,6 +1637,10 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 		dc.SetCondition(api.DatacenterCondition{
 			Type: api.DatacenterRollingRestart,
 			Status: corev1.ConditionFalse,
+		})
+		dc.SetCondition(api.DatacenterCondition{
+			Type: api.DatacenterInitialized,
+			Status: corev1.ConditionTrue,
 		})
 		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
 		if err != nil {
