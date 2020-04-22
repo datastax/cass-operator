@@ -53,13 +53,12 @@ var _ = Describe(testName, func() {
 			step = "creating mtls secrets"
 			k := kubectl.ApplyFiles(
 				"../testdata/mtls-certs-server.yaml",
-				"../testdata/mtls-certs-client.yaml"
-				).
-				InNamespace(namespace)
+				"../testdata/mtls-certs-client.yaml",
+			).InNamespace(namespace)
 			ns.ExecAndLog(step, k)
 
 			step = "creating a datacenter resource with 1 rack/1 node"
-			k := kubectl.ApplyFiles(dcYaml)
+			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
 			ns.WaitForDatacenterReady(dcName)
