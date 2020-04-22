@@ -1603,6 +1603,7 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 			logger.Error(err, "error patching datacenter for rolling restart")
 			return result.Error(err)
 		}
+		logger.Info("starting rolling restart")
 	}
 
 	cutoff := &dc.Status.LastRollingRestart
@@ -1628,8 +1629,10 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 		}
 	}
 
+	logger.Info("Not performing rolling restart")
 	// if we were doing a rolling restart, it is done now
 	if dc.GetConditionStatus(api.DatacenterRollingRestart) != corev1.ConditionFalse {
+		logger.Info("Turning off rolling restart condition")
 		dcPatch := client.MergeFrom(dc.DeepCopy())
 		dc.SetCondition(api.DatacenterCondition{
 			Type: api.DatacenterRollingRestart,
