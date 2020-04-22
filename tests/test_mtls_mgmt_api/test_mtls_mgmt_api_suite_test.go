@@ -18,7 +18,7 @@ var (
 	testName     = "test mtls protecting mgmt api for cassandra"
 	namespace    = "test-mtls-for-mgmt-api-cass"
 	dcName       = "dc1"
-	dcYaml       = "../testdata/oss-one-node-dc-with-mtls.yaml"
+	dcYaml       = "../testdata/dse-one-node-dc-with-mtls.yaml"
 	operatorYaml = "../testdata/operator.yaml"
 	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
