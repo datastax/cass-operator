@@ -63,8 +63,7 @@ var _ = Describe(testName, func() {
 			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
 			k = kubectl.Get("pods").
 				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
+				WithFlag("field-selector", "status.phase=Running").FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true", 1200)
 
 			step = "checking the cassandra operator progress status is set to Ready"
@@ -84,6 +83,18 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLogAndExpectErrorString(step, k,
 				"Error from server (CassandraDatacenter attempted to change ClusterName): admission webhook \"cassandradatacenter-webhook.cassandra.datastax.com\" denied the request: CassandraDatacenter attempted to change ClusterName\n")
+
+			step = "attempt to add rack without increasing size"
+			json = `{"spec": {"racks": [{"name": "r1"}, {"name": "r2"}]}}`
+			k = kubectl.PatchMerge(dcResource, json)
+			ns.ExecAndLogAndExpectErrorString(step, k,
+				"Error from server (CassandraDatacenter attempted to add Rack without increasing Size")
+
+			step = "attempt to add racks without increasing size enough to populate each rack"
+			json = `{"spec": {"size": 2,"racks": [{"name": "r1"}, {"name": "r2"}, {"name": "r3"}]}}`
+			k = kubectl.PatchMerge(dcResource, json)
+			ns.ExecAndLogAndExpectErrorString(step, k,
+				"Error from server (CassandraDatacenter attempted to add Racks without increasing Size enough to populate each rack.\nNew racks added: 2, Size increased by: 1")
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
