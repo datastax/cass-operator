@@ -326,14 +326,22 @@ func (dc *CassandraDatacenter) GetConditionStatus(conditionType DatacenterCondit
 }
 
 func (dc *CassandraDatacenter) SetCondition(condition DatacenterCondition) {
+	conditions := []DatacenterCondition{}
+	added := false
 	for i, _ := range dc.Status.Conditions {
 		if dc.Status.Conditions[i].Type == condition.Type {
-			dc.Status.Conditions[i] = condition
-			return
+			conditions = append(conditions, condition)
+			added = true
+		} else {
+			conditions = append(conditions, dc.Status.Conditions[i])
 		}
 	}
 
-	dc.Status.Conditions = append(dc.Status.Conditions, condition)
+	if !added {
+		conditions = append(conditions, condition)
+	}
+
+	dc.Status.Conditions = conditions
 }
 
 func (dc *CassandraDatacenter) SetConditionIfNotSet(condition DatacenterCondition) bool {
