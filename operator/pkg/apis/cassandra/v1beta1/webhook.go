@@ -18,7 +18,7 @@ var log = logf.Log.WithName("api")
 func attemptedTo(action string, actionStrArgs ...interface{}) error {
 	var msg string
 	if actionStrArgs != nil {
-		msg = fmt.Sprintf(action, actionStrArgs)
+		msg = fmt.Sprintf(action, actionStrArgs...)
 
 	} else {
 		msg = action
@@ -88,7 +88,7 @@ func ValidateDatacenterFieldChanges(oldDc CassandraDatacenter, newDc CassandraDa
 
 		if int(newSizeDifference) < newRackCount {
 			return attemptedTo(
-				fmt.Sprintf("add Racks without increasing Size enough to populate each rack.\n" +
+				fmt.Sprintf("add Racks without increasing Size enough to populate each rack.\n"+
 					"New racks added: %d, Size increased by: %d", newRackCount, newSizeDifference))
 		}
 	}
