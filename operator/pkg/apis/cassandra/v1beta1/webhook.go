@@ -81,15 +81,20 @@ func ValidateDatacenterFieldChanges(oldDc CassandraDatacenter, newDc CassandraDa
 	newRackCount := len(newRacks) - len(oldRacks)
 	if newRackCount > 0 {
 		newSizeDifference := newDc.Spec.Size - oldDc.Spec.Size
+		oldRackNodeSplit := SplitRacks(int(oldDc.Spec.Size), len(oldRacks))
+		minNodesFromOldRacks := oldRackNodeSplit[len(oldRackNodeSplit)-1]
+		minSizeAdjustment := minNodesFromOldRacks * newRackCount
 
 		if newSizeDifference <= 0 {
 			return attemptedTo("add Rack without increasing Size")
 		}
 
-		if int(newSizeDifference) < newRackCount {
+		if int(newSizeDifference) < minSizeAdjustment {
 			return attemptedTo(
-				fmt.Sprintf("add Racks without increasing Size enough to populate each rack.\n"+
-					"New racks added: %d, Size increased by: %d", newRackCount, newSizeDifference))
+				fmt.Sprintf("add Racks without increasing Size enough to prevent existing"+
+					" nodes from moving to new Racks to maintain balance.\n"+
+					"New racks added: %d, Size increased by: %d. Expected size increase to be at least %d",
+					newRackCount, newSizeDifference, minSizeAdjustment))
 		}
 	}
 

@@ -63,7 +63,8 @@ var _ = Describe(testName, func() {
 			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
 			k = kubectl.Get("pods").
 				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").FormatOutput(json)
+				WithFlag("field-selector", "status.phase=Running").
+				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true", 1200)
 
 			step = "checking the cassandra operator progress status is set to Ready"
@@ -90,11 +91,13 @@ var _ = Describe(testName, func() {
 			ns.ExecAndLogAndExpectErrorString(step, k,
 				"Error from server (CassandraDatacenter attempted to add Rack without increasing Size")
 
-			step = "attempt to add racks without increasing size enough to populate each rack"
+			step = "attempt to add racks without increasing size enough to not reduce nodes on existing racks"
 			json = `{"spec": {"size": 2,"racks": [{"name": "r1"}, {"name": "r2"}, {"name": "r3"}]}}`
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLogAndExpectErrorString(step, k,
-				"Error from server (CassandraDatacenter attempted to add Racks without increasing Size enough to populate each rack.\nNew racks added: 2, Size increased by: 1")
+				"Error from server (CassandraDatacenter attempted to add Racks without increasing Size enough"+
+					" to prevent existing nodes from moving to new Racks to maintain balance."+
+					"\nNew racks added: 2, Size increased by: 1. Expected size increase to be at least 2")
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)

@@ -403,7 +403,50 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 			errString: "CassandraDatacenter attempted to change Rack Zone from 'zone2' to 'zone2-changed'",
 		},
 		{
-			name: "Adding a rack is allowed",
+			name: "Adding a rack is allowed if size increases",
+			oldDc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					Size: 3,
+					Racks: []Rack{{
+						Name: "rack0",
+						Zone: "zone0",
+					}, {
+						Name: "rack1",
+						Zone: "zone1",
+					}, {
+						Name: "rack2",
+						Zone: "zone2",
+					}},
+				},
+			},
+			newDc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					Size: 4,
+					Racks: []Rack{{
+						Name: "rack0",
+						Zone: "zone0",
+					}, {
+						Name: "rack1",
+						Zone: "zone1",
+					}, {
+						Name: "rack2",
+						Zone: "zone2",
+					}, {
+						Name: "rack3",
+						Zone: "zone2",
+					}},
+				},
+			},
+			errString: "",
+		},
+		{
+			name: "Adding a rack is not allowed if size doesn't increase",
 			oldDc: &CassandraDatacenter{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "exampleDC",
@@ -441,7 +484,84 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					}},
 				},
 			},
-			errString: "",
+			errString: "CassandraDatacenter attempted to add Rack without increasing Size",
+		},
+		{
+			name: "Adding a rack is not allowed if size doesn't increase enough to prevent moving nodes from existing racks",
+			oldDc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					Size: 9,
+					Racks: []Rack{{
+						Name: "rack0",
+						Zone: "zone0",
+					}, {
+						Name: "rack1",
+						Zone: "zone1",
+					}},
+				},
+			},
+			newDc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					Size: 11,
+					Racks: []Rack{{
+						Name: "rack0",
+						Zone: "zone0",
+					}, {
+						Name: "rack1",
+						Zone: "zone1",
+					}, {
+						Name: "rack2",
+						Zone: "zone2",
+					}},
+				},
+			},
+			errString: "CassandraDatacenter attempted to add Racks without increasing Size enough to prevent existing nodes from moving to new Racks to maintain balance.\nNew racks added: 1, Size increased by: 2. Expected size increase to be at least 4",
+		},
+		{
+			name: "Adding multiple racks is not allowed if size doesn't increase enough to prevent moving nodes from existing racks",
+			oldDc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					Size: 9,
+					Racks: []Rack{{
+						Name: "rack0",
+						Zone: "zone0",
+					}, {
+						Name: "rack1",
+						Zone: "zone1",
+					}},
+				},
+			},
+			newDc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					Size: 16,
+					Racks: []Rack{{
+						Name: "rack0",
+						Zone: "zone0",
+					}, {
+						Name: "rack1",
+						Zone: "zone1",
+					}, {
+						Name: "rack2",
+						Zone: "zone2",
+					}, {
+						Name: "rack3",
+						Zone: "zone3",
+					}},
+				},
+			},
+			errString: "CassandraDatacenter attempted to add Racks without increasing Size enough to prevent existing nodes from moving to new Racks to maintain balance.\nNew racks added: 2, Size increased by: 7. Expected size increase to be at least 8",
 		},
 	}
 
