@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package oss_test_all_the_things
+package rolling_restart
 
 import (
 	"fmt"
@@ -17,10 +17,10 @@ import (
 )
 
 var (
-	testName         = "OSS test all the things"
-	namespace        = "test-oss-test-all-the-things"
-	dcName           = "dc1"
-	dcYaml           = "../testdata/oss-three-rack-three-node-dc.yaml"
+	testName         = "Rolling Restart"
+	namespace        = "test-rolling-restart"
+	dcName           = "dc2"
+	dcYaml           = "../testdata/default-single-rack-2-node-dc.yaml"
 	operatorYaml     = "../testdata/operator.yaml"
 	dcResource       = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel          = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
@@ -29,6 +29,7 @@ var (
 		"../../operator/deploy/role.yaml",
 		"../../operator/deploy/role_binding.yaml",
 		"../../operator/deploy/service_account.yaml",
+		// "../../operator/deploy/secret-ecr.yaml",
 		"../../operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
 	}
 )
@@ -47,7 +48,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator can scale up, stop, resume, and terminate a datacenter", func() {
+		Specify("the operator can perform a rolling restart", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
@@ -62,60 +63,35 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForOperatorReady()
 
-			step = "creating a datacenter resource with 3 racks/3 nodes"
+			step = "creating a datacenter resource with 1 rack/2 node"
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
 			ns.WaitForDatacenterReady(dcName)
-			ns.WaitForDatacenterCondition(dcName, "Ready", string(corev1.ConditionFalse))
-			ns.WaitForDatacenterCondition(dcName, "Initialized", string(corev1.ConditionFalse))
 
-			step = "scale up to 4 nodes"
-			json := "{\"spec\": {\"size\": 4}}"
+			step = "trigger restart"
+			json := `{"spec": {"rollingRestartRequested": true}}`
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
-			ns.WaitForDatacenterReady(dcName)
+			// Ensure we actually set the condition
+			ns.WaitForDatacenterCondition(dcName, "RollingRestart", string(corev1.ConditionTrue))
 
-			step = "scale up to 5 nodes"
-			json = "{\"spec\": {\"size\": 5}}"
-			k = kubectl.PatchMerge(dcResource, json)
-			ns.ExecAndLog(step, k)
+			// Ensure we actually unset the condition
+			ns.WaitForDatacenterCondition(dcName, "RollingRestart", string(corev1.ConditionFalse))
 
-			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
-			ns.WaitForDatacenterReady(dcName)
-
-			step = "stopping the dc"
-			json = "{\"spec\": {\"stopped\": true}}"
-			k = kubectl.PatchMerge(dcResource, json)
-			ns.ExecAndLog(step, k)
-
-			step = "checking the spec size hasn't changed"
-			json = "jsonpath={.spec.size}"
-			k = kubectl.Get(dcResource).
+			// Once the RollingRestart condition becomes true, all the pods in the cluster
+			// _should_ be ready
+			step = "get ready pods"
+			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
+			k = kubectl.Get("pods").
+				WithLabel(fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+				WithFlag("field-selector", "status.phase=Running").
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "5", 20)
 
-			ns.WaitForDatacenterToHaveNoPods(dcName)
-
-			step = "resume the dc"
-			json = "{\"spec\": {\"stopped\": false}}"
-			k = kubectl.PatchMerge(dcResource, json)
-			ns.ExecAndLog(step, k)
+			Expect(ns.OutputAndLog(step, k)).To(Equal("true true"))
 
 			ns.WaitForDatacenterReady(dcName)
-
-			step = "deleting the dc"
-			k = kubectl.DeleteFromFiles(dcYaml)
-			ns.ExecAndLog(step, k)
-
-			step = "checking that the dc no longer exists"
-			json = "jsonpath={.items}"
-			k = kubectl.Get("CassandraDatacenter").
-				WithLabel(dcLabel).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "[]", 300)
 		})
 	})
 })

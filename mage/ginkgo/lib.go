@@ -179,6 +179,16 @@ func (ns *NsWrapper) WaitForOutputContainsAndLog(description string, kcmd kubect
 	Expect(execErr).ToNot(HaveOccurred())
 }
 
+
+func (ns *NsWrapper) WaitForDatacenterCondition(dcName string, conditionType string, value string) {
+	step := fmt.Sprintf("checking that dc condition %s has value %s", conditionType, value)
+	json := fmt.Sprintf("jsonpath={.status.conditions[?(.type=='%s')].status}", conditionType)
+	k := kubectl.Get("cassandradatacenter", dcName).
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, value, 300)
+}
+
+
 func (ns *NsWrapper) WaitForDatacenterToHaveNoPods(dcName string) {
 	step := "checking that no dc pods remain"
 	json := "jsonpath={.items}"
@@ -266,6 +276,19 @@ func (ns *NsWrapper) EnableGossip(podName string) {
 
 func (ns *NsWrapper) GetDatacenterPodNames(dcName string) []string {
 	json := "jsonpath={.items[*].metadata.name}"
+	k := kubectl.Get("pods").
+		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		FormatOutput(json)
+
+	output := ns.OutputPanic(k)
+	podNames := strings.Split(output, " ")
+	sort.Sort(sort.StringSlice(podNames))
+
+	return podNames
+}
+
+func (ns *NsWrapper) GetDatacenterReadyPodNames(dcName string) []string {
+	json := "jsonpath={.items[?(@.status.containerStatuses[0].ready==true)].metadata.name}"
 	k := kubectl.Get("pods").
 		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
 		FormatOutput(json)

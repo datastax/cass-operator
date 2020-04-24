@@ -10,6 +10,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
+
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
 	"github.com/datastax/cass-operator/mage/kubectl"
 )
@@ -71,7 +73,13 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
+			ns.WaitForDatacenterCondition(dcName, "ScaleUp", string(corev1.ConditionTrue))
 			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
+			ns.WaitForDatacenterCondition(dcName, "ScaleUp", string(corev1.ConditionFalse))
+
+			// Ensure that when 'ScaleUp' becomes 'false' that our pods are in fact up and running
+			Expect(len(ns.GetDatacenterReadyPodNames(dcName))).To(Equal(2))
+
 			ns.WaitForDatacenterReady(dcName)
 
 			step = "scale up to 4 nodes"

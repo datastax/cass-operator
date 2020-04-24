@@ -14,6 +14,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
+
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
 	"github.com/datastax/cass-operator/mage/kubectl"
 )
@@ -196,6 +198,8 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, patch)
 			ns.ExecAndLog(step, k)
 
+			ns.WaitForDatacenterCondition(dcName, "ReplacingNodes", string(corev1.ConditionTrue))
+
 			step = "wait for the status to indicate we are replacing pods"
 			json = "jsonpath={.status.nodeReplacements[0]}"
 			k = kubectl.Get("cassandradatacenter", dcName).FormatOutput(json)
@@ -217,6 +221,10 @@ var _ = Describe(testName, func() {
 			// create both a new pod and a new PVC for us.
 			k = kubectl.Delete("pod", podNameToReplace)
 			ns.ExecAndLog(step, k)
+
+			// Ensure that all pods up and running when ReplacingNodes gets unset
+			ns.WaitForDatacenterCondition(dcName, "ReplacingNodes", string(corev1.ConditionFalse))
+			Expect(len(ns.GetDatacenterReadyPodNames(dcName))).To(Equal(3))
 
 			step = "wait for the pod to return to life"
 			json = "jsonpath={.status.containerStatuses[?(.name=='cassandra')].ready}"

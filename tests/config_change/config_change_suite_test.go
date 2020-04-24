@@ -10,6 +10,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
+
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
 	"github.com/datastax/cass-operator/mage/kubectl"
 )
@@ -79,7 +81,13 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
+			ns.WaitForDatacenterCondition(dcName, "Updating", string(corev1.ConditionTrue))
 			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
+
+			// Ensure when Updating condition unset that all pods are online
+			ns.WaitForDatacenterCondition(dcName, "Updating", string(corev1.ConditionFalse))
+			Expect(len(ns.GetDatacenterReadyPodNames(dcName))).To(Equal(6))
+
 			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 1800)
 
 			step = "checking that the init container got the updated config file_cache_size_in_mb=123, garbage_collector=CMS"
