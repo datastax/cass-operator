@@ -472,7 +472,9 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 // CheckRackScale loops over each statefulset and makes sure that it has the right
 // amount of desired replicas. At this time we can only increase the amount of replicas.
 func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
-	rc.ReqLogger.Info("reconcile_racks::CheckRackScale")
+	logger := rc.ReqLogger
+	logger.Info("reconcile_racks::CheckRackScale")
+	dc := rc.Datacenter
 
 	for idx := range rc.desiredRackInformation {
 		rackInfo := rc.desiredRackInformation[idx]
@@ -484,6 +486,16 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 		maxReplicas := *statefulSet.Spec.Replicas
 
 		if maxReplicas < desiredNodeCount {
+			dcPatch := client.MergeFrom(dc.DeepCopy())
+			_ = rc.MaybeUpdateCondition(api.DatacenterCondition{
+				Type: api.DatacenterScalingUp,
+				Status: corev1.ConditionTrue,
+			})
+			err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
+			if err != nil {
+				logger.Error(err, "error patching datacenter status for scaling rack started")
+				return result.Error(err)
+			}
 
 			// update it
 			rc.ReqLogger.Info(
@@ -497,7 +509,7 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.ScalingUpRack,
 				"Scaling up rack %s", rackInfo.RackName)
 
-			err := rc.UpdateRackNodeCount(statefulSet, desiredNodeCount)
+			err = rc.UpdateRackNodeCount(statefulSet, desiredNodeCount)
 			if err != nil {
 				return result.Error(err)
 			}
@@ -712,6 +724,11 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 		dc.Status.NodeReplacements = appendValuesToStringArrayIfNotPresent(
 			dc.Status.NodeReplacements,
 			dc.Spec.ReplaceNodes...)
+		
+		rc.MaybeUpdateCondition(api.DatacenterCondition{
+			Type: api.DatacenterReplacingNodes,
+			Status: corev1.ConditionTrue,
+		})
 
 		// Now that we've recorded these nodes in the status, we can blank
 		// out this field on the spec
@@ -1586,13 +1603,13 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 	if dc.Spec.RollingRestartRequested {
 		dcPatch := client.MergeFrom(dc.DeepCopy())
 		dc.Status.LastRollingRestart = metav1.Now()
-		dc.SetCondition(api.DatacenterCondition{
+		_ = rc.MaybeUpdateCondition(api.DatacenterCondition{
 			Type: api.DatacenterRollingRestart,
 			Status: corev1.ConditionTrue,
 		})
 		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
 		if err != nil {
-			logger.Error(err, "error patching datacenter status for rolling restart")
+			logger.Error(err, "error patching datacenter status for rolling restart started")
 			return result.Error(err)
 		}
 
@@ -1629,22 +1646,81 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 		}
 	}
 
-	logger.Info("Not performing rolling restart")
-	// if we were doing a rolling restart, it is done now
-	if dc.GetConditionStatus(api.DatacenterRollingRestart) != corev1.ConditionFalse {
-		logger.Info("Turning off rolling restart condition")
-		dcPatch := client.MergeFrom(dc.DeepCopy())
-		dc.SetCondition(api.DatacenterCondition{
-			Type: api.DatacenterRollingRestart,
-			Status: corev1.ConditionFalse,
+	return result.Continue()
+}
+
+func (rc *ReconciliationContext) MaybeUpdateCondition(condition api.DatacenterCondition) bool {
+	dc := rc.Datacenter
+	if dc.GetConditionStatus(condition.Type) != condition.Status {
+		// We are changing the status, so record the transition time
+		condition.LastTransitionTime = metav1.Now()
+		dc.SetCondition(condition)
+		return true
+	}
+	return false
+}
+
+func (rc *ReconciliationContext) CheckConditionInitializedAndReady() result.ReconcileResult {
+	dc := rc.Datacenter
+	dcPatch := client.MergeFrom(dc.DeepCopy())
+	logger := rc.ReqLogger
+	
+	updated := false
+	for _, conditionType := range []api.DatacenterConditionType{api.DatacenterInitialized, api.DatacenterReady} {
+		updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
+			Type: conditionType,
+			Status: corev1.ConditionTrue,
 		})
+	}
+
+	if updated {
 		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
 		if err != nil {
-			logger.Error(err, "error patching datacenter status for rolling restart")
+			logger.Error(err, "error patching datacenter status")
 			return result.Error(err)
 		}
 	}
 
+	return result.Continue()
+}
+
+func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileResult {
+	dc := rc.Datacenter
+	logger := rc.ReqLogger
+	dcPatch := client.MergeFrom(dc.DeepCopy())
+
+	// If we are here, any action that was in progress should now be completed, so start
+	// clearing conditions
+	actionConditionTypes := []api.DatacenterConditionType{
+		api.DatacenterReplacingNodes,
+		api.DatacenterScalingUp,
+		api.DatacenterUpdating,
+		api.DatacenterRollingRestart,
+	}
+	updated := false
+	for _, conditionType := range(actionConditionTypes) {
+		updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
+			Type: conditionType,
+			Status: corev1.ConditionFalse,
+		})
+	}
+
+	if updated {
+		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
+		if err != nil {
+			logger.Error(err, "error patching datacenter status")
+			return result.Error(err)
+		}
+
+		// There may have been changes to the CassandraDatacenter resource that we ignored
+		// while executing some action on the cluster. For example, a user may have 
+		// requested to scale up the node count while we were in the middle of a rolling
+		// restart. To account for this, we requeue to ensure reconcile gets called again
+		// to pick up any such changes that we ignored previously.
+		return result.RequeueSoon(0)
+	}
+	
+	// Nothing has changed, carry on
 	return result.Continue()
 }
 
@@ -1713,8 +1789,14 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
-	// TODO: Set condition Ready
-	
+	if recResult := rc.CheckClearActionConditions(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckConditionInitializedAndReady(); recResult.Completed() {
+		return recResult.Output()
+	}
+
 	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
 		return result.Error(err).Output()
 	}

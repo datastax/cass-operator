@@ -199,6 +199,7 @@ const (
 type DatacenterCondition struct {
 	Type DatacenterConditionType `json:"type"`
 	Status corev1.ConditionStatus `json:"status"`
+	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
 }
 
 // CassandraDatacenterStatus defines the observed state of CassandraDatacenter
@@ -326,6 +327,9 @@ func (dc *CassandraDatacenter) GetConditionStatus(conditionType DatacenterCondit
 }
 
 func (dc *CassandraDatacenter) SetCondition(condition DatacenterCondition) {
+	// NOTE: Recreating the array here is necessary as simply updating elements
+	// in the array can lead to a path update missing the change.
+
 	conditions := []DatacenterCondition{}
 	added := false
 	for i, _ := range dc.Status.Conditions {
