@@ -292,6 +292,22 @@ spec:
             cassandraOperatorProgress:
               description: Last known progress state of the Cassandra Operator
               type: string
+            conditions:
+              items:
+                properties:
+                  lastTransitionTime:
+                    format: date-time
+                    type: string
+                  status:
+                    type: string
+                  type:
+                    type: string
+                required:
+                - lastTransitionTime
+                - status
+                - type
+                type: object
+              type: array
             lastRollingRestart:
               format: date-time
               type: string
@@ -318,6 +334,8 @@ spec:
                 upserted to the management API
               format: date-time
               type: string
+          required:
+          - conditions
           type: object
       type: object
       x-kubernetes-preserve-unknown-fields: true

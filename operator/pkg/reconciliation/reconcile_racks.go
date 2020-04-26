@@ -757,6 +757,7 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 			Type: api.DatacenterReplacingNodes,
 			Status: corev1.ConditionTrue,
 		})
+		rc.ReqLogger.Info(fmt.Sprintf("conditions are now: %v", dc.Status.Conditions))
 
 		rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.ReplacingNode,
 			"Replacing Cassandra nodes for pods %s", podNamesString)

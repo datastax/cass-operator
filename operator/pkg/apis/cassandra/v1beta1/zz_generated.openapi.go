@@ -235,6 +235,18 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterStatus(ref common.Refe
 				Description: "CassandraDatacenterStatus defines the observed state of CassandraDatacenter",
 				Type:        []string{"object"},
 				Properties: map[string]spec.Schema{
+					"conditions": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.DatacenterCondition"),
+									},
+								},
+							},
+						},
+					},
 					"superUserUpserted": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The timestamp at which CQL superuser credentials were last upserted to the management API",
@@ -286,9 +298,10 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterStatus(ref common.Refe
 						},
 					},
 				},
+				Required: []string{"conditions"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.CassandraNodeStatus", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
+			"github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.CassandraNodeStatus", "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.DatacenterCondition", "k8s.io/apimachinery/pkg/apis/meta/v1.Time"},
 	}
 }
