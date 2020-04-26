@@ -761,7 +761,8 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 			dc.Status.NodeReplacements,
 			dc.Spec.ReplaceNodes...)
 		
-		rc.MaybeUpdateCondition(api.DatacenterCondition{
+		rc.ReqLogger.Info("Updating condition for replacing nodes to be true")
+		_ = rc.MaybeUpdateCondition(api.DatacenterCondition{
 			Type: api.DatacenterReplacingNodes,
 			Status: corev1.ConditionTrue,
 		})
