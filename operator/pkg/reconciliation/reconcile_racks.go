@@ -752,7 +752,11 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 
 		podNamesString := strings.Join(dc.Spec.ReplaceNodes, ", ")
 
-		// TODO: set condition replacing nodes
+		rc.ReqLogger.Info("Updating condition for replacing nodes to be true")
+		_ = rc.MaybeUpdateCondition(api.DatacenterCondition{
+			Type: api.DatacenterReplacingNodes,
+			Status: corev1.ConditionTrue,
+		})
 
 		rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.ReplacingNode,
 			"Replacing Cassandra nodes for pods %s", podNamesString)
@@ -760,12 +764,6 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 		dc.Status.NodeReplacements = appendValuesToStringArrayIfNotPresent(
 			dc.Status.NodeReplacements,
 			dc.Spec.ReplaceNodes...)
-		
-		rc.ReqLogger.Info("Updating condition for replacing nodes to be true")
-		_ = rc.MaybeUpdateCondition(api.DatacenterCondition{
-			Type: api.DatacenterReplacingNodes,
-			Status: corev1.ConditionTrue,
-		})
 
 		// Now that we've recorded these nodes in the status, we can blank
 		// out this field on the spec
@@ -1690,10 +1688,12 @@ func (rc *ReconciliationContext) MaybeUpdateCondition(condition api.DatacenterCo
 	dc := rc.Datacenter
 	if dc.GetConditionStatus(condition.Type) != condition.Status {
 		// We are changing the status, so record the transition time
+		rc.ReqLogger.Info(fmt.Sprintf("Setting condition %v", condition))
 		condition.LastTransitionTime = metav1.Now()
 		dc.SetCondition(condition)
 		return true
 	}
+	rc.ReqLogger.Info(fmt.Sprintf("Not setting condition %v", condition))
 	return false
 }
 
