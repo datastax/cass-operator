@@ -793,6 +793,7 @@ func (rc *ReconciliationContext) UpdateStatusForUserActions() error {
 func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	dc := rc.Datacenter
 	oldDc := rc.Datacenter.DeepCopy()
+	patch := client.MergeFrom(oldDc)
 
 	err := rc.UpdateCassandraNodeStatus()
 	if err != nil {
@@ -803,10 +804,12 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	if err != nil {
 		return result.Error(err)
 	}
-
-	// Update the status if it changed
-	patch := client.MergeFrom(oldDc)
+	
 	if !reflect.DeepEqual(dc, oldDc) {
+		// Update the status if it changed
+		patchData, _ := patch.Data(dc)
+		rc.ReqLogger.Info(fmt.Sprintf("Patch content: %s", string(patchData)))
+	
 		// If we update the status to account for some user action, for example a
 		// pod replace, then we may have also updated the datacenter spec, so patch
 		// it as well.
