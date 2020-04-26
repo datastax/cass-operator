@@ -298,7 +298,6 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterStatus(ref common.Refe
 						},
 					},
 				},
-				Required: []string{"conditions"},
 			},
 		},
 		Dependencies: []string{

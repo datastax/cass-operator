@@ -205,7 +205,7 @@ type DatacenterCondition struct {
 // CassandraDatacenterStatus defines the observed state of CassandraDatacenter
 // +k8s:openapi-gen=true
 type CassandraDatacenterStatus struct {
-	Conditions []DatacenterCondition `json:"conditions"`
+	Conditions []DatacenterCondition `json:"conditions,omitempty"`
 
 	// The timestamp at which CQL superuser credentials
 	// were last upserted to the management API

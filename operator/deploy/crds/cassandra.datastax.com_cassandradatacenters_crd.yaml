@@ -334,8 +334,6 @@ spec:
                 upserted to the management API
               format: date-time
               type: string
-          required:
-          - conditions
           type: object
       type: object
       x-kubernetes-preserve-unknown-fields: true
