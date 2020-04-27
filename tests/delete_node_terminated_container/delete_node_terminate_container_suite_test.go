@@ -19,8 +19,8 @@ import (
 var (
 	testName     = "Delete Node where Cassandra container terminated, restarted, and isn't becoming ready"
 	namespace    = "test-delete-node-terminated-container"
-	dcName       = "dc1"
-	dcYaml       = "../testdata/default-three-rack-three-node-dc.yaml"
+	dcName       = "dc2"
+	dcYaml       = "../testdata/default-single-rack-single-node-dc.yaml"
 	operatorYaml = "../testdata/operator.yaml"
 	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
@@ -51,11 +51,11 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForOperatorReady()
 
-			step = "creating a datacenter resource with 3 racks/3 nodes"
+			step = "creating a datacenter resource with 1 rack/1 node"
 			k := kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the first pod to start up"
+			step = "waiting for the pod to start up"
 			json := `jsonpath={.items[0].metadata.labels.cassandra\.datastax\.com/node-state}`
 			k = kubectl.Get("pods").
 				WithLabel(dcLabel).
@@ -64,9 +64,9 @@ var _ = Describe(testName, func() {
 			ns.WaitForOutputAndLog(step, k, "Starting", 1200)
 
 			// give the cassandra container some time to get created
-			time.Sleep(20 * time.Second)
+			time.Sleep(10 * time.Second)
 
-			step = "finding name of the first pod"
+			step = "finding name of the pod"
 			json = "jsonpath={.items[0].metadata.name}"
 			k = kubectl.Get("pods").
 				WithLabel(dcLabel).
@@ -102,7 +102,7 @@ var _ = Describe(testName, func() {
 				WithLabel(dcLabel).
 				WithFlag("field-selector", "status.phase=Running").
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true true true", 600)
+			ns.WaitForOutputAndLog(step, k, "true", 600)
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)

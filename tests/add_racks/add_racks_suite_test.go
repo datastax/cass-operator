@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package webhook_validation
+package add_racks
 
 import (
 	"fmt"
@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	testName     = "Cluster webhook validation test"
-	namespace    = "test-webhook-validation"
+	testName     = "Add racks"
+	namespace    = "test-add-racks"
 	dcName       = "dc2"
 	dcYaml       = "../testdata/default-single-rack-single-node-dc.yaml"
 	operatorYaml = "../testdata/operator.yaml"
@@ -39,7 +39,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the webhook disallows invalid updates", func() {
+		Specify("racks can be added if the size is increased accordingly", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
@@ -63,8 +63,7 @@ var _ = Describe(testName, func() {
 			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
 			k = kubectl.Get("pods").
 				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
+				WithFlag("field-selector", "status.phase=Running").FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true", 1200)
 
 			step = "checking the cassandra operator progress status is set to Ready"
@@ -73,31 +72,36 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
 
-			step = "attempt to use invalid dse version"
-			json = "{\"spec\": {\"serverType\": \"dse\", \"serverVersion\": \"4.8.0\"}}"
+			step = "add 1 rack and increase size by 1"
+			json = `{"spec": { "size": 2, "racks": [{"name": "r1"}, {"name": "r2"}]}}`
 			k = kubectl.PatchMerge(dcResource, json)
-			ns.ExecAndLogAndExpectErrorString(step, k,
-				"validation failure list:\nspec.serverVersion in body should be one of [6.8.0 3.11.6 4.0.0]")
+			ns.ExecAndLog(step, k)
 
-			step = "attempt to change the dc name"
-			json = "{\"spec\": {\"clusterName\": \"NewName\"}}"
-			k = kubectl.PatchMerge(dcResource, json)
-			ns.ExecAndLogAndExpectErrorString(step, k,
-				"change clusterName")
+			step = "checking there is 1 node on the new rack"
+			json = "jsonpath={.items[*].metadata.name}"
+			k = kubectl.Get("pod").
+				WithLabel(`cassandra.datastax.com/rack=r2`).
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "cluster2-dc2-r2-sts-0", 60)
 
-			step = "attempt to add rack without increasing size"
-			json = `{"spec": {"racks": [{"name": "r1"}, {"name": "r2"}]}}`
+			step = "add 2 more racks and increase size by 2"
+			json = `{"spec": { "size": 4, "racks": [{"name": "r1"}, {"name": "r2"}, {"name": "r3"}, {"name": "r4"}]}}`
 			k = kubectl.PatchMerge(dcResource, json)
-			ns.ExecAndLogAndExpectErrorString(step, k,
-				"add rack without increasing size")
+			ns.ExecAndLog(step, k)
 
-			step = "attempt to add racks without increasing size enough to not reduce nodes on existing racks"
-			json = `{"spec": {"size": 2,"racks": [{"name": "r1"}, {"name": "r2"}, {"name": "r3"}]}}`
-			k = kubectl.PatchMerge(dcResource, json)
-			ns.ExecAndLogAndExpectErrorString(step, k,
-				"add racks without increasing size enough"+
-					" to prevent existing nodes from moving to new racks to maintain balance."+
-					"\nNew racks added: 2, size increased by: 1. Expected size increase to be at least 2")
+			step = "checking there is 1 node on rack 3"
+			json = "jsonpath={.items[*].metadata.name}"
+			k = kubectl.Get("pod").
+				WithLabel("cassandra.datastax.com/rack=r3").
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "cluster2-dc2-r3-sts-0", 60)
+
+			step = "checking there is 1 node on rack 4"
+			json = "jsonpath={.items[*].metadata.name}"
+			k = kubectl.Get("pod").
+				WithLabel("cassandra.datastax.com/rack=r4").
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "cluster2-dc2-r4-sts-0", 60)
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)

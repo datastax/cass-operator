@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
-	"time"
 	"strings"
+	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -52,7 +52,9 @@ func (rc *ReconciliationContext) CalculateRackInformation() error {
 	racks := rc.Datacenter.GetRacks()
 	rackCount := len(racks)
 
-	// TODO error if nodeCount < rackCount
+	if nodeCount < rackCount {
+		return fmt.Errorf("the number of nodes cannot be smaller than the number of racks")
+	}
 
 	if rc.Datacenter.Spec.Stopped {
 		nodeCount = 0
@@ -75,24 +77,14 @@ func (rc *ReconciliationContext) CalculateRackInformation() error {
 		return fmt.Errorf("assertion failed! rackCount should not possibly be zero here")
 	}
 
-	// nodes_per_rack = total_size / rack_count + 1 if rack_index < remainder
-
-	nodesPerRack, extraNodes := nodeCount/rackCount, nodeCount%rackCount
-	seedsPerRack, extraSeeds := seedCount/rackCount, seedCount%rackCount
+	rackSeedCounts := api.SplitRacks(seedCount, rackCount)
+	rackNodeCounts := api.SplitRacks(nodeCount, rackCount)
 
 	for rackIndex, currentRack := range racks {
-		nodesForThisRack := nodesPerRack
-		if rackIndex < extraNodes {
-			nodesForThisRack++
-		}
-		seedsForThisRack := seedsPerRack
-		if rackIndex < extraSeeds {
-			seedsForThisRack++
-		}
 		nextRack := &RackInformation{}
 		nextRack.RackName = currentRack.Name
-		nextRack.NodeCount = nodesForThisRack
-		nextRack.SeedCount = seedsForThisRack
+		nextRack.NodeCount = rackNodeCounts[rackIndex]
+		nextRack.SeedCount = rackSeedCounts[rackIndex]
 
 		desiredRackInformation = append(desiredRackInformation, nextRack)
 	}
@@ -1241,7 +1233,7 @@ func (rc *ReconciliationContext) labelServerPodStarting(pod *corev1.Pod) error {
 	if err != nil {
 		return err
 	}
-	
+
 	statusPatch := client.MergeFrom(dc.DeepCopy())
 	dc.Status.LastServerNodeStarted = metav1.Now()
 	err = rc.Client.Status().Patch(ctx, dc, statusPatch)
