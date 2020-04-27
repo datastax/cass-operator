@@ -751,13 +751,16 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 		rc.ReqLogger.Info("Replacing pods", "pods", dc.Spec.ReplaceNodes)
 
 		podNamesString := strings.Join(dc.Spec.ReplaceNodes, ", ")
+		// [{Initialized True} {Ready True}]
 		rc.ReqLogger.Info(fmt.Sprintf("conditions are currently: %v", dc.Status.Conditions))
-		
+
 		rc.ReqLogger.Info("Updating condition for replacing nodes to be true")
 		_ = rc.MaybeUpdateCondition(api.DatacenterCondition{
 			Type: api.DatacenterReplacingNodes,
 			Status: corev1.ConditionTrue,
 		})
+
+		// [{Initialized True} {Ready True} {ReplacingNodes True}]
 		rc.ReqLogger.Info(fmt.Sprintf("conditions are now: %v", dc.Status.Conditions))
 
 		rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.ReplacingNode,
@@ -818,14 +821,15 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	if !reflect.DeepEqual(dc, oldDc) {
 		// Update the status if it changed
 	
+		// "{\"metadata\":{\"generation\":4,\"resourceVersion\":\"7828251\"},\"spec\":{\"replaceNodes\":null},\"status\":{\"nodeReplacements\":[\"cluster1-dc1-r3-sts-0\"]}}"
+		if err := rc.patchStatus(patch); err != nil {
+			return result.Error(err)
+		}
+
 		// If we update the status to account for some user action, for example a
 		// pod replace, then we may have also updated the datacenter spec, so patch
 		// it as well.
 		if err := rc.Client.Patch(rc.Ctx, dc, patch); err != nil {
-			return result.Error(err)
-		}
-
-		if err := rc.patchStatus(patch); err != nil {
 			return result.Error(err)
 		}
 	}
