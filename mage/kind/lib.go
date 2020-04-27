@@ -22,9 +22,8 @@ import (
 )
 
 const (
-	operatorImage              = "datastax/cass-operator:latest"
-	operatorInitContainerImage = "datastax/cass-operator-init:latest"
-	envLoadDevImages           = "M_LOAD_DEV_IMAGES"
+	operatorImage    = "datastax/cass-operator:latest"
+	envLoadDevImages = "M_LOAD_DEV_IMAGES"
 )
 
 func deleteCluster() error {
@@ -133,7 +132,6 @@ func SetupEmptyCluster() {
 		ExecVPanic()
 	//TODO make this part optional
 	operator.BuildDocker()
-	loadImage(operatorInitContainerImage)
 	loadImage(operatorImage)
 }
 
@@ -217,7 +215,6 @@ func EnsureEmptyCluster() {
 		// we still need to build and load an updated
 		// set of our local operator images
 		operator.BuildDocker()
-		reloadLocalImage(operatorInitContainerImage)
 		reloadLocalImage(operatorImage)
 	}
 
@@ -236,6 +233,5 @@ func EnsureEmptyCluster() {
 
 func ReloadOperator() {
 	operator.BuildDocker()
-	reloadLocalImage(operatorInitContainerImage)
 	reloadLocalImage(operatorImage)
 }
