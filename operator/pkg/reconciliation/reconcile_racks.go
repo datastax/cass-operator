@@ -819,17 +819,24 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	}
 	
 	if !reflect.DeepEqual(dc, oldDc) {
-		// Update the status if it changed
-	
-		// "{\"metadata\":{\"generation\":4,\"resourceVersion\":\"7828251\"},\"spec\":{\"replaceNodes\":null},\"status\":{\"nodeReplacements\":[\"cluster1-dc1-r3-sts-0\"]}}"
-		if err := rc.patchStatus(patch); err != nil {
-			return result.Error(err)
-		}
+		// Save the status changes as tey will get stomped on when we patch the
+		// resource.
+		statusChanges := dc.Status.DeepCopy()
 
 		// If we update the status to account for some user action, for example a
 		// pod replace, then we may have also updated the datacenter spec, so patch
 		// it as well.
 		if err := rc.Client.Patch(rc.Ctx, dc, patch); err != nil {
+			return result.Error(err)
+		}
+
+		rc.ReqLogger.Info(fmt.Sprintf("conditions are after resource update: %v", dc.Status.Conditions))
+
+		patch = client.MergeFrom(dc.DeepCopy())
+		statusChanges.DeepCopyInto(&dc.Status)
+
+		// "{\"metadata\":{\"generation\":4,\"resourceVersion\":\"7828251\"},\"spec\":{\"replaceNodes\":null},\"status\":{\"nodeReplacements\":[\"cluster1-dc1-r3-sts-0\"]}}"
+		if err := rc.patchStatus(patch); err != nil {
 			return result.Error(err)
 		}
 	}
