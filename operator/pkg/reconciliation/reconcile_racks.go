@@ -1851,9 +1851,9 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
-	// if recResult := rc.CheckConditionInitializedAndReady(); recResult.Completed() {
-	// 	return recResult.Output()
-	// }
+	if recResult := rc.CheckConditionInitializedAndReady(); recResult.Completed() {
+		return recResult.Output()
+	}
 
 	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
 		return result.Error(err).Output()
