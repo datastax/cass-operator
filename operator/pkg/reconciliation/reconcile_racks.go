@@ -832,7 +832,6 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 
 		rc.ReqLogger.Info(fmt.Sprintf("conditions are after resource update: %v", dc.Status.Conditions))
 
-		patch = client.MergeFrom(dc.DeepCopy())
 		statusChanges.DeepCopyInto(&dc.Status)
 
 		// "{\"metadata\":{\"generation\":4,\"resourceVersion\":\"7828251\"},\"spec\":{\"replaceNodes\":null},\"status\":{\"nodeReplacements\":[\"cluster1-dc1-r3-sts-0\"]}}"
