@@ -83,21 +83,21 @@ var _ = Describe(testName, func() {
 			json = "{\"spec\": {\"clusterName\": \"NewName\"}}"
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLogAndExpectErrorString(step, k,
-				"Error from server (CassandraDatacenter attempted to change ClusterName): admission webhook \"cassandradatacenter-webhook.cassandra.datastax.com\" denied the request: CassandraDatacenter attempted to change ClusterName\n")
+				"change clusterName")
 
 			step = "attempt to add rack without increasing size"
 			json = `{"spec": {"racks": [{"name": "r1"}, {"name": "r2"}]}}`
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLogAndExpectErrorString(step, k,
-				"Error from server (CassandraDatacenter attempted to add Rack without increasing Size")
+				"add rack without increasing size")
 
 			step = "attempt to add racks without increasing size enough to not reduce nodes on existing racks"
 			json = `{"spec": {"size": 2,"racks": [{"name": "r1"}, {"name": "r2"}, {"name": "r3"}]}}`
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLogAndExpectErrorString(step, k,
-				"Error from server (CassandraDatacenter attempted to add Racks without increasing Size enough"+
-					" to prevent existing nodes from moving to new Racks to maintain balance."+
-					"\nNew racks added: 2, Size increased by: 1. Expected size increase to be at least 2")
+				"add racks without increasing size enough"+
+					" to prevent existing nodes from moving to new racks to maintain balance."+
+					"\nNew racks added: 2, size increased by: 1. Expected size increase to be at least 2")
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)

@@ -77,18 +77,14 @@ func (rc *ReconciliationContext) CalculateRackInformation() error {
 		return fmt.Errorf("assertion failed! rackCount should not possibly be zero here")
 	}
 
-	seedsPerRack, extraSeeds := seedCount/rackCount, seedCount%rackCount
+	rackSeedCounts := api.SplitRacks(seedCount, rackCount)
 	rackNodeCounts := api.SplitRacks(nodeCount, rackCount)
 
 	for rackIndex, currentRack := range racks {
-		seedsForThisRack := seedsPerRack
-		if rackIndex < extraSeeds {
-			seedsForThisRack++
-		}
 		nextRack := &RackInformation{}
 		nextRack.RackName = currentRack.Name
 		nextRack.NodeCount = rackNodeCounts[rackIndex]
-		nextRack.SeedCount = seedsForThisRack
+		nextRack.SeedCount = rackSeedCounts[rackIndex]
 
 		desiredRackInformation = append(desiredRackInformation, nextRack)
 	}

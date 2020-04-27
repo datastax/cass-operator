@@ -23,7 +23,7 @@ func attemptedTo(action string, actionStrArgs ...interface{}) error {
 	} else {
 		msg = action
 	}
-	return fmt.Errorf("CassandraDatacenter attempted to %s", msg)
+	return fmt.Errorf("CassandraDatacenter write rejected, attempted to %s", msg)
 }
 
 // Ensure that no values are improperly set
@@ -45,24 +45,24 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 func ValidateDatacenterFieldChanges(oldDc CassandraDatacenter, newDc CassandraDatacenter) error {
 
 	if oldDc.Spec.ClusterName != newDc.Spec.ClusterName {
-		return attemptedTo("change ClusterName")
+		return attemptedTo("change clusterName")
 	}
 
 	if oldDc.Spec.AllowMultipleNodesPerWorker != newDc.Spec.AllowMultipleNodesPerWorker {
-		return attemptedTo("change AllowMultipleNodesPerWorker")
+		return attemptedTo("change allowMultipleNodesPerWorker")
 	}
 
 	if oldDc.Spec.SuperuserSecretName != newDc.Spec.SuperuserSecretName {
-		return attemptedTo("change SuperuserSecretName")
+		return attemptedTo("change superuserSecretName")
 	}
 
 	if oldDc.Spec.ServiceAccount != newDc.Spec.ServiceAccount {
-		return attemptedTo("change ServiceAccount")
+		return attemptedTo("change serviceAccount")
 	}
 
 	// StorageConfig changes are disallowed
 	if !reflect.DeepEqual(oldDc.Spec.StorageConfig, newDc.Spec.StorageConfig) {
-		return attemptedTo("change StorageConfig")
+		return attemptedTo("change storageConfig")
 	}
 
 	// Topology changes - Racks
@@ -75,7 +75,7 @@ func ValidateDatacenterFieldChanges(oldDc CassandraDatacenter, newDc CassandraDa
 	newRacks := newDc.GetRacks()
 
 	if len(oldRacks) > len(newRacks) {
-		return attemptedTo("remove Rack")
+		return attemptedTo("remove rack")
 	}
 
 	newRackCount := len(newRacks) - len(oldRacks)
@@ -86,14 +86,14 @@ func ValidateDatacenterFieldChanges(oldDc CassandraDatacenter, newDc CassandraDa
 		minSizeAdjustment := minNodesFromOldRacks * newRackCount
 
 		if newSizeDifference <= 0 {
-			return attemptedTo("add Rack without increasing Size")
+			return attemptedTo("add rack without increasing size")
 		}
 
 		if int(newSizeDifference) < minSizeAdjustment {
 			return attemptedTo(
-				fmt.Sprintf("add Racks without increasing Size enough to prevent existing"+
-					" nodes from moving to new Racks to maintain balance.\n"+
-					"New racks added: %d, Size increased by: %d. Expected size increase to be at least %d",
+				fmt.Sprintf("add racks without increasing size enough to prevent existing"+
+					" nodes from moving to new racks to maintain balance.\n"+
+					"New racks added: %d, size increased by: %d. Expected size increase to be at least %d",
 					newRackCount, newSizeDifference, minSizeAdjustment))
 		}
 	}
@@ -101,12 +101,12 @@ func ValidateDatacenterFieldChanges(oldDc CassandraDatacenter, newDc CassandraDa
 	for index, oldRack := range oldRacks {
 		newRack := newRacks[index]
 		if oldRack.Name != newRack.Name {
-			return attemptedTo("change Rack Name from '%s' to '%s'",
+			return attemptedTo("change rack name from '%s' to '%s'",
 				oldRack.Name,
 				newRack.Name)
 		}
 		if oldRack.Zone != newRack.Zone {
-			return attemptedTo("change Rack Zone from '%s' to '%s'",
+			return attemptedTo("change rack zone from '%s' to '%s'",
 				oldRack.Zone,
 				newRack.Zone)
 		}

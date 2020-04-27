@@ -4,6 +4,7 @@
 package v1beta1
 
 import (
+	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -42,7 +43,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 					ServerVersion: "4.8.0",
 				},
 			},
-			errString: "CassandraDatacenter attempted to use unsupported DSE version '4.8.0'",
+			errString: "use unsupported DSE version '4.8.0'",
 		},
 		{
 			name: "Cassandra valid",
@@ -81,7 +82,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 					ServerVersion: "6.8.0",
 				},
 			},
-			errString: "CassandraDatacenter attempted to use unsupported Cassandra version '6.8.0'",
+			errString: "use unsupported Cassandra version '6.8.0'",
 		},
 	}
 
@@ -93,8 +94,8 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 					t.Errorf("ValidateSingleDatacenter() err = %v, want %v", err, tt.errString)
 				}
 			} else {
-				if err.Error() != tt.errString {
-					t.Errorf("ValidateSingleDatacenter() err = %v, want %v", err, tt.errString)
+				if !strings.HasSuffix(err.Error(), tt.errString) {
+					t.Errorf("ValidateSingleDatacenter() err = %v, want suffix %v", err, tt.errString)
 				}
 			}
 		})
@@ -193,7 +194,7 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					ClusterName: "newname",
 				},
 			},
-			errString: "CassandraDatacenter attempted to change ClusterName",
+			errString: "change clusterName",
 		},
 		{
 			name: "AllowMultipleNodesPerWorker changed",
@@ -213,7 +214,7 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					AllowMultipleNodesPerWorker: true,
 				},
 			},
-			errString: "CassandraDatacenter attempted to change AllowMultipleNodesPerWorker",
+			errString: "change allowMultipleNodesPerWorker",
 		},
 		{
 			name: "SuperuserSecretName changed",
@@ -233,7 +234,7 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					SuperuserSecretName: "newsecret",
 				},
 			},
-			errString: "CassandraDatacenter attempted to change SuperuserSecretName",
+			errString: "change superuserSecretName",
 		},
 		{
 			name: "ServiceAccount changed",
@@ -253,7 +254,7 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					ServiceAccount: "newadmin",
 				},
 			},
-			errString: "CassandraDatacenter attempted to change ServiceAccount",
+			errString: "change serviceAccount",
 		},
 		{
 			name: "StorageConfig changes",
@@ -289,7 +290,7 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					},
 				},
 			},
-			errString: "CassandraDatacenter attempted to change StorageConfig",
+			errString: "change storageConfig",
 		},
 		{
 			name: "Removing a rack",
@@ -324,7 +325,7 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					}},
 				},
 			},
-			errString: "CassandraDatacenter attempted to remove Rack",
+			errString: "remove rack",
 		},
 		{
 			name: "Changed a rack name",
@@ -362,7 +363,7 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					}},
 				},
 			},
-			errString: "CassandraDatacenter attempted to change Rack Name from 'rack0' to 'rack0-changed'",
+			errString: "change rack name from 'rack0' to 'rack0-changed'",
 		},
 		{
 			name: "Changed a rack zone",
@@ -400,7 +401,7 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					}},
 				},
 			},
-			errString: "CassandraDatacenter attempted to change Rack Zone from 'zone2' to 'zone2-changed'",
+			errString: "change rack zone from 'zone2' to 'zone2-changed'",
 		},
 		{
 			name: "Adding a rack is allowed if size increases",
@@ -484,7 +485,7 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					}},
 				},
 			},
-			errString: "CassandraDatacenter attempted to add Rack without increasing Size",
+			errString: "add rack without increasing size",
 		},
 		{
 			name: "Adding a rack is not allowed if size doesn't increase enough to prevent moving nodes from existing racks",
@@ -521,7 +522,7 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					}},
 				},
 			},
-			errString: "CassandraDatacenter attempted to add Racks without increasing Size enough to prevent existing nodes from moving to new Racks to maintain balance.\nNew racks added: 1, Size increased by: 2. Expected size increase to be at least 4",
+			errString: "add racks without increasing size enough to prevent existing nodes from moving to new racks to maintain balance.\nNew racks added: 1, size increased by: 2. Expected size increase to be at least 4",
 		},
 		{
 			name: "Adding multiple racks is not allowed if size doesn't increase enough to prevent moving nodes from existing racks",
@@ -561,7 +562,7 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					}},
 				},
 			},
-			errString: "CassandraDatacenter attempted to add Racks without increasing Size enough to prevent existing nodes from moving to new Racks to maintain balance.\nNew racks added: 2, Size increased by: 7. Expected size increase to be at least 8",
+			errString: "add racks without increasing size enough to prevent existing nodes from moving to new racks to maintain balance.\nNew racks added: 2, size increased by: 7. Expected size increase to be at least 8",
 		},
 	}
 
@@ -573,8 +574,8 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					t.Errorf("ValidateDatacenterFieldChanges() err = %v, want %v", err, tt.errString)
 				}
 			} else {
-				if err.Error() != tt.errString {
-					t.Errorf("ValidateDatacenterFieldChanges() err = %v, want %v", err, tt.errString)
+				if !strings.HasSuffix(err.Error(), tt.errString) {
+					t.Errorf("ValidateDatacenterFieldChanges() err = %v, want suffix %v", err, tt.errString)
 				}
 			}
 		})
