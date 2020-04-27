@@ -7,7 +7,6 @@ require (
 	github.com/magefile/mage v1.9.0
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
-	k8s.io/api v0.18.2
 )
 
 replace github.com/datastax/cass-operator/mage => ./mage
