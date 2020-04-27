@@ -412,13 +412,13 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 
 	// delete stuck nodes
 
-	deletedNode, err := rc.deleteStuckNodes()
-	if err != nil {
-		return result.Error(err)
-	}
-	if deletedNode {
-		return result.Done()
-	}
+	// deletedNode, err := rc.deleteStuckNodes()
+	// if err != nil {
+	// 	return result.Error(err)
+	// }
+	// if deletedNode {
+	// 	return result.Done()
+	// }
 
 	// get the nodes labelled as seeds before we start any nodes
 
@@ -1840,9 +1840,9 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
-	// if recResult := rc.CheckClearActionConditions(); recResult.Completed() {
-	// 	return recResult.Output()
-	// }
+	if recResult := rc.CheckClearActionConditions(); recResult.Completed() {
+		return recResult.Output()
+	}
 
 	// if recResult := rc.CheckConditionInitializedAndReady(); recResult.Completed() {
 	// 	return recResult.Output()
