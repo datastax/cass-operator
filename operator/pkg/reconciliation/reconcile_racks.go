@@ -751,7 +751,8 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 		rc.ReqLogger.Info("Replacing pods", "pods", dc.Spec.ReplaceNodes)
 
 		podNamesString := strings.Join(dc.Spec.ReplaceNodes, ", ")
-
+		rc.ReqLogger.Info(fmt.Sprintf("conditions are currently: %v", dc.Status.Conditions))
+		
 		rc.ReqLogger.Info("Updating condition for replacing nodes to be true")
 		_ = rc.MaybeUpdateCondition(api.DatacenterCondition{
 			Type: api.DatacenterReplacingNodes,
