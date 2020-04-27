@@ -82,6 +82,15 @@ func loadSettings() {
 	}
 }
 
+// There is potential for globally scoped resources to be left
+// over from a previous helm install
+func cleanupLingeringHelmResources() {
+	_ = kubectl.DeleteByTypeAndName("clusterrole", "cass-operator").ExecV()
+	_ = kubectl.DeleteByTypeAndName("clusterrolebinding", "cass-operator").ExecV()
+	_ = kubectl.DeleteByTypeAndName("validatingwebhookconfiguration", "cassandradatacenter-webhook-registration").ExecV()
+	_ = kubectl.DeleteByTypeAndName("crd", "cassandradatacenters.cassandra.datastax.com").ExecV()
+}
+
 // Currently there is no concept of "global tool install"
 // with the go cli. With the new module system, your project's
 // go.mod and go.sum files will be updated with new dependencies
@@ -229,6 +238,7 @@ func EnsureEmptyCluster() {
 			kubectl.DeleteByTypeAndName("namespace", name).ExecVPanic()
 		}
 	}
+	cleanupLingeringHelmResources()
 }
 
 func ReloadOperator() {
