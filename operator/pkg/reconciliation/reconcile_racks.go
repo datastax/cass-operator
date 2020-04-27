@@ -52,7 +52,9 @@ func (rc *ReconciliationContext) CalculateRackInformation() error {
 	racks := rc.Datacenter.GetRacks()
 	rackCount := len(racks)
 
-	// TODO error if nodeCount < rackCount
+	if nodeCount < rackCount {
+		return fmt.Errorf("the number of nodes cannot be smaller than the number of racks")
+	}
 
 	if rc.Datacenter.Spec.Stopped {
 		nodeCount = 0
