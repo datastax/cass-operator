@@ -295,15 +295,11 @@ spec:
             conditions:
               items:
                 properties:
-                  lastTransitionTime:
-                    format: date-time
-                    type: string
                   status:
                     type: string
                   type:
                     type: string
                 required:
-                - lastTransitionTime
                 - status
                 - type
                 type: object
