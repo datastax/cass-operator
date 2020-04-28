@@ -73,9 +73,9 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterCondition(dcName, "ScaleUp", string(corev1.ConditionTrue))
+			ns.WaitForDatacenterCondition(dcName, "ScalingUp", string(corev1.ConditionTrue))
 			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
-			ns.WaitForDatacenterCondition(dcName, "ScaleUp", string(corev1.ConditionFalse))
+			ns.WaitForDatacenterCondition(dcName, "ScalingUp", string(corev1.ConditionFalse))
 
 			// Ensure that when 'ScaleUp' becomes 'false' that our pods are in fact up and running
 			Expect(len(ns.GetDatacenterReadyPodNames(dcName))).To(Equal(2))
