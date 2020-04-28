@@ -185,7 +185,7 @@ func (ns *NsWrapper) WaitForDatacenterCondition(dcName string, conditionType str
 	json := fmt.Sprintf("jsonpath={.status.conditions[?(.type=='%s')].status}", conditionType)
 	k := kubectl.Get("cassandradatacenter", dcName).
 		FormatOutput(json)
-	ns.WaitForOutputAndLog(step, k, value, 300)
+	ns.WaitForOutputAndLog(step, k, value, 600)
 }
 
 
