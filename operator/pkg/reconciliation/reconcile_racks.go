@@ -1741,7 +1741,7 @@ func (rc *ReconciliationContext) CheckConditionInitializedAndReady() result.Reco
 		Status: corev1.ConditionTrue,
 	}) || updated
 	
-	if dc.GetConditionStatus(api.DatacenterStopped) == corev1.ConditionFalse && dc.GetConditionStatus(api.DatacenterStopped) == corev1.ConditionFalse {
+	if dc.GetConditionStatus(api.DatacenterStopped) == corev1.ConditionFalse {
 		updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
 			Type: api.DatacenterReady,
 			Status: corev1.ConditionTrue,

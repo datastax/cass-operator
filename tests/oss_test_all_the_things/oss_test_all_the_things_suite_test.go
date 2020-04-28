@@ -67,8 +67,8 @@ var _ = Describe(testName, func() {
 			ns.ExecAndLog(step, k)
 
 			ns.WaitForDatacenterReady(dcName)
-			ns.WaitForDatacenterCondition(dcName, "Ready", string(corev1.ConditionFalse))
-			ns.WaitForDatacenterCondition(dcName, "Initialized", string(corev1.ConditionFalse))
+			ns.WaitForDatacenterCondition(dcName, "Ready", string(corev1.ConditionTrue))
+			ns.WaitForDatacenterCondition(dcName, "Initialized", string(corev1.ConditionTrue))
 
 			step = "scale up to 4 nodes"
 			json := "{\"spec\": {\"size\": 4}}"
