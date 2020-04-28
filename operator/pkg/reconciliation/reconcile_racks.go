@@ -313,12 +313,12 @@ func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult 
 				updated := rc.MaybeUpdateCondition(api.DatacenterCondition{
 					Type: api.DatacenterStopped,
 					Status: corev1.ConditionTrue,})
-				updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
+				updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
 					Type: api.DatacenterReady,
-					Status: corev1.ConditionFalse,})
+					Status: corev1.ConditionFalse,}) || updated
 
 				if updated {
-					err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
+					err := rc.patchStatus(dcPatch)
 					if err != nil {
 						logger.Error(err, "error patching datacenter status for stopping")
 						return result.Error(err)
@@ -506,13 +506,13 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 
 			// Check to see if we are resuming from stopped and update conditions appropriately
 			if dc.GetConditionStatus(api.DatacenterStopped) == corev1.ConditionTrue {
-				updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
+				updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
 					Type: api.DatacenterStopped,
-					Status: corev1.ConditionFalse})
+					Status: corev1.ConditionFalse}) || updated
 
-				updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
+				updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
 					Type: api.DatacenterResuming,
-					Status: corev1.ConditionTrue})
+					Status: corev1.ConditionTrue}) || updated
 			}
 
 			// // Distinguish between ScaleUp, Resuming, and Initializing
@@ -1727,16 +1727,16 @@ func (rc *ReconciliationContext) CheckConditionInitializedAndReady() result.Reco
 	logger := rc.ReqLogger
 	
 	updated := false
-	updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
+	updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
 		Type: api.DatacenterInitialized,
 		Status: corev1.ConditionTrue,
-	})
+	}) || updated
 	
 	if dc.GetConditionStatus(api.DatacenterStopped) == corev1.ConditionFalse && dc.GetConditionStatus(api.DatacenterStopped) == corev1.ConditionFalse {
-		updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
+		updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
 			Type: api.DatacenterReady,
 			Status: corev1.ConditionTrue,
-		})
+		}) || updated
 	}
 
 	if updated {
@@ -1770,10 +1770,10 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 	}
 	updated := false
 	for _, conditionType := range(actionConditionTypes) {
-		updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
+		updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
 			Type: conditionType,
 			Status: corev1.ConditionFalse,
-		})
+		}) || updated
 	}
 
 	if updated {
