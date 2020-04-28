@@ -805,7 +805,7 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	dc := rc.Datacenter
 	status := rc.Datacenter.Status.DeepCopy()
 	oldDc := rc.Datacenter.DeepCopy()
-	oldStatus := &oldDc.Status
+	// oldStatus := &oldDc.Status
 
 	err := rc.UpdateCassandraNodeStatus(status)
 	if err != nil {
@@ -844,7 +844,7 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 		// Make a new patch for just the status. We want to use our potentially
 		// updated DC as the base.
 		oldDc := dc.DeepCopy()
-		oldStatus.DeepCopyInto(&oldDc.Status)
+		// oldStatus.DeepCopyInto(&oldDc.Status)
 		patch := client.MergeFrom(oldDc)
 
 		// Update the DC with our status
