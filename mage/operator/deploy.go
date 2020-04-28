@@ -52,6 +52,9 @@ func retagAndPush(tags []string, remoteUrl string) {
 	}
 }
 
+// Github packages expect the image tags to be in a specific format
+// related to your repo, so we have extra logic to massage
+// the tags into the format: <repo owner>/<repo>/<image>:<version>
 func retagAndPushForGH(tags []string) {
 	pkgRepo := mageutil.RequireEnv(envGHPackageRepo)
 	reg := regexp.MustCompile(`.*\:`)
