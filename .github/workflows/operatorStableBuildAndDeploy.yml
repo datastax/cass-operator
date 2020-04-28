@@ -37,12 +37,12 @@ jobs:
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
           mage operator:deployToECR
-      - name: Deploy to Artifactory
-        env: 
-          MO_ART_USR: ${{ secrets.ART_USR }}
-          MO_ART_PSW: ${{ secrets.ART_PSW }}
-          MO_ART_REPO: ${{ secrets.ART_REPO }}
+      - name: Deploy to GH Packages
+        env:
+          MO_GH_USR: 'datastax/cass-operator'
+          MO_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MO_GH_PKG_REPO: 'datastax/cass-operator/operator'
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
-          mage operator:deployToArtifactory
+          mage operator:deployToGHPackages
