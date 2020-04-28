@@ -204,6 +204,20 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 				return result.Error(err)
 			}
 
+			dcPatch := client.MergeFrom(dc.DeepCopy())
+			updated := rc.MaybeUpdateCondition(api.DatacenterCondition{
+				Type: api.DatacenterUpdating,
+				Status: corev1.ConditionTrue,
+			})
+
+			if updated {
+				err := rc.patchStatus(dcPatch)
+				if err != nil {
+					logger.Error(err, "error patching datacenter status for updating")
+					return result.Error(err)
+				}
+			}
+
 			logger.Info("Updating statefulset pod specs",
 				"statefulSet", statefulSet,
 			)
