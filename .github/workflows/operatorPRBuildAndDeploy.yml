@@ -34,6 +34,7 @@ jobs:
         env:
           MO_GH_USR: 'datastax/cass-operator'
           MO_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MO_GH_PKG_REPO: 'datastax/cass-operator/operator'
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export MO_TAGS=$(cat ./build/tagsToPush.txt)

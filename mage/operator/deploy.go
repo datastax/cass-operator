@@ -6,6 +6,7 @@ package operator
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	dockerutil "github.com/datastax/cass-operator/mage/docker"
@@ -23,6 +24,8 @@ const (
 	envEcrRepo         = "MO_ECR_REPO"
 	envGHUser          = "MO_GH_USR"
 	envGHToken         = "MO_GH_TOKEN"
+	envGHPackageRepo   = "MO_GH_PKG_REPO"
+	ghPackagesRegistry = "docker.pkg.github.com"
 )
 
 func dockerTag(src string, target string) {
@@ -44,6 +47,17 @@ func retagLocalImageForRemotePush(localTag string, remoteUrl string) string {
 func retagAndPush(tags []string, remoteUrl string) {
 	for _, t := range tags {
 		newTag := retagLocalImageForRemotePush(strings.TrimSpace(t), remoteUrl)
+		fmt.Printf("- Pushing image %s\n", newTag)
+		dockerutil.Push(newTag).WithCfg(rootBuildDir).ExecVPanic()
+	}
+}
+
+func retagAndPushForGH(tags []string) {
+	pkgRepo := mageutil.RequireEnv(envGHPackageRepo)
+	reg := regexp.MustCompile(`.*\:`)
+	for _, tag := range tags {
+		updatedTag := reg.ReplaceAllString(tag, fmt.Sprintf("%s:", pkgRepo))
+		newTag := retagLocalImageForRemotePush(strings.TrimSpace(updatedTag), ghPackagesRegistry)
 		fmt.Printf("- Pushing image %s\n", newTag)
 		dockerutil.Push(newTag).WithCfg(rootBuildDir).ExecVPanic()
 	}
@@ -109,11 +123,10 @@ func DeployToArtifactory() {
 // MO_GH_TOKEN - github token
 // MO_TAGS - pipe-delimited docker tags to retag/push to Github packages
 func DeployToGHPackages() {
-	repo := "docker.pkg.github.com"
 	user := mageutil.RequireEnv(envGHUser)
 	pw := mageutil.RequireEnv(envGHToken)
-	dockerutil.Login(rootBuildDir, user, pw, repo).
+	dockerutil.Login(rootBuildDir, user, pw, ghPackagesRegistry).
 		WithCfg(rootBuildDir).ExecVPanic()
 	tags := mageutil.RequireEnv(envTags)
-	retagAndPush(strings.Split(tags, "|"), repo)
+	retagAndPushForGH(strings.Split(tags, "|"))
 }
