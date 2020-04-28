@@ -412,13 +412,13 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 
 	// delete stuck nodes
 
-	// deletedNode, err := rc.deleteStuckNodes()
-	// if err != nil {
-	// 	return result.Error(err)
-	// }
-	// if deletedNode {
-	// 	return result.Done()
-	// }
+	deletedNode, err := rc.deleteStuckNodes()
+	if err != nil {
+		return result.Error(err)
+	}
+	if deletedNode {
+		return result.Done()
+	}
 
 	// get the nodes labelled as seeds before we start any nodes
 
@@ -515,15 +515,10 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 					Status: corev1.ConditionTrue}) || updated
 			}
 
-			// // Distinguish between ScaleUp, Resuming, and Initializing
-			// // TODO: There is an argument to be made here that the pairs ScaleUp and Resuming or ScaleUp 
-			// //       and Initializing could be simultaneously set to True.
-			// if dc.GetConditionStatus(api.DatacenterResuming) != corev1.ConditionTrue && dc.GetConditionStatus(api.DatacenterInitialized) == corev1.ConditionTrue {
-			// 	updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
-			// 		Type: api.DatacenterScalingUp,
-			// 		Status: corev1.ConditionTrue,
-			// 	})
-			// }
+			updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
+				Type: api.DatacenterScalingUp,
+				Status: corev1.ConditionTrue,
+			}) || updated
 
 			if updated {
 				err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
@@ -1659,10 +1654,10 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 	if dc.Spec.RollingRestartRequested {
 		dcPatch := client.MergeFrom(dc.DeepCopy())
 		dc.Status.LastRollingRestart = metav1.Now()
-		// _ = rc.MaybeUpdateCondition(api.DatacenterCondition{
-		// 	Type: api.DatacenterRollingRestart,
-		// 	Status: corev1.ConditionTrue,
-		// })
+		_ = rc.MaybeUpdateCondition(api.DatacenterCondition{
+			Type: api.DatacenterRollingRestart,
+			Status: corev1.ConditionTrue,
+		})
 		err := rc.patchStatus(dcPatch)
 		if err != nil {
 			logger.Error(err, "error patching datacenter status for rolling restart started")
