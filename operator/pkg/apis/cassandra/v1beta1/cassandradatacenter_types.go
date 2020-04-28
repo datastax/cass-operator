@@ -317,8 +317,8 @@ func (dc *CassandraDatacenter) GetRackLabels(rackName string) map[string]string 
 	return labels
 }
 
-func (dc *CassandraDatacenter) GetConditionStatus(conditionType DatacenterConditionType) corev1.ConditionStatus {
-	for _, condition := range dc.Status.Conditions {
+func (status *CassandraDatacenterStatus) GetConditionStatus(conditionType DatacenterConditionType) corev1.ConditionStatus {
+	for _, condition := range status.Conditions {
 		if condition.Type == conditionType {
 			return condition.Status
 		}
@@ -326,18 +326,22 @@ func (dc *CassandraDatacenter) GetConditionStatus(conditionType DatacenterCondit
 	return corev1.ConditionFalse
 }
 
-func (dc *CassandraDatacenter) SetCondition(condition DatacenterCondition) {
+func (dc *CassandraDatacenter) GetConditionStatus(conditionType DatacenterConditionType) corev1.ConditionStatus {
+	return (&dc.Status).GetConditionStatus(conditionType)
+}
+
+func (status *CassandraDatacenterStatus) SetCondition(condition DatacenterCondition) {
 	// NOTE: Recreating the array here is necessary as simply updating elements
 	// in the array can lead to a path update missing the change.
 
 	conditions := []DatacenterCondition{}
 	added := false
-	for i, _ := range dc.Status.Conditions {
-		if dc.Status.Conditions[i].Type == condition.Type {
+	for i, _ := range status.Conditions {
+		if status.Conditions[i].Type == condition.Type {
 			conditions = append(conditions, condition)
 			added = true
 		} else {
-			conditions = append(conditions, dc.Status.Conditions[i])
+			conditions = append(conditions, status.Conditions[i])
 		}
 	}
 
@@ -345,15 +349,11 @@ func (dc *CassandraDatacenter) SetCondition(condition DatacenterCondition) {
 		conditions = append(conditions, condition)
 	}
 
-	dc.Status.Conditions = conditions
+	status.Conditions = conditions
 }
 
-func (dc *CassandraDatacenter) SetConditionIfNotSet(condition DatacenterCondition) bool {
-	if dc.GetConditionStatus(condition.Type) != condition.Status {
-		dc.SetCondition(condition)
-		return true
-	}
-	return false
+func (dc *CassandraDatacenter) SetCondition(condition DatacenterCondition) {
+	(&dc.Status).SetCondition(condition)
 }
 
 // GetDatacenterLabels ...
