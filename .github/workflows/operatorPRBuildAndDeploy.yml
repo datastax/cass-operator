@@ -29,6 +29,16 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testAndBuild
+      - name: Deploy to ECR
+        if: github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
+        env:
+          MO_ECR_ID: ${{ secrets.ECR_ID }}
+          MO_ECR_SECRET: ${{ secrets.ECR_SECRET }}
+          MO_ECR_REPO: ${{ secrets.ECR_REPO }}
+        run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+          export MO_TAGS=$(cat ./build/tagsToPush.txt)
+          mage operator:deployToECR
       - name: Deploy to GH Packages
         if: github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
         env:
