@@ -57,9 +57,10 @@ func retagAndPushForGH(tags []string) {
 	reg := regexp.MustCompile(`.*\:`)
 	for _, tag := range tags {
 		updatedTag := reg.ReplaceAllString(tag, fmt.Sprintf("%s:", pkgRepo))
-		newTag := retagLocalImageForRemotePush(strings.TrimSpace(updatedTag), ghPackagesRegistry)
-		fmt.Printf("- Pushing image %s\n", newTag)
-		dockerutil.Push(newTag).WithCfg(rootBuildDir).ExecVPanic()
+		fullGHTag := fmt.Sprintf("%s/%s", ghPackagesRegistry, updatedTag)
+		dockerTag(tag, fullGHTag)
+		fmt.Printf("- Pushing image %s\n", fullGHTag)
+		dockerutil.Push(fullGHTag).WithCfg(rootBuildDir).ExecVPanic()
 	}
 }
 
