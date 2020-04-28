@@ -288,7 +288,7 @@ func (rc *ReconciliationContext) CheckRackLabels() result.ReconcileResult {
 
 func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult {
 	logger := rc.ReqLogger
-	// dc := rc.Datacenter
+	dc := rc.Datacenter
 
 	// TODO: unset stopped condition and set resuming condition if not stopped and stopped condition set
 
@@ -309,21 +309,21 @@ func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult 
 			)
 
 			if !emittedStoppingEvent {
-				// dcPatch := client.MergeFrom(dc.DeepCopy())
-				// updated := rc.MaybeUpdateCondition(api.DatacenterCondition{
-				// 	Type: api.DatacenterStopped,
-				// 	Status: corev1.ConditionTrue,})
-				// updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
-				// 	Type: api.DatacenterReady,
-				// 	Status: corev1.ConditionFalse,})
+				dcPatch := client.MergeFrom(dc.DeepCopy())
+				updated := rc.MaybeUpdateCondition(api.DatacenterCondition{
+					Type: api.DatacenterStopped,
+					Status: corev1.ConditionTrue,})
+				updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
+					Type: api.DatacenterReady,
+					Status: corev1.ConditionFalse,})
 
-				// if updated {
-				// 	err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
-				// 	if err != nil {
-				// 		logger.Error(err, "error patching datacenter status for stopping")
-				// 		return result.Error(err)
-				// 	}
-				// }
+				if updated {
+					err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
+					if err != nil {
+						logger.Error(err, "error patching datacenter status for stopping")
+						return result.Error(err)
+					}
+				}
 
 				rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.StoppingDatacenter,
 					"Stopping datacenter")
@@ -489,7 +489,7 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 	logger := rc.ReqLogger
 	logger.Info("reconcile_racks::CheckRackScale")
-	// dc := rc.Datacenter
+	dc := rc.Datacenter
 
 	for idx := range rc.desiredRackInformation {
 		rackInfo := rc.desiredRackInformation[idx]
@@ -501,19 +501,19 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 		maxReplicas := *statefulSet.Spec.Replicas
 
 		if maxReplicas < desiredNodeCount {
-			// dcPatch := client.MergeFrom(dc.DeepCopy())
-			// updated := false
+			dcPatch := client.MergeFrom(dc.DeepCopy())
+			updated := false
 
-			// // Check to see if we are resuming from stopped and update conditions appropriately
-			// if dc.GetConditionStatus(api.DatacenterStopped) == corev1.ConditionTrue {
-			// 	updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
-			// 		Type: api.DatacenterStopped,
-			// 		Status: corev1.ConditionFalse})
+			// Check to see if we are resuming from stopped and update conditions appropriately
+			if dc.GetConditionStatus(api.DatacenterStopped) == corev1.ConditionTrue {
+				updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
+					Type: api.DatacenterStopped,
+					Status: corev1.ConditionFalse})
 
-			// 	updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
-			// 		Type: api.DatacenterResuming,
-			// 		Status: corev1.ConditionTrue})
-			// }
+				updated = updated || rc.MaybeUpdateCondition(api.DatacenterCondition{
+					Type: api.DatacenterResuming,
+					Status: corev1.ConditionTrue})
+			}
 
 			// // Distinguish between ScaleUp, Resuming, and Initializing
 			// // TODO: There is an argument to be made here that the pairs ScaleUp and Resuming or ScaleUp 
@@ -525,13 +525,13 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 			// 	})
 			// }
 
-			// if updated {
-			// 	err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
-			// 	if err != nil {
-			// 		logger.Error(err, "error patching datacenter status for scaling rack started")
-			// 		return result.Error(err)
-			// 	}
-			// }
+			if updated {
+				err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
+				if err != nil {
+					logger.Error(err, "error patching datacenter status for scaling rack started")
+					return result.Error(err)
+				}
+			}
 
 			// update it
 			rc.ReqLogger.Info(
@@ -805,7 +805,6 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	dc := rc.Datacenter
 	status := rc.Datacenter.Status.DeepCopy()
 	oldDc := rc.Datacenter.DeepCopy()
-	// oldStatus := &oldDc.Status
 
 	err := rc.UpdateCassandraNodeStatus(status)
 	if err != nil {
@@ -818,33 +817,18 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	}
 	
 	if !reflect.DeepEqual(dc, oldDc) {
-		// Save the status changes as tey will get stomped on when we patch the
-		// resource.
-		// statusChanges := dc.Status.DeepCopy()
-
-		// If we update the status to account for some user action, for example a
-		// pod replace, then we may have also updated the datacenter spec, so patch
-		// it as well.
 		patch := client.MergeFrom(oldDc)
 		if err := rc.Client.Patch(rc.Ctx, dc, patch); err != nil {
 			return result.Error(err)
 		}
 
 		rc.ReqLogger.Info(fmt.Sprintf("conditions are after resource update: %v", dc.Status.Conditions))
-
-		// statusChanges.DeepCopyInto(&dc.Status)
-
-		// // "{\"metadata\":{\"generation\":4,\"resourceVersion\":\"7828251\"},\"spec\":{\"replaceNodes\":null},\"status\":{\"nodeReplacements\":[\"cluster1-dc1-r3-sts-0\"]}}"
-		// if err := rc.patchStatus(patch); err != nil {
-		// 	return result.Error(err)
-		// }
 	}
 
 	if !reflect.DeepEqual(status, &oldDc.Status) {
 		// Make a new patch for just the status. We want to use our potentially
 		// updated DC as the base.
 		oldDc := dc.DeepCopy()
-		// oldStatus.DeepCopyInto(&oldDc.Status)
 		patch := client.MergeFrom(oldDc)
 
 		// Update the DC with our status
