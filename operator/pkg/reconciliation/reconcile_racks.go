@@ -678,7 +678,6 @@ func appendValuesToStringArrayIfNotPresent(a []string, values ...string) []strin
 }
 
 func (rc *ReconciliationContext) UpdateCassandraNodeStatus(status *api.CassandraDatacenterStatus) error {
-	dc := rc.Datacenter
 	logger := rc.ReqLogger
 
 	pods := ListAllStartedPods(rc.dcPods)
@@ -1723,7 +1722,7 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 }
 
 func (rc *ReconciliationContext) MaybeUpdateCondition(condition api.DatacenterCondition) bool {
-	return MaybeUpdateConditionForStatus(&rc.Datacenter.Status, condition)
+	return rc.MaybeUpdateConditionForStatus(&rc.Datacenter.Status, condition)
 }
 
 func (rc *ReconciliationContext) MaybeUpdateConditionForStatus(status *api.CassandraDatacenterStatus, condition api.DatacenterCondition) bool {
