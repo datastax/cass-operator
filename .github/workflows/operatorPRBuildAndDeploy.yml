@@ -29,13 +29,12 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testAndBuild
-      - name: Deploy to ECR
+      - name: Deploy to GH Packages
         if: github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
         env:
-          MO_ECR_ID: ${{ secrets.ECR_ID }}
-          MO_ECR_SECRET: ${{ secrets.ECR_SECRET }}
-          MO_ECR_REPO: ${{ secrets.ECR_REPO }}
+          MO_GH_USR: 'datastax/cass-operator'
+          MO_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
-          mage operator:deployToECR
+          mage operator:deployToGHPackages

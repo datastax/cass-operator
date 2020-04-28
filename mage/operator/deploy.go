@@ -21,6 +21,8 @@ const (
 	envTags            = "MO_TAGS"
 	envArtRepo         = "MO_ART_REPO"
 	envEcrRepo         = "MO_ECR_REPO"
+	envGHUser          = "MO_GH_USR"
+	envGHToken         = "MO_GH_TOKEN"
 )
 
 func dockerTag(src string, target string) {
@@ -98,4 +100,20 @@ func DeployToArtifactory() {
 		WithCfg(rootBuildDir).ExecVPanic()
 	tags := mageutil.RequireEnv(envTags)
 	retagAndPush(strings.Split(tags, "|"), artifactoryRepo)
+}
+
+// Deploy operator image to Github packages.
+//
+// This target assumes that you have several environment variables set:
+// MO_GH_USR - github user
+// MO_GH_TOKEN - github token
+// MO_TAGS - pipe-delimited docker tags to retag/push to Github packages
+func DeployToGHPackages() {
+	repo := "docker.pkg.github.com"
+	user := mageutil.RequireEnv(envGHUser)
+	pw := mageutil.RequireEnv(envGHToken)
+	dockerutil.Login(rootBuildDir, user, pw, repo).
+		WithCfg(rootBuildDir).ExecVPanic()
+	tags := mageutil.RequireEnv(envTags)
+	retagAndPush(strings.Split(tags, "|"), repo)
 }
