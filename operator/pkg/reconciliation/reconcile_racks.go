@@ -426,13 +426,13 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 
 	// delete stuck nodes
 
-	deletedNode, err := rc.deleteStuckNodes()
-	if err != nil {
-		return result.Error(err)
-	}
-	if deletedNode {
-		return result.Done()
-	}
+	// deletedNode, err := rc.deleteStuckNodes()
+	// if err != nil {
+	// 	return result.Error(err)
+	// }
+	// if deletedNode {
+	// 	return result.Done()
+	// }
 
 	// get the nodes labelled as seeds before we start any nodes
 
@@ -845,6 +845,7 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 		// Update the DC with our status
 		status.DeepCopyInto(&dc.Status)
 
+		// {\"status\":{\"conditions\":[{\"status\":\"False\",\"type\":\"ScalingUp\"},{\"status\":\"True\",\"type\":\"Initialized\"},{\"status\":\"True\",\"type\":\"Ready\"},{\"status\":\"True\",\"type\":\"ReplacingNodes\"}],\"nodeReplacements\":[\"cluster1-dc1-r3-sts-0\"]}}
 		if err := rc.patchStatus(patch); err != nil {
 			return result.Error(err)
 		}
