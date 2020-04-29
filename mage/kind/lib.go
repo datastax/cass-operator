@@ -85,7 +85,7 @@ func loadSettings() {
 // There is potential for globally scoped resources to be left
 // over from a previous helm install
 func cleanupLingeringHelmResources() {
-	_ = kubectl.DeleteByTypeAndName("clusterrole", "cass-operator").ExecV()
+	_ = kubectl.DeleteByTypeAndName("clusterrole", "cass-operator-cluster-role").ExecV()
 	_ = kubectl.DeleteByTypeAndName("clusterrolebinding", "cass-operator").ExecV()
 	_ = kubectl.DeleteByTypeAndName("validatingwebhookconfiguration", "cassandradatacenter-webhook-registration").ExecV()
 	_ = kubectl.DeleteByTypeAndName("crd", "cassandradatacenters.cassandra.datastax.com").ExecV()
