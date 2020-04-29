@@ -426,13 +426,13 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 
 	// delete stuck nodes
 
-	// deletedNode, err := rc.deleteStuckNodes()
-	// if err != nil {
-	// 	return result.Error(err)
-	// }
-	// if deletedNode {
-	// 	return result.Done()
-	// }
+	deletedNode, err := rc.deleteStuckNodes()
+	if err != nil {
+		return result.Error(err)
+	}
+	if deletedNode {
+		return result.Done()
+	}
 
 	// get the nodes labelled as seeds before we start any nodes
 
