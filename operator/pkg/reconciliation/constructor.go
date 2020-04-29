@@ -482,7 +482,6 @@ func mergeUserPodTemplateSpec(baseTemplate corev1.PodTemplateSpec, dc *api.Cassa
 
 	merged.Spec.ActiveDeadlineSeconds = userTemplate.Spec.ActiveDeadlineSeconds
 	merged.Spec.DNSPolicy = userTemplate.Spec.DNSPolicy
-	merged.Spec.NodeSelector = userTemplate.Spec.NodeSelector
 	merged.Spec.DeprecatedServiceAccount = userTemplate.Spec.DeprecatedServiceAccount
 	merged.Spec.AutomountServiceAccountToken = userTemplate.Spec.AutomountServiceAccountToken
 	merged.Spec.NodeName = userTemplate.Spec.NodeName
