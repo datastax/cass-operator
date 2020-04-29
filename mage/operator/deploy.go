@@ -6,6 +6,7 @@ package operator
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	dockerutil "github.com/datastax/cass-operator/mage/docker"
@@ -21,6 +22,10 @@ const (
 	envTags            = "MO_TAGS"
 	envArtRepo         = "MO_ART_REPO"
 	envEcrRepo         = "MO_ECR_REPO"
+	envGHUser          = "MO_GH_USR"
+	envGHToken         = "MO_GH_TOKEN"
+	envGHPackageRepo   = "MO_GH_PKG_REPO"
+	ghPackagesRegistry = "docker.pkg.github.com"
 )
 
 func dockerTag(src string, target string) {
@@ -44,6 +49,21 @@ func retagAndPush(tags []string, remoteUrl string) {
 		newTag := retagLocalImageForRemotePush(strings.TrimSpace(t), remoteUrl)
 		fmt.Printf("- Pushing image %s\n", newTag)
 		dockerutil.Push(newTag).WithCfg(rootBuildDir).ExecVPanic()
+	}
+}
+
+// Github packages expect the image tags to be in a specific format
+// related to your repo, so we have extra logic to massage
+// the tags into the format: <repo owner>/<repo>/<image>:<version>
+func retagAndPushForGH(tags []string) {
+	pkgRepo := mageutil.RequireEnv(envGHPackageRepo)
+	reg := regexp.MustCompile(`.*\:`)
+	for _, tag := range tags {
+		updatedTag := reg.ReplaceAllString(tag, fmt.Sprintf("%s:", pkgRepo))
+		fullGHTag := fmt.Sprintf("%s/%s", ghPackagesRegistry, updatedTag)
+		dockerTag(tag, fullGHTag)
+		fmt.Printf("- Pushing image %s\n", fullGHTag)
+		dockerutil.Push(fullGHTag).WithCfg(rootBuildDir).ExecVPanic()
 	}
 }
 
@@ -98,4 +118,19 @@ func DeployToArtifactory() {
 		WithCfg(rootBuildDir).ExecVPanic()
 	tags := mageutil.RequireEnv(envTags)
 	retagAndPush(strings.Split(tags, "|"), artifactoryRepo)
+}
+
+// Deploy operator image to Github packages.
+//
+// This target assumes that you have several environment variables set:
+// MO_GH_USR - github user
+// MO_GH_TOKEN - github token
+// MO_TAGS - pipe-delimited docker tags to retag/push to Github packages
+func DeployToGHPackages() {
+	user := mageutil.RequireEnv(envGHUser)
+	pw := mageutil.RequireEnv(envGHToken)
+	dockerutil.Login(rootBuildDir, user, pw, ghPackagesRegistry).
+		WithCfg(rootBuildDir).ExecVPanic()
+	tags := mageutil.RequireEnv(envTags)
+	retagAndPushForGH(strings.Split(tags, "|"))
 }
