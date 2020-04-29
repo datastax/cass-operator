@@ -324,6 +324,8 @@ func newStatefulSetForCassandraDatacenter(
 		},
 	}
 
+	template = mergeUserPodTemplateSpec(template, dc)
+
 	// if the dc.Spec has a nodeSelector map, copy it into each sts pod template
 	if len(dc.Spec.NodeSelector) > 0 {
 		template.Spec.NodeSelector = utils.MergeMap(map[string]string{}, dc.Spec.NodeSelector)
@@ -460,4 +462,48 @@ func calculatePodAntiAffinity(allowMultipleNodesPerWorker bool) *corev1.PodAntiA
 			},
 		},
 	}
+}
+
+func mergeUserPodTemplateSpec(baseTemplate corev1.PodTemplateSpec, dc *api.CassandraDatacenter) corev1.PodTemplateSpec {
+	userTemplate := dc.Spec.PodTemplate
+
+	if userTemplate == nil {
+		return baseTemplate
+	}
+
+	merged := baseTemplate.DeepCopy()
+
+	merged.Labels = utils.MergeMap(userTemplate.Labels, baseTemplate.Labels)
+	merged.Spec.Volumes = append(merged.Spec.Volumes, userTemplate.Spec.Volumes...)
+	merged.Spec.InitContainers = append(merged.Spec.InitContainers, userTemplate.Spec.InitContainers...)
+	merged.Spec.Containers = append(merged.Spec.Containers, userTemplate.Spec.Containers...)
+	merged.Spec.RestartPolicy = userTemplate.Spec.RestartPolicy
+	merged.Spec.TerminationGracePeriodSeconds = userTemplate.Spec.TerminationGracePeriodSeconds
+
+	merged.Spec.ActiveDeadlineSeconds = userTemplate.Spec.ActiveDeadlineSeconds
+	merged.Spec.DNSPolicy = userTemplate.Spec.DNSPolicy
+	merged.Spec.NodeSelector = userTemplate.Spec.NodeSelector
+	merged.Spec.DeprecatedServiceAccount = userTemplate.Spec.DeprecatedServiceAccount
+	merged.Spec.AutomountServiceAccountToken = userTemplate.Spec.AutomountServiceAccountToken
+	merged.Spec.NodeName = userTemplate.Spec.NodeName
+	merged.Spec.HostNetwork = userTemplate.Spec.HostNetwork
+	merged.Spec.HostPID = userTemplate.Spec.HostPID
+	merged.Spec.HostIPC = userTemplate.Spec.HostIPC
+	merged.Spec.ShareProcessNamespace = userTemplate.Spec.ShareProcessNamespace
+	merged.Spec.SecurityContext = userTemplate.Spec.SecurityContext
+	merged.Spec.ImagePullSecrets = userTemplate.Spec.ImagePullSecrets
+	merged.Spec.Hostname = userTemplate.Spec.Hostname
+	merged.Spec.Subdomain = userTemplate.Spec.Subdomain
+	merged.Spec.SchedulerName = userTemplate.Spec.SchedulerName
+	merged.Spec.Tolerations = userTemplate.Spec.Tolerations
+	merged.Spec.HostAliases = userTemplate.Spec.HostAliases
+	merged.Spec.PriorityClassName = userTemplate.Spec.PriorityClassName
+	merged.Spec.Priority = userTemplate.Spec.Priority
+	merged.Spec.DNSConfig = userTemplate.Spec.DNSConfig
+	merged.Spec.ReadinessGates = userTemplate.Spec.ReadinessGates
+	merged.Spec.RuntimeClassName = userTemplate.Spec.RuntimeClassName
+	merged.Spec.EnableServiceLinks = userTemplate.Spec.EnableServiceLinks
+	merged.Spec.PreemptionPolicy = userTemplate.Spec.PreemptionPolicy
+
+	return *merged
 }
