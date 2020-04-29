@@ -81,14 +81,14 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterCondition(dcName, "Updating", string(corev1.ConditionTrue))
 			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
+			ns.WaitForDatacenterCondition(dcName, "Updating", string(corev1.ConditionTrue))
 
-			// Ensure when Updating condition unset that all pods are online
-			ns.WaitForDatacenterCondition(dcName, "Updating", string(corev1.ConditionFalse))
 			Expect(len(ns.GetDatacenterReadyPodNames(dcName))).To(Equal(6))
 
 			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 1800)
+			// Ensure when Updating condition unset that all pods are online
+			ns.WaitForDatacenterCondition(dcName, "Updating", string(corev1.ConditionFalse))
 
 			step = "checking that the init container got the updated config file_cache_size_in_mb=123, garbage_collector=CMS"
 			json = "jsonpath={.spec.initContainers[0].env[0].value}"

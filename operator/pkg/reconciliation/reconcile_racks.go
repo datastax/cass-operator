@@ -195,14 +195,8 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 		}
 
 		if needsUpdate {
-			// TODO: Set condition Updating
-
 			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.UpdatingRack,
 				"Updating rack %s", rackName)
-
-			if err := setOperatorProgressStatus(rc, api.ProgressUpdating); err != nil {
-				return result.Error(err)
-			}
 
 			dcPatch := client.MergeFrom(dc.DeepCopy())
 			updated := rc.MaybeUpdateCondition(api.DatacenterCondition{
@@ -216,6 +210,10 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 					logger.Error(err, "error patching datacenter status for updating")
 					return result.Error(err)
 				}
+			}
+
+			if err := setOperatorProgressStatus(rc, api.ProgressUpdating); err != nil {
+				return result.Error(err)
 			}
 
 			logger.Info("Updating statefulset pod specs",
