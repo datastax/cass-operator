@@ -193,6 +193,8 @@ var _ = Describe(testName, func() {
 			ns.DisableGossipWaitNotReady(podNameToReplace)
 			ns.WaitForPodNotStarted(podNameToReplace)
 
+			time.Sleep(1 * time.Minute)
+
 			step = "patch CassandraDatacenter with appropriate replaceNodes setting"
 			patch := fmt.Sprintf(`{"spec":{"replaceNodes":["%s"]}}`, podNameToReplace)
 			k = kubectl.PatchMerge(dcResource, patch)
