@@ -836,9 +836,11 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 
 	if !reflect.DeepEqual(status, &oldDc.Status) {
 		// Make a new patch for just the status. We want to use our potentially
-		// updated DC as the base.
-		oldDc := dc.DeepCopy()
-		patch := client.MergeFrom(oldDc)
+		// updated DC as the base. Keep in mind the patch we did above may or
+		// may not have stomped on our status changes.
+		oldDcForStatus := dc.DeepCopy()
+		oldDc.Status.DeepCopyInto(&oldDcForStatus.Status)
+		patch := client.MergeFrom(oldDcForStatus)
 
 		// Update the DC with our status
 		status.DeepCopyInto(&dc.Status)
