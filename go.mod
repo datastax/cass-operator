@@ -31,10 +31,6 @@ require (
 	sigs.k8s.io/controller-tools v0.2.2
 )
 
-replace github.com/datastax/cass-operator/mage => ./mage
-
-replace github.com/datastax/cass-operator/operator => ./operator
-
 // Pinned to kubernetes-1.15.4
 replace (
 	k8s.io/api => k8s.io/api v0.0.0-20190918195907-bd6ac527cfd2
