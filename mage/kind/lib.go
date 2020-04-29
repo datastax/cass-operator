@@ -22,9 +22,8 @@ import (
 )
 
 const (
-	operatorImage              = "datastax/cass-operator:latest"
-	operatorInitContainerImage = "datastax/cass-operator-init:latest"
-	envLoadDevImages           = "M_LOAD_DEV_IMAGES"
+	operatorImage    = "datastax/cass-operator:latest"
+	envLoadDevImages = "M_LOAD_DEV_IMAGES"
 )
 
 func deleteCluster() error {
@@ -83,6 +82,15 @@ func loadSettings() {
 	}
 }
 
+// There is potential for globally scoped resources to be left
+// over from a previous helm install
+func cleanupLingeringHelmResources() {
+	_ = kubectl.DeleteByTypeAndName("clusterrole", "cass-operator-cluster-role").ExecV()
+	_ = kubectl.DeleteByTypeAndName("clusterrolebinding", "cass-operator").ExecV()
+	_ = kubectl.DeleteByTypeAndName("validatingwebhookconfiguration", "cassandradatacenter-webhook-registration").ExecV()
+	_ = kubectl.DeleteByTypeAndName("crd", "cassandradatacenters.cassandra.datastax.com").ExecV()
+}
+
 // Currently there is no concept of "global tool install"
 // with the go cli. With the new module system, your project's
 // go.mod and go.sum files will be updated with new dependencies
@@ -133,7 +141,6 @@ func SetupEmptyCluster() {
 		ExecVPanic()
 	//TODO make this part optional
 	operator.BuildDocker()
-	loadImage(operatorInitContainerImage)
 	loadImage(operatorImage)
 }
 
@@ -217,7 +224,6 @@ func EnsureEmptyCluster() {
 		// we still need to build and load an updated
 		// set of our local operator images
 		operator.BuildDocker()
-		reloadLocalImage(operatorInitContainerImage)
 		reloadLocalImage(operatorImage)
 	}
 
@@ -232,10 +238,10 @@ func EnsureEmptyCluster() {
 			kubectl.DeleteByTypeAndName("namespace", name).ExecVPanic()
 		}
 	}
+	cleanupLingeringHelmResources()
 }
 
 func ReloadOperator() {
 	operator.BuildDocker()
-	reloadLocalImage(operatorInitContainerImage)
 	reloadLocalImage(operatorImage)
 }
