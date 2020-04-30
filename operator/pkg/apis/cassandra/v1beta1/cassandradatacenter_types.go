@@ -199,7 +199,7 @@ const (
 type DatacenterCondition struct {
 	Type DatacenterConditionType `json:"type"`
 	Status corev1.ConditionStatus `json:"status"`
-	LastTransitionTime metav1.Time `json:"lastTransitionTime"`
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
 }
 
 // CassandraDatacenterStatus defines the observed state of CassandraDatacenter
