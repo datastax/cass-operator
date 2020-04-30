@@ -205,7 +205,7 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 			})
 
 			if updated {
-				err := rc.patchStatus(dcPatch)
+				err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
 				if err != nil {
 					logger.Error(err, "error patching datacenter status for updating")
 					return result.Error(err)
@@ -328,7 +328,7 @@ func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult 
 					Status: corev1.ConditionFalse,}) || updated
 
 				if updated {
-					err := rc.patchStatus(dcPatch)
+					err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
 					if err != nil {
 						logger.Error(err, "error patching datacenter status for stopping")
 						return result.Error(err)
@@ -630,7 +630,7 @@ func (rc *ReconciliationContext) CreateSuperuser() result.ReconcileResult {
 
 	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
 	rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
-	if err = rc.patchStatus(patch); err != nil {
+	if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
 		rc.ReqLogger.Error(err, "error updating the CQL superuser upsert timestamp")
 		return result.Error(err)
 	}
@@ -797,15 +797,6 @@ func (rc *ReconciliationContext) UpdateStatusForUserActions() error {
 	return nil
 }
 
-func (rc *ReconciliationContext) patchStatus(patch client.Patch) error {
-	patchData, err := patch.Data(rc.Datacenter)
-	if err != nil {
-		return err
-	}
-	rc.ReqLogger.Info("Patching status", "patch", string(patchData))
-	return rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch)
-}
-
 func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	dc := rc.Datacenter
 	status := rc.Datacenter.Status.DeepCopy()
@@ -844,7 +835,7 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 		// Update the DC with our status
 		status.DeepCopyInto(&dc.Status)
 
-		if err := rc.patchStatus(patch); err != nil {
+		if err := rc.Client.Status().Patch(rc.Ctx, dc, patch); err != nil {
 			return result.Error(err)
 		}
 	}
@@ -1337,7 +1328,7 @@ func (rc *ReconciliationContext) labelServerPodStarting(pod *corev1.Pod) error {
 	
 	statusPatch := client.MergeFrom(dc.DeepCopy())
 	dc.Status.LastServerNodeStarted = metav1.Now()
-	err = rc.patchStatus(statusPatch)
+	err = rc.Client.Status().Patch(rc.Ctx, dc, statusPatch)
 	return err
 }
 
@@ -1673,7 +1664,7 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 			Type: api.DatacenterRollingRestart,
 			Status: corev1.ConditionTrue,
 		})
-		err := rc.patchStatus(dcPatch)
+		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
 		if err != nil {
 			logger.Error(err, "error patching datacenter status for rolling restart started")
 			return result.Error(err)
@@ -1747,7 +1738,7 @@ func (rc *ReconciliationContext) CheckConditionInitializedAndReady() result.Reco
 	}
 
 	if updated {
-		err := rc.patchStatus(dcPatch)
+		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
 		if err != nil {
 			logger.Error(err, "error patching datacenter status")
 			return result.Error(err)
@@ -1784,7 +1775,7 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 	}
 
 	if updated {
-		err := rc.patchStatus(dcPatch)
+		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
 		if err != nil {
 			logger.Error(err, "error patching datacenter status")
 			return result.Error(err)
