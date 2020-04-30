@@ -440,7 +440,7 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	if err != nil {
 		return nil, err
 	}
-	baseTemplate.Spec.InitContainers = append(baseTemplate.Spec.InitContainers, initContainers...)
+	baseTemplate.Spec.InitContainers = append(initContainers, baseTemplate.Spec.InitContainers...)
 
 	var serverVolumeMounts []corev1.VolumeMount
 	for _, c := range initContainers {
@@ -453,7 +453,7 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 		return nil, err
 	}
 
-	baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, containers...)
+	baseTemplate.Spec.Containers = append(containers, baseTemplate.Spec.Containers...)
 
 	return baseTemplate, nil
 }
