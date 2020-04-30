@@ -303,7 +303,6 @@ spec:
                   type:
                     type: string
                 required:
-                - lastTransitionTime
                 - status
                 - type
                 type: object
