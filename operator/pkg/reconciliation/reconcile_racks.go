@@ -684,17 +684,18 @@ func appendValuesToStringArrayIfNotPresent(a []string, values ...string) []strin
 	return a
 }
 
-func (rc *ReconciliationContext) UpdateCassandraNodeStatus(status *api.CassandraDatacenterStatus) error {
+func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 	logger := rc.ReqLogger
+	dc := rc.Datacenter
 
 	pods := ListAllStartedPods(rc.dcPods)
 
-	if status.NodeStatuses == nil {
-		status.NodeStatuses = map[string]api.CassandraNodeStatus{}
+	if dc.Status.NodeStatuses == nil {
+		dc.Status.NodeStatuses = map[string]api.CassandraNodeStatus{}
 	}
 
 	for _, pod := range pods {
-		nodeStatus, ok := status.NodeStatuses[pod.Name]
+		nodeStatus, ok := dc.Status.NodeStatuses[pod.Name]
 		if !ok {
 			nodeStatus = api.CassandraNodeStatus{}
 		}
@@ -721,19 +722,19 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus(status *api.Cassandra
 			}
 		}
 
-		status.NodeStatuses[pod.Name] = nodeStatus
+		dc.Status.NodeStatuses[pod.Name] = nodeStatus
 	}
 
 	return nil
 }
 
-func (rc *ReconciliationContext) updateCurrentReplacePodsProgress(status *api.CassandraDatacenterStatus) error {
+func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
 	dc := rc.Datacenter
 	logger := rc.ReqLogger
 	startedPods := ListAllStartedPods(rc.dcPods)
 
 	// Update current progress of replacing pods
-	if len(status.NodeReplacements) > 0 {
+	if len(dc.Status.NodeReplacements) > 0 {
 		for _, pod := range startedPods {
 			// Since pod is labeled as started, it should be done being replaced
 			if findValueIndexFromStringArray(dc.Status.NodeReplacements, pod.Name) > -1 {
@@ -742,7 +743,7 @@ func (rc *ReconciliationContext) updateCurrentReplacePodsProgress(status *api.Ca
 				rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.FinishedReplaceNode,
 					"Finished replacing pod %s", pod.Name)
 
-				status.NodeReplacements = removeValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
+				dc.Status.NodeReplacements = removeValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
 			}
 		}
 	}
@@ -750,8 +751,9 @@ func (rc *ReconciliationContext) updateCurrentReplacePodsProgress(status *api.Ca
 	return nil
 }
 
-func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified(status *api.CassandraDatacenterStatus) error {
+func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error {
 	dc := rc.Datacenter
+
 	if len(dc.Spec.ReplaceNodes) > 0 {
 		rc.ReqLogger.Info("Replacing pods", "pods", dc.Spec.ReplaceNodes)
 
@@ -760,7 +762,7 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified(status *
 		rc.ReqLogger.Info(fmt.Sprintf("conditions are currently: %v", dc.Status.Conditions))
 
 		rc.ReqLogger.Info("Updating condition for replacing nodes to be true")
-		_ = rc.MaybeUpdateConditionForStatus(status, api.DatacenterCondition{
+		_ = rc.MaybeUpdateCondition(api.DatacenterCondition{
 			Type: api.DatacenterReplacingNodes,
 			Status: corev1.ConditionTrue,
 		})
@@ -771,7 +773,7 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified(status *
 		rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.ReplacingNode,
 			"Replacing Cassandra nodes for pods %s", podNamesString)
 
-		status.NodeReplacements = appendValuesToStringArrayIfNotPresent(
+		dc.Status.NodeReplacements = appendValuesToStringArrayIfNotPresent(
 			dc.Status.NodeReplacements,
 			dc.Spec.ReplaceNodes...)
 
@@ -783,15 +785,15 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified(status *
 	return nil
 }
 
-func (rc *ReconciliationContext) UpdateStatusForUserActions(status *api.CassandraDatacenterStatus) error {
+func (rc *ReconciliationContext) UpdateStatusForUserActions() error {
 	var err error
 
-	err = rc.updateCurrentReplacePodsProgress(status)
+	err = rc.updateCurrentReplacePodsProgress()
 	if err != nil {
 		return err
 	}
 
-	err = rc.startReplacePodsIfReplacePodsSpecified(status)
+	err = rc.startReplacePodsIfReplacePodsSpecified()
 	if err != nil {
 		return err
 	}
@@ -813,15 +815,19 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	status := rc.Datacenter.Status.DeepCopy()
 	oldDc := rc.Datacenter.DeepCopy()
 
-	err := rc.UpdateCassandraNodeStatus(status)
+	err := rc.UpdateCassandraNodeStatus()
 	if err != nil {
 		return result.Error(err)
 	}
 
-	err = rc.UpdateStatusForUserActions(status)
+	err = rc.UpdateStatusForUserActions()
 	if err != nil {
 		return result.Error(err)
 	}
+
+	status = &api.CassandraDatacenterStatus{}
+	dc.Status.DeepCopyInto(status)
+	oldDc.Status.DeepCopyInto(&dc.Status)
 	
 	if !reflect.DeepEqual(dc, oldDc) {
 		patch := client.MergeFrom(oldDc)
@@ -837,13 +843,11 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 		// updated DC as the base. Keep in mind the patch we did above may or
 		// may not have stomped on our status changes.
 		oldDcForStatus := dc.DeepCopy()
-		oldDc.Status.DeepCopyInto(&oldDcForStatus.Status)
 		patch := client.MergeFrom(oldDcForStatus)
 
 		// Update the DC with our status
 		status.DeepCopyInto(&dc.Status)
 
-		// {\"status\":{\"conditions\":[{\"status\":\"False\",\"type\":\"ScalingUp\"},{\"status\":\"True\",\"type\":\"Initialized\"},{\"status\":\"True\",\"type\":\"Ready\"},{\"status\":\"True\",\"type\":\"ReplacingNodes\"}],\"nodeReplacements\":[\"cluster1-dc1-r3-sts-0\"]}}
 		if err := rc.patchStatus(patch); err != nil {
 			return result.Error(err)
 		}
@@ -1716,15 +1720,12 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 }
 
 func (rc *ReconciliationContext) MaybeUpdateCondition(condition api.DatacenterCondition) bool {
-	return rc.MaybeUpdateConditionForStatus(&rc.Datacenter.Status, condition)
-}
-
-func (rc *ReconciliationContext) MaybeUpdateConditionForStatus(status *api.CassandraDatacenterStatus, condition api.DatacenterCondition) bool {
-	if status.GetConditionStatus(condition.Type) != condition.Status {
+	dc := rc.Datacenter
+	if dc.GetConditionStatus(condition.Type) != condition.Status {
 		// We are changing the status, so record the transition time
 		rc.ReqLogger.Info(fmt.Sprintf("Setting condition %v", condition))
 		// condition.LastTransitionTime = metav1.Now()
-		status.SetCondition(condition)
+		dc.SetCondition(condition)
 		return true
 	}
 	rc.ReqLogger.Info(fmt.Sprintf("Not setting condition %v", condition))
