@@ -246,7 +246,7 @@ func EnsureEmptyCluster() {
 
 				// if we fail to delete a dc, then we cannot delete the
 				// namespace because k8s will get stuck, so we need
-				// to stop execution  here
+				// to stop execution here
 				mageutil.PanicOnError(err)
 			}
 			kubectl.DeleteByTypeAndName("namespace", name).ExecVPanic()
