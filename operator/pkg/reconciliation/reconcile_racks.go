@@ -1724,7 +1724,7 @@ func (rc *ReconciliationContext) MaybeUpdateCondition(condition api.DatacenterCo
 	if dc.GetConditionStatus(condition.Type) != condition.Status {
 		// We are changing the status, so record the transition time
 		rc.ReqLogger.Info(fmt.Sprintf("Setting condition %v", condition))
-		// condition.LastTransitionTime = metav1.Now()
+		condition.LastTransitionTime = metav1.Now()
 		dc.SetCondition(condition)
 		return true
 	}
