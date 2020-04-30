@@ -223,7 +223,21 @@ func EnsureEmptyCluster() {
 		name := strings.Fields(row)[0]
 		if strings.HasPrefix(name, "test-") {
 			fmt.Printf("Cleaning up namespace: %s\n", name)
-			_ = kubectl.Delete("cassandradatacenter", "--all").ExecV()
+			// check if any cassdcs exist in the namespace.
+			// kubectl will return an error if the crd has not been
+			// applied first
+			err := kubectl.Get("cassdc").InNamespace(name).ExecV()
+			if err == nil {
+				// safe to perform a delete cassdcs --all at this point
+				err := kubectl.Delete("cassdcs", "--all").
+					InNamespace(name).
+					ExecV()
+
+				// if we fail to delete a dc, then we cannot delete the
+				// namespace because k8s will get stuck, so we need
+				// to stop execution  here
+				mageutil.PanicOnError(err)
+			}
 			kubectl.DeleteByTypeAndName("namespace", name).ExecVPanic()
 		}
 	}
