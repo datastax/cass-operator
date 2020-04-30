@@ -19,7 +19,7 @@ import (
 var (
 	testName         = "Config change condition"
 	namespace        = "test-config-change-condition"
-	dcName           = "dc1"
+	dcName           = "dc2"
 	dcYaml           = "../testdata/default-single-rack-2-node-dc.yaml"
 	operatorYaml     = "../testdata/operator.yaml"
 	dcResource       = fmt.Sprintf("CassandraDatacenter/%s", dcName)
