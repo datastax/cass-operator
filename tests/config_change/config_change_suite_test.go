@@ -80,9 +80,6 @@ var _ = Describe(testName, func() {
 			ns.ExecAndLog(step, k)
 
 			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
-
-			Expect(len(ns.GetDatacenterReadyPodNames(dcName))).To(Equal(6))
-
 			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 1800)
 
 			step = "checking that the init container got the updated config file_cache_size_in_mb=123, garbage_collector=CMS"

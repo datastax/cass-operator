@@ -302,8 +302,6 @@ func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult 
 	logger := rc.ReqLogger
 	dc := rc.Datacenter
 
-	// TODO: unset stopped condition and set resuming condition if not stopped and stopped condition set
-
 	emittedStoppingEvent := false
 	racksUpdated := false
 	for idx := range rc.desiredRackInformation {
@@ -548,7 +546,6 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 				"desiredSize", desiredNodeCount,
 			)
 
-			// TODO: set condition ScalingUp
 			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.ScalingUpRack,
 				"Scaling up rack %s", rackInfo.RackName)
 
@@ -758,7 +755,7 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 		rc.ReqLogger.Info("Replacing pods", "pods", dc.Spec.ReplaceNodes)
 
 		podNamesString := strings.Join(dc.Spec.ReplaceNodes, ", ")
-		// [{Initialized True} {Ready True}]
+
 		rc.ReqLogger.Info(fmt.Sprintf("conditions are currently: %v", dc.Status.Conditions))
 
 		rc.ReqLogger.Info("Updating condition for replacing nodes to be true")
@@ -767,7 +764,6 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 			Status: corev1.ConditionTrue,
 		})
 
-		// [{Initialized True} {Ready True} {ReplacingNodes True}]
 		rc.ReqLogger.Info(fmt.Sprintf("conditions are now: %v", dc.Status.Conditions))
 
 		rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.ReplacingNode,

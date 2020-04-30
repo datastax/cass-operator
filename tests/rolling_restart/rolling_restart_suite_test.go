@@ -29,7 +29,6 @@ var (
 		"../../operator/deploy/role.yaml",
 		"../../operator/deploy/role_binding.yaml",
 		"../../operator/deploy/service_account.yaml",
-		// "../../operator/deploy/secret-ecr.yaml",
 		"../../operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
 	}
 )
