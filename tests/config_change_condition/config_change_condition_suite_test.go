@@ -21,16 +21,9 @@ var (
 	namespace        = "test-config-change-condition"
 	dcName           = "dc2"
 	dcYaml           = "../testdata/default-single-rack-2-node-dc.yaml"
-	operatorYaml     = "../testdata/operator.yaml"
 	dcResource       = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel          = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
 	ns               = ginkgo_util.NewWrapper(testName, namespace)
-	defaultResources = []string{
-		"../../operator/deploy/role.yaml",
-		"../../operator/deploy/role_binding.yaml",
-		"../../operator/deploy/service_account.yaml",
-		"../../operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
-	}
 )
 
 func TestLifecycle(t *testing.T) {
@@ -52,17 +45,13 @@ var _ = Describe(testName, func() {
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
 
-			step := "creating default resources"
-			k := kubectl.ApplyFiles(defaultResources...)
-			ns.ExecAndLog(step, k)
-
-			step = "setting up cass-operator resources via helm chart"
+			step := "setting up cass-operator resources via helm chart"
 			ns.HelmInstall("../../charts/cass-operator-chart")
-			
+
 			ns.WaitForOperatorReady()
 
 			step = "creating a datacenter resource with 1 racks/2 nodes"
-			k = kubectl.ApplyFiles(dcYaml)
+			k := kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
 			ns.WaitForDatacenterReady(dcName)
