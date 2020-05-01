@@ -756,15 +756,10 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 
 		podNamesString := strings.Join(dc.Spec.ReplaceNodes, ", ")
 
-		rc.ReqLogger.Info(fmt.Sprintf("conditions are currently: %v", dc.Status.Conditions))
-
-		rc.ReqLogger.Info("Updating condition for replacing nodes to be true")
 		_ = rc.MaybeUpdateCondition(api.DatacenterCondition{
 			Type: api.DatacenterReplacingNodes,
 			Status: corev1.ConditionTrue,
 		})
-
-		rc.ReqLogger.Info(fmt.Sprintf("conditions are now: %v", dc.Status.Conditions))
 
 		rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.ReplacingNode,
 			"Replacing Cassandra nodes for pods %s", podNamesString)
@@ -821,8 +816,6 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 		if err := rc.Client.Patch(rc.Ctx, dc, patch); err != nil {
 			return result.Error(err)
 		}
-
-		rc.ReqLogger.Info(fmt.Sprintf("conditions are after resource update: %v", dc.Status.Conditions))
 	}
 
 	if !reflect.DeepEqual(status, &oldDc.Status) {
@@ -1666,7 +1659,7 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 		})
 		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
 		if err != nil {
-			logger.Error(err, "error patching datacenter status for rolling restart started")
+			logger.Error(err, "error patching datacenter status for rolling restart")
 			return result.Error(err)
 		}
 
@@ -1677,7 +1670,6 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 			logger.Error(err, "error patching datacenter for rolling restart")
 			return result.Error(err)
 		}
-		logger.Info("starting rolling restart")
 	}
 
 	cutoff := &dc.Status.LastRollingRestart
@@ -1710,12 +1702,10 @@ func (rc *ReconciliationContext) MaybeUpdateCondition(condition api.DatacenterCo
 	dc := rc.Datacenter
 	if dc.GetConditionStatus(condition.Type) != condition.Status {
 		// We are changing the status, so record the transition time
-		rc.ReqLogger.Info(fmt.Sprintf("Setting condition %v", condition))
 		condition.LastTransitionTime = metav1.Now()
 		dc.SetCondition(condition)
 		return true
 	}
-	rc.ReqLogger.Info(fmt.Sprintf("Not setting condition %v", condition))
 	return false
 }
 
