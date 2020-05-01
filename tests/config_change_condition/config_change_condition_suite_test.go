@@ -56,10 +56,9 @@ var _ = Describe(testName, func() {
 			k := kubectl.ApplyFiles(defaultResources...)
 			ns.ExecAndLog(step, k)
 
-			step = "creating the cass-operator resource"
-			k = kubectl.ApplyFiles(operatorYaml)
-			ns.ExecAndLog(step, k)
-
+			step = "setting up cass-operator resources via helm chart"
+			ns.HelmInstall("../../charts/cass-operator-chart")
+			
 			ns.WaitForOperatorReady()
 
 			step = "creating a datacenter resource with 1 racks/2 nodes"
