@@ -17,6 +17,7 @@ require (
 	github.com/rogpeppe/go-charset v0.0.0-20190617161244-0dc95cdf6f31 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
 	gopkg.in/vmihailenco/msgpack.v2 v2.9.1 // indirect
+	k8s.io/api v0.0.0-20191121015604-11707872ac1c
 )
 
 replace github.com/datastax/cass-operator/mage => ./mage

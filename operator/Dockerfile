@@ -4,7 +4,11 @@
 ##########
 # "builder" compiles and tests the code
 # This stage name is important to the Cloud Platform CI/CD infrastructure, and should be preserved
-FROM golang:1.13-stretch as builder
+# FROM golang:1.13-stretch as builder
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest as builder
+
+RUN microdnf update && rm -rf /var/cache/yum
+RUN microdnf install golang && microdnf clean all
 
 # Disable cgo - this makes static binaries that will work on an Alpine image
 ENV CGO_ENABLED=0
@@ -49,11 +53,13 @@ COPY operator ./operator
 ARG VERSION_STAMP=DEV
 
 # Build any code not touched by tests (the generated client)
-RUN MO_VERSION=${VERSION_STAMP} mage operator:buildGo
+RUN MO_VERSION=${VERSION_STAMP} /go/bin/mage operator:buildGo
 
 # Second stage
 # Produce a smaller image than the one used to build the code
-FROM alpine:3.9
+FROM registry.access.redhat.com/ubi8/ubi-minimal:latest
+
+RUN microdnf update && microdnf clean all && rm -rf /var/cache/yum
 
 ENV GOPATH=/go
 WORKDIR /go
