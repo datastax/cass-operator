@@ -4,13 +4,12 @@
 ##########
 # "builder" compiles and tests the code
 # This stage name is important to the Cloud Platform CI/CD infrastructure, and should be preserved
-# FROM golang:1.13-stretch as builder
 FROM registry.access.redhat.com/ubi8/ubi-minimal:latest as builder
 
 RUN microdnf update && rm -rf /var/cache/yum
 RUN microdnf install golang && microdnf clean all
 
-# Disable cgo - this makes static binaries that will work on an Alpine image
+# Disable cgo - this makes static binaries
 ENV CGO_ENABLED=0
 ENV GOPROXY=https://proxy.golang.org,https://gocenter.io,direct
 
