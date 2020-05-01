@@ -405,6 +405,9 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	oplabels.AddManagedByLabel(podLabels)
 	podLabels[api.CassNodeState] = stateReadyToStart
 
+	if baseTemplate.Labels == nil {
+		baseTemplate.Labels = make(map[string]string)
+	}
 	baseTemplate.Labels = utils.MergeMap(baseTemplate.Labels, podLabels)
 
 	// affinity
