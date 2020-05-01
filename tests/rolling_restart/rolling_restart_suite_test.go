@@ -38,7 +38,7 @@ func TestLifecycle(t *testing.T) {
 		logPath := fmt.Sprintf("%s/aftersuite", ns.LogDir)
 		kubectl.DumpAllLogs(logPath).ExecV()
 		fmt.Printf("\n\tPost-run logs dumped at: %s\n\n", logPath)
-		_ = ns.Terminate()
+		ns.Terminate()
 	})
 
 	RegisterFailHandler(Fail)
