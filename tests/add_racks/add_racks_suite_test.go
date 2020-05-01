@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package terminate
+package add_racks
 
 import (
 	"fmt"
@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	testName     = "Cluster resource cleanup after termination"
-	namespace    = "test-terminate-cleanup"
+	testName     = "Add racks"
+	namespace    = "test-add-racks"
 	dcName       = "dc2"
 	dcYaml       = "../testdata/default-single-rack-single-node-dc.yaml"
 	operatorYaml = "../testdata/operator.yaml"
@@ -39,7 +39,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator destroys resources after the datacenter is deleted", func() {
+		Specify("racks can be added if the size is increased accordingly", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
@@ -63,8 +63,7 @@ var _ = Describe(testName, func() {
 			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
 			k = kubectl.Get("pods").
 				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
+				WithFlag("field-selector", "status.phase=Running").FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true", 1200)
 
 			step = "checking the cassandra operator progress status is set to Ready"
@@ -73,6 +72,37 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
 
+			step = "add 1 rack and increase size by 1"
+			json = `{"spec": { "size": 2, "racks": [{"name": "r1"}, {"name": "r2"}]}}`
+			k = kubectl.PatchMerge(dcResource, json)
+			ns.ExecAndLog(step, k)
+
+			step = "checking there is 1 node on the new rack"
+			json = "jsonpath={.items[*].metadata.name}"
+			k = kubectl.Get("pod").
+				WithLabel(`cassandra.datastax.com/rack=r2`).
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "cluster2-dc2-r2-sts-0", 60)
+
+			step = "add 2 more racks and increase size by 2"
+			json = `{"spec": { "size": 4, "racks": [{"name": "r1"}, {"name": "r2"}, {"name": "r3"}, {"name": "r4"}]}}`
+			k = kubectl.PatchMerge(dcResource, json)
+			ns.ExecAndLog(step, k)
+
+			step = "checking there is 1 node on rack 3"
+			json = "jsonpath={.items[*].metadata.name}"
+			k = kubectl.Get("pod").
+				WithLabel("cassandra.datastax.com/rack=r3").
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "cluster2-dc2-r3-sts-0", 60)
+
+			step = "checking there is 1 node on rack 4"
+			json = "jsonpath={.items[*].metadata.name}"
+			k = kubectl.Get("pod").
+				WithLabel("cassandra.datastax.com/rack=r4").
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "cluster2-dc2-r4-sts-0", 60)
+
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
 			ns.ExecAndLog(step, k)
@@ -80,27 +110,6 @@ var _ = Describe(testName, func() {
 			step = "checking that the dc no longer exists"
 			json = "jsonpath={.items}"
 			k = kubectl.Get("CassandraDatacenter").
-				WithLabel(dcLabel).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "[]", 300)
-
-			step = "checking that no dc pods remain"
-			json = "jsonpath={.items}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "[]", 300)
-
-			step = "checking that no dc services remain"
-			json = "jsonpath={.items}"
-			k = kubectl.Get("services").
-				WithLabel(dcLabel).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "[]", 300)
-
-			step = "checking that no dc stateful sets remain"
-			json = "jsonpath={.items}"
-			k = kubectl.Get("statefulsets").
 				WithLabel(dcLabel).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "[]", 300)

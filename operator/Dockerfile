@@ -18,18 +18,10 @@ ENV GOPATH=/go
 
 WORKDIR /cass-operator
 
-# Grab mage files
 COPY go.mod go.sum ./
-COPY mage/go.mod mage/go.sum ./mage/
 
 # Download go deps (including mage)
 RUN go mod download
-
-# We have to run go mod download in the ./operator
-# dir specifically, but not under ./mage. This is likely
-# because the root go.mod directly references the ./mage tree
-COPY operator/go.mod operator/go.sum ./operator/
-RUN cd operator && go mod download
 
 # At this point, we have the top level go.mod, the ./mage level go.mod,
 # and the ./operator level go.mod without copying any of the source code yet.

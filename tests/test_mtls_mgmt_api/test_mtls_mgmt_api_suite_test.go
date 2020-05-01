@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package stop_resume
+package test_mtls_mgmt_api
 
 import (
 	"fmt"
@@ -10,17 +10,15 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	corev1 "k8s.io/api/core/v1"
-
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
 	"github.com/datastax/cass-operator/mage/kubectl"
 )
 
 var (
-	testName     = "Stop and Resume"
-	namespace    = "test-stop-resume"
+	testName     = "test mtls protecting mgmt api"
+	namespace    = "test-mtls-for-mgmt-api"
 	dcName       = "dc1"
-	dcYaml       = "../testdata/default-three-rack-three-node-dc.yaml"
+	dcYaml       = "../testdata/dse-one-node-dc-with-mtls.yaml"
 	operatorYaml = "../testdata/operator.yaml"
 	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
@@ -41,7 +39,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator can stop, resume, and terminate a datacenter", func() {
+		Specify("the operator can start, scale up, and terminate a datacenter where the mgmt api is behind mtls", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
@@ -51,40 +49,27 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForOperatorReady()
 
-			step = "creating a datacenter resource with 3 racks/3 nodes"
-			k := kubectl.ApplyFiles(dcYaml)
+			// jam in secrets
+			step = "creating mtls secrets"
+			k := kubectl.ApplyFiles(
+				"../testdata/mtls-certs-server.yaml",
+				"../testdata/mtls-certs-client.yaml",
+			).InNamespace(namespace)
+			ns.ExecAndLog(step, k)
+
+			step = "creating a datacenter resource with 1 rack/1 node"
+			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
 			ns.WaitForDatacenterReady(dcName)
 
-			step = "stopping the dc"
-			json := "{\"spec\": {\"stopped\": true}}"
+			step = "scale up to 2 nodes"
+			json := "{\"spec\": {\"size\": 2}}"
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			// Ensure conditions set correctly for stopped
-			ns.WaitForDatacenterCondition(dcName, "Stopped", string(corev1.ConditionTrue)) 
-			ns.WaitForDatacenterCondition(dcName, "Ready", string(corev1.ConditionFalse))
-
-			step = "checking the spec size hasn't changed"
-			json = "jsonpath={.spec.size}"
-			k = kubectl.Get(dcResource).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "3", 20)
-
-			ns.WaitForDatacenterToHaveNoPods(dcName)
-
-			step = "resume the dc"
-			json = "{\"spec\": {\"stopped\": false}}"
-			k = kubectl.PatchMerge(dcResource, json)
-			ns.ExecAndLog(step, k)
-
-			// Ensure conditions set correctly for resuming
-			ns.WaitForDatacenterCondition(dcName, "Stopped", string(corev1.ConditionFalse))
-			ns.WaitForDatacenterCondition(dcName, "Resuming", string(corev1.ConditionTrue))
-
+			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
 			ns.WaitForDatacenterReady(dcName)
-			ns.WaitForDatacenterCondition(dcName, "Ready", string(corev1.ConditionTrue))
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)

@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.0
+* #27 Added a helm chart to ease installing.
+* #23 #37 #46 Added a validating webhook for CassandraDatacenter.
+* #43 Emit more events when reconciling a CassandraDatacenter.
+* #47 Support `nodeSelector` to pin database pods to labelled k8s worker nodes.
+* #22 Refactor towards less code listing pods.
+* Several integration tests added.
+
 ## v1.0.0
 
 * Project renamed to `cass-operator`.

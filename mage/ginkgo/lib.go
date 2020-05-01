@@ -7,14 +7,15 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
-	"strconv"
-	"sort"
 
 	ginkgo "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	helm_util "github.com/datastax/cass-operator/mage/helm"
 	"github.com/datastax/cass-operator/mage/kubectl"
 	mageutil "github.com/datastax/cass-operator/mage/util"
 )
@@ -31,7 +32,6 @@ func duplicate(value string, count int) string {
 
 	return strings.Join(result, " ")
 }
-
 
 // Wrapper type to make it simpler to
 // set a namespace one time and execute all of your
@@ -51,7 +51,10 @@ func NewWrapper(suiteName string, namespace string) NsWrapper {
 		LogDir:        genSuiteLogDir(suiteName),
 		stepCounter:   1,
 	}
+}
 
+func (k NsWrapper) ExecVCapture(kcmd kubectl.KCmd) (string, string, error) {
+	return kcmd.InNamespace(k.Namespace).ExecVCapture()
 }
 
 func (k NsWrapper) ExecV(kcmd kubectl.KCmd) error {
@@ -103,11 +106,11 @@ func (k *NsWrapper) countStep() int {
 	return n
 }
 
-func (k NsWrapper) Terminate() error {
+func (ns NsWrapper) Terminate() {
 	noCleanup := os.Getenv(EnvNoCleanup)
 	if strings.ToLower(noCleanup) == "true" {
 		fmt.Println("Skipping namespace cleanup and deletion.")
-		return nil
+		return
 	}
 
 	fmt.Println("Cleaning up and deleting namespace.")
@@ -117,8 +120,31 @@ func (k NsWrapper) Terminate() error {
 	// This is important because deleting the namespace itself
 	// can hang if this step is skipped.
 	kcmd := kubectl.Delete("cassandradatacenter", "--all")
-	_ = k.ExecV(kcmd)
-	return kubectl.DeleteByTypeAndName("namespace", k.Namespace).ExecV()
+	_, dcErrOut, dcErr := ns.ExecVCapture(kcmd)
+
+	// Must run helm uninstall before deleting namespace
+	// or else it won't see that it has an active release
+	// out there
+	_, helmErrOut, helmErr := helm_util.UninstallCapture("cass-operator", ns.Namespace)
+
+	_, nsErrOut, nsErr := kubectl.DeleteByTypeAndName("namespace", ns.Namespace).ExecVCapture()
+
+	var errMsgs []string
+	if dcErr != nil {
+		errMsgs = append(errMsgs, fmt.Sprintf("Error deleting datacenters: %v\n\t%s", dcErr.Error(), dcErrOut))
+	}
+	if helmErr != nil {
+		errMsgs = append(errMsgs, fmt.Sprintf("Error performing helm uninstall: %v\n\t%s", helmErr.Error(), helmErrOut))
+	}
+	if nsErr != nil {
+		errMsgs = append(errMsgs, fmt.Sprintf("Error deleting namespace: %v\n\t%s", nsErr.Error(), nsErrOut))
+	}
+
+	if len(errMsgs) > 0 {
+		msg := fmt.Sprintf("One or more errors occured while cleaning up test resources.\n%s", strings.Join(errMsgs, "\n"))
+		err := fmt.Errorf(msg)
+		Expect(err).ToNot(HaveOccurred())
+	}
 }
 
 //===================================
@@ -148,6 +174,14 @@ func (ns *NsWrapper) ExecAndLog(description string, kcmd kubectl.KCmd) {
 	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
 	execErr := ns.ExecV(kcmd)
 	Expect(execErr).ToNot(HaveOccurred())
+}
+
+func (ns *NsWrapper) ExecAndLogAndExpectErrorString(description string, kcmd kubectl.KCmd, expectedError string) {
+	ginkgo.By(description)
+	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
+	_, captureErr, execErr := ns.ExecVCapture(kcmd)
+	Expect(execErr).To(HaveOccurred())
+	Expect(captureErr).Should(ContainSubstring(expectedError))
 }
 
 func (ns *NsWrapper) OutputAndLog(description string, kcmd kubectl.KCmd) string {
@@ -308,4 +342,10 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 		WithFlag("field-selector", "status.phase=Running").
 		FormatOutput(json)
 	ns.WaitForOutputAndLog(step, k, "true", 120)
+}
+
+func (ns NsWrapper) HelmInstall(chartPath string) {
+	var overrides = map[string]string{"image": "datastax/cass-operator:latest"}
+	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
+	mageutil.PanicOnError(err)
 }

@@ -488,3 +488,19 @@ func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, erro
 
 	return ports, nil
 }
+
+func SplitRacks(nodeCount, rackCount int) []int {
+	nodesPerRack, extraNodes := nodeCount/rackCount, nodeCount%rackCount
+
+	var topology []int
+
+	for rackIdx := 0; rackIdx < rackCount; rackIdx++ {
+		nodesForThisRack := nodesPerRack
+		if rackIdx < extraNodes {
+			nodesForThisRack++
+		}
+		topology = append(topology, nodesForThisRack)
+	}
+
+	return topology
+}

@@ -24,6 +24,8 @@ jobs:
           mv mage $GOPATH/bin/mage
           sudo chmod +x $GOPATH/bin/mage
       - name: Build docker
+        env:
+          MO_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testAndBuild
@@ -37,3 +39,13 @@ jobs:
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
           mage operator:deployToECR
+      - name: Deploy to GH Packages
+        if: github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
+        env:
+          MO_GH_USR: 'datastax/cass-operator'
+          MO_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MO_GH_PKG_REPO: 'datastax/cass-operator/operator'
+        run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+          export MO_TAGS=$(cat ./build/tagsToPush.txt)
+          mage operator:deployToGHPackages
