@@ -61,11 +61,9 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
 			ns.WaitForDatacenterCondition(dcName, "Updating", string(corev1.ConditionTrue))
-
-			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 1800)
 			ns.WaitForDatacenterCondition(dcName, "Updating", string(corev1.ConditionFalse))
+			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 1800)
 		})
 	})
 })
