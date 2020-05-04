@@ -202,6 +202,13 @@ type DatacenterCondition struct {
 	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
 }
 
+func NewDatacenterCondition(conditionType DatacenterConditionType, status corev1.ConditionStatus) *DatacenterCondition {
+	return &DatacenterCondition{
+		Type: conditionType,
+		Status: status,
+	}
+}
+
 // CassandraDatacenterStatus defines the observed state of CassandraDatacenter
 // +k8s:openapi-gen=true
 type CassandraDatacenterStatus struct {

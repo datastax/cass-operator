@@ -191,10 +191,8 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 				"Updating rack %s", rackName)
 
 			dcPatch := client.MergeFrom(dc.DeepCopy())
-			updated := rc.MaybeUpdateCondition(api.DatacenterCondition{
-				Type: api.DatacenterUpdating,
-				Status: corev1.ConditionTrue,
-			})
+			updated := rc.setCondition(
+				api.NewDatacenterCondition(api.DatacenterUpdating, corev1.ConditionTrue))
 
 			if updated {
 				err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
@@ -312,12 +310,11 @@ func (rc *ReconciliationContext) CheckRackStoppedState() result.ReconcileResult 
 
 			if !emittedStoppingEvent {
 				dcPatch := client.MergeFrom(dc.DeepCopy())
-				updated := rc.MaybeUpdateCondition(api.DatacenterCondition{
-					Type: api.DatacenterStopped,
-					Status: corev1.ConditionTrue,})
-				updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
-					Type: api.DatacenterReady,
-					Status: corev1.ConditionFalse,}) || updated
+				updated := rc.setCondition(
+					api.NewDatacenterCondition(api.DatacenterStopped, corev1.ConditionTrue))
+				updated = rc.setCondition(
+					api.NewDatacenterCondition(
+						api.DatacenterReady, corev1.ConditionFalse)) || updated
 
 				if updated {
 					err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
@@ -508,19 +505,18 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 
 			// Check to see if we are resuming from stopped and update conditions appropriately
 			if dc.GetConditionStatus(api.DatacenterStopped) == corev1.ConditionTrue {
-				updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
-					Type: api.DatacenterStopped,
-					Status: corev1.ConditionFalse}) || updated
+				updated = rc.setCondition(
+					api.NewDatacenterCondition(
+						api.DatacenterStopped, corev1.ConditionFalse)) || updated
 
-				updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
-					Type: api.DatacenterResuming,
-					Status: corev1.ConditionTrue}) || updated
+				updated = rc.setCondition(
+					api.NewDatacenterCondition(
+						api.DatacenterResuming, corev1.ConditionTrue)) || updated
 			}
 
-			updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
-				Type: api.DatacenterScalingUp,
-				Status: corev1.ConditionTrue,
-			}) || updated
+			updated = rc.setCondition(
+				api.NewDatacenterCondition(
+					api.DatacenterScalingUp, corev1.ConditionTrue)) || updated
 
 			if updated {
 				err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
@@ -748,10 +744,8 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 
 		podNamesString := strings.Join(dc.Spec.ReplaceNodes, ", ")
 
-		_ = rc.MaybeUpdateCondition(api.DatacenterCondition{
-			Type: api.DatacenterReplacingNodes,
-			Status: corev1.ConditionTrue,
-		})
+		_ = rc.setCondition(
+			api.NewDatacenterCondition(api.DatacenterReplacingNodes, corev1.ConditionTrue))
 
 		rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.ReplacingNode,
 			"Replacing Cassandra nodes for pods %s", podNamesString)
@@ -1645,10 +1639,8 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 	if dc.Spec.RollingRestartRequested {
 		dcPatch := client.MergeFrom(dc.DeepCopy())
 		dc.Status.LastRollingRestart = metav1.Now()
-		_ = rc.MaybeUpdateCondition(api.DatacenterCondition{
-			Type: api.DatacenterRollingRestart,
-			Status: corev1.ConditionTrue,
-		})
+		_ = rc.setCondition(
+			api.NewDatacenterCondition(api.DatacenterRollingRestart, corev1.ConditionTrue))
 		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
 		if err != nil {
 			logger.Error(err, "error patching datacenter status for rolling restart")
@@ -1690,12 +1682,12 @@ func (rc *ReconciliationContext) CheckRollingRestart() result.ReconcileResult {
 	return result.Continue()
 }
 
-func (rc *ReconciliationContext) MaybeUpdateCondition(condition api.DatacenterCondition) bool {
+func (rc *ReconciliationContext) setCondition(condition *api.DatacenterCondition) bool {
 	dc := rc.Datacenter
 	if dc.GetConditionStatus(condition.Type) != condition.Status {
 		// We are changing the status, so record the transition time
 		condition.LastTransitionTime = metav1.Now()
-		dc.SetCondition(condition)
+		dc.SetCondition(*condition)
 		return true
 	}
 	return false
@@ -1707,16 +1699,12 @@ func (rc *ReconciliationContext) CheckConditionInitializedAndReady() result.Reco
 	logger := rc.ReqLogger
 	
 	updated := false
-	updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
-		Type: api.DatacenterInitialized,
-		Status: corev1.ConditionTrue,
-	}) || updated
+	updated = rc.setCondition(
+		api.NewDatacenterCondition(api.DatacenterInitialized, corev1.ConditionTrue)) || updated
 	
 	if dc.GetConditionStatus(api.DatacenterStopped) == corev1.ConditionFalse {
-		updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
-			Type: api.DatacenterReady,
-			Status: corev1.ConditionTrue,
-		}) || updated
+		updated = rc.setCondition(
+			api.NewDatacenterCondition(api.DatacenterReady, corev1.ConditionTrue)) || updated
 	}
 
 	if updated {
@@ -1750,10 +1738,8 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 	}
 	updated := false
 	for _, conditionType := range(actionConditionTypes) {
-		updated = rc.MaybeUpdateCondition(api.DatacenterCondition{
-			Type: conditionType,
-			Status: corev1.ConditionFalse,
-		}) || updated
+		updated = rc.setCondition(
+			api.NewDatacenterCondition(conditionType, corev1.ConditionFalse)) || updated
 	}
 
 	if updated {
