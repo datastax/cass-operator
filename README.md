@@ -267,7 +267,7 @@ Kubernetes distribution you're using to do so.
 
 Delete your CassandraDatacenters first, otherwise Kubernetes will block deletion because we use a finalizer.
 ```
-kubectl delete cassdcs --all-namespaces
+kubectl delete cassdcs --all-namespaces --all
 ```
 
 Remove the operator Deployment, CRD, etc.
