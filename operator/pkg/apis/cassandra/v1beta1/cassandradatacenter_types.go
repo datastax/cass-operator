@@ -338,17 +338,12 @@ func (dc *CassandraDatacenter) GetConditionStatus(conditionType DatacenterCondit
 }
 
 func (status *CassandraDatacenterStatus) SetCondition(condition DatacenterCondition) {
-	// NOTE: Recreating the array here is necessary as simply updating elements
-	// in the array can lead to a path update missing the change.
-
-	conditions := []DatacenterCondition{}
+	conditions := status.Conditions
 	added := false
 	for i, _ := range status.Conditions {
 		if status.Conditions[i].Type == condition.Type {
-			conditions = append(conditions, condition)
+			status.Conditions[i] = condition
 			added = true
-		} else {
-			conditions = append(conditions, status.Conditions[i])
 		}
 	}
 
