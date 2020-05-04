@@ -292,6 +292,21 @@ spec:
             cassandraOperatorProgress:
               description: Last known progress state of the Cassandra Operator
               type: string
+            conditions:
+              items:
+                properties:
+                  lastTransitionTime:
+                    format: date-time
+                    type: string
+                  status:
+                    type: string
+                  type:
+                    type: string
+                required:
+                - status
+                - type
+                type: object
+              type: array
             lastRollingRestart:
               format: date-time
               type: string

@@ -10,6 +10,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
+
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
 	"github.com/datastax/cass-operator/mage/kubectl"
 )
@@ -60,6 +62,10 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
+			// Ensure conditions set correctly for stopped
+			ns.WaitForDatacenterCondition(dcName, "Stopped", string(corev1.ConditionTrue)) 
+			ns.WaitForDatacenterCondition(dcName, "Ready", string(corev1.ConditionFalse))
+
 			step = "checking the spec size hasn't changed"
 			json = "jsonpath={.spec.size}"
 			k = kubectl.Get(dcResource).
@@ -73,7 +79,12 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
+			// Ensure conditions set correctly for resuming
+			ns.WaitForDatacenterCondition(dcName, "Stopped", string(corev1.ConditionFalse))
+			ns.WaitForDatacenterCondition(dcName, "Resuming", string(corev1.ConditionTrue))
+
 			ns.WaitForDatacenterReady(dcName)
+			ns.WaitForDatacenterCondition(dcName, "Ready", string(corev1.ConditionTrue))
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)

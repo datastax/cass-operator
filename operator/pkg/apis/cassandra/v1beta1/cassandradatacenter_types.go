@@ -41,23 +41,6 @@ const (
 	// Progress states for status
 	ProgressUpdating ProgressState = "Updating"
 	ProgressReady    ProgressState = "Ready"
-
-	// Events
-	UpdatingRack                      string = "UpdatingRack"
-	StoppingDatacenter                string = "StoppingDatacenter"
-	DeletingStuckPod                  string = "DeletingStuckPod"
-	RestartingCassandra               string = "RestartingCassandra"
-	CreatedResource                   string = "CreatedResource"
-	StartedCassandra                  string = "StartedCassandra"
-	LabeledPodAsSeed                  string = "LabeledPodAsSeed"
-	UnlabeledPodAsSeed                string = "UnlabeledPodAsSeed"
-	LabeledRackResource               string = "LabeledRackResource"
-	ScalingUpRack                     string = "ScalingUpRack"
-	CreatedSuperuser                  string = "CreatedSuperuser"
-	FinishedReplaceNode               string = "FinishedReplaceNode"
-	ReplacingNode                     string = "ReplacingNode"
-	StartingCassandraAndReplacingNode string = "StartingCassandraAndReplacingNode"
-	StartingCassandra                 string = "StartingCassandra"
 )
 
 // This type exists so there's no chance of pushing random strings to our progress status
@@ -200,9 +183,37 @@ type CassandraNodeStatus struct {
 
 type CassandraStatusMap map[string]CassandraNodeStatus
 
+type DatacenterConditionType string
+
+const (
+	DatacenterReady          DatacenterConditionType = "Ready"
+	DatacenterInitialized    DatacenterConditionType = "Initialized"
+	DatacenterReplacingNodes DatacenterConditionType = "ReplacingNodes"
+	DatacenterScalingUp      DatacenterConditionType = "ScalingUp"
+	DatacenterUpdating       DatacenterConditionType = "Updating"
+	DatacenterStopped        DatacenterConditionType = "Stopped"
+	DatacenterResuming       DatacenterConditionType = "Resuming"
+	DatacenterRollingRestart DatacenterConditionType = "RollingRestart"
+)
+
+type DatacenterCondition struct {
+	Type DatacenterConditionType `json:"type"`
+	Status corev1.ConditionStatus `json:"status"`
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+}
+
+func NewDatacenterCondition(conditionType DatacenterConditionType, status corev1.ConditionStatus) *DatacenterCondition {
+	return &DatacenterCondition{
+		Type: conditionType,
+		Status: status,
+	}
+}
+
 // CassandraDatacenterStatus defines the observed state of CassandraDatacenter
 // +k8s:openapi-gen=true
 type CassandraDatacenterStatus struct {
+	Conditions []DatacenterCondition `json:"conditions,omitempty"`
+
 	// The timestamp at which CQL superuser credentials
 	// were last upserted to the management API
 	// +optional
@@ -311,6 +322,40 @@ func (dc *CassandraDatacenter) GetRackLabels(rackName string) map[string]string 
 	utils.MergeMap(labels, dc.GetDatacenterLabels())
 
 	return labels
+}
+
+func (status *CassandraDatacenterStatus) GetConditionStatus(conditionType DatacenterConditionType) corev1.ConditionStatus {
+	for _, condition := range status.Conditions {
+		if condition.Type == conditionType {
+			return condition.Status
+		}
+	}
+	return corev1.ConditionFalse
+}
+
+func (dc *CassandraDatacenter) GetConditionStatus(conditionType DatacenterConditionType) corev1.ConditionStatus {
+	return (&dc.Status).GetConditionStatus(conditionType)
+}
+
+func (status *CassandraDatacenterStatus) SetCondition(condition DatacenterCondition) {
+	conditions := status.Conditions
+	added := false
+	for i, _ := range status.Conditions {
+		if status.Conditions[i].Type == condition.Type {
+			status.Conditions[i] = condition
+			added = true
+		}
+	}
+
+	if !added {
+		conditions = append(conditions, condition)
+	}
+
+	status.Conditions = conditions
+}
+
+func (dc *CassandraDatacenter) SetCondition(condition DatacenterCondition) {
+	(&dc.Status).SetCondition(condition)
 }
 
 // GetDatacenterLabels ...

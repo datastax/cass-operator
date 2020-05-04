@@ -10,6 +10,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
+
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
 	"github.com/datastax/cass-operator/mage/kubectl"
 )
@@ -54,6 +56,8 @@ var _ = Describe(testName, func() {
 			ns.ExecAndLog(step, k)
 
 			ns.WaitForDatacenterReady(dcName)
+			ns.WaitForDatacenterCondition(dcName, "Ready", string(corev1.ConditionTrue))
+			ns.WaitForDatacenterCondition(dcName, "Initialized", string(corev1.ConditionTrue))
 
 			step = "scale up to 4 nodes"
 			json := "{\"spec\": {\"size\": 4}}"
