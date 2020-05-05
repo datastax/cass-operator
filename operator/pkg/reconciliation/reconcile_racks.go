@@ -127,6 +127,15 @@ func (rc *ReconciliationContext) CheckRackCreation() result.ReconcileResult {
 		}
 
 		if statefulSetFound == false {
+			// lets make some bogus events
+			for i := 0; i < 100; i += 1 {
+				rc.Recorder.Eventf(
+					rc.Datacenter, 
+					corev1.EventTypeNormal,
+					"SomeFakeEvent",
+					"Some fake event %d", i)
+			}
+
 			rc.ReqLogger.Info(
 				"Need to create new StatefulSet for",
 				"Rack", rackInfo.RackName)
