@@ -36,7 +36,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator can scale up a datacenter", func() {
+		Specify("the operator can scale up a datacenter and does not upsert the super user until all nodes have been started", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
@@ -46,7 +46,7 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForOperatorReady()
 
-			step = "creating a datacenter resource with 2 racks/3 nodes"
+			step = "creating a datacenter resource with 2 racks/6 nodes"
 			k := kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
@@ -55,6 +55,17 @@ var _ = Describe(testName, func() {
 			step = "checking that all nodes have been started"
 			nodeStatusesHostIds := ns.GetNodeStatusesHostIds(dcName)
 			Expect(len(nodeStatusesHostIds), 6)
+
+			step = "deleting the dc"
+			k = kubectl.DeleteFromFiles(dcYaml)
+			ns.ExecAndLog(step, k)
+
+			step = "checking that the dc no longer exists"
+			json := "jsonpath={.items}"
+			k = kubectl.Get("CassandraDatacenter").
+				WithLabel(dcLabel).
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "[]", 300)
 		})
 	})
 })
