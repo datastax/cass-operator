@@ -168,8 +168,7 @@ type CassandraDatacenterSpec struct {
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
 	// PodTemplate provides customisation options (labels, annotations, affinity rules, resource requests, and so on) for the cassandra pods
-	// +optional
-	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplate,omitempty"`
+	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplateSpec,omitempty"`
 }
 
 type StorageConfig struct {

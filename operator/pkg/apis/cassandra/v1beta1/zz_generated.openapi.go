@@ -219,7 +219,7 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref common.Refere
 							},
 						},
 					},
-					"podTemplate": {
+					"podTemplateSpec": {
 						SchemaProps: spec.SchemaProps{
 							Description: "PodTemplate provides customisation options (labels, annotations, affinity rules, resource requests, and so on) for the cassandra pods",
 							Ref:         ref("k8s.io/api/core/v1.PodTemplateSpec"),

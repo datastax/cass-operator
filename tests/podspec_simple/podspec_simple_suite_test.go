@@ -73,6 +73,30 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
 
+			json = `[{ "op": "add", "path": "/spec/podTemplateSpec/containers", "value": {
+			      "args": [
+				  "/bin/sh",
+				  "-c",
+				  "tail -n+1 -F /var/log/cassandra/system.log"
+			      ],
+			      "image": "busybox",
+			      "imagePullPolicy": "Always",
+			      "name": "another-tailing-logger",
+			      "resources": {},
+			      "terminationMessagePath": "/dev/termination-log",
+			      "terminationMessagePolicy": "File",
+			      "volumeMounts": [
+				  {
+				      "mountPath": "/var/log/cassandra",
+				      "name": "server-logs"
+				  },
+			      ]
+			  }
+			}]`
+			step = "add another logging container"
+			k = kubectl.PatchJson(dcResource, json)
+			ns.ExecAndLog(step, k)
+
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
 			ns.ExecAndLog(step, k)

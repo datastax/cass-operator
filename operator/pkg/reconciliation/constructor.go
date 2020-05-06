@@ -395,7 +395,7 @@ func buildInitContainers(dc *api.CassandraDatacenter) ([]corev1.Container, error
 }
 
 func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName string) (*corev1.PodTemplateSpec, error) {
-	baseTemplate := dc.Spec.PodTemplate
+	baseTemplate := dc.Spec.PodTemplateSpec
 
 	if baseTemplate == nil {
 		baseTemplate = &corev1.PodTemplateSpec{}
