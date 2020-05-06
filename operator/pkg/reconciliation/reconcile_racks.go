@@ -1133,7 +1133,7 @@ func (rc *ReconciliationContext) CheckDcPodDisruptionBudget() result.ReconcileRe
 		return result.Error(err)
 	}
 
-	rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.CreatedResource,
+	rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, "CreatedPodDisruptionBudget",
 		"Created PodDisruptionBudget %s", desiredBudget.Name)
 
 	return result.Continue()
