@@ -476,6 +476,8 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 	desiredSize := int(rc.Datacenter.Spec.Size)
 
 	if desiredSize == readyPodCount && desiredSize == startedLabelCount {
+		// When the ready and started counts match the desired counts and nodeStarted is true, then that means we have
+		// just started the last node in the data center.
 		if nodeStarted {
 			return result.RequeueSoon(2)
 		}
