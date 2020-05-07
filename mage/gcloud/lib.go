@@ -107,6 +107,9 @@ func calculateNumNodes() int {
 }
 
 func buildClusterConfig(project string) ClusterConfig {
+	// TODO extract out cluster config into a singleton style global variable
+	// since this will potentially get called multiple times from a single
+	// high level target
 	return ClusterConfig{
 		ClusterVersion: mageutil.EnvOrDefault(envClusterVersion, ""),
 		Project:        project,
