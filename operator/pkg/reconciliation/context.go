@@ -5,7 +5,8 @@ package reconciliation
 
 import (
 	"context"
-
+	"fmt"
+	
 	"github.com/go-logr/logr"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -41,6 +42,27 @@ type ReconciliationContext struct {
 	clusterPods            []*corev1.Pod
 }
 
+type LoggingEventRecorder struct {
+	record.EventRecorder
+	ReqLogger logr.Logger
+}
+
+func (r *LoggingEventRecorder) Event(object runtime.Object, eventtype, reason, message string) {
+	r.ReqLogger.Info(message, "reason", reason, "eventType", eventtype)
+	r.EventRecorder.Event(object, eventtype, reason, message)
+}
+
+func (r *LoggingEventRecorder) Eventf(object runtime.Object, eventtype, reason, messageFmt string, args ...interface{}) {
+	r.ReqLogger.Info(fmt.Sprintf(messageFmt, args...), "reason", reason, "eventType", eventtype)
+	r.EventRecorder.Eventf(object, eventtype, reason, messageFmt, args...)
+}
+
+func (r *LoggingEventRecorder) AnnotatedEventf(object runtime.Object, annotations map[string]string, eventtype, reason, messageFmt string, args ...interface{}) {
+	r.ReqLogger.Info(fmt.Sprintf(messageFmt, args...), "reason", reason, "eventType", eventtype)
+	r.EventRecorder.AnnotatedEventf(object, annotations, eventtype, reason, messageFmt, args...)
+}
+
+
 // CreateReconciliationContext gathers all information needed for computeReconciliationActions into a struct.
 func CreateReconciliationContext(
 	req *reconcile.Request,
@@ -53,7 +75,7 @@ func CreateReconciliationContext(
 	rc.Request = req
 	rc.Client = cli
 	rc.Scheme = scheme
-	rc.Recorder = rec
+	rc.Recorder = &LoggingEventRecorder{EventRecorder: rec, ReqLogger: reqLogger,}
 	rc.ReqLogger = reqLogger
 	rc.Ctx = context.Background()
 
