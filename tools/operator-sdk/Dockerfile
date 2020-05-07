@@ -16,7 +16,7 @@ FROM golang:1.13-stretch as install-operator-sdk
 # inside the container. Something like...
 # docker run -v /Users/jim/datastax/cass-operator:/go/src/github.com/datastax/cass-operator ...
 
-ENV OP_SDK_VERSION=v0.12.0
+ENV OP_SDK_VERSION=v0.17.0
 ENV GOPROXY=https://proxy.golang.org,https://gocenter.io,direct
 
 WORKDIR /usr/bin
@@ -54,20 +54,20 @@ RUN GO111MODULE=on operator-sdk add api --api-version=memcached.com/v1alpha1 --k
 # We now have to pull the code generator down as a separate step
 # Add a tools.go to the example project that requires the code-generator
 # see: https://github.com/docker-library/openjdk/blob/8a23a228bda7d2edeb4132fffd2d08c1e1fcf4ac/8-jdk/Dockerfile#L28-L36
-RUN { \
-    echo 'package tools'; \
-    echo ''; \
-    echo 'import ('; \
-    echo '        _ "k8s.io/code-generator/cmd/client-gen"'; \
-    echo '        _ "k8s.io/code-generator/cmd/conversion-gen"'; \
-    echo '        _ "k8s.io/code-generator/cmd/deepcopy-gen"'; \
-    echo '        _ "k8s.io/code-generator/cmd/informer-gen"'; \
-    echo '        _ "k8s.io/code-generator/cmd/lister-gen"'; \
-    echo '        _ "k8s.io/gengo/args"'; \
-    echo '        _ "k8s.io/kube-openapi/cmd/openapi-gen"'; \
-    echo '        _ "sigs.k8s.io/controller-tools/pkg/crd"'; \
-    echo ')'; \
-    } > $GOPATH/src/github.com/example-inc/memcached-operator/tools.go
+# RUN { \
+#     echo 'package tools'; \
+#     echo ''; \
+#     echo 'import ('; \
+#     echo '        _ "k8s.io/code-generator/cmd/client-gen"'; \
+#     echo '        _ "k8s.io/code-generator/cmd/conversion-gen"'; \
+#     echo '        _ "k8s.io/code-generator/cmd/deepcopy-gen"'; \
+#     echo '        _ "k8s.io/code-generator/cmd/informer-gen"'; \
+#     echo '        _ "k8s.io/code-generator/cmd/lister-gen"'; \
+#     echo '        _ "k8s.io/gengo/args"'; \
+#     echo '        _ "k8s.io/kube-openapi/cmd/openapi-gen"'; \
+#     echo '        _ "sigs.k8s.io/controller-tools/pkg/crd"'; \
+#     echo ')'; \
+#     } > $GOPATH/src/github.com/example-inc/memcached-operator/tools.go
 
 RUN GO111MODULE=on go mod tidy
 RUN GO111MODULE=on go mod download
@@ -80,7 +80,7 @@ RUN GO111MODULE=on operator-sdk generate openapi
 # So we copy the specific version that this operator-sdk pulled down and move it
 # into the required path.
 WORKDIR $GOPATH/src/k8s.io
-RUN cp -r "/go/pkg/mod/k8s.io/code-generator@v0.0.0-20190612205613-18da4a14b22b" "code-generator"
+RUN cp -r "/go/pkg/mod/k8s.io/code-generator@v0.17.4" "code-generator"
 
 WORKDIR $GOPATH/src/k8s.io/code-generator
 RUN chmod 700 generate-groups.sh
