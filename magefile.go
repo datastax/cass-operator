@@ -14,6 +14,8 @@ import (
 	"github.com/datastax/cass-operator/mage/operator"
 	// mage:import kind
 	_ "github.com/datastax/cass-operator/mage/kind"
+	// mage:import k3d
+	_ "github.com/datastax/cass-operator/mage/k3d"
 	// mage:import integ
 	_ "github.com/datastax/cass-operator/mage/integ-tests"
 	// mage:import lint
