@@ -796,7 +796,7 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	status = &api.CassandraDatacenterStatus{}
 	dc.Status.DeepCopyInto(status)
 	oldDc.Status.DeepCopyInto(&dc.Status)
-	
+
 	if !reflect.DeepEqual(dc, oldDc) {
 		patch := client.MergeFrom(oldDc)
 		if err := rc.Client.Patch(rc.Ctx, dc, patch); err != nil {
@@ -1697,11 +1697,11 @@ func (rc *ReconciliationContext) CheckConditionInitializedAndReady() result.Reco
 	dc := rc.Datacenter
 	dcPatch := client.MergeFrom(dc.DeepCopy())
 	logger := rc.ReqLogger
-	
+
 	updated := false
 	updated = rc.setCondition(
 		api.NewDatacenterCondition(api.DatacenterInitialized, corev1.ConditionTrue)) || updated
-	
+
 	if dc.GetConditionStatus(api.DatacenterStopped) == corev1.ConditionFalse {
 		updated = rc.setCondition(
 			api.NewDatacenterCondition(api.DatacenterReady, corev1.ConditionTrue)) || updated
@@ -1722,6 +1722,18 @@ func (rc *ReconciliationContext) CheckConditionInitializedAndReady() result.Reco
 	return result.Continue()
 }
 
+func (rc *ReconciliationContext) cleanupAfterScaling() error {
+	var err error
+
+	for idx := range rc.dcPods {
+		err = rc.NodeMgmtClient.CallKeyspaceCleanupEndpoint(rc.dcPods[idx], -1, "", nil)
+		if err == nil {
+			break
+		}
+	}
+	return err
+}
+
 func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileResult {
 	dc := rc.Datacenter
 	logger := rc.ReqLogger
@@ -1731,13 +1743,26 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 	// clearing conditions
 	actionConditionTypes := []api.DatacenterConditionType{
 		api.DatacenterReplacingNodes,
-		api.DatacenterScalingUp,
 		api.DatacenterUpdating,
 		api.DatacenterRollingRestart,
 		api.DatacenterResuming,
 	}
 	updated := false
-	for _, conditionType := range(actionConditionTypes) {
+
+	// Explicitly handle scaling up here because we want to run a cleanup afterwards
+	if dc.GetConditionStatus(api.DatacenterScalingUp) == corev1.ConditionTrue {
+		err := rc.cleanupAfterScaling()
+		if err != nil {
+			logger.Error(err, "error cleaning up after scaling datacenter")
+			return result.Error(err)
+		}
+
+		updated = rc.setCondition(
+			api.NewDatacenterCondition(api.DatacenterScalingUp, corev1.ConditionFalse)) || updated
+	}
+
+	for _, conditionType := range actionConditionTypes {
+
 		updated = rc.setCondition(
 			api.NewDatacenterCondition(conditionType, corev1.ConditionFalse)) || updated
 	}
@@ -1750,13 +1775,13 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 		}
 
 		// There may have been changes to the CassandraDatacenter resource that we ignored
-		// while executing some action on the cluster. For example, a user may have 
+		// while executing some action on the cluster. For example, a user may have
 		// requested to scale up the node count while we were in the middle of a rolling
 		// restart. To account for this, we requeue to ensure reconcile gets called again
 		// to pick up any such changes that we ignored previously.
 		return result.RequeueSoon(0)
 	}
-	
+
 	// Nothing has changed, carry on
 	return result.Continue()
 }
