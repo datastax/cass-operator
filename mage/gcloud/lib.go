@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strconv"
 
+	cfgutil "github.com/datastax/cass-operator/mage/config"
+	"github.com/datastax/cass-operator/mage/kubectl"
 	shutil "github.com/datastax/cass-operator/mage/sh"
 	mageutil "github.com/datastax/cass-operator/mage/util"
 )
@@ -32,6 +34,62 @@ type ClusterConfig struct {
 	ClusterVersion string
 	BootDisk       string
 	BootSize       string
+}
+
+var ClusterActions = cfgutil.NewClusterActions(
+	deleteCluster,
+	clusterExists,
+	createCluster,
+	loadImage,
+	install,
+	reloadLocalImage,
+	applyDefaultStorage,
+	setupKubeconfig,
+	describeEnv,
+)
+
+func describeEnv() map[string]string {
+	return map[string]string{
+		"M_GC_PROJECT":      "GCP project name. No default, required.",
+		"M_GC_NODES":        "Number of worker nodes for the cluster. Must be divisible by 3. Defaults to 9",
+		"M_GC_MACHINE":      "Machine type for the nodes",
+		"M_GC_REGION":       "Region. Defaults to us-central1",
+		"M_GC_VERSION":      "k8s version. If not set, stable channel will be used.",
+		"M_GC_BOOT_DISK":    "Boot disk type. Defaults to pd-standard",
+		"M_GC_BOOT_SIZE":    "Boot disk size. Defaults to 50",
+		"M_GC_IMAGE_TYPE":   "Image type. Defaults to COS",
+		"M_GC_CLUSTER_NAME": "Cluster name. No default, required.",
+	}
+}
+
+func deleteCluster() error {
+	// TODO Support this
+	panic("Delete cluster not yet implemented for gcp")
+}
+
+func clusterExists() bool {
+	// TODO Support this
+	panic("clusterExists not yet implemented for gcp")
+}
+
+func install() {
+	// TODO install gcloud here
+	panic("install not yet implemented for gcp")
+}
+
+func loadImage(image string) {
+	// Not sure if we can ever support this
+	panic("loadImage not yet implemented for gcp")
+}
+
+func reloadLocalImage(image string) {
+	// This will likely never be supported
+	panic("reloadLocalImage not yet implemented for gcp")
+}
+
+func applyDefaultStorage() {
+	kubectl.ApplyFiles("./operator/k8s-flavors/gke/storage.yaml").
+		ExecVPanic()
 }
 
 func calculateNumNodes() int {
@@ -84,7 +142,10 @@ func (cfg ClusterConfig) ToCliArgs() []string {
 	return args
 }
 
-func createCluster(name string, cfg ClusterConfig) {
+func createCluster() {
+	proj := mageutil.RequireEnv(envProject)
+	name := mageutil.RequireEnv(envClusterName)
+	cfg := buildClusterConfig(proj)
 	args := []string{
 		"beta",
 		"container",
@@ -110,7 +171,10 @@ func createCluster(name string, cfg ClusterConfig) {
 	shutil.RunVPanic("gcloud", args...)
 }
 
-func setupKubeConfig(name string, cfg ClusterConfig) {
+func setupKubeconfig() {
+	proj := mageutil.RequireEnv(envProject)
+	name := mageutil.RequireEnv(envClusterName)
+	cfg := buildClusterConfig(proj)
 	args := []string{
 		"container",
 		"clusters",
@@ -120,43 +184,4 @@ func setupKubeConfig(name string, cfg ClusterConfig) {
 		"--project", cfg.Project,
 	}
 	shutil.RunVPanic("gcloud", args...)
-}
-
-// Creates an empty k8s cluster in GKE.
-//
-// Requires the following env vars:
-// M_GC_PROJECT
-// M_GC_CLUSTER_NAME
-//
-// Optional env vars:
-// M_GC_NODES
-// M_GC_MACHINE
-// M_GC_REGION
-// M_GC_VERSION
-// M_GC_BOOT_DISK
-// M_GC_BOOT_SIZE
-// M_GC_IMAGE_TYPE
-func SetupEmptyCluster() {
-	proj := mageutil.RequireEnv(envProject)
-	name := mageutil.RequireEnv(envClusterName)
-	cfg := buildClusterConfig(proj)
-	createCluster(name, cfg)
-	setupKubeConfig(name, cfg)
-}
-
-// Configures kubectl to point to a GKE cluster.
-//
-// Requires the following env vars:
-// M_GC_PROJECT
-// M_GC_CLUSTER_NAME
-//
-// Optional env vars:
-// M_GC_REGION
-//
-// Region will default to us-central1
-func KubeConfig() {
-	proj := mageutil.RequireEnv(envProject)
-	name := mageutil.RequireEnv(envClusterName)
-	cfg := buildClusterConfig(proj)
-	setupKubeConfig(name, cfg)
 }
