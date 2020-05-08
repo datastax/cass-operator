@@ -64,12 +64,16 @@ func describeEnv() map[string]string {
 
 func deleteCluster() error {
 	// TODO Support this
-	panic("Delete cluster not yet implemented for gcp")
+	fmt.Println("A mage target has attempted to delete a running cluster,")
+	fmt.Println("but this action is currently not implemented for gcp.")
+	return nil
 }
 
 func clusterExists() bool {
 	// TODO Support this
-	panic("clusterExists not yet implemented for gcp")
+	fmt.Println("A mage target has attempted to check if a cluster exists or not,")
+	fmt.Println("but this action is currently not implemented for gcp.")
+	return false
 }
 
 func install() {
@@ -78,13 +82,17 @@ func install() {
 }
 
 func loadImage(image string) {
-	// Not sure if we can ever support this
-	panic("loadImage not yet implemented for gcp")
+	fmt.Println("A mage target has attempted to load a docker image into a running cluster,")
+	fmt.Println("but this action is not supported for gcp.")
+	fmt.Println("Please ensure any images that you need for your cluster are available")
+	fmt.Println("in either GCR or a public docker repository.")
 }
 
 func reloadLocalImage(image string) {
-	// This will likely never be supported
-	panic("reloadLocalImage not yet implemented for gcp")
+	fmt.Println("A mage target has attempted to load a docker image into a running cluster,")
+	fmt.Println("but this action is not supported for gcp.")
+	fmt.Println("Please ensure any images that you need for your cluster are available")
+	fmt.Println("in either GCR or a public docker repository.")
 }
 
 func applyDefaultStorage() {

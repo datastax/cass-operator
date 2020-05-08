@@ -31,8 +31,8 @@ func describeEnv() map[string]string {
 	return make(map[string]string)
 }
 
-func deleteCluster() error {
-	return shutil.RunV("k3d", "delete")
+func deleteCluster() {
+	shutil.RunV("k3d", "delete")
 }
 
 func clusterExists() bool {
