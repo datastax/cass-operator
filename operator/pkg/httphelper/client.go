@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -173,7 +172,7 @@ func (client *NodeMgmtClient) CallKeyspaceCleanupEndpoint(pod *corev1.Pod, jobs 
 		"calling Management API keyspace cleanup - POST /api/v0/ops/keyspace/cleanup",
 		"pod", pod.Name,
 	)
-	postData := make(map[string]string)
+	postData := make(map[string]interface{})
 	if jobs > -1 {
 		postData["jobs"] = strconv.Itoa(jobs)
 	}
@@ -183,7 +182,7 @@ func (client *NodeMgmtClient) CallKeyspaceCleanupEndpoint(pod *corev1.Pod, jobs 
 	}
 
 	if len(tables) > 0 {
-		postData["tables"] = strings.Join(tables, ",")
+		postData["tables"] = tables
 	}
 
 	body, err := json.Marshal(postData)
