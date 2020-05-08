@@ -376,11 +376,11 @@ func BuildGo() {
 // Runs unit tests for operator go code.
 func TestGo() {
 	fmt.Println("- Running go unit tests")
-	// os.Chdir("./operator")
-	// os.Setenv("CGO_ENABLED", "0")
-	// goArgs := []string{"test", "./..."}
-	// shutil.RunVPanic("go", goArgs...)
-	// os.Chdir("..")
+	os.Chdir("./operator")
+	os.Setenv("CGO_ENABLED", "0")
+	goArgs := []string{"test", "./..."}
+	shutil.RunVPanic("go", goArgs...)
+	os.Chdir("..")
 }
 
 // Runs unit tests for operator mage library.
