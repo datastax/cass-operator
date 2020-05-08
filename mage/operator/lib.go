@@ -103,7 +103,7 @@ func generateK8sAndOpenApi() {
 	repoPath := "/go/src/github.com/datastax/cass-operator"
 	execArgs := []string{
 		"/bin/bash", "-c",
-		fmt.Sprintf("export GO111MODULE=on; cd %s/operator && operator-sdk generate k8s && operator-sdk generate openapi && rm -rf build", repoPath),
+		fmt.Sprintf("set -eufx; export GO111MODULE=on; cd %s/operator && operator-sdk generate k8s && operator-sdk generate crds && rm -rf build", repoPath),
 	}
 	volumes := []string{fmt.Sprintf("%s:%s", cwd, repoPath)}
 	dockerutil.Run(operatorSdkImage, volumes, nil, nil, runArgs, execArgs).ExecVPanic()
