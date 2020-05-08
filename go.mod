@@ -14,7 +14,7 @@ require (
 	github.com/operator-framework/operator-sdk v0.12.1-0.20191104165233-e1c79cae11cf
 	github.com/pkg/errors v0.8.1
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	golang.org/x/net v0.0.0-20191101175033-0deb6923b6d9 // indirect
 	golang.org/x/tools v0.0.0-20191219230827-5e752206af05 // indirect
 	google.golang.org/appengine v1.6.5 // indirect
