@@ -1,0 +1,28 @@
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: dc1
+spec:
+  clusterName: cluster1
+  serverType: cassandra
+  serverVersion: "3.11.6"
+  serverImage: datastax/cassandra-mgmtapi-3_11_6:v0.1.0
+  configBuilderImage: datastax/cass-config-builder:1.0.0
+  managementApiAuth:
+    insecure: {}
+  size: 6
+  storageConfig:
+    cassandraDataVolumeClaimSpec:
+      storageClassName: server-storage
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+  racks:
+    - name: r1
+    - name: r2
+  config:
+    jvm-options:
+      initial_heap_size: "800m"
+      max_heap_size: "800m"
