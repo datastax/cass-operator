@@ -24,6 +24,11 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.ECR_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.ECR_SECRET }}
         run: aws ecr get-login-password --region us-east-1 | skopeo login -u AWS --password-stdin ${ECR_REPO}
+      - name: Login Skopeo Red Hat
+        env:
+          REDHAT_REPO: ${{ secrets.REDHAT_REPO }}
+          REDHAT_SECRET: ${{ secrets.REDHAT_SECRET }}
+        run: docker login -u unused --password "$REDHAT_SECRET" $REDHAT_REPO
       - name: Publish to Dockerhub
         run: |
           ./scripts/push-release.sh

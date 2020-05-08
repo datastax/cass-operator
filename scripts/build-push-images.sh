@@ -34,10 +34,10 @@ GH_ARM64_TAGS=()
 
 for t in "${FULL_VERSION}" "${GITHUB_SHA}" "latest"; do
   ECR_TAGS+=(--tag "${ECR_REPOSITORY}:${t}")
-  ECR_UBI_TAGS+=(--tag "${ECR_REPOSITORY}:${t}-ubi")
+  ECR_UBI_TAGS+=(--tag "${ECR_REPOSITORY}:${t}-ubi7")
 
   GH_TAGS+=(--tag "${GH_REPOSITORY}:${t}")
-  GH_UBI_TAGS+=(--tag "${GH_REPOSITORY}:${t}-ubi")
+  GH_UBI_TAGS+=(--tag "${GH_REPOSITORY}:${t}-ubi7")
   GH_ARM64_TAGS+=(--tag "${GH_REPOSITORY}:${t}-arm64")
 done
 
@@ -64,8 +64,8 @@ STANDARD_ARGS=(
 
 UBI_ARGS=(
   "${COMMON_ARGS[@]}"
-  --label "release=${VERSION_STAMP}-ubi"
-  --build-arg "VERSION_STAMP=${VERSION_STAMP}-ubi"
+  --label "release=${VERSION_STAMP}-ubi7"
+  --build-arg "VERSION_STAMP=${VERSION_STAMP}-ubi7"
   --build-arg "BASE_OS=registry.access.redhat.com/ubi7/ubi-minimal:7.8"
   --target cass-operator-ubi
 )

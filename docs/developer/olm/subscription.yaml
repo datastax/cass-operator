@@ -1,0 +1,10 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: Subscription
+metadata:
+  name: cass-operator-subscription
+  namespace: test-operator 
+spec:
+  channel: stable
+  name: cass-operator
+  source: local
+  sourceNamespace: olm

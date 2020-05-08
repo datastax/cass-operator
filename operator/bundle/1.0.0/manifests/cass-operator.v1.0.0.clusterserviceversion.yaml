@@ -1,0 +1,550 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: >-
+      [{"apiVersion": "cassandra.datastax.com/v1beta1","kind": "CassandraDatacenter","metadata": {"name": "dc1"},"spec": {"clusterName": "cluster1","size": 3,"racks": [{"name": "rack1","zone": "us-central1-a"},{"name": "rack2","zone": "us-central1-b"},{"name": "rack3","zone": "us-central1-c"}],"resources": {"requests": {"memory": "24Gi","cpu": "6000m"},"limits": {"memory": "24Gi","cpu": "6000m"}},"storageConfig": {"cassandraDataVolumeClaimSpec": {"storageClassName": "server-storage","accessModes": ["ReadWriteOnce"],"resources": {"requests": {"storage": "1000Gi"}}}},"allowMultipleNodesPerWorker": false,"stopped": false,"rollingRestartRequested": false,"canaryUpgrade": false,"serverType": "dse","serverVersion": "6.8.0","serverImage": "registry.connect.redhat.com/datastax/dse-server:6.8.0","configBuilderImage": "registry.connect.redhat.com/datastax/cass-config-builder:1.0.0","superuserSecretName": "","managementApiAuth": {"insecure": {}},"serviceAccount": "default","replaceNodes": []}}]
+    categories: Database,Big Data,OpenShift Optional
+    description: >
+      Simple provisioning, turn-key operations, and automated remediation of
+      Apache Cassandra clusters
+    containerImage: registry.connect.redhat.com/datastax/cass-operator:1.0.0
+    support: 'DataStax'
+    capabilities: Auto Pilot
+    repository: 'https://github.com/datastax/cass-operator'
+    createdAt: "2020-03-31"
+    certified: "true"
+  name: cass-operator.v1.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+      - name: cassandradatacenters.cassandra.datastax.com
+        displayName: Cassandra Datacenter
+        kind: CassandraDatacenter
+        version: v1beta1
+        description: |
+          This Custom Resource defines the logical topology of a Cassandra Datacenter. 
+          At a minimum users must specify the serverType, serverVersion, size, 
+          and storageConfig details. Optionally a user may define the rack names 
+          and zone identifiers which align with node failure zone labels.
+
+          Configuration of nodes in the DC is kept homogenous. Overrides may be 
+          specified as JSON (or YAML) in the config block. Upon successful 
+          deployment of a cluster the configuration may be changed which will result
+          in a rolling restart of all nodes.
+        
+        resources: 
+          - kind: Deployment
+            version: v1
+            name: ""
+          - kind: Service
+            version: v1
+            name: ""
+          - kind: StatefulSet
+            version: v1
+            name: ""
+          - kind: Secret
+            version: v1
+            name: ""
+          - kind: ConfigMap
+            version: v1
+            name: ""
+          - kind: CassandraDatacenter
+            version: v1beta1
+            name: ""
+          - kind: Pod
+            version: v1
+            name: ""
+          - kind: PodDisruptionBudget
+            version: v1beta1
+            name: ""
+          - kind: Event
+            version: v1
+            name: ""
+          - kind: ReplicaSet
+            version: v1
+            name: ""
+        
+        specDescriptors:
+          - path: serverType
+            description: Server Type
+            displayName: Server Type
+            x-descriptors: 
+              - urn:alm:descriptor:com.tectonic.ui:select:cassandra
+              - urn:alm:descriptor:com.tectonic.ui:select:dse
+          
+          - path: serverVersion
+            description: Server Version
+            displayName: Server Version
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+          
+          - path: clusterName
+            description: |
+              Name of the Cassandra cluster. Multiple CassandraDatacenter
+              objects in the same namespace and Cluster Name
+              will automatically be wired together as a single cluster.
+            displayName: Cluster Name
+            x-descriptors: 
+              - urn:alm:descriptor:com.tectonic.ui:text
+          
+          - path: size
+            description: Size
+            displayName: Size
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:podCount
+          
+          - path: racks
+            description: |
+              Collection of logical rack identifiers, these may be named 
+              and specify a zone to limit pod deployment.
+            displayName: Racks
+
+          - path: racks[0].name
+            description: |
+              User friendly name of the rack. Limit characters to 
+              alphanumeric values, dashes, and underscores.
+            displayName: Name
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+              - urn:alm:descriptor:com.tectonic.ui:arrayFieldGroup:rack
+          
+          - path: racks[0].zone
+            description: |
+              failure-domain.beta.kubernetes.io/zone node label value
+              where pods related to this rack will be restricted. Note
+              the value may be in the topology.kubernetes.io/zone label
+              as well.
+            displayName: Zone
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:text
+              - urn:alm:descriptor:com.tectonic.ui:arrayFieldGroup:rack
+          
+          - path: resources
+            description: |
+              Resource requests and limits for each Cassandra pod in the 
+              cluster. Note: Only specify CPU and memory limits here.
+            displayName: Resources
+            x-descriptors: 
+              - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+
+          - path: storageConfig
+            description: |
+              Storage descriptors used during the provisioning and consumption
+              of Persistent Volumes.
+            displayName: Storage Config
+
+          - path: storageConfig.cassandraDataVolumeClaimSpec.storageClassName
+            description: |
+              Name of the storage class where data will reside. This must be 
+              defined within the Kubernetes prior to provisioning a datacenter.
+            displayName: Storage Class
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes:StorageClass
+              - urn:alm:descriptor:com.tectonic.ui:fieldGroup:storageConfig
+
+          - path: storageConfig.cassandraDataVolumeClaimSpec.accessModes[0]
+            description: |
+              Access mode of the volume
+            displayName: Access Modes
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:select:ReadWriteOnce
+              - urn:alm:descriptor:com.tectonic.ui:fieldGroup:storageConfig
+          
+          - path: storageConfig.cassandraDataVolumeClaimSpec.resources
+            description: |
+              Storage requirements for the Cassandra data volume. Only specify
+              the Storage column here.
+            displayName: Resources
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:resourceRequirements
+              - urn:alm:descriptor:com.tectonic.ui:fieldGroup:storageConfig
+          
+          - path: superuserSecretName
+            description: |
+              Kubernetes Secret containing a username and password for
+              the initial super user accout. Omitting this field will
+              result in a secret being created automatically with 
+              random values for each.
+            displayName: Superuser Secret Name
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes:Secret
+          
+          - path: allowMultipleNodesPerWorker
+            description: |
+              Allows multiple Cassandra pods per Kubernetes worker. 
+              Ensure appropriate limits and requests are set in the
+              resource field to limit the number of pods per worker.
+            displayName: Allow Multiple Nodes Per Worker
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+
+          - path: stopped
+            description: |
+              When enabled, stops all pods making up the cluster. Storage
+              is retained, but all compute instances are stopped.
+            displayName: Stopped
+            x-descriptors: 
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+          
+          - path: rollingRestartRequested
+            description: |
+              Request a restart of all nodes in the cluster in a rolling 
+              fashion to prevent service interuptions. After the restart
+              is complete this field is set back to false.
+            displayName: Rolling Restart Requested
+            x-descriptors: 
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+
+          - path: canaryUpgrade
+            description: |
+              Informs the operator to apply the requested changes to
+              a single rack. After manual validation set this value 
+              back to false and the operator will continue deployment.
+            displayName: Canary Upgrade
+            x-descriptors:
+              - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+
+          - path: serverImage
+            description: |
+              Optional: Specify the name of the image to use for each
+              node in the cluster.
+            displayName: Server Image
+            x-descriptors: 
+              - urn:alm:descriptor:com.tectonic.ui:text
+              - urn:alm:descriptor:com.tectonic.ui:advanced
+
+          - path: configBuilderImage
+            description: |
+              Optional: Specify the name of the image to use when 
+              rendering configuration files as each node in the 
+              cluster is initialized.
+            displayName: Config Builder Image
+            x-descriptors: 
+              - urn:alm:descriptor:com.tectonic.ui:text
+              - urn:alm:descriptor:com.tectonic.ui:advanced
+
+          - path: replaceNodes[0]
+            description: |
+              A list of pod names that need to be replaced
+            displayName: Replace Nodes
+            x-descriptors: 
+              - urn:alm:descriptor:com.tectonic.ui:text
+              - urn:alm:descriptor:com.tectonic.ui:arrayFieldGroup:replaceNodes
+              - urn:alm:descriptor:com.tectonic.ui:advanced
+          
+          - path: serviceAccount
+            description: Service Account
+            displayName: Service Account
+            x-descriptors:
+              - urn:alm:descriptor:io.kubernetes:ServiceAccount
+              - urn:alm:descriptor:com.tectonic.ui:advanced
+          
+          - path: config
+            description: |
+              JSON object representing configuration overrides.
+            displayName: Config
+
+          - path: managementApiAuth
+            description: |
+              Configuration for connectivity between cass-operator and Management API
+            displayName: Management API Authentication
+          
+        statusDescriptors:
+          - path: cassandraOperatorProgress
+            description: Cassandra Operator Progress
+            displayName: Cassandra Operator Progress
+            x-descriptors:
+              - urn:alm:descriptor:text
+
+          - path: lastRollingRestart
+            description: Last Rolling Restart
+            displayName: Last Rolling Restart
+            x-descriptors: 
+              - urn:alm:descriptor:text
+
+          - path: lastServerNodeStarted
+            description: Last Server Node Started
+            displayName: Last Server Node Started
+            x-descriptors: 
+              - urn:alm:descriptor:text
+
+          - path: superUserUpserted
+            description: Super User Upserted
+            displayName: Super User Upserted
+            x-descriptors: 
+              - urn:alm:descriptor:text
+          
+          - path: nodeReplacements
+            description: |
+              List of all nodes that have been replaced.
+            displayName: Node Replacements
+            
+          - path: nodeStatuses
+            description: |
+              Data structure containing information around the health
+              of all pods in the cluster.
+            displayName: Node Statuses
+    required: []
+  description: >
+    ## Apache Cassandra
+
+
+    The Apache Cassandra database is the right choice when you need scalability
+    and high availability without compromising performance. Linear scalability
+    and proven fault-tolerance on commodity hardware or cloud infrastructure
+    make it the perfect platform for mission-critical data. Cassandra's support
+    for replicating across multiple datacenters is best-in-class, providing
+    lower latency for your users and the peace of mind of knowing that you can
+    survive regional outages. 
+
+
+    ## DataStax Enterprise
+
+    The most advanced distribution of Apache Cassandra™ on the market, with the
+    enterprise functionality needed for serious production systems and backed up
+    and supported by the best distributed-experts in the world. It's one
+    platform for all types of applications anywhere, any cloud, any model:
+    key-value, graph, tabular, JSON.
+
+
+    DataStax Enterprise is a fully integrated and optimized database, with
+    graph, analytics, and search included, all with a unified security model.
+    Simply put, it's the only database capable of meeting today's demanding
+    requirements
+
+
+    ## Operator Details
+
+    `cass-operator` is designed as a modular operator for Apache Cassandra and
+    derived  distributions. Apache Cassandra is a distributed database
+    consisting of multiple nodes working in concert to store data and process
+    queries along a number of fault domains. `cass-operator` has the
+    deployment of a Cassandra cluster around the logical domain of a datacenter
+    with the `CassandraDatacenter` custom resource. Upon submission of one of
+    these resources it handles provisioning the underlying stateful sets
+    (analogous to C* logical racks), services, and configuration. Additionally
+    through monitoring pod state via Kubernetes callbacks it handles day to day
+    operations such as restarting failed processes, scaling clusters up, and
+    deploying configuration changes in a rolling, non-disruptive, fashion.
+
+    This operator is designed to be `Namespace` scoped. A single Kubernetes
+    cluster may be running multiple instances of this operator, in separate
+    namespaces, to support a number of C* clusters and environments.
+    Configuration is simple with the usage of YAML based overrides in the Custom
+    Resource paired with an `init` container. In C* clusters ordering and timing
+    of certain operations are important to keep the system evenly distributed.
+    `cass-operator` takes advantage of a sidecar process within the main
+    container to handle the orchestration of starting our main C* process.
+
+
+    ## Pre-requisites
+
+
+    Currently there are no pre-requisites to install the operator. 
+  displayName: DataStax Kubernetes Operator for Apache Cassandra
+  icon:
+    - base64data: >-
+        PHN2ZyBpZD0iZjM5NDE5ODctOTk4Ni00ODliLTlkYmQtYWY3ZTMwMjc1NmFhIiBkYXRhLW5hbWU9
+        IkxheWVyIDEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmlld0JveD0iMCAw
+        IDgwIDgwIj4KICA8ZGVmcz4KICAgIDxzdHlsZT4KICAgICAgLmIyYzA3Njg0LTk4YmQtNDY1My05
+        NWQ5LTRiMDMyMTBmZWIwNSB7CiAgICAgICAgZmlsbDogIzAwNTVhYjsKICAgICAgfQoKICAgICAg
+        LmZlMmUyOGVhLTczNzctNGUwNy05NDdmLWZlZTIxZDQzNjQwNCB7CiAgICAgICAgZmlsbDogIzFm
+        MjQzODsKICAgICAgfQogICAgPC9zdHlsZT4KICA8L2RlZnM+CiAgPGc+CiAgICA8cGF0aCBjbGFz
+        cz0iYjJjMDc2ODQtOThiZC00NjUzLTk1ZDktNGIwMzIxMGZlYjA1IiBkPSJNNTIuNTgsNDUuNTFh
+        Ni4zNSw2LjM1LDAsMSwwLDYuMTktNi40NkE2LjMzLDYuMzMsMCwwLDAsNTIuNTgsNDUuNTFaIi8+
+        CiAgICA8cGF0aCBjbGFzcz0iYjJjMDc2ODQtOThiZC00NjUzLTk1ZDktNGIwMzIxMGZlYjA1IiBk
+        PSJNMjYuNjQsMTUuMmE2LjM1LDYuMzUsMCwxLDAsNi4xOS02LjQ2QTYuMzMsNi4zMywwLDAsMCwy
+        Ni42NCwxNS4yWiIvPgogICAgPHBhdGggY2xhc3M9ImIyYzA3Njg0LTk4YmQtNDY1My05NWQ5LTRi
+        MDMyMTBmZWIwNSIgZD0iTTExLjI5LDEwLjc0YTQuOTIsNC45MiwwLDEsMCw0LjgtNUE0LjksNC45
+        LDAsMCwwLDExLjI5LDEwLjc0WiIvPgogICAgPHBhdGggY2xhc3M9ImIyYzA3Njg0LTk4YmQtNDY1
+        My05NWQ5LTRiMDMyMTBmZWIwNSIgZD0iTTUyLjQ4LDYxLjU4QTQuNSw0LjUsMCwxLDAsNTYuODcs
+        NTcsNC40OCw0LjQ4LDAsMCwwLDUyLjQ4LDYxLjU4WiIvPgogICAgPHBhdGggY2xhc3M9ImIyYzA3
+        Njg0LTk4YmQtNDY1My05NWQ5LTRiMDMyMTBmZWIwNSIgZD0iTTQyLjU2LDY3Ljg2YTIuNjUsMi42
+        NSwwLDEsMCwyLjU4LTIuN0EyLjY0LDIuNjQsMCwwLDAsNDIuNTYsNjcuODZaIi8+CiAgICA8cGF0
+        aCBjbGFzcz0iYjJjMDc2ODQtOThiZC00NjUzLTk1ZDktNGIwMzIxMGZlYjA1IiBkPSJNMi43Mywx
+        OC4xYTIuOTIsMi45MiwwLDEsMCwyLjg1LTNBMi45LDIuOSwwLDAsMCwyLjczLDE4LjFaIi8+CiAg
+        ICA8cGF0aCBjbGFzcz0iYjJjMDc2ODQtOThiZC00NjUzLTk1ZDktNGIwMzIxMGZlYjA1IiBkPSJN
+        Mi4zOSwyOS41M2EyLjI5LDIuMjksMCwxLDAsMi4yMy0yLjMyQTIuMjksMi4yOSwwLDAsMCwyLjM5
+        LDI5LjUzWiIvPgogICAgPHBhdGggY2xhc3M9ImIyYzA3Njg0LTk4YmQtNDY1My05NWQ5LTRiMDMy
+        MTBmZWIwNSIgZD0iTTQxLDI4LjIzYTcuOTQsNy45NCwwLDEsMCw3Ljc0LTguMDhBNy45Miw3Ljky
+        LDAsMCwwLDQxLDI4LjIzWiIvPgogIDwvZz4KICA8cGF0aCBjbGFzcz0iZmUyZTI4ZWEtNzM3Ny00
+        ZTA3LTk0N2YtZmVlMjFkNDM2NDA0IiBkPSJNMzUuNzEsNjAuNDgsMjYuNDQsNTJsOS4yMi05LjIz
+        YTIuMzYsMi4zNiwwLDAsMCwuNDMtMi41NiwyLjM4LDIuMzgsMCwwLDAtMy44OC0uNzJsLTkuMTMs
+        OS4xNi05LjMxLTkuM2EyLjM3LDIuMzcsMCwwLDAtMS42OC0uNywyLjQyLDIuNDIsMCwwLDAtMi4y
+        LDEuNDcsMi4zMiwyLjMyLDAsMCwwLC41MywyLjU3TDE5LjcyLDUybC05LjE1LDkuMTVBMi4zNCwy
+        LjM0LDAsMCwwLDEwLDYzLjc3YTIuNDIsMi40MiwwLDAsMCwyLjE5LDEuNDYsMi4zOSwyLjM5LDAs
+        MCwwLDEuNjgtLjdsOS4xOS05LjE5LDkuMjYsOC41MWEyLjM4LDIuMzgsMCwwLDAsMS42OC43MSwy
+        LjM4LDIuMzgsMCwwLDAsMS42Ny00LjA4WiIvPgogIDxwYXRoIGNsYXNzPSJmZTJlMjhlYS03Mzc3
+        LTRlMDctOTQ3Zi1mZWUyMWQ0MzY0MDQiIGQ9Ik02Ni4xMyw2NmE2LDYsMCwwLDEsMS4yOS0xLjg3
+        LDYuMTQsNi4xNCwwLDAsMSwxLjkxLTEuMjUsNiw2LDAsMCwxLDIuMzItLjQ2LDYsNiwwLDAsMSw0
+        LjE5LDEuNzFBNiw2LDAsMCwxLDc3LjEzLDY2YTUuNyw1LjcsMCwwLDEsLjQ4LDIuMzQsNS44NSw1
+        Ljg1LDAsMCwxLS40OCwyLjM4LDYuMjIsNi4yMiwwLDAsMS0xLjI5LDEuODlBNS45Myw1LjkzLDAs
+        MCwxLDc0LDczLjgyYTYuMTEsNi4xMSwwLDAsMS0yLjMuNDQsNi4yMiw2LjIyLDAsMCwxLTIuMzIt
+        LjQ0LDYuMTQsNi4xNCwwLDAsMS0xLjkxLTEuMjUsNi4yMiw2LjIyLDAsMCwxLTEuMjktMS44OSw1
+        Ljg1LDUuODUsMCwwLDEtLjQ4LTIuMzhBNS43LDUuNywwLDAsMSw2Ni4xMyw2NlptMSw0LjM3YTQu
+        ODMsNC44MywwLDAsMCwxLDEuNjFBNC41Nyw0LjU3LDAsMCwwLDY5LjcsNzNhNC44NSw0Ljg1LDAs
+        MCwwLDIsLjM5QTQuNzQsNC43NCwwLDAsMCw3My41Nyw3M2E0LjYzLDQuNjMsMCwwLDAsMS41NS0x
+        LjA3LDUsNSwwLDAsMCwxLTEuNjEsNS4zOSw1LjM5LDAsMCwwLC4zOC0yLDUuMjYsNS4yNiwwLDAs
+        MC0uMzgtMiw0Ljc3LDQuNzcsMCwwLDAtMi41OC0yLjY2LDQuNzQsNC43NCwwLDAsMC0xLjkyLS4z
+        OSw0Ljg4LDQuODgsMCwwLDAtMy41MSwxLjQ1LDQuNzgsNC43OCwwLDAsMC0xLDEuNiw1LjI2LDUu
+        MjYsMCwwLDAtLjM4LDJBNS4zOSw1LjM5LDAsMCwwLDY3LjExLDcwLjMzWk03Miw2NC44NWEyLjg1
+        LDIuODUsMCwwLDEsMS44NC40OSwxLjgzLDEuODMsMCwwLDEsLjU5LDEuNSwxLjY4LDEuNjgsMCww
+        LDEtLjUyLDEuMzcsMi4zNywyLjM3LDAsMCwxLTEuMy41MmwyLDMuMDdINzMuNDRsLTEuODktM0g3
+        MC40MXYzSDY5LjMydi03Wm0tLjQ4LDMuMDhjLjI1LDAsLjQ4LDAsLjcsMGEyLjA2LDIuMDYsMCww
+        LDAsLjU4LS4xMy45MS45MSwwLDAsMCwuNC0uMzUsMS4xNywxLjE3LDAsMCwwLC4xNS0uNjQsMSwx
+        LDAsMCwwLS4xMy0uNTYuODcuODcsMCwwLDAtLjM1LS4zMSwxLjU1LDEuNTUsMCwwLDAtLjUtLjE2
+        LDQuOSw0LjksMCwwLDAtLjU0LDBINzAuNDF2Mi4yMVoiLz4KPC9zdmc+Cg==
+      mediatype: image/svg+xml
+  install:
+    spec:
+      deployments:
+      - name: cass-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: cass-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                name: cass-operator
+            spec:
+              containers:
+              - env:
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: OPERATOR_NAME
+                  value: cass-operator
+                - name: SKIP_VALIDATING_WEBHOOK
+                  value: "TRUE"
+                image: registry.connect.redhat.com/datastax/cass-operator:1.0.0
+                imagePullPolicy: IfNotPresent
+                livenessProbe:
+                  exec:
+                    command:
+                    - pgrep
+                    - .*operator
+                  failureThreshold: 3
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                  timeoutSeconds: 5
+                name: cass-operator
+                readinessProbe:
+                  exec:
+                    command:
+                    - stat
+                    - /tmp/operator-sdk-ready
+                  failureThreshold: 1
+                  initialDelaySeconds: 5
+                  periodSeconds: 5
+                  timeoutSeconds: 5
+                resources: {}
+              serviceAccountName: cass-operator
+      permissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - services
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          - configmaps
+          - secrets
+          verbs:
+          - '*'
+        - apiGroups:
+          - ""
+          resources:
+          - namespaces
+          verbs:
+          - get
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - daemonsets
+          - replicasets
+          - statefulsets
+          verbs:
+          - '*'
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - get
+          - create
+        - apiGroups:
+          - apps
+          resourceNames:
+          - cass-operator
+          resources:
+          - deployments/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - datastax.com
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        - apiGroups:
+          - policy
+          resources:
+          - poddisruptionbudgets
+          verbs:
+          - '*'
+        - apiGroups:
+          - cassandra.datastax.com
+          resources:
+          - '*'
+          verbs:
+          - '*'
+        serviceAccountName: cass-operator
+    strategy: deployment
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: false
+    type: AllNamespaces
+  keywords:
+    - DataStax Enterprise
+    - Apache Cassandra
+    - DSE
+    - C*
+    - Cassandra
+  links:
+    - name: DataStax
+      url: https://datastax.com
+    - name: Operator GitHub Repo
+      url: https://github.com/datastax/cass-operator
+    - name: Config Builder GitHub Repo
+      url: https://github.com/datastax/cass-config-builder
+    - name: Documentation [1]
+      url: https://github.com/datastax/cass-operator/tree/master/docs/user
+    - name: Documentation [2]
+      url: https://docs.datastax.com/en/cass-operator/doc/cass-operator/cassOperatorTOC.html
+  maintainers:
+    - name: DataStax Operator Team
+      email: cass-operator@datastax.com
+  maturity: stable
+  minKubeVersion: 1.13.0
+  provider: 
+    name: DataStax
+  version: 1.0.0
