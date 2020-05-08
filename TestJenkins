@@ -1,0 +1,12 @@
+pipeline {
+    agent { label 'default-runner-label' }
+
+    stages {
+        stage('Test') {
+            steps {
+		sh "testing"
+            }
+        }
+    }
+}
+
