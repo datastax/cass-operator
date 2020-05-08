@@ -10,25 +10,21 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
+
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
 	"github.com/datastax/cass-operator/mage/kubectl"
 )
 
 var (
-	testName         = "OSS test all the things"
-	namespace        = "test-oss-test-all-the-things"
-	dcName           = "dc1"
-	dcYaml           = "../testdata/oss-three-rack-three-node-dc.yaml"
-	operatorYaml     = "../testdata/operator.yaml"
-	dcResource       = fmt.Sprintf("CassandraDatacenter/%s", dcName)
-	dcLabel          = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
-	ns               = ginkgo_util.NewWrapper(testName, namespace)
-	defaultResources = []string{
-		"../../operator/deploy/role.yaml",
-		"../../operator/deploy/role_binding.yaml",
-		"../../operator/deploy/service_account.yaml",
-		"../../operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
-	}
+	testName     = "OSS test all the things"
+	namespace    = "test-oss-test-all-the-things"
+	dcName       = "dc1"
+	dcYaml       = "../testdata/oss-three-rack-three-node-dc.yaml"
+	operatorYaml = "../testdata/operator.yaml"
+	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
+	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
+	ns           = ginkgo_util.NewWrapper(testName, namespace)
 )
 
 func TestLifecycle(t *testing.T) {
@@ -36,7 +32,7 @@ func TestLifecycle(t *testing.T) {
 		logPath := fmt.Sprintf("%s/aftersuite", ns.LogDir)
 		kubectl.DumpAllLogs(logPath).ExecV()
 		fmt.Printf("\n\tPost-run logs dumped at: %s\n\n", logPath)
-		_ = ns.Terminate()
+		ns.Terminate()
 	})
 
 	RegisterFailHandler(Fail)
@@ -50,65 +46,34 @@ var _ = Describe(testName, func() {
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
 
-			step := "creating default resources"
-			k := kubectl.ApplyFiles(defaultResources...)
-			ns.ExecAndLog(step, k)
+			step := "setting up cass-operator resources via helm chart"
+			ns.HelmInstall("../../charts/cass-operator-chart")
 
-			step = "creating the cass-operator resource"
-			k = kubectl.ApplyFiles(operatorYaml)
-			ns.ExecAndLog(step, k)
-
-			step = "waiting for the operator to become ready"
-			json := "jsonpath={.items[0].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel("name=cass-operator").
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true", 120)
+			ns.WaitForOperatorReady()
 
 			step = "creating a datacenter resource with 3 racks/3 nodes"
-			k = kubectl.ApplyFiles(dcYaml)
+			k := kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the nodes to become ready"
-			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true true true", 1200)
-
-			step = "checking the cassandra operator progress status is set to Ready"
-			json = "jsonpath={.status.cassandraOperatorProgress}"
-			k = kubectl.Get(dcResource).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "Ready", 30)
+			ns.WaitForDatacenterReady(dcName)
+			ns.WaitForDatacenterCondition(dcName, "Ready", string(corev1.ConditionTrue))
+			ns.WaitForDatacenterCondition(dcName, "Initialized", string(corev1.ConditionTrue))
 
 			step = "scale up to 4 nodes"
-			json = "{\"spec\": {\"size\": 4}}"
+			json := "{\"spec\": {\"size\": 4}}"
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the 4th node to become ready"
-			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true true true true", 1200)
+			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
+			ns.WaitForDatacenterReady(dcName)
 
 			step = "scale up to 5 nodes"
 			json = "{\"spec\": {\"size\": 5}}"
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the 5th node to become ready"
-			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true true true true true", 1200)
+			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
+			ns.WaitForDatacenterReady(dcName)
 
 			step = "stopping the dc"
 			json = "{\"spec\": {\"stopped\": true}}"
@@ -121,25 +86,14 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "5", 20)
 
-			step = "checking that no dc pods remain"
-			json = "jsonpath={.items}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "[]", 300)
+			ns.WaitForDatacenterToHaveNoPods(dcName)
 
 			step = "resume the dc"
 			json = "{\"spec\": {\"stopped\": false}}"
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the nodes to become ready"
-			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true true true true true", 1200)
+			ns.WaitForDatacenterReady(dcName)
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)

@@ -13,9 +13,8 @@ webhooks:
   clientConfig:
     service:
       name: "cassandradatacenter-webhook-service"
-      namespace: "default"
+      namespace: "cass-operator"
       path: /validate-cassandra-datastax-com-v1beta1-cassandradatacenter
-    caBundle: AUTOMATICALLY_REPLACED_CA_BUNDLE
   admissionReviewVersions: ["v1beta1"]
   failurePolicy: "Ignore"
   matchPolicy: "Equivalent"

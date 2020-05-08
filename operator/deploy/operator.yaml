@@ -1,48 +1,3 @@
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: cassandradatacenter-webhook-service
-  labels:
-    name: cass-operator-webhook
-spec:
-  ports:
-  - port: 443
-    targetPort: 443
-  selector:
-    name: cass-operator
----
-apiVersion: v1
-data:
-  tls.crt: ""
-  tls.key: ""
-kind: Secret
-metadata:
-  name: cass-operator-webhook-config
----
-apiVersion: admissionregistration.k8s.io/v1beta1
-kind: ValidatingWebhookConfiguration
-metadata:
-  name: "cassandradatacenter-webhook-registration"
-webhooks:
-- name: "cassandradatacenter-webhook.cassandra.datastax.com"
-  rules:
-  - apiGroups:   ["cassandra.datastax.com"]
-    apiVersions: ["v1beta1"]
-    operations:  ["CREATE", "UPDATE", "DELETE"]
-    resources:   ["cassandradatacenters"]
-    scope:       "*"
-  clientConfig:
-    service:
-      name: "cassandradatacenter-webhook-service"
-      namespace: "default"
-      path: /validate-cassandra-datastax-com-v1beta1-cassandradatacenter
-  admissionReviewVersions: ["v1beta1"]
-  failurePolicy: "Ignore"
-  matchPolicy: "Equivalent"
-  sideEffects: None
-  timeoutSeconds: 10
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -60,45 +15,45 @@ spec:
     spec:
       serviceAccountName: cass-operator
       volumes:
-       - name: cass-operator-certs-volume
-         secret:
-           secretName: cass-operator-webhook-config
+      - name: cass-operator-certs-volume
+        secret:
+          secretName: cass-operator-webhook-config
       containers:
-        - name: cass-operator
-          image: datastax/cass-operator:latest
-          imagePullPolicy: IfNotPresent
-          volumeMounts:
-            - mountPath: /tmp/k8s-webhook-server/serving-certs
-              name: cass-operator-certs-volume
-              readOnly: false
-          livenessProbe:
-            exec:
-              command:
-                - pgrep
-                - ".*operator"
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            timeoutSeconds: 5
-            failureThreshold: 3
-          readinessProbe:
-            exec:
-              command:
-                - stat
-                - "/tmp/operator-sdk-ready"
-            initialDelaySeconds: 5
-            periodSeconds: 5
-            timeoutSeconds: 5
-            failureThreshold: 1
-          env:
-            - name: WATCH_NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: OPERATOR_NAME
-              value: "cass-operator"
-            - name: SKIP_VALIDATING_WEBHOOK
-              value: "TRUE"
+      - name: cass-operator
+        image: datastax/cass-operator:latest
+        imagePullPolicy: IfNotPresent
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cass-operator-certs-volume
+          readOnly: false
+        livenessProbe:
+          exec:
+            command:
+            - pgrep
+            - ".*operator"
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - stat
+            - "/tmp/operator-sdk-ready"
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 1
+        env:
+        - name: WATCH_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OPERATOR_NAME
+          value: "cass-operator"
+        - name: SKIP_VALIDATING_WEBHOOK
+          value: "FALSE"

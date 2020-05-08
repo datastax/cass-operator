@@ -16,6 +16,10 @@ func WatchPods() {
 	shutil.RunVPanic("watch", "-n1", "kubectl", "get", "pods")
 }
 
+func WatchPodsInNs(namespace string) {
+	shutil.RunVPanic("watch", "-n1", "kubectl", "get", "pods", fmt.Sprintf("--namespace=%s", namespace))
+}
+
 //==============================================
 // KCmd represents an executable kubectl command
 //==============================================
@@ -41,6 +45,10 @@ func (k KCmd) ToCliArgs() []string {
 		args = append(args, r)
 	}
 	return args
+}
+
+func (k KCmd) ExecVCapture() (string, string, error) {
+	return shutil.RunVCapture("kubectl", k.ToCliArgs()...)
 }
 
 func (k KCmd) ExecV() error {

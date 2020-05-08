@@ -7,12 +7,15 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
 	ginkgo "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	helm_util "github.com/datastax/cass-operator/mage/helm"
 	"github.com/datastax/cass-operator/mage/kubectl"
 	mageutil "github.com/datastax/cass-operator/mage/util"
 )
@@ -20,6 +23,15 @@ import (
 const (
 	EnvNoCleanup = "M_NO_CLEANUP"
 )
+
+func duplicate(value string, count int) string {
+	result := []string{}
+	for i := 0; i < count; i++ {
+		result = append(result, value)
+	}
+
+	return strings.Join(result, " ")
+}
 
 // Wrapper type to make it simpler to
 // set a namespace one time and execute all of your
@@ -39,7 +51,10 @@ func NewWrapper(suiteName string, namespace string) NsWrapper {
 		LogDir:        genSuiteLogDir(suiteName),
 		stepCounter:   1,
 	}
+}
 
+func (k NsWrapper) ExecVCapture(kcmd kubectl.KCmd) (string, string, error) {
+	return kcmd.InNamespace(k.Namespace).ExecVCapture()
 }
 
 func (k NsWrapper) ExecV(kcmd kubectl.KCmd) error {
@@ -91,11 +106,11 @@ func (k *NsWrapper) countStep() int {
 	return n
 }
 
-func (k NsWrapper) Terminate() error {
+func (ns NsWrapper) Terminate() {
 	noCleanup := os.Getenv(EnvNoCleanup)
 	if strings.ToLower(noCleanup) == "true" {
 		fmt.Println("Skipping namespace cleanup and deletion.")
-		return nil
+		return
 	}
 
 	fmt.Println("Cleaning up and deleting namespace.")
@@ -105,8 +120,31 @@ func (k NsWrapper) Terminate() error {
 	// This is important because deleting the namespace itself
 	// can hang if this step is skipped.
 	kcmd := kubectl.Delete("cassandradatacenter", "--all")
-	_ = k.ExecV(kcmd)
-	return kubectl.DeleteByTypeAndName("namespace", k.Namespace).ExecV()
+	_, dcErrOut, dcErr := ns.ExecVCapture(kcmd)
+
+	// Must run helm uninstall before deleting namespace
+	// or else it won't see that it has an active release
+	// out there
+	_, helmErrOut, helmErr := helm_util.UninstallCapture("cass-operator", ns.Namespace)
+
+	_, nsErrOut, nsErr := kubectl.DeleteByTypeAndName("namespace", ns.Namespace).ExecVCapture()
+
+	var errMsgs []string
+	if dcErr != nil {
+		errMsgs = append(errMsgs, fmt.Sprintf("Error deleting datacenters: %v\n\t%s", dcErr.Error(), dcErrOut))
+	}
+	if helmErr != nil {
+		errMsgs = append(errMsgs, fmt.Sprintf("Error performing helm uninstall: %v\n\t%s", helmErr.Error(), helmErrOut))
+	}
+	if nsErr != nil {
+		errMsgs = append(errMsgs, fmt.Sprintf("Error deleting namespace: %v\n\t%s", nsErr.Error(), nsErrOut))
+	}
+
+	if len(errMsgs) > 0 {
+		msg := fmt.Sprintf("One or more errors occured while cleaning up test resources.\n%s", strings.Join(errMsgs, "\n"))
+		err := fmt.Errorf(msg)
+		Expect(err).ToNot(HaveOccurred())
+	}
 }
 
 //===================================
@@ -138,6 +176,14 @@ func (ns *NsWrapper) ExecAndLog(description string, kcmd kubectl.KCmd) {
 	Expect(execErr).ToNot(HaveOccurred())
 }
 
+func (ns *NsWrapper) ExecAndLogAndExpectErrorString(description string, kcmd kubectl.KCmd, expectedError string) {
+	ginkgo.By(description)
+	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
+	_, captureErr, execErr := ns.ExecVCapture(kcmd)
+	Expect(execErr).To(HaveOccurred())
+	Expect(captureErr).Should(ContainSubstring(expectedError))
+}
+
 func (ns *NsWrapper) OutputAndLog(description string, kcmd kubectl.KCmd) string {
 	ginkgo.By(description)
 	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
@@ -165,4 +211,160 @@ func (ns *NsWrapper) WaitForOutputContainsAndLog(description string, kcmd kubect
 	defer kubectl.DumpLogs(ns.genTestLogDir(description), ns.Namespace).ExecVPanic()
 	execErr := ns.WaitForOutputContains(kcmd, expected, seconds)
 	Expect(execErr).ToNot(HaveOccurred())
+}
+
+
+func (ns *NsWrapper) WaitForDatacenterCondition(dcName string, conditionType string, value string) {
+	step := fmt.Sprintf("checking that dc condition %s has value %s", conditionType, value)
+	json := fmt.Sprintf("jsonpath={.status.conditions[?(.type=='%s')].status}", conditionType)
+	k := kubectl.Get("cassandradatacenter", dcName).
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, value, 600)
+}
+
+
+func (ns *NsWrapper) WaitForDatacenterToHaveNoPods(dcName string) {
+	step := "checking that no dc pods remain"
+	json := "jsonpath={.items}"
+	k := kubectl.Get("pods").
+		WithLabel(fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, "[]", 300)
+}
+
+func (ns *NsWrapper) WaitForDatacenterOperatorProgress(dcName string, progressValue string, timeout int) {
+	step := fmt.Sprintf("checking the cassandra operator progress status is set to %s", progressValue)
+	json := "jsonpath={.status.cassandraOperatorProgress}"
+	k := kubectl.Get("CassandraDatacenter", dcName).
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, progressValue, timeout)
+}
+
+func (ns *NsWrapper) WaitForSuperUserUpserted(dcName string, timeout int) {
+	json := "jsonpath={.status.superUserUpserted}"
+	k := kubectl.Get("CassandraDatacenter", dcName).
+		FormatOutput(json)
+	execErr := ns.WaitForOutputPattern(k, `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z`, timeout)
+	Expect(execErr).ToNot(HaveOccurred())
+}
+
+func (ns *NsWrapper) GetNodeStatusesHostIds(dcName string) []string {
+	json := "jsonpath={.status.nodeStatuses['*'].hostID}"
+	k := kubectl.Get("CassandraDatacenter", dcName).
+		FormatOutput(json)
+
+	output := ns.OutputPanic(k)
+	hostIds := strings.Split(output, " ")
+
+	return hostIds
+}
+
+func (ns *NsWrapper) WaitForDatacenterReadyPodCount(dcName string, count int) {
+	timeout := count * 400
+	step := "waiting for the node to become ready"
+	json := "jsonpath={.items[*].status.containerStatuses[0].ready}"
+	k := kubectl.Get("pods").
+		WithLabel(fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		WithFlag("field-selector", "status.phase=Running").
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, duplicate("true", count), timeout)
+}
+
+func (ns *NsWrapper) WaitForDatacenterReady(dcName string) {
+	json := "jsonpath={.spec.size}"
+	k := kubectl.Get("CassandraDatacenter", dcName).FormatOutput(json)
+	sizeString := ns.OutputPanic(k)
+	size, err := strconv.Atoi(sizeString)
+	Expect(err).ToNot(HaveOccurred())
+
+	ns.WaitForDatacenterReadyPodCount(dcName, size)
+	ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 30)
+}
+
+func (ns *NsWrapper) WaitForPodNotStarted(podName string) {
+	step := "verify that the pod is no longer marked as started"
+	k := kubectl.Get("pod").
+		WithFlag("field-selector", "metadata.name="+podName).
+		WithFlag("selector", "cassandra.datastax.com/node-state=Started")
+	ns.WaitForOutputAndLog(step, k, "", 60)
+}
+
+func (ns *NsWrapper) WaitForPodStarted(podName string) {
+	step := "verify that the pod is marked as started"
+	json := "jsonpath={.items[*].metadata.name}"
+	k := kubectl.Get("pod").
+		WithFlag("field-selector", "metadata.name="+podName).
+		WithFlag("selector", "cassandra.datastax.com/node-state=Started").
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, podName, 60)
+}
+
+func (ns *NsWrapper) DisableGossipWaitNotReady(podName string) {
+	ns.DisableGossip(podName)
+	ns.WaitForPodNotStarted(podName)
+}
+
+func (ns *NsWrapper) EnableGossipWaitReady(podName string) {
+	ns.EnableGossip(podName)
+	ns.WaitForPodStarted(podName)
+}
+
+func (ns *NsWrapper) DisableGossip(podName string) {
+	execArgs := []string{"-c", "cassandra",
+		"--", "bash", "-c",
+		"nodetool disablegossip",
+	}
+	k := kubectl.ExecOnPod(podName, execArgs...)
+	ns.ExecVPanic(k)
+}
+
+func (ns *NsWrapper) EnableGossip(podName string) {
+	execArgs := []string{"-c", "cassandra",
+		"--", "bash", "-c",
+		"nodetool enablegossip",
+	}
+	k := kubectl.ExecOnPod(podName, execArgs...)
+	ns.ExecVPanic(k)
+}
+
+func (ns *NsWrapper) GetDatacenterPodNames(dcName string) []string {
+	json := "jsonpath={.items[*].metadata.name}"
+	k := kubectl.Get("pods").
+		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		FormatOutput(json)
+
+	output := ns.OutputPanic(k)
+	podNames := strings.Split(output, " ")
+	sort.Sort(sort.StringSlice(podNames))
+
+	return podNames
+}
+
+func (ns *NsWrapper) GetDatacenterReadyPodNames(dcName string) []string {
+	json := "jsonpath={.items[?(@.status.containerStatuses[0].ready==true)].metadata.name}"
+	k := kubectl.Get("pods").
+		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		FormatOutput(json)
+
+	output := ns.OutputPanic(k)
+	podNames := strings.Split(output, " ")
+	sort.Sort(sort.StringSlice(podNames))
+
+	return podNames
+}
+
+func (ns *NsWrapper) WaitForOperatorReady() {
+	step := "waiting for the operator to become ready"
+	json := "jsonpath={.items[0].status.containerStatuses[0].ready}"
+	k := kubectl.Get("pods").
+		WithLabel("name=cass-operator").
+		WithFlag("field-selector", "status.phase=Running").
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, "true", 120)
+}
+
+func (ns NsWrapper) HelmInstall(chartPath string) {
+	var overrides = map[string]string{"image": "datastax/cass-operator:latest"}
+	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
+	mageutil.PanicOnError(err)
 }

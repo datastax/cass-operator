@@ -144,6 +144,11 @@ type CassandraDatacenterSpec struct {
 	// Whether to do a rolling restart at the next opportunity. The operator will set this back
 	// to false once the restart is in progress.
 	RollingRestartRequested bool `json:"rollingRestartRequested,omitempty"`
+
+	// A map of label keys and values to restrict Cassandra node scheduling to k8s workers
+	// with matchiing labels.
+	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
+	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 }
 
 type StorageConfig struct {
@@ -152,10 +157,9 @@ type StorageConfig struct {
 
 // GetRacks is a getter for the Rack slice in the spec
 // It ensures there is always at least one rack
-// FIXME move this onto the CassandraDatacenter for consistency?
-func (s *CassandraDatacenterSpec) GetRacks() []Rack {
-	if len(s.Racks) >= 1 {
-		return s.Racks
+func (dc *CassandraDatacenter) GetRacks() []Rack {
+	if len(dc.Spec.Racks) >= 1 {
+		return dc.Spec.Racks
 	}
 
 	return []Rack{{
@@ -179,9 +183,37 @@ type CassandraNodeStatus struct {
 
 type CassandraStatusMap map[string]CassandraNodeStatus
 
+type DatacenterConditionType string
+
+const (
+	DatacenterReady          DatacenterConditionType = "Ready"
+	DatacenterInitialized    DatacenterConditionType = "Initialized"
+	DatacenterReplacingNodes DatacenterConditionType = "ReplacingNodes"
+	DatacenterScalingUp      DatacenterConditionType = "ScalingUp"
+	DatacenterUpdating       DatacenterConditionType = "Updating"
+	DatacenterStopped        DatacenterConditionType = "Stopped"
+	DatacenterResuming       DatacenterConditionType = "Resuming"
+	DatacenterRollingRestart DatacenterConditionType = "RollingRestart"
+)
+
+type DatacenterCondition struct {
+	Type DatacenterConditionType `json:"type"`
+	Status corev1.ConditionStatus `json:"status"`
+	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+}
+
+func NewDatacenterCondition(conditionType DatacenterConditionType, status corev1.ConditionStatus) *DatacenterCondition {
+	return &DatacenterCondition{
+		Type: conditionType,
+		Status: status,
+	}
+}
+
 // CassandraDatacenterStatus defines the observed state of CassandraDatacenter
 // +k8s:openapi-gen=true
 type CassandraDatacenterStatus struct {
+	Conditions []DatacenterCondition `json:"conditions,omitempty"`
+
 	// The timestamp at which CQL superuser credentials
 	// were last upserted to the management API
 	// +optional
@@ -290,6 +322,40 @@ func (dc *CassandraDatacenter) GetRackLabels(rackName string) map[string]string 
 	utils.MergeMap(labels, dc.GetDatacenterLabels())
 
 	return labels
+}
+
+func (status *CassandraDatacenterStatus) GetConditionStatus(conditionType DatacenterConditionType) corev1.ConditionStatus {
+	for _, condition := range status.Conditions {
+		if condition.Type == conditionType {
+			return condition.Status
+		}
+	}
+	return corev1.ConditionFalse
+}
+
+func (dc *CassandraDatacenter) GetConditionStatus(conditionType DatacenterConditionType) corev1.ConditionStatus {
+	return (&dc.Status).GetConditionStatus(conditionType)
+}
+
+func (status *CassandraDatacenterStatus) SetCondition(condition DatacenterCondition) {
+	conditions := status.Conditions
+	added := false
+	for i, _ := range status.Conditions {
+		if status.Conditions[i].Type == condition.Type {
+			status.Conditions[i] = condition
+			added = true
+		}
+	}
+
+	if !added {
+		conditions = append(conditions, condition)
+	}
+
+	status.Conditions = conditions
+}
+
+func (dc *CassandraDatacenter) SetCondition(condition DatacenterCondition) {
+	(&dc.Status).SetCondition(condition)
 }
 
 // GetDatacenterLabels ...
@@ -423,4 +489,20 @@ func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, erro
 	}
 
 	return ports, nil
+}
+
+func SplitRacks(nodeCount, rackCount int) []int {
+	nodesPerRack, extraNodes := nodeCount/rackCount, nodeCount%rackCount
+
+	var topology []int
+
+	for rackIdx := 0; rackIdx < rackCount; rackIdx++ {
+		nodesForThisRack := nodesPerRack
+		if rackIdx < extraNodes {
+			nodesForThisRack++
+		}
+		topology = append(topology, nodesForThisRack)
+	}
+
+	return topology
 }

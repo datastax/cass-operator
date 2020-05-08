@@ -14,6 +14,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	corev1 "k8s.io/api/core/v1"
+
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
 	"github.com/datastax/cass-operator/mage/kubectl"
 )
@@ -29,12 +31,6 @@ var (
 	dcResource       = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel          = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
 	ns               = ginkgo_util.NewWrapper(testName, namespace)
-	defaultResources = []string{
-		"../../operator/deploy/role.yaml",
-		"../../operator/deploy/role_binding.yaml",
-		"../../operator/deploy/service_account.yaml",
-		"../../operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml",
-	}
 )
 
 func TestLifecycle(t *testing.T) {
@@ -43,7 +39,7 @@ func TestLifecycle(t *testing.T) {
 		kubectl.DumpAllLogs(logPath).ExecV()
 
 		fmt.Printf("\n\tPost-run logs dumped at: %s\n\n", logPath)
-		_ = ns.Terminate()
+		ns.Terminate()
 	})
 
 	RegisterFailHandler(Fail)
@@ -157,39 +153,16 @@ var _ = Describe(testName, func() {
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
 
-			step = "creating default resources"
-			k = kubectl.ApplyFiles(defaultResources...)
-			ns.ExecAndLog(step, k)
+			step = "setting up cass-operator resources via helm chart"
+			ns.HelmInstall("../../charts/cass-operator-chart")
 
-			step = "creating the cass-operator resource"
-			k = kubectl.ApplyFiles(operatorYaml)
-			ns.ExecAndLog(step, k)
-
-			step = "waiting for the operator to become ready"
-			json = "jsonpath={.items[0].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel("name=cass-operator").
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true", 120)
+			ns.WaitForOperatorReady()
 
 			step = "creating a datacenter resource with 3 racks/3 nodes"
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the nodes to become ready"
-			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, duplicate("true", len(podNames)), 1200)
-
-			step = "checking the cassandra operator progress status is set to Ready"
-			json = "jsonpath={.status.cassandraOperatorProgress}"
-			k = kubectl.Get(dcResource).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "Ready", 30)
+			ns.WaitForDatacenterReady(dcName)
 
 			step = "ensure we actually recorded the host IDs for our cassandra nodes"
 			json = fmt.Sprintf("jsonpath={.status.nodeStatuses[%s].hostID}", quotedList(podNames))
@@ -206,30 +179,17 @@ var _ = Describe(testName, func() {
 			k = kubectl.Get("pvc", pvcName).FormatOutput(json)
 			pvName := ns.OutputAndLog(step, k)
 
-			step = "disabling gossip on pod to remove readiness"
-			execArgs := []string{"-c", "cassandra",
-				"--", "bash", "-c",
-				"nodetool disablegossip",
-			}
-			k = kubectl.ExecOnPod(podNameToReplace, execArgs...)
-			ns.ExecAndLog(step, k)
+			ns.DisableGossipWaitNotReady(podNameToReplace)
+			ns.WaitForPodNotStarted(podNameToReplace)
 
-			step = "verifying that the pod lost readiness"
-			json = "jsonpath={.status.containerStatuses[0].ready}"
-			k = kubectl.GetByTypeAndName("pod", podNameToReplace).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "false", 60)
-
-			step = "verify that the pod is no longer marked as started"
-			k = kubectl.Get("pod").
-				WithFlag("field-selector", "metadata.name="+podNameToReplace).
-				WithFlag("selector", "cassandra.datastax.com/node-state=Started")
-			ns.WaitForOutputAndLog(step, k, "", 60)
+			time.Sleep(1 * time.Minute)
 
 			step = "patch CassandraDatacenter with appropriate replaceNodes setting"
 			patch := fmt.Sprintf(`{"spec":{"replaceNodes":["%s"]}}`, podNameToReplace)
 			k = kubectl.PatchMerge(dcResource, patch)
 			ns.ExecAndLog(step, k)
+
+			ns.WaitForDatacenterCondition(dcName, "ReplacingNodes", string(corev1.ConditionTrue))
 
 			step = "wait for the status to indicate we are replacing pods"
 			json = "jsonpath={.status.nodeReplacements[0]}"
@@ -252,6 +212,10 @@ var _ = Describe(testName, func() {
 			// create both a new pod and a new PVC for us.
 			k = kubectl.Delete("pod", podNameToReplace)
 			ns.ExecAndLog(step, k)
+
+			// Ensure that all pods up and running when ReplacingNodes gets unset
+			ns.WaitForDatacenterCondition(dcName, "ReplacingNodes", string(corev1.ConditionFalse))
+			Expect(len(ns.GetDatacenterReadyPodNames(dcName))).To(Equal(3))
 
 			step = "wait for the pod to return to life"
 			json = "jsonpath={.status.containerStatuses[?(.name=='cassandra')].ready}"

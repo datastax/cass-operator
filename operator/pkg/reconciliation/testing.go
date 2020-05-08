@@ -24,8 +24,9 @@ import (
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	log2 "sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	log2 "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
@@ -152,7 +153,7 @@ func fakeClientWithService(
 
 func setupTest() (*ReconciliationContext, *corev1.Service, func()) {
 	// Set up verbose logging
-	logger := log2.ZapLogger(true)
+	logger := zap.Logger(true)
 	log2.SetLogger(logger)
 	cleanupMockScr := MockSetControllerReference()
 

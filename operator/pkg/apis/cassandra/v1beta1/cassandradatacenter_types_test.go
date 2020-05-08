@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -330,4 +331,14 @@ func TestCassandraDatacenter_GetSeedServiceName(t *testing.T) {
 	if want != got {
 		t.Errorf("CassandraDatacenter.GetSeedService() = %v, want %v", got, want)
 	}
+}
+
+func TestCassandraDatacenter_SplitRacks_balances_racks_when_no_extra_nodes(t *testing.T) {
+	rackNodeCounts := SplitRacks(10, 5)
+	assert.ElementsMatch(t, rackNodeCounts, []int{2, 2, 2, 2, 2}, "Rack node counts were not balanced")
+}
+
+func TestCassandraDatacenter_SplitRacks_balances_racks_when_some_extra_nodes(t *testing.T) {
+	rackNodeCounts := SplitRacks(13, 5)
+	assert.ElementsMatch(t, rackNodeCounts, []int{3, 3, 3, 2, 2}, "Rack node counts were not balanced")
 }

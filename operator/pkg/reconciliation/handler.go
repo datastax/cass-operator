@@ -15,8 +15,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 
 	"github.com/datastax/cass-operator/operator/internal/result"
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
@@ -191,6 +191,6 @@ func NewReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileCassandraDatacenter{
 		client:   mgr.GetClient(),
 		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor("cassandra-operator"),
+		recorder: mgr.GetEventRecorderFor("cass-operator"),
 	}
 }
