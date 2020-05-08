@@ -420,7 +420,7 @@ func buildCodeGeneratorDockerImage() {
 	// Use the version of code-generator that we are pinned to
 	// in operator/go.mod.
 	var genVersion string
-	f, err := os.Open("operator/go.mod")
+	f, err := os.Open("./go.mod")
 	mageutil.PanicOnError(err)
 	defer f.Close()
 	scanner := bufio.NewScanner(f)
