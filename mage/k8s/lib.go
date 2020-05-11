@@ -176,6 +176,8 @@ func EnsureEmptyCluster() {
 	if !clusterActions.ClusterExists() {
 		SetupEmptyCluster()
 	} else {
+		// make sure kubectl is pointing to our cluster
+		clusterActions.SetupKubeconfig()
 		// we should still ensure that the storage is set up
 		// correctly every time
 		clusterActions.ApplyDefaultStorage()

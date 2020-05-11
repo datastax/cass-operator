@@ -103,9 +103,7 @@ func reloadLocalImage(image string) {
 }
 
 func setupKubeconfig() {
-	fmt.Println("BEFORE CONFIG")
 	config := shutil.OutputPanic("k3d", "get-kubeconfig")
-	fmt.Println("BEFORE ENV")
 	os.Setenv("KUBECONFIG", config)
 }
 
