@@ -26,13 +26,13 @@ import (
 const (
 	OperatorImage    = "datastax/cass-operator:latest"
 	envLoadDevImages = "M_LOAD_DEV_IMAGES"
-	envClusterType   = "M_CLUSTER_TYPE"
+	envK8sFlavor     = "M_K8S_FLAVOR"
 )
 
 var clusterActions *ClusterActions
 var clusterType string
 
-var supportedClusters = map[string]ClusterActions{
+var supportedFlavors = map[string]ClusterActions{
 	"kind": kind.ClusterActions,
 	"k3d":  k3d.ClusterActions,
 	"gke":  gcp.ClusterActions,
@@ -65,14 +65,14 @@ func cleanupLingeringHelmResources() {
 
 func loadClusterSettings() {
 	if clusterType == "" {
-		clusterType = mageutil.EnvOrDefault(envClusterType, "k3d")
+		clusterType = mageutil.EnvOrDefault(envK8sFlavor, "k3d")
 	}
 
 	if clusterActions == nil {
-		if cfg, ok := supportedClusters[clusterType]; ok {
+		if cfg, ok := supportedFlavors[clusterType]; ok {
 			clusterActions = &cfg
 		} else {
-			panic(fmt.Sprintf("Unsupported %s specified: %s", envClusterType, clusterType))
+			panic(fmt.Sprintf("Unsupported %s specified: %s", envK8sFlavor, clusterType))
 		}
 	}
 }
@@ -221,13 +221,13 @@ func ReloadOperator() {
 	clusterActions.ReloadLocalImage(OperatorImage)
 }
 
-// List cluster types that we support
+// List k8s flavors that we support
 // automating development workflows for
-func ListSupportedClusters() {
+func ListSupportedFlavors() {
 	fmt.Println("--------------------------------------------------------------")
-	fmt.Printf("%s can be set to one of the following cluster types\n", envClusterType)
+	fmt.Printf("%s can be set to one of the following k8s flavors\n", envK8sFlavor)
 	fmt.Println("--------------------------------------------------------------")
-	for key := range supportedClusters {
+	for key := range supportedFlavors {
 		fmt.Println(key)
 	}
 	fmt.Println("--------------------------------------------------------------")
@@ -243,7 +243,7 @@ func Env() {
 	fmt.Println(" Environment variables to be used in any cluster")
 	fmt.Println("--------------------------------------------------------------")
 	fmt.Printf("%s - If set to true, will load local dev images into cluster\n", envLoadDevImages)
-	fmt.Printf("%s - The type of k8s cluster to use. Run the listSupportedClusters mage target for more info.\n", envClusterType)
+	fmt.Printf("%s - The type of k8s cluster to use. Run the listSupportedFlavors mage target for more info.\n", envK8sFlavor)
 
 	fmt.Println("\n--------------------------------------------------------------")
 	fmt.Printf(" Environment variables specific to the specific cluster: %s\n", clusterType)
@@ -257,4 +257,17 @@ func Env() {
 			fmt.Printf("%s - %s\n", key, clusterSpecific[key])
 		}
 	}
+}
+
+// If available, install the cli
+// tool associated with the chosen k8s flavor
+func InstallTool() {
+	loadClusterSettings()
+	clusterActions.InstallTool()
+}
+
+// Configure kubectl to point to the specified cluster
+func Kubeconfig() {
+	loadClusterSettings()
+	clusterActions.SetupKubeconfig()
 }
