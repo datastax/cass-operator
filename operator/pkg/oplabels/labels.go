@@ -5,7 +5,7 @@ package oplabels
 
 const (
 	ManagedByLabel      = "app.kubernetes.io/managed-by"
-	ManagedByLabelValue = "cassandra-operator"
+	ManagedByLabelValue = "cass-operator"
 )
 
 func AddManagedByLabel(m map[string]string) {
