@@ -21,7 +21,8 @@ import (
 )
 
 const (
-	EnvNoCleanup = "M_NO_CLEANUP"
+	EnvNoCleanup  = "M_NO_CLEANUP"
+	OperatorImage = "datastax/cass-operator:latest"
 )
 
 func duplicate(value string, count int) string {
@@ -364,7 +365,7 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 }
 
 func (ns NsWrapper) HelmInstall(chartPath string) {
-	var overrides = map[string]string{"image": "datastax/cass-operator:latest"}
+	var overrides = map[string]string{"image": OperatorImage}
 	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
 	mageutil.PanicOnError(err)
 }
