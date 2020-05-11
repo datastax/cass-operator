@@ -42,8 +42,6 @@ M_K8S_FLAVOR=gke mage k8s:env
 
 CLI tools for supported flavors can be installed by running the `installTool` target.
 
-For example:
-
 Example usage:
 ```bash
 M_K8S_FLAVOR=kind mage k8s:installTool
@@ -105,10 +103,10 @@ mage k8s:deleteCluster
 
 ## Reloading the Docker operator image
 
-For k8s flavors that run their workers inside of docker (kind, k3d),
+For k8s flavors that run their workers inside of docker (KIND, k3d),
 there is a mage target that will remove the existing operator image from every 
 Docker container in the cluster and then rebuild/reload the operator Docker image 
-into the cluster.
+into those worker containers.
 
 This will need to be done after every code change of the operator code!
 
