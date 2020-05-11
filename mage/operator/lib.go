@@ -103,7 +103,7 @@ func generateK8sAndOpenApi() {
 	repoPath := "/go/src/github.com/datastax/cass-operator"
 	execArgs := []string{
 		"/bin/bash", "-c",
-		fmt.Sprintf("export GO111MODULE=on; cd %s/operator && operator-sdk generate k8s && operator-sdk generate openapi && rm -rf build", repoPath),
+		fmt.Sprintf("set -eufx; export GO111MODULE=on; cd %s/operator && operator-sdk generate k8s && operator-sdk generate crds && rm -rf build", repoPath),
 	}
 	volumes := []string{fmt.Sprintf("%s:%s", cwd, repoPath)}
 	dockerutil.Run(operatorSdkImage, volumes, nil, nil, runArgs, execArgs).ExecVPanic()
@@ -420,7 +420,7 @@ func buildCodeGeneratorDockerImage() {
 	// Use the version of code-generator that we are pinned to
 	// in operator/go.mod.
 	var genVersion string
-	f, err := os.Open("operator/go.mod")
+	f, err := os.Open("./go.mod")
 	mageutil.PanicOnError(err)
 	defer f.Close()
 	scanner := bufio.NewScanner(f)

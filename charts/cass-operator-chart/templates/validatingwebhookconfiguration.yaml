@@ -7,7 +7,7 @@ webhooks:
   rules:
   - apiGroups: ["cassandra.datastax.com"]
     apiVersions: ["v1beta1"]
-    operations: ["CREATE", "UPDATE", "DELETE"]
+    operations: ["CREATE", "UPDATE"]
     resources: ["cassandradatacenters"]
     scope: "*"
   clientConfig:

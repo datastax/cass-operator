@@ -10,7 +10,7 @@ spec:
   configBuilderImage: datastax/cass-config-builder:1.0.0
   managementApiAuth:
     insecure: {}
-  size: 3
+  size: 6
   storageConfig:
     cassandraDataVolumeClaimSpec:
       storageClassName: server-storage
@@ -22,7 +22,6 @@ spec:
   racks:
     - name: r1
     - name: r2
-    - name: r3
   config:
     jvm-options:
       initial_heap_size: "800m"

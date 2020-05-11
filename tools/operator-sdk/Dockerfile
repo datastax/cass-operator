@@ -16,7 +16,7 @@ FROM golang:1.13-stretch as install-operator-sdk
 # inside the container. Something like...
 # docker run -v /Users/jim/datastax/cass-operator:/go/src/github.com/datastax/cass-operator ...
 
-ENV OP_SDK_VERSION=v0.12.0
+ENV OP_SDK_VERSION=v0.17.0
 ENV GOPROXY=https://proxy.golang.org,https://gocenter.io,direct
 
 WORKDIR /usr/bin
@@ -71,8 +71,9 @@ RUN { \
 
 RUN GO111MODULE=on go mod tidy
 RUN GO111MODULE=on go mod download
-RUN GO111MODULE=on operator-sdk generate k8s
-RUN GO111MODULE=on operator-sdk generate openapi
+RUN GO111MODULE=on operator-sdk generate k8s --verbose
+RUN GO111MODULE=on operator-sdk generate crds --verbose
+RUN GO111MODULE=on operator-sdk generate csv --verbose
 
 # The next steps use the kubernetes code-generator to make a client
 # The code-generator currently needs to exist in the
@@ -80,7 +81,7 @@ RUN GO111MODULE=on operator-sdk generate openapi
 # So we copy the specific version that this operator-sdk pulled down and move it
 # into the required path.
 WORKDIR $GOPATH/src/k8s.io
-RUN cp -r "/go/pkg/mod/k8s.io/code-generator@v0.0.0-20190612205613-18da4a14b22b" "code-generator"
+RUN cp -r "/go/pkg/mod/k8s.io/code-generator@v0.17.4" "code-generator"
 
 WORKDIR $GOPATH/src/k8s.io/code-generator
 RUN chmod 700 generate-groups.sh

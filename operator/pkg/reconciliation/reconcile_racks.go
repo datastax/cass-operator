@@ -432,7 +432,7 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 
 	// step 1 - see if any nodes are already coming up
 
-	nodeIsStarting, err := rc.findStartingNodes()
+	nodeIsStarting, nodeStarted, err := rc.findStartingNodes()
 
 	if err != nil {
 		return result.Error(err)
@@ -476,6 +476,11 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 	desiredSize := int(rc.Datacenter.Spec.Size)
 
 	if desiredSize == readyPodCount && desiredSize == startedLabelCount {
+		// When the ready and started counts match the desired counts and nodeStarted is true, then that means we have
+		// just started the last node in the data center.
+		if nodeStarted {
+			return result.RequeueSoon(2)
+		}
 		return result.Continue()
 	} else {
 		err := fmt.Errorf("checks failed desired:%d, ready:%d, started:%d", desiredSize, readyPodCount, startedLabelCount)
@@ -796,7 +801,7 @@ func (rc *ReconciliationContext) UpdateStatus() result.ReconcileResult {
 	status = &api.CassandraDatacenterStatus{}
 	dc.Status.DeepCopyInto(status)
 	oldDc.Status.DeepCopyInto(&dc.Status)
-	
+
 	if !reflect.DeepEqual(dc, oldDc) {
 		patch := client.MergeFrom(oldDc)
 		if err := rc.Client.Patch(rc.Ctx, dc, patch); err != nil {
@@ -1332,7 +1337,13 @@ func (rc *ReconciliationContext) callNodeManagementStart(pod *corev1.Pod) error 
 	return err
 }
 
-func (rc *ReconciliationContext) findStartingNodes() (bool, error) {
+// Checks to see if any node is starting. This is done by checking to see if the cassandra.datastax.com/node-state label
+// has a value of Starting. If it does then check to see if the C* node is ready. If the node is ready, the pod's
+// cassandra.datastax.com/node-state label is set to a value of Started. This function returns two bools and an error.
+// The first bool is true if there is a C* node that is Starting. The second bool is set to true if a C* node has just
+// transitioned to the Started state by having its cassandra.datastax.com/node-state label set to Started. The error is
+// non-nil if updating the pod's labels fails.
+func (rc *ReconciliationContext) findStartingNodes() (bool, bool, error) {
 	rc.ReqLogger.Info("reconcile_racks::findStartingNodes")
 
 	for _, pod := range rc.clusterPods {
@@ -1341,7 +1352,9 @@ func (rc *ReconciliationContext) findStartingNodes() (bool, error) {
 				rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.StartedCassandra,
 					"Started Cassandra for pod %s", pod.Name)
 				if err := rc.labelServerPodStarted(pod); err != nil {
-					return false, err
+					return false, false, err
+				} else {
+					return false, true, nil
 				}
 			} else {
 				// TODO Calling start again on the pod seemed like a good defensive practice
@@ -1351,11 +1364,11 @@ func (rc *ReconciliationContext) findStartingNodes() (bool, error) {
 				// if err := rc.callNodeManagementStart(pod); err != nil {
 				// 	return false, err
 				// }
-				return true, nil
+				return true, false, nil
 			}
 		}
 	}
-	return false, nil
+	return false, false, nil
 }
 
 func (rc *ReconciliationContext) findStartedNotReadyNodes() (bool, error) {
@@ -1697,11 +1710,11 @@ func (rc *ReconciliationContext) CheckConditionInitializedAndReady() result.Reco
 	dc := rc.Datacenter
 	dcPatch := client.MergeFrom(dc.DeepCopy())
 	logger := rc.ReqLogger
-	
+
 	updated := false
 	updated = rc.setCondition(
 		api.NewDatacenterCondition(api.DatacenterInitialized, corev1.ConditionTrue)) || updated
-	
+
 	if dc.GetConditionStatus(api.DatacenterStopped) == corev1.ConditionFalse {
 		updated = rc.setCondition(
 			api.NewDatacenterCondition(api.DatacenterReady, corev1.ConditionTrue)) || updated
@@ -1722,6 +1735,18 @@ func (rc *ReconciliationContext) CheckConditionInitializedAndReady() result.Reco
 	return result.Continue()
 }
 
+func (rc *ReconciliationContext) cleanupAfterScaling() error {
+	var err error
+
+	for idx := range rc.dcPods {
+		err = rc.NodeMgmtClient.CallKeyspaceCleanupEndpoint(rc.dcPods[idx], -1, "", nil)
+		if err == nil {
+			break
+		}
+	}
+	return err
+}
+
 func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileResult {
 	dc := rc.Datacenter
 	logger := rc.ReqLogger
@@ -1731,13 +1756,26 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 	// clearing conditions
 	actionConditionTypes := []api.DatacenterConditionType{
 		api.DatacenterReplacingNodes,
-		api.DatacenterScalingUp,
 		api.DatacenterUpdating,
 		api.DatacenterRollingRestart,
 		api.DatacenterResuming,
 	}
 	updated := false
-	for _, conditionType := range(actionConditionTypes) {
+
+	// Explicitly handle scaling up here because we want to run a cleanup afterwards
+	if dc.GetConditionStatus(api.DatacenterScalingUp) == corev1.ConditionTrue {
+		err := rc.cleanupAfterScaling()
+		if err != nil {
+			logger.Error(err, "error cleaning up after scaling datacenter")
+			return result.Error(err)
+		}
+
+		updated = rc.setCondition(
+			api.NewDatacenterCondition(api.DatacenterScalingUp, corev1.ConditionFalse)) || updated
+	}
+
+	for _, conditionType := range actionConditionTypes {
+
 		updated = rc.setCondition(
 			api.NewDatacenterCondition(conditionType, corev1.ConditionFalse)) || updated
 	}
@@ -1750,13 +1788,13 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 		}
 
 		// There may have been changes to the CassandraDatacenter resource that we ignored
-		// while executing some action on the cluster. For example, a user may have 
+		// while executing some action on the cluster. For example, a user may have
 		// requested to scale up the node count while we were in the middle of a rolling
 		// restart. To account for this, we requeue to ensure reconcile gets called again
 		// to pick up any such changes that we ignored previously.
 		return result.RequeueSoon(0)
 	}
-	
+
 	// Nothing has changed, carry on
 	return result.Continue()
 }
