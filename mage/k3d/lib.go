@@ -105,6 +105,7 @@ func reloadLocalImage(image string) {
 func setupKubeconfig() {
 	config := shutil.OutputPanic("k3d", "get-kubeconfig")
 	os.Setenv("KUBECONFIG", config)
+	fmt.Printf("To set up kubectl in your shell to use this cluster, set:\n\tKUBECONFIG=%s\n", config)
 }
 
 func applyDefaultStorage() {
