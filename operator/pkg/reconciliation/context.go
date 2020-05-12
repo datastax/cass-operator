@@ -16,6 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
+	"github.com/datastax/cass-operator/operator/pkg/events"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 )
@@ -53,7 +54,7 @@ func CreateReconciliationContext(
 	rc.Request = req
 	rc.Client = cli
 	rc.Scheme = scheme
-	rc.Recorder = rec
+	rc.Recorder = &events.LoggingEventRecorder{EventRecorder: rec, ReqLogger: reqLogger,}
 	rc.ReqLogger = reqLogger
 	rc.Ctx = context.Background()
 
