@@ -23,6 +23,8 @@ var (
 	oldOperatorChart = "../testdata/cass-operator-1.1.0-chart"
 	dcName           = "dc1"
 	dcYaml           = "../testdata/operator-1.1.0-oss-dc.yaml"
+	podName          = fmt.Sprintf("cluster1-%s-r1-sts-0", dcName)
+	podNameJson      = "jsonpath={.items[*].metadata.name}"
 	dcResource       = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel          = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
 	ns               = ginkgo_util.NewWrapper(testName, namespace)
@@ -72,13 +74,37 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForDatacenterReady(dcName)
 
+			// sanity check
+			step = "sanity check that we have resources with defunct managed-by label value"
+			k = kubectl.Get("pods").WithFlag("selector", "app.kubernetes.io/managed-by=cassandra-operator")
+			output := ns.OutputAndLog(step, k)
+			Expect(output).ToNot(Equal(""), "Expected some resources to have managed-by value of 'cassandra-operator'")
+
 			UpgradeOperator()
+
+			time.Sleep(1 * time.Minute)
 
 			ns.WaitForOperatorReady()
 
 			time.Sleep(1 * time.Minute)
 
 			ns.WaitForDatacenterReady(dcName)
+
+			// // check no longer using old managed-by value
+			// step = "ensure no resources using defunct managed-by value after operator upgrade"
+			// k = kubectl.Get("pods").
+			// 	WithFlag("selector", "app.kubernetes.io/managed-by=cassandra-operator").
+			// 	FormatOutput(podNameJson)
+			// output = ns.OutputAndLog(step, k)
+			// Expect(output).To(Equal(""), "Expected no resources to have defunct managed-by value of 'cassandra-operator'")
+
+			// // check using new managed-by value
+			// step = "ensure resources using managed-by value of 'cass-operator'"
+			// k = kubectl.Get("pods").
+			// 	WithFlag("selector", "app.kubernetes.io/managed-by=cass-operator").
+			// 	FormatOutput(podNameJson)
+			// output = ns.OutputAndLog(step, k)
+			// Expect(output).To(Equal(podName), "Expected resources to have managed-by value of 'cass-operator'")
 		})
 	})
 })
