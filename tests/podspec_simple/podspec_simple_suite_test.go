@@ -73,6 +73,7 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
 
+			step = "checking that our crd-defined container got merged into the dc and is up and running"
 			json = `jsonpath={.items[0].spec.containers[?(@.name=="another-tailing-logger")].image}`
 			k = kubectl.Get("pods").
 				WithLabel(dcLabel).
