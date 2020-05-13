@@ -54,6 +54,13 @@ spec:
             configBuilderImage:
               description: Container image for the config builder init container.
               type: string
+            forceUpgradeRacks:
+              description: Rack names in this list are set to the latest StatefulSet
+                configuration even if Cassandra nodes are down. Use this to recover
+                from an upgrade that couldn't roll out.
+              items:
+                type: string
+              type: array
             managementApiAuth:
               description: Config for the Management API certificates
               properties:
