@@ -544,7 +544,6 @@ webhooks:
       namespace: cass-operator
       path: /validate-cassandra-datastax-com-v1beta1-cassandradatacenter
   failurePolicy: Ignore
-  matchPolicy: Equivalent
   name: cassandradatacenter-webhook.cassandra.datastax.com
   rules:
   - apiGroups:
@@ -554,7 +553,6 @@ webhooks:
     operations:
     - CREATE
     - UPDATE
-    - DELETE
     resources:
     - cassandradatacenters
     scope: '*'

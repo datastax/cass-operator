@@ -213,6 +213,16 @@ func (ns *NsWrapper) WaitForOutputContainsAndLog(description string, kcmd kubect
 	Expect(execErr).ToNot(HaveOccurred())
 }
 
+
+func (ns *NsWrapper) WaitForDatacenterCondition(dcName string, conditionType string, value string) {
+	step := fmt.Sprintf("checking that dc condition %s has value %s", conditionType, value)
+	json := fmt.Sprintf("jsonpath={.status.conditions[?(.type=='%s')].status}", conditionType)
+	k := kubectl.Get("cassandradatacenter", dcName).
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, value, 600)
+}
+
+
 func (ns *NsWrapper) WaitForDatacenterToHaveNoPods(dcName string) {
 	step := "checking that no dc pods remain"
 	json := "jsonpath={.items}"
@@ -228,6 +238,25 @@ func (ns *NsWrapper) WaitForDatacenterOperatorProgress(dcName string, progressVa
 	k := kubectl.Get("CassandraDatacenter", dcName).
 		FormatOutput(json)
 	ns.WaitForOutputAndLog(step, k, progressValue, timeout)
+}
+
+func (ns *NsWrapper) WaitForSuperUserUpserted(dcName string, timeout int) {
+	json := "jsonpath={.status.superUserUpserted}"
+	k := kubectl.Get("CassandraDatacenter", dcName).
+		FormatOutput(json)
+	execErr := ns.WaitForOutputPattern(k, `\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z`, timeout)
+	Expect(execErr).ToNot(HaveOccurred())
+}
+
+func (ns *NsWrapper) GetNodeStatusesHostIds(dcName string) []string {
+	json := "jsonpath={.status.nodeStatuses['*'].hostID}"
+	k := kubectl.Get("CassandraDatacenter", dcName).
+		FormatOutput(json)
+
+	output := ns.OutputPanic(k)
+	hostIds := strings.Split(output, " ")
+
+	return hostIds
 }
 
 func (ns *NsWrapper) WaitForDatacenterReadyPodCount(dcName string, count int) {
@@ -300,6 +329,19 @@ func (ns *NsWrapper) EnableGossip(podName string) {
 
 func (ns *NsWrapper) GetDatacenterPodNames(dcName string) []string {
 	json := "jsonpath={.items[*].metadata.name}"
+	k := kubectl.Get("pods").
+		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		FormatOutput(json)
+
+	output := ns.OutputPanic(k)
+	podNames := strings.Split(output, " ")
+	sort.Sort(sort.StringSlice(podNames))
+
+	return podNames
+}
+
+func (ns *NsWrapper) GetDatacenterReadyPodNames(dcName string) []string {
+	json := "jsonpath={.items[?(@.status.containerStatuses[0].ready==true)].metadata.name}"
 	k := kubectl.Get("pods").
 		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
 		FormatOutput(json)

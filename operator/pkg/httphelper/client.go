@@ -4,12 +4,15 @@
 package httphelper
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -29,16 +32,17 @@ type nodeMgmtRequest struct {
 	host     string
 	method   string
 	timeout  time.Duration
+	body     []byte
 }
 
 func buildEndpoint(path string, queryParams ...string) string {
 	params := url.Values{}
-	for i := 0; i < len(queryParams) - 1; i = i + 2 {
+	for i := 0; i < len(queryParams)-1; i = i + 2 {
 		params[queryParams[i]] = []string{queryParams[i+1]}
 	}
 
 	url := &url.URL{
-		Path: path,
+		Path:     path,
 		RawQuery: params.Encode(),
 	}
 	return url.String()
@@ -94,7 +98,7 @@ func (client *NodeMgmtClient) CallMetadataEndpointsEndpoint(pod *corev1.Pod) (Ca
 		method:   http.MethodGet,
 	}
 
-	bytes, err := callNodeMgmtEndpoint(client, request)
+	bytes, err := callNodeMgmtEndpoint(client, request, "")
 	if err != nil {
 		return CassMetadataEndpoints{}, err
 
@@ -126,7 +130,7 @@ func (client *NodeMgmtClient) CallCreateRoleEndpoint(pod *corev1.Pod, username s
 		host:     BuildPodHostFromPod(pod),
 		method:   http.MethodPost,
 	}
-	_, err := callNodeMgmtEndpoint(client, request)
+	_, err := callNodeMgmtEndpoint(client, request, "")
 	return err
 }
 
@@ -142,7 +146,7 @@ func (client *NodeMgmtClient) CallProbeClusterEndpoint(pod *corev1.Pod, consiste
 		method:   http.MethodGet,
 	}
 
-	_, err := callNodeMgmtEndpoint(client, request)
+	_, err := callNodeMgmtEndpoint(client, request, "")
 	return err
 }
 
@@ -159,7 +163,42 @@ func (client *NodeMgmtClient) CallDrainEndpoint(pod *corev1.Pod) error {
 		timeout:  time.Minute * 2,
 	}
 
-	_, err := callNodeMgmtEndpoint(client, request)
+	_, err := callNodeMgmtEndpoint(client, request, "")
+	return err
+}
+
+func (client *NodeMgmtClient) CallKeyspaceCleanupEndpoint(pod *corev1.Pod, jobs int, keyspaceName string, tables []string) error {
+	client.Log.Info(
+		"calling Management API keyspace cleanup - POST /api/v0/ops/keyspace/cleanup",
+		"pod", pod.Name,
+	)
+	postData := make(map[string]interface{})
+	if jobs > -1 {
+		postData["jobs"] = strconv.Itoa(jobs)
+	}
+
+	if keyspaceName != "" {
+		postData["keyspace_name"] = keyspaceName
+	}
+
+	if len(tables) > 0 {
+		postData["tables"] = tables
+	}
+
+	body, err := json.Marshal(postData)
+	if err != nil {
+		return err
+	}
+
+	request := nodeMgmtRequest{
+		endpoint: fmt.Sprintf("/api/v0/ops/keyspace/cleanup"),
+		host:     BuildPodHostFromPod(pod),
+		method:   http.MethodPost,
+		timeout:  time.Second * 20,
+		body:     body,
+	}
+
+	_, err = callNodeMgmtEndpoint(client, request, "application/json")
 	return err
 }
 
@@ -176,7 +215,7 @@ func (client *NodeMgmtClient) CallLifecycleStartEndpointWithReplaceIp(pod *corev
 	)
 
 	endpoint := "/api/v0/lifecycle/start"
-	
+
 	if replaceIp != "" {
 		endpoint = buildEndpoint(endpoint, "replace_ip", replaceIp)
 	}
@@ -188,7 +227,7 @@ func (client *NodeMgmtClient) CallLifecycleStartEndpointWithReplaceIp(pod *corev
 		timeout:  10 * time.Second,
 	}
 
-	_, err := callNodeMgmtEndpoint(client, request)
+	_, err := callNodeMgmtEndpoint(client, request, "")
 	return err
 }
 
@@ -208,15 +247,21 @@ func (client *NodeMgmtClient) CallReloadSeedsEndpoint(pod *corev1.Pod) error {
 		method:   http.MethodPost,
 	}
 
-	_, err := callNodeMgmtEndpoint(client, request)
+	_, err := callNodeMgmtEndpoint(client, request, "")
 	return err
 }
 
-func callNodeMgmtEndpoint(client *NodeMgmtClient, request nodeMgmtRequest) ([]byte, error) {
+func callNodeMgmtEndpoint(client *NodeMgmtClient, request nodeMgmtRequest, contentType string) ([]byte, error) {
 	client.Log.Info("client::callNodeMgmtEndpoint")
 
 	url := fmt.Sprintf("%s://%s:8080%s", client.Protocol, request.host, request.endpoint)
-	req, err := http.NewRequest(request.method, url, nil)
+
+	var reqBody io.Reader
+	if len(request.body) > 0 {
+		reqBody = bytes.NewBuffer(request.body)
+	}
+
+	req, err := http.NewRequest(request.method, url, reqBody)
 	if err != nil {
 		client.Log.Error(err, "unable to create request for Node Management Endpoint")
 		return nil, err
@@ -231,6 +276,10 @@ func callNodeMgmtEndpoint(client *NodeMgmtClient, request nodeMgmtRequest) ([]by
 		ctx, cancel := context.WithTimeout(context.Background(), request.timeout)
 		defer cancel()
 		req = req.WithContext(ctx)
+	}
+
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
 	}
 
 	res, err := client.Client.Do(req)
