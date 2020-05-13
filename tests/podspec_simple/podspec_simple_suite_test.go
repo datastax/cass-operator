@@ -18,7 +18,7 @@ var (
 	testName     = "Simple Podspec"
 	namespace    = "test-simple-podspec"
 	dcName       = "dc2"
-	dcYaml       = "../testdata/default-single-rack-single-node-dc.yaml"
+	dcYaml       = "../testdata/default-single-rack-single-node-extra-container-dc.yaml"
 	operatorYaml = "../testdata/operator.yaml"
 	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
@@ -60,7 +60,7 @@ var _ = Describe(testName, func() {
 			ns.ExecAndLog(step, k)
 
 			step = "waiting for the node to become ready"
-			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
+			json = `jsonpath={.items[*].status.containerStatuses[?(@.name=="cassandra")].ready}`
 			k = kubectl.Get("pods").
 				WithLabel(dcLabel).
 				WithFlag("field-selector", "status.phase=Running").
@@ -73,29 +73,12 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
 
-			json = `[{ "op": "add", "path": "/spec/podTemplateSpec/containers", "value": {
-			      "args": [
-				  "/bin/sh",
-				  "-c",
-				  "tail -n+1 -F /var/log/cassandra/system.log"
-			      ],
-			      "image": "busybox",
-			      "imagePullPolicy": "Always",
-			      "name": "another-tailing-logger",
-			      "resources": {},
-			      "terminationMessagePath": "/dev/termination-log",
-			      "terminationMessagePolicy": "File",
-			      "volumeMounts": [
-				  {
-				      "mountPath": "/var/log/cassandra",
-				      "name": "server-logs"
-				  },
-			      ]
-			  }
-			}]`
-			step = "add another logging container"
-			k = kubectl.PatchJson(dcResource, json)
-			ns.ExecAndLog(step, k)
+			json = `jsonpath={.items[0].spec.containers[?(@.name=="another-tailing-logger")].image}`
+			k = kubectl.Get("pods").
+				WithLabel(dcLabel).
+				WithFlag("field-selector", "status.phase=Running").
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "busybox", 5)
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
