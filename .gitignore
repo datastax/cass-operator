@@ -94,6 +94,7 @@ gradle-app.setting
 .gogradle
 
 operator/vendor
+vendor
 
 .idea
 .project
