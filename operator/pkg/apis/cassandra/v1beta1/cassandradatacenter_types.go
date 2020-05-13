@@ -149,6 +149,11 @@ type CassandraDatacenterSpec struct {
 	// with matchiing labels.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
+
+	// Rack names in this list are set to the latest StatefulSet configuration
+	// even if Cassandra nodes are down. Use this to recover from an upgrade that couldn't
+	// roll out.
+	ForceUpgradeRacks []string `json:"forceUpgradeRacks,omitempty"`
 }
 
 type StorageConfig struct {
