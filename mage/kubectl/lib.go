@@ -19,9 +19,7 @@ func GetKubeconfig() string {
 	if err != nil {
 		panic(err)
 	}
-	//default config
 	defaultConfig := fmt.Sprintf("%s/.kube/config", usr.HomeDir)
-
 	return mageutil.EnvOrDefault("KUBECONFIG", defaultConfig)
 }
 
