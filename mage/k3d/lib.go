@@ -5,6 +5,7 @@ package k3d
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 
@@ -103,9 +104,28 @@ func reloadLocalImage(image string) {
 }
 
 func setupKubeconfig() {
-	config := shutil.OutputPanic("k3d", "get-kubeconfig")
-	os.Setenv("KUBECONFIG", config)
-	fmt.Printf("To set up kubectl in your shell to use this cluster, set:\n\tKUBECONFIG=%s\n", config)
+	k3dConfig := shutil.OutputPanic("k3d", "get-kubeconfig")
+	currentConfig := kubectl.GetKubeconfig()
+
+	// merge current config + new k3d config
+	// the new config must appear before the current config to update it
+	// when merging
+	os.Setenv("KUBECONFIG", fmt.Sprintf("%s:%s", k3dConfig, currentConfig))
+	merged := shutil.OutputPanic("kubectl", "config", "view", "--flatten")
+
+	// look up current config file so we can retain its permissions
+	// before overwriting
+	configInfo, err := os.Stat(currentConfig)
+	mageutil.PanicOnError(err)
+
+	// overwrite current config file with the merged file
+	err = ioutil.WriteFile(currentConfig, []byte(fmt.Sprintf("%s\n", merged)), configInfo.Mode())
+	if err != nil {
+		fmt.Printf("Failed to write kubeconfig file at %s\n", currentConfig)
+		panic(err)
+	}
+
+	kubectl.ClusterInfoForContext("default").ExecVPanic()
 }
 
 func applyDefaultStorage() {
