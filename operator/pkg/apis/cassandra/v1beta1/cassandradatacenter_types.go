@@ -202,14 +202,14 @@ const (
 )
 
 type DatacenterCondition struct {
-	Type DatacenterConditionType `json:"type"`
-	Status corev1.ConditionStatus `json:"status"`
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+	Type               DatacenterConditionType `json:"type"`
+	Status             corev1.ConditionStatus  `json:"status"`
+	LastTransitionTime metav1.Time             `json:"lastTransitionTime,omitempty"`
 }
 
 func NewDatacenterCondition(conditionType DatacenterConditionType, status corev1.ConditionStatus) *DatacenterCondition {
 	return &DatacenterCondition{
-		Type: conditionType,
+		Type:   conditionType,
 		Status: status,
 	}
 }
