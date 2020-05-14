@@ -23,7 +23,7 @@ func GetKubeconfig(createDefault bool) string {
 	if kubeconfig == "" {
 		defaultDir := fmt.Sprintf("%s/.kube/", usr.HomeDir)
 		kubeconfig = fmt.Sprintf("%s/config", defaultDir)
-		if createDefault {
+		if _, err := os.Stat(kubeconfig); createDefault && os.IsNotExist(err) {
 			os.MkdirAll(defaultDir, 0755)
 			file, err := os.Create(kubeconfig)
 			if err != nil {
