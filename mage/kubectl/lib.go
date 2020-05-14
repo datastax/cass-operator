@@ -5,22 +5,34 @@ package kubectl
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/user"
 	"regexp"
 	"time"
 
 	shutil "github.com/datastax/cass-operator/mage/sh"
-	mageutil "github.com/datastax/cass-operator/mage/util"
 )
 
-func GetKubeconfig() string {
+func GetKubeconfig(createDefault bool) string {
 	usr, err := user.Current()
 	if err != nil {
 		panic(err)
 	}
-	defaultConfig := fmt.Sprintf("%s/.kube/config", usr.HomeDir)
-	return mageutil.EnvOrDefault("KUBECONFIG", defaultConfig)
+	kubeconfig := os.Getenv("KUBECONFIG")
+	if kubeconfig == "" {
+		defaultDir := fmt.Sprintf("%s/.kube/", usr.HomeDir)
+		kubeconfig = fmt.Sprintf("%s/config", defaultDir)
+		if createDefault {
+			os.MkdirAll(defaultDir, 0755)
+			file, err := os.Create(kubeconfig)
+			if err != nil {
+				log.Fatal(err)
+			}
+			file.Close()
+		}
+	}
+	return kubeconfig
 }
 
 func WatchPods() {
