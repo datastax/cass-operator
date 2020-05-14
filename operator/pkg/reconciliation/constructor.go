@@ -366,7 +366,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 	return []corev1.Container{cassContainer, loggerContainer}, nil
 }
 
-func buildInitContainers(dc *api.CassandraDatacenter) ([]corev1.Container, error) {
+func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1.Container, error) {
 	serverCfg := corev1.Container{}
 	serverCfg.Name = "server-config-init"
 	serverCfg.Image = dc.GetConfigBuilderImage()
@@ -384,16 +384,18 @@ func buildInitContainers(dc *api.CassandraDatacenter) ([]corev1.Container, error
 	serverCfg.Env = []corev1.EnvVar{
 		{Name: "CONFIG_FILE_DATA", Value: configData},
 		{Name: "POD_IP", ValueFrom: selectorFromFieldPath("status.podIP")},
-		{Name: "RACK_NAME", ValueFrom: selectorFromFieldPath(fmt.Sprintf("metadata.labels['%s']", api.RackLabel))},
+		{Name: "RACK_NAME", Value: rackName},
 		{Name: "PRODUCT_VERSION", Value: serverVersion},
 		{Name: "PRODUCT_NAME", Value: dc.Spec.ServerType},
+		// TODO remove this post 1.0
+		{Name: "DSE_VERSION", Value: serverVersion},
 	}
 
 	return []corev1.Container{serverCfg}, nil
 }
 
 func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName string) (*corev1.PodTemplateSpec, error) {
-	baseTemplate := dc.Spec.PodTemplateSpec
+	baseTemplate := dc.Spec.PodTemplateSpec.DeepCopy()
 
 	if baseTemplate == nil {
 		baseTemplate = &corev1.PodTemplateSpec{}
@@ -437,7 +439,7 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	baseTemplate.Spec.ServiceAccountName = serviceAccount
 
 	// init containers
-	initContainers, err := buildInitContainers(dc)
+	initContainers, err := buildInitContainers(dc, rackName)
 	if err != nil {
 		return nil, err
 	}
