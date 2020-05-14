@@ -387,8 +387,6 @@ func buildInitContainers(dc *api.CassandraDatacenter) ([]corev1.Container, error
 		{Name: "RACK_NAME", ValueFrom: selectorFromFieldPath(fmt.Sprintf("metadata.labels['%s']", api.RackLabel))},
 		{Name: "PRODUCT_VERSION", Value: serverVersion},
 		{Name: "PRODUCT_NAME", Value: dc.Spec.ServerType},
-		// TODO remove this post 1.0
-		{Name: "DSE_VERSION", Value: serverVersion},
 	}
 
 	return []corev1.Container{serverCfg}, nil
