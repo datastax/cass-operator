@@ -140,8 +140,6 @@ func Test_newStatefulSetForCassandraDatacenter(t *testing.T) {
 }
 
 func TestCassandraDatacenter_buildPodTemplateSpec_containers_merge(t *testing.T) {
-
-	// cassandra container
 	testContainer := corev1.Container{}
 	testContainer.Name = "test-container"
 	testContainer.Image = "test-image"
@@ -170,8 +168,6 @@ func TestCassandraDatacenter_buildPodTemplateSpec_containers_merge(t *testing.T)
 }
 
 func TestCassandraDatacenter_buildPodTemplateSpec_initcontainers_merge(t *testing.T) {
-
-	// cassandra container
 	testContainer := corev1.Container{}
 	testContainer.Name = "test-container-init"
 	testContainer.Image = "test-image-init"
