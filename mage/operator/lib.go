@@ -483,7 +483,7 @@ func doGenerateClient() {
 	dockerutil.Run(genClientImage, volumes, nil, nil, runArgs, execArgs).ExecVPanic()
 }
 
-// Gen diagrams for docs.
+// Generate diagrams for docs.
 func GenerateDiagrams() {
 	buildMermaidJsDockerImage()
 	doGenerateDocDiagrams()
