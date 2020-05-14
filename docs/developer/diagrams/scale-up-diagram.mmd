@@ -1,0 +1,37 @@
+sequenceDiagram
+  participant user as User
+  participant operator as Cass Operator
+  participant dc as dc1<br/>CassandraDatacenter
+  participant sts as cluster1-dc1-r1-sts<br/>StatefulSet
+  participant sts_ctrl as StatefulSet<br/>Controller
+  participant pod1 as cluster1-dc1-r1-sts-1<br/>Pod
+  participant pod2 as cluster1-dc1-r1-sts-2<br/>Pod
+	user->>dc: update size by 2
+  dc->>operator: update event
+  operator->>dc: set ScalingUp condition to True
+  operator->>sts: increment replicas by 2
+  sts->>sts_ctrl: update event
+  par create pods in parallel
+    sts_ctrl->>pod1: create
+  and
+    sts_ctrl->>pod2: create
+  end
+  loop requeue reconcile event until Node Management API running
+    operator->>pod1: check Node Management API running
+    operator->>pod2: check Node Management API running
+  end
+  Note over operator,pod1: Assuming Node Management API starts running on cluster1-dc1-r1-sts-1 first
+  operator->>pod1: start cassandra
+  Note over sts_ctrl,pod1: pod ready when cassandra<br/>finished starting
+  pod1->>sts_ctrl: update event (pod ready)
+  sts_ctrl->>sts: increment ready replicas
+  sts->>operator: update event
+  loop requeue reconcile event until Node Management API running
+    operator->>pod2: check Node Management API running
+  end
+  operator->>pod2: start cassandra
+  Note over sts_ctrl,pod2: pod ready when cassandra finished starting
+  pod2->>sts_ctrl: update event (pod ready)
+  sts_ctrl->>sts: increment ready replicas
+  sts->>operator: update event
+  operator->>dc: set ScalingUp condition to False
