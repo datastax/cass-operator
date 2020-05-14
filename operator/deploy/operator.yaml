@@ -15,6 +15,9 @@ spec:
     spec:
       serviceAccountName: cass-operator
       volumes:
+      - name: tmpconfig-volume
+         emptyDir:
+           medium: "Memory"
       - name: cass-operator-certs-volume
         secret:
           secretName: cass-operator-webhook-config
@@ -26,6 +29,14 @@ spec:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cass-operator-certs-volume
           readOnly: false
+        - mountPath: /tmp/
+          name: tmpconfig-volume
+          readOnly: false
+        securityContext:
+          runAsUser: 65534
+          runAsGroup: 65534
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
         livenessProbe:
           exec:
             command:
