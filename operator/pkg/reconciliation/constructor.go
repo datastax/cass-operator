@@ -89,10 +89,11 @@ func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev
 func makeGenericHeadlessService(dc *api.CassandraDatacenter) *corev1.Service {
 	labels := dc.GetDatacenterLabels()
 	oplabels.AddManagedByLabel(labels)
+	selector := dc.GetDatacenterLabels()
 	var service corev1.Service
 	service.ObjectMeta.Namespace = dc.Namespace
 	service.ObjectMeta.Labels = labels
-	service.Spec.Selector = labels
+	service.Spec.Selector = selector
 	service.Spec.Type = "ClusterIP"
 	service.Spec.ClusterIP = "None"
 	return &service
