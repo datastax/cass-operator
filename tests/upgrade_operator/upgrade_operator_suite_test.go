@@ -80,12 +80,20 @@ var _ = Describe(testName, func() {
 			output := ns.OutputAndLog(step, k)
 			Expect(output).ToNot(Equal(""), "Expected some resources to have managed-by value of 'cassandra-operator'")
 
+			step = "get name of 1.1.0 operator pod"
+			json := "jsonpath={.items[].metadata.name}"
+			k = kubectl.Get("pods").WithFlag("selector", "name=cass-operator").FormatOutput(json)
+			oldOperatorName := ns.OutputAndLog(step, k)
+
 			UpgradeOperator()
 
-			time.Sleep(1 * time.Minute)
+			step = "wait for 1.1.0 operator pod to be removed"
+			k = kubectl.Get("pods").WithFlag("field-selector", fmt.Sprintf("metadata.name=%s", oldOperatorName))
+			ns.WaitForOutputAndLog(step, k, "", 60)
 
 			ns.WaitForOperatorReady()
 
+			// give the operator a minute to reconcile and update the datacenter
 			time.Sleep(1 * time.Minute)
 
 			ns.WaitForDatacenterReady(dcName)
