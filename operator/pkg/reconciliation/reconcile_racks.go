@@ -204,6 +204,8 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 			desiredSts.Labels = utils.MergeMap(map[string]string{}, statefulSet.Labels, desiredSts.Labels)
 			desiredSts.Annotations = utils.MergeMap(map[string]string{}, statefulSet.Annotations, desiredSts.Annotations)
 
+			logger.Info("Template labels desired", "labels", desiredSts.Spec.Template.Labels)
+
 			desiredSts.DeepCopyInto(statefulSet)
 		}
 
@@ -226,6 +228,8 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 			if err := setOperatorProgressStatus(rc, api.ProgressUpdating); err != nil {
 				return result.Error(err)
 			}
+
+			logger.Info("Template labels before update", "labels", statefulSet.Spec.Template.Labels)
 
 			logger.Info("Updating statefulset pod specs",
 				"statefulSet", statefulSet,
