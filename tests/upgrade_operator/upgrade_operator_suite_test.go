@@ -98,21 +98,21 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForDatacenterReady(dcName)
 
-			// // check no longer using old managed-by value
-			// step = "ensure no resources using defunct managed-by value after operator upgrade"
-			// k = kubectl.Get("pods").
-			// 	WithFlag("selector", "app.kubernetes.io/managed-by=cassandra-operator").
-			// 	FormatOutput(podNameJson)
-			// output = ns.OutputAndLog(step, k)
-			// Expect(output).To(Equal(""), "Expected no resources to have defunct managed-by value of 'cassandra-operator'")
+			// check no longer using old managed-by value
+			step = "ensure no resources using defunct managed-by value after operator upgrade"
+			k = kubectl.Get("pods").
+				WithFlag("selector", "app.kubernetes.io/managed-by=cassandra-operator").
+				FormatOutput(podNameJson)
+			output = ns.OutputAndLog(step, k)
+			Expect(output).To(Equal(""), "Expected no resources to have defunct managed-by value of 'cassandra-operator'")
 
-			// // check using new managed-by value
-			// step = "ensure resources using managed-by value of 'cass-operator'"
-			// k = kubectl.Get("pods").
-			// 	WithFlag("selector", "app.kubernetes.io/managed-by=cass-operator").
-			// 	FormatOutput(podNameJson)
-			// output = ns.OutputAndLog(step, k)
-			// Expect(output).To(Equal(podName), "Expected resources to have managed-by value of 'cass-operator'")
+			// check using new managed-by value
+			step = "ensure resources using managed-by value of 'cass-operator'"
+			k = kubectl.Get("pods").
+				WithFlag("selector", "app.kubernetes.io/managed-by=cass-operator").
+				FormatOutput(podNameJson)
+			output = ns.OutputAndLog(step, k)
+			Expect(output).To(Equal(podName), "Expected resources to have managed-by value of 'cass-operator'")
 		})
 	})
 })
