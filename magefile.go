@@ -12,14 +12,12 @@ import (
 	"github.com/datastax/cass-operator/mage/jenkins"
 	// mage:import operator
 	"github.com/datastax/cass-operator/mage/operator"
-	// mage:import kind
-	_ "github.com/datastax/cass-operator/mage/kind"
 	// mage:import integ
 	_ "github.com/datastax/cass-operator/mage/integ-tests"
 	// mage:import lint
 	_ "github.com/datastax/cass-operator/mage/linting"
-	// mage:import gcp
-	_ "github.com/datastax/cass-operator/mage/gcloud"
+	// mage:import k8s
+	_ "github.com/datastax/cass-operator/mage/k8s"
 )
 
 // Clean all build artifacts, does not clean up old docker images.

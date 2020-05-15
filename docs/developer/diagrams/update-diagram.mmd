@@ -1,0 +1,64 @@
+sequenceDiagram
+  participant user as User
+  participant operator as Cass Operator
+  participant dc as dc1<br/>CassandraDatacenter
+  participant sts1 as cluster1-dc1-r1-sts<br/>StatefulSet
+  participant sts2 as cluster1-dc1-r2-sts<br/>StatefulSet
+  participant sts_ctrl as StatefulSet<br/>Controller
+  participant pod1 as cluster1-dc1-r1-sts-0<br/>Pod
+  participant pod2 as cluster1-dc1-r1-sts-1<br/>Pod
+  participant pod3 as cluster1-dc1-r2-sts-0<br/>Pod
+  participant pod4 as cluster1-dc1-r2-sts-1<br/>Pod
+	user->>dc: update config
+  dc->>operator: update event
+  operator->>dc: set Updating condition to True
+  operator->>sts1: update pod template
+  sts1->>sts_ctrl: update event
+  sts_ctrl->>pod2: delete and recreate
+  sts_ctrl->>sts1: decrement ready replicas
+  sts1->>operator: update event
+  loop requeue reconcile event until Node Management API running
+    operator->>pod2: check Node Management API running
+  end
+  operator->>pod2: start cassandra
+  Note over sts_ctrl,pod2: pod ready when cassandra<br/>finished starting
+  pod2->>sts_ctrl: update event (pod ready)
+  sts_ctrl->>sts1: increment ready replicas
+  sts1->>operator: update event
+  sts_ctrl->>pod1: delete and recreate
+  sts_ctrl->>sts1: decrement ready replicas
+  sts1->>operator: update event
+  loop requeue reconcile event until Node Management API running
+    operator->>pod1: check Node Management API running
+  end
+  operator->>pod1: start cassandra
+  Note over sts_ctrl,pod1: pod ready when cassandra<br/>finished starting
+  pod1->>sts_ctrl: update event (pod ready)
+  sts_ctrl->>sts1: increment ready replicas
+  sts1->>operator: update event
+
+  operator->>sts2: update pod template
+  sts2->>sts_ctrl: update event
+  sts_ctrl->>pod4: delete and recreate
+  sts_ctrl->>sts2: decrement ready replicas
+  sts2->>operator: update event
+  loop requeue reconcile event until Node Management API running
+    operator->>pod4: check Node Management API running
+  end
+  operator->>pod4: start cassandra
+  Note over sts_ctrl,pod4: pod ready when cassandra finished starting
+  pod4->>sts_ctrl: update event (pod ready)
+  sts_ctrl->>sts2: increment ready replicas
+  sts2->>operator: update event
+  sts_ctrl->>pod3: delete and recreate
+  sts_ctrl->>sts2: decrement ready replicas
+  sts1->>operator: update event
+  loop requeue reconcile event until Node Management API running
+    operator->>pod3: check Node Management API running
+  end
+  operator->>pod3: start cassandra
+  Note over sts_ctrl,pod3: pod ready when cassandra finished starting
+  pod3->>sts_ctrl: update event (pod ready)
+  sts_ctrl->>sts2: increment ready replicas
+  sts2->>operator: update event
+  operator->>dc: set Updating condition to False

@@ -100,6 +100,11 @@ func (in *CassandraDatacenterSpec) DeepCopyInto(out *CassandraDatacenterSpec) {
 			(*out)[key] = val
 		}
 	}
+	if in.PodTemplateSpec != nil {
+		in, out := &in.PodTemplateSpec, &out.PodTemplateSpec
+		*out = new(v1.PodTemplateSpec)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 

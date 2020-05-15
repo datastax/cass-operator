@@ -65,3 +65,39 @@ func ReadBuildSettings() BuildSettings {
 
 	return settings
 }
+
+type ClusterActions struct {
+	DeleteCluster       func() error
+	ClusterExists       func() bool
+	CreateCluster       func()
+	LoadImage           func(image string)
+	InstallTool         func()
+	ReloadLocalImage    func(image string)
+	ApplyDefaultStorage func()
+	SetupKubeconfig     func()
+	DescribeEnv         func() map[string]string
+}
+
+func NewClusterActions(
+	deleteF func() error,
+	clusterExistsF func() bool,
+	createClusterF func(),
+	loadImageF func(string),
+	installToolF func(),
+	reloadLocalImageF func(string),
+	applyDefaultStorageF func(),
+	setupKubeconfigF func(),
+	describeEnvF func() map[string]string,
+) ClusterActions {
+	return ClusterActions{
+		DeleteCluster:       deleteF,
+		ClusterExists:       clusterExistsF,
+		CreateCluster:       createClusterF,
+		LoadImage:           loadImageF,
+		InstallTool:         installToolF,
+		ReloadLocalImage:    reloadLocalImageF,
+		ApplyDefaultStorage: applyDefaultStorageF,
+		SetupKubeconfig:     setupKubeconfigF,
+		DescribeEnv:         describeEnvF,
+	}
+}

@@ -25,9 +25,11 @@ import (
 const (
 	rootBuildDir               = "./build"
 	sdkBuildDir                = "operator/build"
+	diagramsDir                = "./docs/developer/diagrams"
 	operatorSdkImage           = "operator-sdk-binary"
 	testSdkImage               = "operator-sdk-binary-tester"
 	genClientImage             = "operator-gen-client"
+	mermaidJsImage             = "operator-mermaid-js"
 	generatedDseDataCentersCrd = "operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml"
 	packagePath                = "github.com/datastax/cass-operator/operator"
 	envGitBranch               = "MO_BRANCH"
@@ -416,6 +418,37 @@ func BuildDocker() {
 	writeBuildFile("tagsToPush.txt", outputText)
 }
 
+func buildMermaidJsDockerImage() {
+	dockerutil.Build("./tools/mermaid-js", "", "./tools/mermaid-js/Dockerfile",
+		[]string{mermaidJsImage}, []string{}).ExecVPanic()
+}
+
+func generateDocDiagram(in string, out string) {
+	runArgs := []string{}
+	execArgs := []string{
+		"-i", in,
+		"-o", out,
+	}
+	diagramsDirAbs, err := filepath.Abs(diagramsDir)
+	mageutil.PanicOnError(err)
+	volumes := []string{fmt.Sprintf("%s:%s", diagramsDirAbs, "/data")}
+	dockerutil.Run(mermaidJsImage, volumes, nil, nil, runArgs, execArgs).ExecVPanic()
+}
+
+func doGenerateDocDiagrams() {
+	diagramSrcExt := ".mmd"
+	svgExt := ".svg"
+	files, err := ioutil.ReadDir(diagramsDir)
+	mageutil.PanicOnError(err)
+	for _, file := range files {
+		if strings.HasSuffix(file.Name(), diagramSrcExt) {
+			base := strings.TrimSuffix(file.Name(), diagramSrcExt)
+			svg := fmt.Sprintf("%s%s", base, svgExt)
+			generateDocDiagram(file.Name(), svg)
+		}
+	}
+}
+
 func buildCodeGeneratorDockerImage() {
 	// Use the version of code-generator that we are pinned to
 	// in operator/go.mod.
@@ -448,6 +481,12 @@ func doGenerateClient() {
 		"github.com/datastax/cass-operator/operator/pkg/apis", "cassandra:v1beta1"}
 	volumes := []string{fmt.Sprintf("%s/operator:/go/src/github.com/datastax/cass-operator/operator", cwd)}
 	dockerutil.Run(genClientImage, volumes, nil, nil, runArgs, execArgs).ExecVPanic()
+}
+
+// Generate diagrams for docs.
+func GenerateDiagrams() {
+	buildMermaidJsDockerImage()
+	doGenerateDocDiagrams()
 }
 
 // Gen operator client code.

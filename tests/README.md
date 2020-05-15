@@ -15,25 +15,33 @@ The tests themselves expect a running k8s cluster, with at least 6 worker nodes,
 and kubectl to be configured to point at the cluster.
 
 You can either stand up your own cluster and point kubectl to it yourself, or use
-a mage target to bootstrap and configure a KIND cluster for you.
+a mage target to bootstrap and configure a cluster for you.
 
-### Using preconfigured KIND targets for cluster management
+Refer to the [k8s targets](../docs/developer/k8s_targets.md) for more information on
+supported k8s flavors.
 
-To install the current version of kind that we support, run:
+### Using preconfigured targets for cluster management
+
+To let a mage bootstrap a new cluster, run all of the tests,
+and then tear down the cluster at the end, run the `k8s:runIntegTests` target
+with the desired k8s flavor specified:
+
+#### Using a k3d cluster
 ```
-mage kind:install
+M_K8S_FLAVOR=k3d mage k8s:runIntegTests
 ```
 
-To let kind bootstrap a new cluster, run all of the tests,
-and then tear down the cluster at the end, run:
+#### Using a KIND cluster
 ```
-mage kind:runIntegTests
+M_K8S_FLAVOR=kind mage k8s:runIntegTests
 ```
 
 If you just want to have the cluster stood up and configured for you, but
 not automatically run the tests or tear down, run:
+
+#### Using a k3d cluster
 ```
-mage kind:setupEmptyCluster
+M_K8S_FLAVOR=k3d mage k8s:setupEmptyCluster
 ```
 
 ### Kicking off the tests on an existing cluster

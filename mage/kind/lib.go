@@ -7,24 +7,38 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	cfgutil "github.com/datastax/cass-operator/mage/config"
 	dockerutil "github.com/datastax/cass-operator/mage/docker"
-	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
-	helm_util "github.com/datastax/cass-operator/mage/helm"
-	integutil "github.com/datastax/cass-operator/mage/integ-tests"
 	"github.com/datastax/cass-operator/mage/kubectl"
-	"github.com/datastax/cass-operator/mage/operator"
 	shutil "github.com/datastax/cass-operator/mage/sh"
 	mageutil "github.com/datastax/cass-operator/mage/util"
-	"github.com/magefile/mage/mg"
 )
 
-const (
-	operatorImage    = "datastax/cass-operator:latest"
-	envLoadDevImages = "M_LOAD_DEV_IMAGES"
+var ClusterActions = cfgutil.NewClusterActions(
+	deleteCluster,
+	clusterExists,
+	createCluster,
+	loadImage,
+	install,
+	reloadLocalImage,
+	applyDefaultStorage,
+	setupKubeconfig,
+	describeEnv,
 )
+
+func describeEnv() map[string]string {
+	return make(map[string]string)
+}
+
+func applyDefaultStorage() {
+	kubectl.ApplyFiles("operator/k8s-flavors/kind/rancher-local-path-storage.yaml").
+		ExecVPanic()
+}
+
+func setupKubeconfig() {
+	kubectl.ClusterInfoForContext("kind-kind").ExecVPanic()
+}
 
 func deleteCluster() error {
 	return shutil.RunV("kind", "delete", "cluster")
@@ -66,31 +80,6 @@ func loadImage(image string) {
 	shutil.RunVPanic("kind", "load", "docker-image", image)
 }
 
-func loadImagesFromBuildSettings(settings cfgutil.BuildSettings) {
-	for _, image := range settings.Dev.Images {
-		shutil.RunVPanic("docker", "pull", image)
-		loadImage(image)
-	}
-}
-
-func loadSettings() {
-	loadDevImages := os.Getenv(envLoadDevImages)
-	if strings.ToLower(loadDevImages) == "true" {
-		fmt.Println("Pulling and loading images from buildsettings.yaml")
-		settings := cfgutil.ReadBuildSettings()
-		loadImagesFromBuildSettings(settings)
-	}
-}
-
-// There is potential for globally scoped resources to be left
-// over from a previous helm install
-func cleanupLingeringHelmResources() {
-	_ = kubectl.DeleteByTypeAndName("clusterrole", "cass-operator-cluster-role").ExecV()
-	_ = kubectl.DeleteByTypeAndName("clusterrolebinding", "cass-operator").ExecV()
-	_ = kubectl.DeleteByTypeAndName("validatingwebhookconfiguration", "cassandradatacenter-webhook-registration").ExecV()
-	_ = kubectl.DeleteByTypeAndName("crd", "cassandradatacenters.cassandra.datastax.com").ExecV()
-}
-
 // Currently there is no concept of "global tool install"
 // with the go cli. With the new module system, your project's
 // go.mod and go.sum files will be updated with new dependencies
@@ -98,7 +87,7 @@ func cleanupLingeringHelmResources() {
 //
 // To get around this, we run the go cli from the /tmp directory
 // and our project will remain untouched.
-func Install() {
+func install() {
 	cwd, err := os.Getwd()
 	mageutil.PanicOnError(err)
 	os.Chdir("/tmp")
@@ -122,140 +111,4 @@ func reloadLocalImage(image string) {
 	fmt.Println("Loading new operator Docker image into KIND cluster")
 	shutil.RunVPanic("kind", "load", "docker-image", image)
 	fmt.Println("Finished loading new operator image into Kind.")
-}
-
-// Stand up an empty Kind cluster.
-//
-// This will also configure kubectl to point
-// at the new cluster.
-//
-// Set M_LOAD_DEV_IMAGES to "true" to pull and
-// load the dev images listed in buildsettings.yaml
-// into the kind cluster.
-func SetupEmptyCluster() {
-	deleteCluster()
-	createCluster()
-	kubectl.ClusterInfoForContext("kind-kind").ExecVPanic()
-	loadSettings()
-	kubectl.ApplyFiles("operator/k8s-flavors/kind/rancher-local-path-storage.yaml").
-		ExecVPanic()
-	//TODO make this part optional
-	operator.BuildDocker()
-	loadImage(operatorImage)
-}
-
-// Bootstrap a KIND cluster, then run Ginkgo integration tests.
-//
-// Default behavior is to discover and run
-// all test suites located under the ./tests/ directory.
-//
-// To run a subset of test suites, specify the name of the suite
-// directories in env var M_INTEG_DIR, separated by a comma
-//
-// Example:
-// M_INTEG_DIR=scale_up,stop_resume
-//
-// This target assumes that helm is installed and available on path.
-func RunIntegTests() {
-	mg.Deps(SetupEmptyCluster)
-	integutil.Run()
-	noCleanup := os.Getenv(ginkgo_util.EnvNoCleanup)
-	if strings.ToLower(noCleanup) != "true" {
-		err := deleteCluster()
-		mageutil.PanicOnError(err)
-	}
-}
-
-// Perform all the steps to stand up an example Kind cluster,
-// except for applying the final cassandra yaml specification.
-// This must either be applied manually or by calling SetupCassandraCluster
-// or SetupDSECluster.
-// This target assumes that helm is installed and available on path.
-func SetupExampleCluster() {
-	mg.Deps(SetupEmptyCluster)
-	kubectl.CreateSecretLiteral("cassandra-superuser-secret", "devuser", "devpass").ExecVPanic()
-
-	var namespace = "default"
-	var overrides = map[string]string{"image": "datastax/cass-operator:latest"}
-	err := helm_util.Install("./charts/cass-operator-chart", "cass-operator", namespace, overrides)
-	mageutil.PanicOnError(err)
-
-	// Wait for 15 seconds for the operator to come up
-	// because the apiserver will call the webhook too soon and fail if we do not wait
-	time.Sleep(time.Second * 15)
-}
-
-// Stand up an example kind cluster running Apache Cassandra.
-// Loads all necessary resources to get a running Apache Cassandra data center and operator
-// This target assumes that helm is installed and available on path.
-func SetupCassandraCluster() {
-	mg.Deps(SetupExampleCluster)
-	kubectl.ApplyFiles(
-		"operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml",
-	).ExecVPanic()
-	kubectl.WatchPods()
-}
-
-// Stand up an example kind cluster running DSE 6.8.
-// Loads all necessary resources to get a running DCE data center and operator
-// This target assumes that helm is installed and available on path.
-func SetupDSECluster() {
-	mg.Deps(SetupExampleCluster)
-	kubectl.ApplyFiles(
-		"operator/example-cassdc-yaml/dse-6.8.0/example-cassdc-minimal.yaml",
-	).ExecVPanic()
-	kubectl.WatchPods()
-}
-
-// Delete a running cluster
-func DeleteCluster() {
-	err := deleteCluster()
-	mageutil.PanicOnError(err)
-}
-
-func EnsureEmptyCluster() {
-	if !clusterExists() {
-		SetupEmptyCluster()
-	} else {
-		// we should still ensure that the storage is set up
-		// correctly every time
-		kubectl.ApplyFiles("operator/k8s-flavors/kind/rancher-local-path-storage.yaml").
-			ExecVPanic()
-		// we still need to build and load an updated
-		// set of our local operator images
-		operator.BuildDocker()
-		reloadLocalImage(operatorImage)
-	}
-
-	//Find any lingering test namespaces and delete them
-	output := kubectl.Get("namespaces").OutputPanic()
-	rows := strings.Split(output, "\n")
-	for _, row := range rows {
-		name := strings.Fields(row)[0]
-		if strings.HasPrefix(name, "test-") {
-			fmt.Printf("Cleaning up namespace: %s\n", name)
-			// check if any cassdcs exist in the namespace.
-			// kubectl will return an error if the crd has not been
-			// applied first
-			err := kubectl.Get("cassdc").InNamespace(name).ExecV()
-			if err == nil {
-				// safe to perform a delete cassdcs --all at this point
-				err := kubectl.Delete("cassdcs", "--all").
-					InNamespace(name).
-					ExecV()
-
-				// if we fail to delete a dc, then we cannot delete the
-				// namespace because k8s will get stuck, so we need
-				// to stop execution here
-				mageutil.PanicOnError(err)
-			}
-			kubectl.DeleteByTypeAndName("namespace", name).ExecVPanic()
-		}
-	}
-	cleanupLingeringHelmResources()
-}
-
-func ReloadOperator() {
-	operator.BuildDocker()
-	reloadLocalImage(operatorImage)
 }

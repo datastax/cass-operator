@@ -242,11 +242,13 @@ cluster with six or more worker nodes.
 #### Manual Local Testing
 There are a number of ways to run the operator, see the following docs for
 more information:
-* [kind](docs/developer/kind.md): Kubernetes in Docker is the recommended
-  Kubernetes distribution for use by software engineers working on the operator.
-  KIND can simulate a k8s cluster with multiple worker nodes on a single
-  physical machine, though it's necessary to dial down the database memory
-  requests.
+* [k8s targets](docs/developer/k8s_targets.md): A set of mage targets for
+  automating a variety of tasks for several different supported k8s flavors.
+  At the moment, we support KIND, k3d, and gke. These targets can setup and
+  manage a local cluster in either KIND or k3d, and also a remote cluster
+  in gke. Both KIND and k3d can simulate a k8s cluster with multiple worker 
+  nodes on a single physical machine, though it's necessary to dial down 
+  the database memory requests.
 
 The [user documentation](docs/user/README.md) also contains information on
 spinning up your first operator instance that is useful regardless of what
