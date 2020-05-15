@@ -100,7 +100,7 @@ var _ = Describe(testName, func() {
 
 			// check no longer using old managed-by value
 			step = "ensure no resources using defunct managed-by value after operator upgrade"
-			k = kubectl.Get("pods").
+			k = kubectl.Get("all,service").
 				WithFlag("selector", "app.kubernetes.io/managed-by=cassandra-operator").
 				FormatOutput(podNameJson)
 			output = ns.OutputAndLog(step, k)
