@@ -22,6 +22,8 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
+const pvcName = "server-data"
+
 // Creates a headless service object for the Datacenter, for clients wanting to
 // reach out to a ready Server node for either CQL or mgmt API
 func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Service {
@@ -110,10 +112,6 @@ func newStatefulSetForCassandraDatacenter(
 
 	replicaCountInt32 := int32(replicaCount)
 
-	podLabels := dc.GetRackLabels(rackName)
-	oplabels.AddManagedByLabel(podLabels)
-	podLabels[api.CassNodeState] = stateReadyToStart
-
 	// see https://github.com/kubernetes/kubernetes/pull/74941
 	// pvc labels are ignored before k8s 1.15.0
 	pvcLabels := dc.GetRackLabels(rackName)
@@ -124,35 +122,15 @@ func newStatefulSetForCassandraDatacenter(
 
 	statefulSetSelectorLabels := dc.GetRackLabels(rackName)
 
-	serverVersion := dc.Spec.ServerVersion
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
-	var serverVolumeMounts []corev1.VolumeMount
-	initContainerImage := dc.GetConfigBuilderImage()
 
 	racks := dc.GetRacks()
 	var zone string
 	for _, rack := range racks {
 		if rack.Name == rackName {
 			zone = rack.Zone
+			break
 		}
-	}
-
-	serverConfigVolumeMount := corev1.VolumeMount{
-		Name:      "server-config",
-		MountPath: "/config",
-	}
-
-	serverVolumeMounts = append(serverVolumeMounts, serverConfigVolumeMount)
-
-	serverVolumeMounts = append(serverVolumeMounts,
-		corev1.VolumeMount{
-			Name:      "server-logs",
-			MountPath: "/var/log/cassandra",
-		})
-
-	configData, err := dc.GetConfigAsJSON()
-	if err != nil {
-		return nil, err
 	}
 
 	// Add storage
@@ -161,11 +139,6 @@ func newStatefulSetForCassandraDatacenter(
 		return nil, err
 	}
 
-	pvcName := "server-data"
-	serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
-		Name:      pvcName,
-		MountPath: "/var/lib/cassandra",
-	})
 	volumeClaimTemplates = []corev1.PersistentVolumeClaim{{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: pvcLabels,
@@ -174,154 +147,11 @@ func newStatefulSetForCassandraDatacenter(
 		Spec: *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec,
 	}}
 
-	ports, err := dc.GetContainerPorts()
-	if err != nil {
-		return nil, err
-	}
-	serverImage, err := dc.GetServerImage()
-	if err != nil {
-		return nil, err
-	}
-
-	serviceAccount := "default"
-	if dc.Spec.ServiceAccount != "" {
-		serviceAccount = dc.Spec.ServiceAccount
-	}
-
 	nsName := newNamespacedNameForStatefulSet(dc, rackName)
 
-	template := corev1.PodTemplateSpec{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: podLabels,
-		},
-		Spec: corev1.PodSpec{
-			Affinity: &corev1.Affinity{
-				NodeAffinity:    calculateNodeAffinity(zone),
-				PodAntiAffinity: calculatePodAntiAffinity(dc.Spec.AllowMultipleNodesPerWorker),
-			},
-			Volumes: []corev1.Volume{
-				{
-					Name: "server-config",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-				{
-					Name: "server-logs",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			},
-			InitContainers: []corev1.Container{{
-				Name:  "server-config-init",
-				Image: initContainerImage,
-				VolumeMounts: []corev1.VolumeMount{
-					serverConfigVolumeMount,
-				},
-				Env: []corev1.EnvVar{
-					{
-						Name:  "CONFIG_FILE_DATA",
-						Value: configData,
-					},
-					{
-						Name: "POD_IP",
-						ValueFrom: &corev1.EnvVarSource{
-							FieldRef: &corev1.ObjectFieldSelector{
-								FieldPath: "status.podIP",
-							},
-						},
-					},
-					{
-						Name: "RACK_NAME",
-						ValueFrom: &corev1.EnvVarSource{
-							FieldRef: &corev1.ObjectFieldSelector{
-								FieldPath: fmt.Sprintf("metadata.labels['%s']", api.RackLabel),
-							},
-						},
-					},
-					{
-						Name:  "PRODUCT_VERSION",
-						Value: serverVersion,
-					},
-					{
-						Name:  "PRODUCT_NAME",
-						Value: dc.Spec.ServerType,
-					},
-					// TODO remove this post 1.0
-					{
-						Name:  "DSE_VERSION",
-						Value: serverVersion,
-					},
-				},
-			}},
-			ServiceAccountName: serviceAccount,
-			Containers: []corev1.Container{
-				{
-					Name:      "cassandra",
-					Image:     serverImage,
-					Resources: dc.Spec.Resources,
-					Env: []corev1.EnvVar{
-						{
-							Name:  "DS_LICENSE",
-							Value: "accept",
-						},
-						{
-							Name:  "DSE_AUTO_CONF_OFF",
-							Value: "all",
-						},
-						{
-							Name:  "USE_MGMT_API",
-							Value: "true",
-						},
-						{
-							Name:  "MGMT_API_EXPLICIT_START",
-							Value: "true",
-						},
-						// TODO remove this post 1.0
-						{
-							Name:  "DSE_MGMT_EXPLICIT_START",
-							Value: "true",
-						},
-					},
-					Ports: ports,
-					LivenessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Port: intstr.FromInt(8080),
-								Path: "/api/v0/probes/liveness",
-							},
-						},
-						InitialDelaySeconds: 15,
-						PeriodSeconds:       15,
-					},
-					ReadinessProbe: &corev1.Probe{
-						Handler: corev1.Handler{
-							HTTPGet: &corev1.HTTPGetAction{
-								Port: intstr.FromInt(8080),
-								Path: "/api/v0/probes/readiness",
-							},
-						},
-						InitialDelaySeconds: 20,
-						PeriodSeconds:       10,
-					},
-					VolumeMounts: serverVolumeMounts,
-				},
-				{
-					Name:  "server-system-logger",
-					Image: "busybox",
-					Args: []string{
-						"/bin/sh", "-c", "tail -n+1 -F /var/log/cassandra/system.log",
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						corev1.VolumeMount{
-							Name:      "server-logs",
-							MountPath: "/var/log/cassandra",
-						},
-					},
-				},
-			},
-		},
+	template, err := buildPodTemplateSpec(dc, zone, rackName)
+	if err != nil {
+		return nil, err
 	}
 
 	// if the dc.Spec has a nodeSelector map, copy it into each sts pod template
@@ -339,7 +169,7 @@ func newStatefulSetForCassandraDatacenter(
 		}
 	}
 
-	_ = httphelper.AddManagementApiServerSecurity(dc, &template)
+	_ = httphelper.AddManagementApiServerSecurity(dc, template)
 
 	result := &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
@@ -354,7 +184,7 @@ func newStatefulSetForCassandraDatacenter(
 			Replicas:             &replicaCountInt32,
 			ServiceName:          dc.GetDatacenterServiceName(),
 			PodManagementPolicy:  appsv1.ParallelPodManagement,
-			Template:             template,
+			Template:             *template,
 			VolumeClaimTemplates: volumeClaimTemplates,
 		},
 	}
@@ -460,4 +290,173 @@ func calculatePodAntiAffinity(allowMultipleNodesPerWorker bool) *corev1.PodAntiA
 			},
 		},
 	}
+}
+
+func selectorFromFieldPath(fieldPath string) *corev1.EnvVarSource {
+	return &corev1.EnvVarSource{
+		FieldRef: &corev1.ObjectFieldSelector{
+			FieldPath: fieldPath,
+		},
+	}
+}
+
+func probe(port int, path string, initDelay int, period int) *corev1.Probe {
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Port: intstr.FromInt(port),
+				Path: path,
+			},
+		},
+		InitialDelaySeconds: int32(initDelay),
+		PeriodSeconds:       int32(period),
+	}
+}
+
+func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.VolumeMount) ([]corev1.Container, error) {
+	// cassandra container
+	cassContainer := corev1.Container{}
+	cassContainer.Name = "cassandra"
+
+	serverImage, err := dc.GetServerImage()
+	if err != nil {
+		return nil, err
+	}
+
+	cassContainer.Image = serverImage
+	cassContainer.Resources = dc.Spec.Resources
+	cassContainer.Env = []corev1.EnvVar{
+		{Name: "DS_LICENSE", Value: "accept"},
+		{Name: "DSE_AUTO_CONF_OFF", Value: "all"},
+		{Name: "USE_MGMT_API", Value: "true"},
+		{Name: "MGMT_API_EXPLICIT_START", Value: "true"},
+		// TODO remove this post 1.0
+		{Name: "DSE_MGMT_EXPLICIT_START", Value: "true"},
+	}
+
+	ports, err := dc.GetContainerPorts()
+	if err != nil {
+		return nil, err
+	}
+
+	cassContainer.Ports = ports
+	cassContainer.LivenessProbe = probe(8080, "/api/v0/probes/liveness", 15, 15)
+	cassContainer.ReadinessProbe = probe(8080, "/api/v0/probes/readiness", 20, 10)
+
+	cassServerLogsMount := corev1.VolumeMount{
+		Name:      "server-logs",
+		MountPath: "/var/log/cassandra",
+	}
+	serverVolumeMounts = append(serverVolumeMounts, cassServerLogsMount)
+	serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
+		Name:      pvcName,
+		MountPath: "/var/lib/cassandra",
+	})
+	cassContainer.VolumeMounts = serverVolumeMounts
+
+	// server logger container
+	loggerContainer := corev1.Container{}
+	loggerContainer.Name = "server-system-logger"
+	loggerContainer.Image = "busybox"
+	loggerContainer.Args = []string{
+		"/bin/sh", "-c", "tail -n+1 -F /var/log/cassandra/system.log",
+	}
+	loggerContainer.VolumeMounts = []corev1.VolumeMount{cassServerLogsMount}
+
+	return []corev1.Container{cassContainer, loggerContainer}, nil
+}
+
+func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1.Container, error) {
+	serverCfg := corev1.Container{}
+	serverCfg.Name = "server-config-init"
+	serverCfg.Image = dc.GetConfigBuilderImage()
+	serverCfgMount := corev1.VolumeMount{
+		Name:      "server-config",
+		MountPath: "/config",
+	}
+	serverCfg.VolumeMounts = []corev1.VolumeMount{serverCfgMount}
+
+	configData, err := dc.GetConfigAsJSON()
+	if err != nil {
+		return nil, err
+	}
+	serverVersion := dc.Spec.ServerVersion
+	serverCfg.Env = []corev1.EnvVar{
+		{Name: "CONFIG_FILE_DATA", Value: configData},
+		{Name: "POD_IP", ValueFrom: selectorFromFieldPath("status.podIP")},
+		{Name: "RACK_NAME", Value: rackName},
+		{Name: "PRODUCT_VERSION", Value: serverVersion},
+		{Name: "PRODUCT_NAME", Value: dc.Spec.ServerType},
+		// TODO remove this post 1.0
+		{Name: "DSE_VERSION", Value: serverVersion},
+	}
+
+	return []corev1.Container{serverCfg}, nil
+}
+
+func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName string) (*corev1.PodTemplateSpec, error) {
+	baseTemplate := dc.Spec.PodTemplateSpec.DeepCopy()
+
+	if baseTemplate == nil {
+		baseTemplate = &corev1.PodTemplateSpec{}
+	}
+
+	podLabels := dc.GetRackLabels(rackName)
+	oplabels.AddManagedByLabel(podLabels)
+	podLabels[api.CassNodeState] = stateReadyToStart
+
+	if baseTemplate.Labels == nil {
+		baseTemplate.Labels = make(map[string]string)
+	}
+	baseTemplate.Labels = utils.MergeMap(baseTemplate.Labels, podLabels)
+
+	// affinity
+	affinity := &corev1.Affinity{}
+	affinity.NodeAffinity = calculateNodeAffinity(zone)
+	affinity.PodAntiAffinity = calculatePodAntiAffinity(dc.Spec.AllowMultipleNodesPerWorker)
+	baseTemplate.Spec.Affinity = affinity
+
+	// volumes
+	vServerConfig := corev1.Volume{}
+	vServerConfig.Name = "server-config"
+	vServerConfig.VolumeSource = corev1.VolumeSource{
+		EmptyDir: &corev1.EmptyDirVolumeSource{},
+	}
+
+	vServerLogs := corev1.Volume{}
+	vServerLogs.Name = "server-logs"
+	vServerLogs.VolumeSource = corev1.VolumeSource{
+		EmptyDir: &corev1.EmptyDirVolumeSource{},
+	}
+
+	volumes := []corev1.Volume{vServerConfig, vServerLogs}
+	baseTemplate.Spec.Volumes = append(baseTemplate.Spec.Volumes, volumes...)
+
+	serviceAccount := "default"
+	if dc.Spec.ServiceAccount != "" {
+		serviceAccount = dc.Spec.ServiceAccount
+	}
+	baseTemplate.Spec.ServiceAccountName = serviceAccount
+
+	// init containers
+	initContainers, err := buildInitContainers(dc, rackName)
+	if err != nil {
+		return nil, err
+	}
+	baseTemplate.Spec.InitContainers = append(initContainers, baseTemplate.Spec.InitContainers...)
+
+	var serverVolumeMounts []corev1.VolumeMount
+	for _, c := range initContainers {
+		serverVolumeMounts = append(serverVolumeMounts, c.VolumeMounts...)
+	}
+
+	// containers
+	containers, err := buildContainers(dc, serverVolumeMounts)
+	if err != nil {
+		return nil, err
+	}
+
+	baseTemplate.Spec.Containers = append(containers, baseTemplate.Spec.Containers...)
+
+	return baseTemplate, nil
 }

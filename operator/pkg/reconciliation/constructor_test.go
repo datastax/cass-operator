@@ -138,3 +138,84 @@ func Test_newStatefulSetForCassandraDatacenter(t *testing.T) {
 		assert.Equal(t, map[string]string{"dedicated": "cassandra"}, got.Spec.Template.Spec.NodeSelector)
 	}
 }
+
+func TestCassandraDatacenter_buildPodTemplateSpec_containers_merge(t *testing.T) {
+	testContainer := corev1.Container{}
+	testContainer.Name = "test-container"
+	testContainer.Image = "test-image"
+	testContainer.Env = []corev1.EnvVar{
+		{Name: "TEST_VAL", Value: "TEST"},
+	}
+
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName:   "bob",
+			ServerType:    "cassandra",
+			ServerVersion: "3.11.6",
+			PodTemplateSpec: &corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{testContainer}},
+			},
+		},
+	}
+	got, err := buildPodTemplateSpec(dc, "testzone", "testrack")
+
+	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
+	assert.Equal(t, 3, len(got.Spec.Containers))
+	if !reflect.DeepEqual(testContainer, got.Spec.Containers[2]) {
+		t.Errorf("third container = %v, want %v", got, testContainer)
+	}
+}
+
+func TestCassandraDatacenter_buildPodTemplateSpec_initcontainers_merge(t *testing.T) {
+	testContainer := corev1.Container{}
+	testContainer.Name = "test-container-init"
+	testContainer.Image = "test-image-init"
+	testContainer.Env = []corev1.EnvVar{
+		{Name: "TEST_VAL", Value: "TEST"},
+	}
+
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName:   "bob",
+			ServerType:    "cassandra",
+			ServerVersion: "3.11.6",
+			PodTemplateSpec: &corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{testContainer}},
+			},
+		},
+	}
+	got, err := buildPodTemplateSpec(dc, "testzone", "testrack")
+
+	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
+	assert.Equal(t, 2, len(got.Spec.InitContainers))
+	if !reflect.DeepEqual(testContainer, got.Spec.InitContainers[1]) {
+		t.Errorf("second init container = %v, want %v", got, testContainer)
+	}
+}
+
+func TestCassandraDatacenter_buildPodTemplateSpec_labels_merge(t *testing.T) {
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName:     "bob",
+			ServerType:      "cassandra",
+			ServerVersion:   "3.11.6",
+			PodTemplateSpec: &corev1.PodTemplateSpec{},
+		},
+	}
+	dc.Spec.PodTemplateSpec.Labels = map[string]string{"abc": "123"}
+
+	spec, err := buildPodTemplateSpec(dc, "testzone", "testrack")
+	got := spec.Labels
+
+	expected := dc.GetRackLabels("testrack")
+	expected[api.CassNodeState] = stateReadyToStart
+	expected["app.kubernetes.io/managed-by"] = "cassandra-operator"
+	expected["abc"] = "123"
+
+	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
+	if !reflect.DeepEqual(expected, got) {
+		t.Errorf("labels = %v, want %v", got, expected)
+	}
+}
