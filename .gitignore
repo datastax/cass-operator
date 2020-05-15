@@ -1,7 +1,7 @@
-# Temporary Build Files
-build/_output
-build/_test
-# Created by https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
+
+# Created by https://www.gitignore.io/api/go,osx,vim,linux,emacs,visualstudiocode
+# Edit at https://www.gitignore.io/?templates=go,osx,vim,linux,emacs,visualstudiocode
+
 ### Emacs ###
 # -*- mode: gitignore; -*-
 *~
@@ -12,44 +12,47 @@ build/_test
 auto-save-list
 tramp
 .\#*
+
 # Org-mode
 .org-id-locations
 *_archive
+
 # flymake-mode
 *_flymake.*
+
 # eshell files
 /eshell/history
 /eshell/lastdir
+
 # elpa packages
 /elpa/
+
 # reftex files
 *.rel
+
 # AUCTeX auto folder
 /auto/
+
 # cask packages
 .cask/
 dist/
+
 # Flycheck
 flycheck_*.el
+
 # server auth directory
 /server/
+
 # projectiles files
 .projectile
-projectile-bookmarks.eld
+
 # directory configuration
 .dir-locals.el
-# saveplace
-places
-# url cache
-url/cache/
-# cedet
-ede-projects.el
-# smex
-smex-items
-# company-statistics
-company-statistics-cache.el
-# anaconda-mode
-anaconda-mode/
+
+# network security
+/network-security.data
+
+
 ### Go ###
 # Binaries for programs and plugins
 *.exe
@@ -57,47 +60,97 @@ anaconda-mode/
 *.dll
 *.so
 *.dylib
-# Test binary, build with 'go test -c'
+
+# Test binary, built with `go test -c`
 *.test
+
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+### Go Patch ###
+/vendor/
+/Godeps/
+
+### Linux ###
+
+# temporary files which can be created if a process still has a handle open of a deleted file
+.fuse_hidden*
+
+# KDE directory preferences
+.directory
+
+# Linux trash folder which might appear on any partition or disk
+.Trash-*
+
+# .nfs files are created when an open file is removed but is still being accessed
+.nfs*
+
+### OSX ###
+# General
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Icon must end with two \r
+Icon
+
+# Thumbnails
+._*
+
+# Files that might appear in the root of a volume
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# Directories potentially created on remote AFP share
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
 ### Vim ###
-# swap
-.sw[a-p]
-.*.sw[a-p]
-# session
+# Swap
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# Session
 Session.vim
-# temporary
+Sessionx.vim
+
+# Temporary
 .netrwhist
-# auto-generated tag files
+
+# Auto-generated tag files
 tags
+
+# Persistent undo
+[._]*.un~
+
+# Coc configuration directory
+.vim
+
 ### VisualStudioCode ###
 .vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+### VisualStudioCode Patch ###
+# Ignore all local history of files
 .history
-# End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
-### Gradle template
-.gradle
-build
 
-# Ignore Gradle GUI config
-gradle-app.setting
+# End of https://www.gitignore.io/api/go,osx,vim,linux,emacs,visualstudiocode
 
-# Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
-!gradle-wrapper.jar
-
-# Cache of project
-.gradletasknamecache
-
-# # Work around https://youtrack.jetbrains.com/issue/IDEA-116898
-# gradle/wrapper/gradle-wrapper.properties
-
-.gogradle
-
-operator/vendor
-
-.idea
-.project
-.settings/
-
-*/build
-.DS_Store
+/build

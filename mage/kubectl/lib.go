@@ -6,11 +6,22 @@ package kubectl
 import (
 	"fmt"
 	"os"
+	"os/user"
 	"regexp"
 	"time"
 
 	shutil "github.com/datastax/cass-operator/mage/sh"
+	mageutil "github.com/datastax/cass-operator/mage/util"
 )
+
+func GetKubeconfig() string {
+	usr, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+	defaultConfig := fmt.Sprintf("%s/.kube/config", usr.HomeDir)
+	return mageutil.EnvOrDefault("KUBECONFIG", defaultConfig)
+}
 
 func WatchPods() {
 	shutil.RunVPanic("watch", "-n1", "kubectl", "get", "pods")

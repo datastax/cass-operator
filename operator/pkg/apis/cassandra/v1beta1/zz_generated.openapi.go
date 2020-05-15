@@ -219,12 +219,18 @@ func schema_pkg_apis_cassandra_v1beta1_CassandraDatacenterSpec(ref common.Refere
 							},
 						},
 					},
+					"podTemplateSpec": {
+						SchemaProps: spec.SchemaProps{
+							Description: "PodTemplate provides customisation options (labels, annotations, affinity rules, resource requests, and so on) for the cassandra pods",
+							Ref:         ref("k8s.io/api/core/v1.PodTemplateSpec"),
+						},
+					},
 				},
 				Required: []string{"size", "serverVersion", "serverType", "storageConfig", "clusterName"},
 			},
 		},
 		Dependencies: []string{
-			"github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.ManagementApiAuthConfig", "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.Rack", "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.StorageConfig", "k8s.io/api/core/v1.ResourceRequirements"},
+			"github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.ManagementApiAuthConfig", "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.Rack", "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1.StorageConfig", "k8s.io/api/core/v1.PodTemplateSpec", "k8s.io/api/core/v1.ResourceRequirements"},
 	}
 }
 
