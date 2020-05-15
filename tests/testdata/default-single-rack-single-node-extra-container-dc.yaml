@@ -1,0 +1,40 @@
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: dc2
+spec:
+  clusterName: cluster2
+  serverType: dse
+  serverVersion: "6.8.0"
+  managementApiAuth:
+    insecure: {}
+  size: 1
+  storageConfig:
+      cassandraDataVolumeClaimSpec:
+        storageClassName: server-storage
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+  racks:
+    - name: r1
+  podTemplateSpec:
+    spec:
+      containers:
+        - args: ["/bin/sh", "-c", "tail -n+1 -F /var/log/cassandra/system.log"]
+          image: busybox
+          imagePullPolicy: "Always"
+          name: "another-tailing-logger"
+          terminationMessagePath: "/dev/termination-log"
+          terminationMessagePolicy: "File"
+          volumeMounts:
+            - mountPath: "/var/log/cassandra"
+              name: "server-logs"
+  config:
+    jvm-server-options:
+      initial_heap_size: "800m"
+      max_heap_size: "800m"
+    cassandra-yaml:
+      file_cache_size_in_mb: 100
+      memtable_space_in_mb: 100
