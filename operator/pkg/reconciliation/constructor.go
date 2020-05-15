@@ -37,6 +37,9 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 			Name: "mgmt-api", Port: 8080, TargetPort: intstr.FromInt(8080),
 		},
 	}
+
+	addHashAnnotation(service)
+
 	return service
 }
 
@@ -61,6 +64,9 @@ func newSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.S
 
 	service.Spec.Selector = buildLabelSelectorForSeedService(dc)
 	service.Spec.PublishNotReadyAddresses = true
+
+	addHashAnnotation(service)
+
 	return service
 }
 
@@ -70,6 +76,9 @@ func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev
 	service := makeGenericHeadlessService(dc)
 	service.ObjectMeta.Name = dc.GetAllPodsServiceName()
 	service.Spec.PublishNotReadyAddresses = true
+
+	addHashAnnotation(service)
+
 	return service
 }
 
