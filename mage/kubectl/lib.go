@@ -5,13 +5,13 @@ package kubectl
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"os/user"
 	"regexp"
 	"time"
 
 	shutil "github.com/datastax/cass-operator/mage/sh"
+	mageutil "github.com/datastax/cass-operator/mage/util"
 )
 
 func GetKubeconfig(createDefault bool) string {
@@ -26,9 +26,7 @@ func GetKubeconfig(createDefault bool) string {
 		if _, err := os.Stat(kubeconfig); createDefault && os.IsNotExist(err) {
 			os.MkdirAll(defaultDir, 0755)
 			file, err := os.Create(kubeconfig)
-			if err != nil {
-				log.Fatal(err)
-			}
+			mageutil.PanicOnError(err)
 			file.Close()
 		}
 	}
