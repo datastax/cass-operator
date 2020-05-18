@@ -54,12 +54,12 @@ var (
 	operatorMetricsPort int32 = 8686
 	version                   = "DEV"
 
-	altCertDir = filepath.Join(os.TempDir(), "k8s-webhook-server") //Alt directory is necessary because regular key/cert mountpoint is read-only
+	altCertDir = filepath.Join(os.TempDir()) //Alt directory is necessary because regular key/cert mountpoint is read-only
 	certDir    = filepath.Join(os.TempDir(), "k8s-webhook-server", "serving-certs")
 
 	serverCertFile    = filepath.Join(os.TempDir(), "k8s-webhook-server", "serving-certs", "tls.crt")
-	altServerCertFile = filepath.Join(os.TempDir(), "k8s-webhook-server", "tls.crt")
-	altServerKeyFile  = filepath.Join(os.TempDir(), "k8s-webhook-server", "tls.key")
+	altServerCertFile = filepath.Join(altCertDir, "tls.crt")
+	altServerKeyFile  = filepath.Join(altCertDir, "tls.key")
 )
 var log = logf.Log.WithName("cmd")
 
