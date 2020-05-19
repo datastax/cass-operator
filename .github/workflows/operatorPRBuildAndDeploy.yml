@@ -23,6 +23,16 @@ jobs:
           mkdir -p $GOPATH/bin
           mv mage $GOPATH/bin/mage
           sudo chmod +x $GOPATH/bin/mage
+      - name: Test Sdk Generate
+        env:
+        run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+          mage operator:testSdkGenerate
+      - name: Test Client Generate
+        env:
+        run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+          mage operator:testGenerateClient
       - name: Build docker
         env:
           MO_BRANCH: ${{ github.event.pull_request.head.ref }}
