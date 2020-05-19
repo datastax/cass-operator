@@ -67,6 +67,11 @@ func getImageForServerVersion(server, version string) (string, error) {
 	return "", err
 }
 
+type CassandraUser struct {
+	SecretName string `json:"secretName"`
+	Superuser bool `json:"superuser"`
+}
+
 // CassandraDatacenterSpec defines the desired state of a CassandraDatacenter
 // +k8s:openapi-gen=true
 type CassandraDatacenterSpec struct {
@@ -152,6 +157,9 @@ type CassandraDatacenterSpec struct {
 
 	// PodTemplate provides customisation options (labels, annotations, affinity rules, resource requests, and so on) for the cassandra pods
 	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplateSpec,omitempty"`
+
+	// Cassandra users to bootstrap
+	Users []CassandraUser `json:"users,omitempty"`
 }
 
 type StorageConfig struct {

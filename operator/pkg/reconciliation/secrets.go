@@ -78,10 +78,7 @@ func buildDefaultSuperuserSecret(dc *api.CassandraDatacenter) (*corev1.Secret, e
 	return secret, nil
 }
 
-func (rc *ReconciliationContext) retrieveSuperuserSecret() (*corev1.Secret, error) {
-	dc := rc.Datacenter
-	secretNamespacedName := dc.GetSuperuserSecretNamespacedName()
-
+func (rc *ReconciliationContext) retrieveSecret(secretNamespacedName types.NamespacedName) (*corev1.Secret, error) {
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -103,6 +100,12 @@ func (rc *ReconciliationContext) retrieveSuperuserSecret() (*corev1.Secret, erro
 	}
 
 	return secret, nil
+}
+
+func (rc *ReconciliationContext) retrieveSuperuserSecret() (*corev1.Secret, error) {
+	dc := rc.Datacenter
+	secretNamespacedName := dc.GetSuperuserSecretNamespacedName()
+	return rc.retrieveSecret(secretNamespacedName)
 }
 
 func (rc *ReconciliationContext) retrieveSuperuserSecretOrCreateDefault() (*corev1.Secret, error) {

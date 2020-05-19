@@ -584,6 +584,77 @@ func shouldUpsertSuperUser(dc api.CassandraDatacenter) bool {
 	return time.Now().After(lastCreated.Add(time.Minute * 4))
 }
 
+func (rc *ReconciliationContext) createNamespacedName(name string) types.NamespacedName {
+	dc := rc.Datacenter
+	namespace := dc.ObjectMeta.Namespace
+
+	return types.NamespacedName{
+		Name:      name,
+		Namespace: namespace,
+	}
+}
+
+func (rc *ReconciliationContext) createUser(user api.CassandraUser) error {
+	namespacedName := rc.createNamespacedName(user.SecretName)
+	secret, err := rc.retrieveSecret(namespacedName)
+
+	if err != nil {
+		return err
+	}
+
+	// We will call mgmt API on the first pod
+	pod := rc.dcPods[0]
+
+	err = rc.NodeMgmtClient.CallCreateRoleEndpoint(
+		pod,
+		string(secret.Data["username"]),
+		string(secret.Data["password"]))
+
+	return err
+}
+
+func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
+	dc := rc.Datacenter
+
+	if dc.Spec.Stopped {
+		rc.ReqLogger.Info("cluster is stopped, skipping CreateSuperuser")
+		return result.Continue()
+	}
+
+	//Skip upsert if already did so recently
+	if !shouldUpsertSuperUser(*dc) {
+		rc.ReqLogger.Info(fmt.Sprintf("The CQL superuser was last upserted at %v, skipping upsert", 
+			dc.Status.SuperUserUpserted))
+		return result.Continue()
+	}
+
+	// make sure the default superuser secret exists
+	_, err := rc.retrieveSuperuserSecretOrCreateDefault()
+
+	// add the standard superuser to our list of superusers
+	users := dc.Spec.Users
+	users = append(users, api.CassandraUser{
+		Superuser: true, 
+		SecretName: dc.GetSuperuserSecretNamespacedName().Name,
+	})
+
+	for _, user := range users {
+		err = rc.createUser(user)
+	}
+
+	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedSuperuser,
+		"Created superuser")
+
+	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
+	rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
+	if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
+		rc.ReqLogger.Error(err, "error updating the CQL superuser upsert timestamp")
+		return result.Error(err)
+	}
+
+	return result.Continue()
+}
+
 func (rc *ReconciliationContext) CreateSuperuser() result.ReconcileResult {
 	if rc.Datacenter.Spec.Stopped {
 		rc.ReqLogger.Info("cluster is stopped, skipping CreateSuperuser")
@@ -1860,7 +1931,7 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
-	if recResult := rc.CreateSuperuser(); recResult.Completed() {
+	if recResult := rc.CreateUsers(); recResult.Completed() {
 		return recResult.Output()
 	}
 

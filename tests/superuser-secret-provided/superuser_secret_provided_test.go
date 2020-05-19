@@ -62,6 +62,10 @@ var _ = Describe(testName, func() {
 			k = kubectl.CreateSecretLiteral(superuserSecretName, superuserName, superuserPass)
 			ns.ExecAndLog(step, k)
 
+			step = "create user secret"
+			k = kubectl.CreateSecretLiteral("bob-secret", "bob", "littlebobbydroptables")
+			ns.ExecAndLog(step, k)
+			
 			step = "creating a datacenter resource with 1 racks/2 nodes"
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
