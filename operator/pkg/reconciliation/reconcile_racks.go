@@ -608,7 +608,8 @@ func (rc *ReconciliationContext) createUser(user api.CassandraUser) error {
 	err = rc.NodeMgmtClient.CallCreateRoleEndpoint(
 		pod,
 		string(secret.Data["username"]),
-		string(secret.Data["password"]))
+		string(secret.Data["password"]),
+		user.Superuser)
 
 	return err
 }
@@ -683,7 +684,8 @@ func (rc *ReconciliationContext) CreateSuperuser() result.ReconcileResult {
 	err = rc.NodeMgmtClient.CallCreateRoleEndpoint(
 		pod,
 		string(secret.Data["username"]),
-		string(secret.Data["password"]))
+		string(secret.Data["password"]),
+		true)
 	if err != nil {
 		rc.ReqLogger.Error(err, "error creating superuser")
 		return result.Error(err)
