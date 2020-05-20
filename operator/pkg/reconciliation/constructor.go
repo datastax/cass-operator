@@ -114,6 +114,9 @@ func newNamespacedNameForStatefulSet(
 	}
 }
 
+// We have to account for the fact that they might use the old managed-by label value
+// (oplabels.ManagedByLabelDefunctValue) for CassandraDatacenters originally
+// created in version 1.1.0 or earlier.
 func newStatefulSetForCassandraDatacenterWithDefunctPvcManagedBy(
 	rackName string,
 	dc *api.CassandraDatacenter,
