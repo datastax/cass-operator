@@ -4,13 +4,13 @@
 package reconciliation
 
 import (
-	"reflect"
-
 	"github.com/datastax/cass-operator/operator/internal/result"
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 )
 
 func (rc *ReconciliationContext) CreateHeadlessServices() result.ReconcileResult {
@@ -90,19 +90,23 @@ func (rc *ReconciliationContext) CheckHeadlessServices() result.ReconcileResult 
 			return result.Error(err)
 
 		} else {
-			// if we found the service already, check if the labels are right
-			currentLabels := currentService.GetLabels()
-			desiredLabels := desiredSvc.GetLabels()
-			shouldUpdateLabels := !reflect.DeepEqual(currentLabels, desiredLabels)
-			if shouldUpdateLabels {
-				logger.Info("Updating labels",
+			// if we found the service already, check if they need updating
+			if !resourcesHaveSameHash(currentService, desiredSvc) {
+				resourceVersion := currentService.GetResourceVersion()
+				// preserve any labels and annotations that were added to the service post-creation
+				desiredSvc.Labels = utils.MergeMap(map[string]string{}, currentService.Labels, desiredSvc.Labels)
+				desiredSvc.Annotations = utils.MergeMap(map[string]string{}, currentService.Annotations, desiredSvc.Annotations)
+
+				logger.Info("Updating service",
 					"service", currentService,
-					"current", currentLabels,
-					"desired", desiredLabels)
-				currentService.SetLabels(desiredLabels)
+					"desired", desiredSvc)
+
+				desiredSvc.DeepCopyInto(currentService)
+
+				currentService.SetResourceVersion(resourceVersion)
 
 				if err := client.Update(rc.Ctx, currentService); err != nil {
-					logger.Error(err, "Unable to update service with labels",
+					logger.Error(err, "Unable to update service",
 						"service", currentService)
 					return result.Error(err)
 				}
