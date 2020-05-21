@@ -214,7 +214,7 @@ func main() {
 }
 
 func ensureBaseOsConfigMap(cfg *rest.Config, ns string) error {
-	name := "base-os-config"
+	name := "base-image-os-config"
 
 	client, err := crclient.New(cfg, crclient.Options{})
 	if err != nil {

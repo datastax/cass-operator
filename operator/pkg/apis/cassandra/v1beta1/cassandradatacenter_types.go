@@ -6,6 +6,7 @@ package v1beta1
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/Jeffail/gabs"
 	"github.com/pkg/errors"
@@ -46,25 +47,51 @@ const (
 // This type exists so there's no chance of pushing random strings to our progress status
 type ProgressState string
 
+const (
+	cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.2"
+	cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.2"
+	dse_6_8_0        = "datastax/dse-server:6.8.0"
+	envBaseImageOs   = "BASE_IMAGE_OS"
+)
+
 // getImageForServerVersion tries to look up a known image for a server type and version number.
 // In the event that no image is found, an error is returned
 func getImageForServerVersion(server, version string) (string, error) {
-	const (
-		cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.2"
-		cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.2"
-		dse_6_8_0        = "datastax/dse-server:6.8.0"
-	)
-	sv := server + "-" + version
+	baseImageOs := os.Getenv(envBaseImageOs)
+
+	var imageCalc func(string) (string, bool)
+	var img string
+	var success bool
+
+	switch baseImageOs {
+	case "":
+		imageCalc = getImageForDefaultBaseOs
+	case "universal-base-image":
+		imageCalc = getImageForUniversalBaseOs
+	}
+
+	img, success = imageCalc(server + "-" + version)
+	if !success {
+		return "", fmt.Errorf("server '%s' and version '%s' do not work together", server, version)
+	}
+
+	return img, nil
+}
+
+func getImageForDefaultBaseOs(sv string) (string, bool) {
 	switch sv {
 	case "dse-6.8.0":
-		return dse_6_8_0, nil
+		return dse_6_8_0, true
 	case "cassandra-3.11.6":
-		return cassandra_3_11_6, nil
+		return cassandra_3_11_6, true
 	case "cassandra-4.0.0":
-		return cassandra_4_0_0, nil
+		return cassandra_4_0_0, true
 	}
-	err := fmt.Errorf("server '%s' and version '%s' do not work together", server, version)
-	return "", err
+	return "", false
+}
+
+func getImageForUniversalBaseOs(sv string) (string, bool) {
+	panic("TODO: Need universal basic image coords")
 }
 
 // CassandraDatacenterSpec defines the desired state of a CassandraDatacenter
