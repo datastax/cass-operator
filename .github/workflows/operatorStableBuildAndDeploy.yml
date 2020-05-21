@@ -24,6 +24,14 @@ jobs:
           mkdir -p $GOPATH/bin
           mv mage $GOPATH/bin/mage
           sudo chmod +x $GOPATH/bin/mage
+      - name: Test Sdk Generate
+        run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+          mage operator:testSdkGenerate
+      - name: Test Client Generate
+        run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+          mage operator:testGenerateClient
       - name: Build docker
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH

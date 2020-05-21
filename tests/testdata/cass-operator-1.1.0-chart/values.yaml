@@ -1,0 +1,10 @@
+# Default values
+serviceAccountName: cass-operator
+clusterRoleName: cass-operator-cluster-role
+clusterRoleBindingName: cass-operator
+roleName: cass-operator
+roleBindingName: cass-operator
+deploymentName: cass-operator
+deploymentReplicas: 1
+image: "datastax/cass-operator:1.1.0"
+imagePullPolicy: IfNotPresent

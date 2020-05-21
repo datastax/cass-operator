@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/stretchr/testify/assert"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -211,7 +212,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_labels_merge(t *testing.T) {
 
 	expected := dc.GetRackLabels("testrack")
 	expected[api.CassNodeState] = stateReadyToStart
-	expected["app.kubernetes.io/managed-by"] = "cassandra-operator"
+	expected["app.kubernetes.io/managed-by"] = oplabels.ManagedByLabelValue
 	expected["abc"] = "123"
 
 	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
