@@ -33,6 +33,7 @@ import (
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -127,6 +128,7 @@ func main() {
 	ctx := context.Background()
 	// Become the leader before proceeding
 	err = leader.Become(ctx, "cass-operator-lock")
+
 	if err != nil {
 		log.Error(err, "could not become leader")
 		os.Exit(1)
@@ -137,6 +139,10 @@ func main() {
 	}
 	if err = ensureWebhookCertificate(cfg, namespace); err != nil {
 		log.Error(err, "Failed to ensure webhook CA configuration")
+	}
+
+	if err = ensureBaseOsConfigMap(cfg, namespace); err != nil {
+		log.Error(err, "Failed to ensure base os configmap")
 	}
 
 	// Set default manager options
@@ -205,6 +211,38 @@ func main() {
 		log.Error(err, "Manager exited non-zero")
 		os.Exit(1)
 	}
+}
+
+func ensureBaseOsConfigMap(cfg *rest.Config, ns string) error {
+	name := "base-os-config"
+
+	client, err := crclient.New(cfg, crclient.Options{})
+	if err != nil {
+		return err
+	}
+
+	var existing *v1.ConfigMap
+	key := crclient.ObjectKey{Namespace: ns, Name: name}
+	err = client.Get(context.Background(), key, existing)
+	if err == nil && existing != nil {
+		// config map already exists
+		return nil
+	}
+
+	baseOs := os.Getenv("BASE_OS")
+	cm := &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+		},
+		Data: map[string]string{"BASE_OS": baseOs},
+	}
+	err = client.Create(context.Background(), cm)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // addMetrics will create the Services and Service Monitors to allow the operator export the metrics by using
