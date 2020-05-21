@@ -150,6 +150,11 @@ type CassandraDatacenterSpec struct {
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
+	// Rack names in this list are set to the latest StatefulSet configuration
+	// even if Cassandra nodes are down. Use this to recover from an upgrade that couldn't
+	// roll out.
+	ForceUpgradeRacks []string `json:"forceUpgradeRacks,omitempty"`
+
 	// PodTemplate provides customisation options (labels, annotations, affinity rules, resource requests, and so on) for the cassandra pods
 	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplateSpec,omitempty"`
 }
@@ -200,14 +205,14 @@ const (
 )
 
 type DatacenterCondition struct {
-	Type DatacenterConditionType `json:"type"`
-	Status corev1.ConditionStatus `json:"status"`
-	LastTransitionTime metav1.Time `json:"lastTransitionTime,omitempty"`
+	Type               DatacenterConditionType `json:"type"`
+	Status             corev1.ConditionStatus  `json:"status"`
+	LastTransitionTime metav1.Time             `json:"lastTransitionTime,omitempty"`
 }
 
 func NewDatacenterCondition(conditionType DatacenterConditionType, status corev1.ConditionStatus) *DatacenterCondition {
 	return &DatacenterCondition{
-		Type: conditionType,
+		Type:   conditionType,
 		Status: status,
 	}
 }
