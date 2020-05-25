@@ -584,18 +584,15 @@ func shouldUpsertSuperUser(dc api.CassandraDatacenter) bool {
 	return time.Now().After(lastCreated.Add(time.Minute * 4))
 }
 
-func (rc *ReconciliationContext) createNamespacedName(name string) types.NamespacedName {
+func (rc *ReconciliationContext) createUser(user api.CassandraUser) error {
 	dc := rc.Datacenter
 	namespace := dc.ObjectMeta.Namespace
 
-	return types.NamespacedName{
-		Name:      name,
+	namespacedName := types.NamespacedName{
+		Name:      user.SecretName,
 		Namespace: namespace,
 	}
-}
 
-func (rc *ReconciliationContext) createUser(user api.CassandraUser) error {
-	namespacedName := rc.createNamespacedName(user.SecretName)
 	secret, err := rc.retrieveSecret(namespacedName)
 
 	if err != nil {
@@ -634,7 +631,7 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 	// make sure the default superuser secret exists
 	_, err := rc.retrieveSuperuserSecretOrCreateDefault()
 
-	// add the standard superuser to our list of superusers
+	// add the standard superuser to our list of users
 	users := dc.Spec.Users
 	users = append(users, api.CassandraUser{
 		Superuser: true, 

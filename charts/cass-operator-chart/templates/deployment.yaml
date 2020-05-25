@@ -13,8 +13,6 @@ spec:
         name: cass-operator
     spec:
       serviceAccountName: {{ .Values.serviceAccountName }}
-      imagePullSecrets:
-      - name: dse-operator-ecr-secret
       volumes:
       - name: cass-operator-certs-volume
         secret:
