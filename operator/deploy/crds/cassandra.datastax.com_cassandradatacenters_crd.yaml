@@ -6136,8 +6136,8 @@ spec:
                 type: object
               type: object
             superUserUpserted:
-              description: The timestamp at which CQL superuser credentials were last
-                upserted to the management API
+              description: The timestamp at which cassandra user credentials were
+                last upserted to the management API
               format: date-time
               type: string
           type: object
