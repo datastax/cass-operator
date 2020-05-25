@@ -12,6 +12,9 @@ import (
 func Install(chartPath string, releaseName string, namespace string, overrides map[string]string) error {
 	args := []string{
 		"install",
+		// k8s 1.15 does not support all the validations we have setup on 
+		// the CRD, so we just turn off validation. What could go wrong?
+		"--disable-openapi-validation",
 		fmt.Sprintf("--namespace=%s", namespace),
 	}
 
