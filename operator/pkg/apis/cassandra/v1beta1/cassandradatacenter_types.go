@@ -225,8 +225,12 @@ func NewDatacenterCondition(conditionType DatacenterConditionType, status corev1
 type CassandraDatacenterStatus struct {
 	Conditions []DatacenterCondition `json:"conditions,omitempty"`
 
-	// The timestamp at which CQL superuser credentials
+	// The timestamp at which cassandra user credentials
 	// were last upserted to the management API
+	// Note: The name here needs to be refactored at some point to 
+	//   treat superuser as one word instead of two. Also, this is
+	//   not just for the one superuser any more, but all users
+	//   defined on the CassandraDatacenter resource.
 	// +optional
 	SuperUserUpserted metav1.Time `json:"superUserUpserted,omitempty"`
 

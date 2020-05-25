@@ -618,7 +618,7 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 	dc := rc.Datacenter
 
 	if dc.Spec.Stopped {
-		rc.ReqLogger.Info("cluster is stopped, skipping CreateSuperuser")
+		rc.ReqLogger.Info("cluster is stopped, skipping CreateUser")
 		return result.Continue()
 	}
 
@@ -628,6 +628,8 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 			dc.Status.SuperUserUpserted))
 		return result.Continue()
 	}
+
+	rc.ReqLogger.Info("reconcile_racks::CreateUsers")
 
 	// make sure the default superuser secret exists
 	_, err := rc.retrieveSuperuserSecretOrCreateDefault()
@@ -644,54 +646,6 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 	}
 
 	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedSuperuser,
-		"Created superuser")
-
-	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
-	rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
-	if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
-		rc.ReqLogger.Error(err, "error updating the CQL superuser upsert timestamp")
-		return result.Error(err)
-	}
-
-	return result.Continue()
-}
-
-func (rc *ReconciliationContext) CreateSuperuser() result.ReconcileResult {
-	if rc.Datacenter.Spec.Stopped {
-		rc.ReqLogger.Info("cluster is stopped, skipping CreateSuperuser")
-		return result.Continue()
-	}
-
-	//Skip upsert if already did so recently
-	if !shouldUpsertSuperUser(*rc.Datacenter) {
-		rc.ReqLogger.Info(fmt.Sprintf("The CQL superuser was last upserted at %v, skipping upsert", rc.Datacenter.Status.SuperUserUpserted))
-		return result.Continue()
-	}
-
-	rc.ReqLogger.Info("reconcile_racks::CreateSuperuser")
-
-	// Get the secret
-	secret, err := rc.retrieveSuperuserSecret()
-	if err != nil {
-		rc.ReqLogger.Error(err, "error retrieving SuperuserSecret for CassandraDatacenter.")
-		return result.Error(err)
-	}
-
-	// We will call mgmt API on the first pod
-
-	pod := rc.dcPods[0]
-
-	err = rc.NodeMgmtClient.CallCreateRoleEndpoint(
-		pod,
-		string(secret.Data["username"]),
-		string(secret.Data["password"]),
-		true)
-	if err != nil {
-		rc.ReqLogger.Error(err, "error creating superuser")
-		return result.Error(err)
-	}
-
-	rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.CreatedSuperuser,
 		"Created superuser")
 
 	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
