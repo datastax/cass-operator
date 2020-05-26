@@ -36,6 +36,7 @@ const (
 	envGitBranch               = "MO_BRANCH"
 	envVersionString           = "MO_VERSION"
 	envGitHash                 = "MO_HASH"
+	envBaseOs                  = "MO_BASE_OS"
 
 	errorUnstagedPreGenerate = `
   Unstaged changes detected.
@@ -345,17 +346,35 @@ func calcFullVersion(settings cfgutil.BuildSettings, git GitData) FullVersion {
 	}
 }
 
-func runDockerBuild(version FullVersion) []string {
+func calcVersionAndTags(version FullVersion) (string, []string) {
 	repoPath := "datastax/cass-operator"
-	versionedTag := fmt.Sprintf("%s:%v", repoPath, version)
-	tagsToPush := []string{
-		versionedTag,
-		fmt.Sprintf("%s:%s", repoPath, version.Hash),
+	var versionedTag string
+	var tagsToPush []string
+
+	if baseOs := os.Getenv(envBaseOs); baseOs != "" {
+		versionedTag := fmt.Sprintf("%s:%v-ubi", repoPath, version)
+		tagsToPush = []string{
+			versionedTag,
+			fmt.Sprintf("%s:%s-ubi", repoPath, version.Hash),
+			fmt.Sprintf("%s:latest-ubi", repoPath),
+		}
+	} else {
+		versionedTag := fmt.Sprintf("%s:%v", repoPath, version)
+		tagsToPush = []string{
+			versionedTag,
+			fmt.Sprintf("%s:%s", repoPath, version.Hash),
+			fmt.Sprintf("%s:latest", repoPath),
+		}
 	}
-	tags := append(tagsToPush, fmt.Sprintf("%s:latest", repoPath))
+	return versionedTag, tagsToPush
+}
+
+func runDockerBuild(versionedTag string, dockerTags []string) {
 	buildArgs := []string{fmt.Sprintf("VERSION_STAMP=%s", versionedTag)}
-	dockerutil.Build(".", "", "./operator/Dockerfile", tags, buildArgs).ExecVPanic()
-	return tagsToPush
+	if baseOs := os.Getenv(envBaseOs); baseOs != "" {
+		buildArgs = append(buildArgs, fmt.Sprintf("BASE_OS=%s", baseOs))
+	}
+	dockerutil.Build(".", "", "./operator/Dockerfile", dockerTags, buildArgs).ExecVPanic()
 }
 
 func runGoBuild(version string) {
@@ -419,12 +438,14 @@ func BuildDocker() {
 	settings := cfgutil.ReadBuildSettings()
 	git := getGitData()
 	version := calcFullVersion(settings, git)
-	operatorTags := runDockerBuild(version)
+
+	versionedTag, dockerTags := calcVersionAndTags(version)
+	runDockerBuild(versionedTag, dockerTags)
 	// Write the versioned image tags to a file in our build
 	// directory so that other targets in the build process can identify
 	// what was built. This is particularly important to know
 	// for targets that retag and deploy to external docker repositories
-	outputText := strings.Join(operatorTags, "|")
+	outputText := strings.Join(dockerTags, "|")
 	writeBuildFile("tagsToPush.txt", outputText)
 }
 

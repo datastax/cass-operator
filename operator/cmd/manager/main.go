@@ -33,7 +33,6 @@ import (
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -141,8 +140,8 @@ func main() {
 		log.Error(err, "Failed to ensure webhook CA configuration")
 	}
 
-	if err = ensureBaseOsConfigMap(cfg, namespace); err != nil {
-		log.Error(err, "Failed to ensure base os configmap")
+	if err = readBaseOsIntoEnv(); err != nil {
+		log.Error(err, "Failed to read base OS into env")
 	}
 
 	// Set default manager options
@@ -213,34 +212,32 @@ func main() {
 	}
 }
 
-func ensureBaseOsConfigMap(cfg *rest.Config, ns string) error {
-	name := "base-image-os-config"
+func readBaseOsIntoEnv() error {
+	baseOsArgFilePath := "/var/lib/cass-operator/base_os"
 
-	client, err := crclient.New(cfg, crclient.Options{})
-	if err != nil {
+	info, err := os.Stat(baseOsArgFilePath)
+	if os.IsNotExist(err) {
+		msg := fmt.Sprintf("Could not locate base OS arg file at %s", baseOsArgFilePath)
+		err = fmt.Errorf("%s. %v", msg, err)
 		return err
 	}
 
-	var existing *v1.ConfigMap
-	key := crclient.ObjectKey{Namespace: ns, Name: name}
-	err = client.Get(context.Background(), key, existing)
-	if err == nil && existing != nil {
-		// config map already exists
-		return nil
-	}
-
-	baseOs := os.Getenv("BASE_OS")
-	cm := &v1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: ns,
-		},
-		Data: map[string]string{"BASE_OS": baseOs},
-	}
-	err = client.Create(context.Background(), cm)
-	if err != nil {
+	if info.IsDir() {
+		msg := fmt.Sprintf("Base OS arg path is a directory not a file: %s", baseOsArgFilePath)
+		err = fmt.Errorf("%s. %v", msg, err)
 		return err
 	}
+
+	rawVal, err := ioutil.ReadFile(baseOsArgFilePath)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to read base OS arg file at %s", baseOsArgFilePath)
+		err = fmt.Errorf("%s. %v", msg, err)
+		return err
+	}
+
+	baseOs := strings.TrimSpace(string(rawVal))
+	os.Setenv("BASE_IMAGE_OS", baseOs)
+	log.Info(fmt.Sprintf("BASE_IMAGE_OS set to '%s'", baseOs))
 
 	return nil
 }

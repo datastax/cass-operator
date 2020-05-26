@@ -63,10 +63,10 @@ func getImageForServerVersion(server, version string) (string, error) {
 	var img string
 	var success bool
 
-	switch baseImageOs {
-	case "":
+	if baseImageOs == "" {
 		imageCalc = getImageForDefaultBaseOs
-	case "universal-base-image":
+	} else {
+
 		imageCalc = getImageForUniversalBaseOs
 	}
 
