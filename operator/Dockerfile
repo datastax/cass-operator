@@ -52,7 +52,7 @@ ENV GOPATH=/go
 
 ARG BASE_OS=""
 RUN mkdir -p /var/lib/cass-operator/
-RUN echo ${BASE_OS} > /var/lib/cass-operator/base_os
+RUN echo "${BASE_OS}" > /var/lib/cass-operator/base_os
 WORKDIR /go
 
 # All we need from the builder image is operator executable

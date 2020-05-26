@@ -25,6 +25,7 @@ import (
 
 const (
 	OperatorImage    = "datastax/cass-operator:latest"
+	OperatorImageUBI = "datastax/cass-operator:latest-ubi"
 	envLoadDevImages = "M_LOAD_DEV_IMAGES"
 	envK8sFlavor     = "M_K8S_FLAVOR"
 )
@@ -36,6 +37,16 @@ var supportedFlavors = map[string]ClusterActions{
 	"kind": kind.ClusterActions,
 	"k3d":  k3d.ClusterActions,
 	"gke":  gcp.ClusterActions,
+}
+
+func getOperatorImage() string {
+	var img string
+	if baseOs := os.Getenv(operator.EnvBaseOs); baseOs != "" {
+		img = "datastax/cass-operator:latest-ubi"
+	} else {
+		img = "datastax/cass-operator:latest"
+	}
+	return img
 }
 
 func loadImagesFromBuildSettings(cfg ClusterActions, settings BuildSettings) {
@@ -96,7 +107,8 @@ func SetupEmptyCluster() {
 	clusterActions.ApplyDefaultStorage()
 	//TODO make this part optional
 	operator.BuildDocker()
-	clusterActions.LoadImage(OperatorImage)
+	operatorImg := getOperatorImage()
+	clusterActions.LoadImage(operatorImg)
 }
 
 // Bootstrap a cluster, then run Ginkgo integration tests.
@@ -131,8 +143,8 @@ func SetupExampleCluster() {
 	mg.Deps(SetupEmptyCluster)
 	kubectl.CreateSecretLiteral("cassandra-superuser-secret", "devuser", "devpass").ExecVPanic()
 
+	overrides := map[string]string{"image": getOperatorImage()}
 	var namespace = "default"
-	var overrides = map[string]string{"image": "datastax/cass-operator:latest"}
 	err := helm_util.Install("./charts/cass-operator-chart", "cass-operator", namespace, overrides)
 	mageutil.PanicOnError(err)
 

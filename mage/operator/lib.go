@@ -36,7 +36,7 @@ const (
 	envGitBranch               = "MO_BRANCH"
 	envVersionString           = "MO_VERSION"
 	envGitHash                 = "MO_HASH"
-	envBaseOs                  = "MO_BASE_OS"
+	EnvBaseOs                  = "MO_BASE_OS"
 
 	errorUnstagedPreGenerate = `
   Unstaged changes detected.
@@ -351,15 +351,15 @@ func calcVersionAndTags(version FullVersion) (string, []string) {
 	var versionedTag string
 	var tagsToPush []string
 
-	if baseOs := os.Getenv(envBaseOs); baseOs != "" {
-		versionedTag := fmt.Sprintf("%s:%v-ubi", repoPath, version)
+	if baseOs := os.Getenv(EnvBaseOs); baseOs != "" {
+		versionedTag = fmt.Sprintf("%s:%v-ubi", repoPath, version)
 		tagsToPush = []string{
 			versionedTag,
 			fmt.Sprintf("%s:%s-ubi", repoPath, version.Hash),
 			fmt.Sprintf("%s:latest-ubi", repoPath),
 		}
 	} else {
-		versionedTag := fmt.Sprintf("%s:%v", repoPath, version)
+		versionedTag = fmt.Sprintf("%s:%v", repoPath, version)
 		tagsToPush = []string{
 			versionedTag,
 			fmt.Sprintf("%s:%s", repoPath, version.Hash),
@@ -371,7 +371,7 @@ func calcVersionAndTags(version FullVersion) (string, []string) {
 
 func runDockerBuild(versionedTag string, dockerTags []string) {
 	buildArgs := []string{fmt.Sprintf("VERSION_STAMP=%s", versionedTag)}
-	if baseOs := os.Getenv(envBaseOs); baseOs != "" {
+	if baseOs := os.Getenv(EnvBaseOs); baseOs != "" {
 		buildArgs = append(buildArgs, fmt.Sprintf("BASE_OS=%s", baseOs))
 	}
 	dockerutil.Build(".", "", "./operator/Dockerfile", dockerTags, buildArgs).ExecVPanic()
