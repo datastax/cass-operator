@@ -1334,10 +1334,6 @@ spec:
                               - containerPort
                               type: object
                             type: array
-                            x-kubernetes-list-map-keys:
-                            - containerPort
-                            - protocol
-                            x-kubernetes-list-type: map
                           readinessProbe:
                             description: 'Periodic probe of container service readiness.
                               Container will be removed from service endpoints if
@@ -3666,10 +3662,6 @@ spec:
                               - containerPort
                               type: object
                             type: array
-                            x-kubernetes-list-map-keys:
-                            - containerPort
-                            - protocol
-                            x-kubernetes-list-type: map
                           readinessProbe:
                             description: 'Periodic probe of container service readiness.
                               Container will be removed from service endpoints if
@@ -4600,10 +4592,6 @@ spec:
                         - whenUnsatisfiable
                         type: object
                       type: array
-                      x-kubernetes-list-map-keys:
-                      - topologyKey
-                      - whenUnsatisfiable
-                      x-kubernetes-list-type: map
                     volumes:
                       description: 'List of volumes that can be mounted by containers
                         belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes'
@@ -6283,7 +6271,7 @@ metadata:
 spec:
   ports:
   - port: 443
-    targetPort: 443
+    targetPort: 8443
   selector:
     name: cass-operator
 ---
@@ -6337,12 +6325,23 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 5
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 65534
+          runAsUser: 65534
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cass-operator-certs-volume
           readOnly: false
+        - mountPath: /tmp/
+          name: tmpconfig-volume
+          readOnly: false
       serviceAccountName: cass-operator
       volumes:
+      - emptyDir:
+          medium: Memory
+        name: tmpconfig-volume
       - name: cass-operator-certs-volume
         secret:
           secretName: cass-operator-webhook-config
@@ -6352,9 +6351,7 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: cassandradatacenter-webhook-registration
 webhooks:
-- admissionReviewVersions:
-  - v1beta1
-  clientConfig:
+- clientConfig:
     service:
       name: cassandradatacenter-webhook-service
       namespace: cass-operator
@@ -6371,6 +6368,4 @@ webhooks:
     - UPDATE
     resources:
     - cassandradatacenters
-    scope: '*'
   sideEffects: None
-  timeoutSeconds: 10
