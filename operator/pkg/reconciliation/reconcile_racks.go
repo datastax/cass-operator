@@ -529,7 +529,7 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 
 	// step 1 - see if any nodes are already coming up
 
-	nodeIsStarting, nodeStarted, err := rc.findStartingNodes()
+	nodeIsStarting, _, err := rc.findStartingNodes()
 
 	if err != nil {
 		return result.Error(err)
@@ -573,11 +573,6 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 	desiredSize := int(rc.Datacenter.Spec.Size)
 
 	if desiredSize == readyPodCount && desiredSize == startedLabelCount {
-		// When the ready and started counts match the desired counts and nodeStarted is true, then that means we have
-		// just started the last node in the data center.
-		if nodeStarted {
-			return result.RequeueSoon(2)
-		}
 		return result.Continue()
 	} else {
 		err := fmt.Errorf("checks failed desired:%d, ready:%d, started:%d", desiredSize, readyPodCount, startedLabelCount)
@@ -1840,6 +1835,22 @@ func (rc *ReconciliationContext) cleanupAfterScaling() error {
 	return err
 }
 
+func (rc *ReconciliationContext) CheckCassandraNodeStatuses() result.ReconcileResult {
+	dc := rc.Datacenter
+	logger := rc.ReqLogger
+
+	// Check that we have a HostID for every pod in the datacenter
+	for _, pod := range rc.dcPods {
+		nodeStatus, ok := dc.Status.NodeStatuses[pod.Name]
+		if !ok || nodeStatus.HostID == "" {
+			logger.Info("Missing host id", "pod", pod.Name)
+			return result.RequeueSoon(2)
+		}
+	}
+
+	return result.Continue()
+}
+
 func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileResult {
 	dc := rc.Datacenter
 	logger := rc.ReqLogger
@@ -1938,6 +1949,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	}
 
 	if recResult := rc.CheckPodsReady(endpointData); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckCassandraNodeStatuses(); recResult.Completed() {
 		return recResult.Output()
 	}
 
