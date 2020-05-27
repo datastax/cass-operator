@@ -770,13 +770,11 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 	logger := rc.ReqLogger
 	dc := rc.Datacenter
 
-	pods := ListAllStartedPods(rc.dcPods)
-
 	if dc.Status.NodeStatuses == nil {
 		dc.Status.NodeStatuses = map[string]api.CassandraNodeStatus{}
 	}
 
-	for _, pod := range pods {
+	for _, pod := range rc.dcPods {
 		nodeStatus, ok := dc.Status.NodeStatuses[pod.Name]
 		if !ok {
 			nodeStatus = api.CassandraNodeStatus{}
