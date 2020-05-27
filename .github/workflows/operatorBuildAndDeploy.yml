@@ -57,7 +57,7 @@ jobs:
           MO_ECR_REPO: ${{ secrets.ECR_REPO }}
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          export MO_TAGS=$(cat ./build/tagsToPush.txt)
+          export MO_TAGS=$(cat ./build/fullTagsToPush.txt)
           mage operator:deployToECR
       - name: Deploy to GH Packages
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
