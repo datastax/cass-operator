@@ -51,13 +51,13 @@ const (
 	cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.2"
 	cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.2"
 	dse_6_8_0        = "datastax/dse-server:6.8.0"
-	envBaseImageOs   = "BASE_IMAGE_OS"
+	EnvBaseImageOs   = "BASE_IMAGE_OS"
 )
 
 // getImageForServerVersion tries to look up a known image for a server type and version number.
 // In the event that no image is found, an error is returned
 func getImageForServerVersion(server, version string) (string, error) {
-	baseImageOs := os.Getenv(envBaseImageOs)
+	baseImageOs := os.Getenv(EnvBaseImageOs)
 
 	var imageCalc func(string) (string, bool)
 	var img string
