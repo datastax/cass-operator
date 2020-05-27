@@ -40,7 +40,7 @@ jobs:
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testAndBuild
           cat ./build/tagsToPush.txt > ./build/fullTagsToPush.txt
-          echo "|" >> ./build/tagsToPush.txt
+          echo "|" >> ./build/fullTagsToPush.txt
       - name: Build docker - ubi image
         env:
           MO_BRANCH: ${{ github.event.pull_request.head.ref }}
@@ -58,8 +58,6 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export MO_TAGS=$(cat ./build/fullTagsToPush.txt)
-          echo "Full tags:"
-          cat ./build/fullTagsToPush.txt
           mage operator:deployToECR
       - name: Deploy to GH Packages
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
