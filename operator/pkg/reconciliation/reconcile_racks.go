@@ -803,10 +803,6 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 					rc.ReqLogger.Error(err, "Could not get endpoints data")
 				}
 			}
-
-			if nodeStatus.HostID != "" {
-				nodeStatus.NodeIP = pod.Status.PodIP
-			}
 		}
 
 		dc.Status.NodeStatuses[pod.Name] = nodeStatus

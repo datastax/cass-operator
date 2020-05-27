@@ -6125,8 +6125,6 @@ spec:
                 properties:
                   hostID:
                     type: string
-                  nodeIP:
-                    type: string
                 type: object
               type: object
             superUserUpserted:
