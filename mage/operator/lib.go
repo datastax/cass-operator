@@ -74,7 +74,7 @@ func checkForUnstagedChanges(message string) {
 func writeBuildFile(fileName string, contents string) {
 	mageutil.EnsureDir(rootBuildDir)
 	outputPath := filepath.Join(rootBuildDir, fileName)
-	err := ioutil.WriteFile(outputPath, []byte(contents+"\n"), 0666)
+	err := ioutil.WriteFile(outputPath, []byte(contents), 0666)
 	if err != nil {
 		fmt.Printf("Failed to write file at %s\n", outputPath)
 		panic(err)
