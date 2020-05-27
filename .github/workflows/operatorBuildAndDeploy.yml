@@ -62,7 +62,6 @@ jobs:
       - name: Deploy to GH Packages
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
         env:
-        env:
           MO_GH_USR: 'datastax/cass-operator'
           MO_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           MO_GH_PKG_REPO: 'datastax/cass-operator/operator'
