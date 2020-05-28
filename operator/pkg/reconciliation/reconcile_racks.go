@@ -579,8 +579,8 @@ func (rc *ReconciliationContext) CheckRackPodLabels() result.ReconcileResult {
 	return result.Continue()
 }
 
-func shouldUpsertSuperUser(dc api.CassandraDatacenter) bool {
-	lastCreated := dc.Status.SuperUserUpserted
+func shouldUpsertUsers(dc api.CassandraDatacenter) bool {
+	lastCreated := dc.Status.UsersUpserted
 	return time.Now().After(lastCreated.Add(time.Minute * 4))
 }
 
@@ -620,9 +620,9 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 	}
 
 	//Skip upsert if already did so recently
-	if !shouldUpsertSuperUser(*dc) {
-		rc.ReqLogger.Info(fmt.Sprintf("The CQL superuser was last upserted at %v, skipping upsert", 
-			dc.Status.SuperUserUpserted))
+	if !shouldUpsertUsers(*dc) {
+		rc.ReqLogger.Info(fmt.Sprintf("The users were last upserted at %v, skipping upsert", 
+			dc.Status.UsersUpserted))
 		return result.Continue()
 	}
 
@@ -642,13 +642,21 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 		err = rc.createUser(user)
 	}
 
+	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedUsers,
+		"Created users")
+
+	// For backwards compatiblity
 	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedSuperuser,
 		"Created superuser")
 
 	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
+	rc.Datacenter.Status.UsersUpserted = metav1.Now()
+	
+	// For backwards compatibility
 	rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
+
 	if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
-		rc.ReqLogger.Error(err, "error updating the CQL superuser upsert timestamp")
+		rc.ReqLogger.Error(err, "error updating the users upsert timestamp")
 		return result.Error(err)
 	}
 

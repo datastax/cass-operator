@@ -220,20 +220,21 @@ func NewDatacenterCondition(conditionType DatacenterConditionType, status corev1
 	}
 }
 
-// Note: The below property 'SuperUserUpserted' needs to be refactored 
-// at some point to treat superuser as one word instead of two. Also, 
-// this is not just for the one superuser any more, but all users
-// defined on the CassandraDatacenter resource.
-
 // CassandraDatacenterStatus defines the observed state of CassandraDatacenter
 // +k8s:openapi-gen=true
 type CassandraDatacenterStatus struct {
 	Conditions []DatacenterCondition `json:"conditions,omitempty"`
 
-	// The timestamp at which cassandra user credentials
-	// were last upserted to the management API
+	// Deprecated. Use usersUpserted instead. The timestamp at 
+	// which CQL superuser credentials were last upserted to the 
+	// management API
 	// +optional
 	SuperUserUpserted metav1.Time `json:"superUserUpserted,omitempty"`
+
+	// The timestamp at which managed cassandra users' crednetials
+	// were last upserted to the management API
+	// +optional
+	UsersUpserted metav1.Time `json:"usersUpserted,omitempty"`
 
 	// The timestamp when the operator last started a Server node
 	// with the management API
