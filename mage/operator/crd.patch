@@ -1,0 +1,51 @@
+--- operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml	2020-05-27 00:06:53.000000000 -0400
++++ charts/cass-operator-chart/templates/customresourcedefinition.yaml	2020-05-27 09:58:56.000000000 -0400
+@@ -1313,10 +1313,12 @@
+                               - containerPort
+                               type: object
+                             type: array
++                            {{- if semverCompare ">= 1.16-0" .Capabilities.KubeVersion.GitVersion }}
+                             x-kubernetes-list-map-keys:
+                             - containerPort
+                             - protocol
+                             x-kubernetes-list-type: map
++                            {{- end }}
+                           readinessProbe:
+                             description: 'Periodic probe of container service readiness.
+                               Container will be removed from service endpoints if
+@@ -3645,10 +3647,12 @@
+                               - containerPort
+                               type: object
+                             type: array
++                            {{- if semverCompare ">= 1.16-0" .Capabilities.KubeVersion.GitVersion }}
+                             x-kubernetes-list-map-keys:
+                             - containerPort
+                             - protocol
+                             x-kubernetes-list-type: map
++                            {{- end }}
+                           readinessProbe:
+                             description: 'Periodic probe of container service readiness.
+                               Container will be removed from service endpoints if
+@@ -4579,10 +4583,12 @@
+                         - whenUnsatisfiable
+                         type: object
+                       type: array
++                      {{- if semverCompare ">= 1.16-0" .Capabilities.KubeVersion.GitVersion }}
+                       x-kubernetes-list-map-keys:
+                       - topologyKey
+                       - whenUnsatisfiable
+                       x-kubernetes-list-type: map
++                      {{- end }}
+                     volumes:
+                       description: 'List of volumes that can be mounted by containers
+                         belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes'
+@@ -6136,7 +6142,9 @@
+               type: string
+           type: object
+       type: object
++      {{- if semverCompare ">= 1.15-0" .Capabilities.KubeVersion.GitVersion }}
+       x-kubernetes-preserve-unknown-fields: true
++      {{- end }}
+   version: v1beta1
+   versions:
+   - name: v1beta1
