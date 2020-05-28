@@ -29,6 +29,7 @@ func buildOverrideArgs(overrides map[string]string) []string {
 func Install(chartPath string, releaseName string, namespace string, overrides map[string]string) error {
 	args := []string{
 		"install",
+		"--disable-openapi-validation",
 		fmt.Sprintf("--namespace=%s", namespace),
 	}
 
@@ -40,6 +41,7 @@ func Install(chartPath string, releaseName string, namespace string, overrides m
 func Upgrade(chartPath string, releaseName string, namespace string, overrides map[string]string) error {
 	args := []string{
 		"upgrade",
+		"--disable-openapi-validation",
 		fmt.Sprintf("--namespace=%s", namespace),
 	}
 
