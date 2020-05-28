@@ -6157,6 +6157,7 @@ spec:
               type: string
           type: object
       type: object
+      x-kubernetes-preserve-unknown-fields: true
   version: v1beta1
   versions:
   - name: v1beta1
@@ -6283,7 +6284,7 @@ metadata:
 spec:
   ports:
   - port: 443
-    targetPort: 443
+    targetPort: 8443
   selector:
     name: cass-operator
 ---
@@ -6337,12 +6338,23 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 5
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 65534
+          runAsUser: 65534
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cass-operator-certs-volume
           readOnly: false
+        - mountPath: /tmp/
+          name: tmpconfig-volume
+          readOnly: false
       serviceAccountName: cass-operator
       volumes:
+      - emptyDir:
+          medium: Memory
+        name: tmpconfig-volume
       - name: cass-operator-certs-volume
         secret:
           secretName: cass-operator-webhook-config
@@ -6360,6 +6372,7 @@ webhooks:
       namespace: cass-operator
       path: /validate-cassandra-datastax-com-v1beta1-cassandradatacenter
   failurePolicy: Ignore
+  matchPolicy: Equivalent
   name: cassandradatacenter-webhook.cassandra.datastax.com
   rules:
   - apiGroups:
