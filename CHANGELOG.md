@@ -1,8 +1,8 @@
 # Changelog
 
 ## v1.2.0
-* (origin/master, origin/HEAD) Better support for several k8s versions (#97) 9d76ad8258aa4e1d4893a357546de7de80aef0a0
-* (master) Fix broken upgrade (#85) 86b869df65f8180524dc12ff11502f6f6889eef5
+* Better support for several k8s versions - https://github.com/datastax/cass-operator/commit/9d76ad8258aa4e1d4893a357546de7de80aef0a0
+* Fix broken upgrade - https://github.com/datastax/cass-operator/commit/86b869df65f8180524dc12ff11502f6f6889eef5
 * Create default kubeconfig when setting up k3d (#91) 1845cab4e2ada881b01d84331ccb20b1d4742b44
 * Update helm crd and test generate targets in gh workflow (#93) ac23560f156202a9a90e198776da980a77455dd6
 * Mount root as read-only and temp dir as memory emptyvol #86 (#89) 0474057e8339da4f89b2e901ab697f10a2184d78
