@@ -62,17 +62,19 @@ func getImageForServerVersion(server, version string) (string, error) {
 	var imageCalc func(string) (string, bool)
 	var img string
 	var success bool
+	var errMsg string
 
 	if baseImageOs == "" {
 		imageCalc = getImageForDefaultBaseOs
+		errMsg = fmt.Sprintf("server '%s' and version '%s' do not work together", server, version)
 	} else {
-
+		errMsg = fmt.Sprintf("server '%s' and version '%s', along with the specified base OS '%s', do not work together", server, version, baseImageOs)
 		imageCalc = getImageForUniversalBaseOs
 	}
 
 	img, success = imageCalc(server + "-" + version)
 	if !success {
-		return "", fmt.Errorf("server '%s' and version '%s' do not work together", server, version)
+		return "", fmt.Errorf(errMsg)
 	}
 
 	return img, nil
@@ -91,7 +93,18 @@ func getImageForDefaultBaseOs(sv string) (string, bool) {
 }
 
 func getImageForUniversalBaseOs(sv string) (string, bool) {
-	panic("TODO: Need universal basic image coords")
+	switch sv {
+	case "dse-6.8.0":
+		//TODO need ubi coords
+		return "", false
+	case "cassandra-3.11.6":
+		//TODO need ubi coords
+		return "", false
+	case "cassandra-4.0.0":
+		//TODO need ubi coords
+		return "", false
+	}
+	return "", false
 }
 
 // CassandraDatacenterSpec defines the desired state of a CassandraDatacenter
@@ -320,10 +333,16 @@ func init() {
 }
 
 func (dc *CassandraDatacenter) GetConfigBuilderImage() string {
-	if dc.Spec.ConfigBuilderImage == "" {
-		return defaultConfigBuilderImage
+	var image string
+	if dc.Spec.ConfigBuilderImage != "" {
+		image = dc.Spec.ConfigBuilderImage
+	} else if baseImageOs := os.Getenv(EnvBaseImageOs); baseImageOs != "" {
+		//TODO actual config builder ubi image
+		image = "config-builder-ubi:test1"
+	} else {
+		image = defaultConfigBuilderImage
 	}
-	return dc.Spec.ConfigBuilderImage
+	return image
 }
 
 // GetServerImage produces a fully qualified container image to pull

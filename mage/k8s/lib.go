@@ -51,7 +51,9 @@ func getOperatorImage() string {
 
 func loadImagesFromBuildSettings(cfg ClusterActions, settings BuildSettings) {
 	for _, image := range settings.Dev.Images {
-		shutil.RunVPanic("docker", "pull", image)
+		// we likely don't always care if we fail to pull
+		// because we could be testing local images
+		_ = shutil.RunV("docker", "pull", image)
 		cfg.LoadImage(image)
 	}
 }
