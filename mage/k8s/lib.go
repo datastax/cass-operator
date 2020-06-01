@@ -266,6 +266,21 @@ func Env() {
 func InstallTool() {
 	loadClusterSettings()
 	clusterActions.InstallTool()
+	installHelm()
+}
+
+func installHelm() {
+	cwd, err := os.Getwd()
+	mageutil.PanicOnError(err)
+	os.Chdir("/tmp")
+	shutil.RunVPanic("curl",
+		"https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3",
+		"-o", "helm_install.sh",
+	)
+	os.Setenv("DESIRED_VERSION", "v3.1.2")
+	os.Chmod("./helm_install.sh", 0755)
+	shutil.RunVPanic("./helm_install.sh")
+	os.Chdir(cwd)
 }
 
 // Configure kubectl to point to the specified cluster
