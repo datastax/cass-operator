@@ -1427,13 +1427,6 @@ func (rc *ReconciliationContext) labelServerPodStartedNotReady(pod *corev1.Pod) 
 	return err
 }
 
-func (rc *ReconciliationContext) callNodeManagementStart(pod *corev1.Pod) error {
-	mgmtClient := rc.NodeMgmtClient
-	err := mgmtClient.CallLifecycleStartEndpoint(pod)
-
-	return err
-}
-
 // Checks to see if any node is starting. This is done by checking to see if the cassandra.datastax.com/node-state label
 // has a value of Starting. If it does then check to see if the C* node is ready. If the node is ready, the pod's
 // cassandra.datastax.com/node-state label is set to a value of Started. This function returns two bools and an error.
