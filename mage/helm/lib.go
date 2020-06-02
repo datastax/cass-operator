@@ -9,14 +9,8 @@ import (
 	shutil "github.com/datastax/cass-operator/mage/sh"
 )
 
-func Install(chartPath string, releaseName string, namespace string, overrides map[string]string) error {
-	args := []string{
-		"install",
-		// FIXME: Need support for older versions of k8s
-		"--disable-openapi-validation",
-		fmt.Sprintf("--namespace=%s", namespace),
-	}
-
+func buildOverrideArgs(overrides map[string]string) []string {
+	args := []string{}
 	if overrides != nil && len(overrides) > 0 {
 		var overrideString = ""
 		for key, val := range overrides {
@@ -29,7 +23,27 @@ func Install(chartPath string, releaseName string, namespace string, overrides m
 
 		args = append(args, "--set", overrideString)
 	}
+	return args
+}
 
+func Install(chartPath string, releaseName string, namespace string, overrides map[string]string) error {
+	args := []string{
+		"install",
+		fmt.Sprintf("--namespace=%s", namespace),
+	}
+
+	args = append(args, buildOverrideArgs(overrides)...)
+	args = append(args, releaseName, chartPath)
+	return shutil.RunV("helm", args...)
+}
+
+func Upgrade(chartPath string, releaseName string, namespace string, overrides map[string]string) error {
+	args := []string{
+		"upgrade",
+		fmt.Sprintf("--namespace=%s", namespace),
+	}
+
+	args = append(args, buildOverrideArgs(overrides)...)
 	args = append(args, releaseName, chartPath)
 	return shutil.RunV("helm", args...)
 }

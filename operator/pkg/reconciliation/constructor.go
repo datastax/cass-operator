@@ -39,6 +39,9 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 			Name: "mgmt-api", Port: 8080, TargetPort: intstr.FromInt(8080),
 		},
 	}
+
+	addHashAnnotation(service)
+
 	return service
 }
 
@@ -63,6 +66,9 @@ func newSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.S
 
 	service.Spec.Selector = buildLabelSelectorForSeedService(dc)
 	service.Spec.PublishNotReadyAddresses = true
+
+	addHashAnnotation(service)
+
 	return service
 }
 
@@ -72,6 +78,9 @@ func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev
 	service := makeGenericHeadlessService(dc)
 	service.ObjectMeta.Name = dc.GetAllPodsServiceName()
 	service.Spec.PublishNotReadyAddresses = true
+
+	addHashAnnotation(service)
+
 	return service
 }
 
@@ -82,10 +91,11 @@ func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev
 func makeGenericHeadlessService(dc *api.CassandraDatacenter) *corev1.Service {
 	labels := dc.GetDatacenterLabels()
 	oplabels.AddManagedByLabel(labels)
+	selector := dc.GetDatacenterLabels()
 	var service corev1.Service
 	service.ObjectMeta.Namespace = dc.Namespace
 	service.ObjectMeta.Labels = labels
-	service.Spec.Selector = labels
+	service.Spec.Selector = selector
 	service.Spec.Type = "ClusterIP"
 	service.Spec.ClusterIP = "None"
 	return &service
@@ -104,18 +114,55 @@ func newNamespacedNameForStatefulSet(
 	}
 }
 
-// Create a statefulset object for the Datacenter.
+// We have to account for the fact that they might use the old managed-by label value
+// (oplabels.ManagedByLabelDefunctValue) for CassandraDatacenters originally
+// created in version 1.1.0 or earlier.
+func newStatefulSetForCassandraDatacenterWithDefunctPvcManagedBy(
+	rackName string,
+	dc *api.CassandraDatacenter,
+	replicaCount int) (*appsv1.StatefulSet, error) {
+	
+	return newStatefulSetForCassandraDatacenterHelper(rackName, dc, replicaCount, true)
+}
+
+func usesDefunctPvcManagedByLabel(sts *appsv1.StatefulSet) bool {
+	usesDefunct := false
+	for _, pvc := range sts.Spec.VolumeClaimTemplates {
+		value, ok := pvc.Labels[oplabels.ManagedByLabel]
+		if ok && value == oplabels.ManagedByLabelDefunctValue {
+			usesDefunct = true
+			break
+		} 
+	}
+
+	return usesDefunct
+}
+
 func newStatefulSetForCassandraDatacenter(
 	rackName string,
 	dc *api.CassandraDatacenter,
 	replicaCount int) (*appsv1.StatefulSet, error) {
+
+	return newStatefulSetForCassandraDatacenterHelper(rackName, dc, replicaCount, false)
+}
+
+// Create a statefulset object for the Datacenter.
+func newStatefulSetForCassandraDatacenterHelper(
+	rackName string,
+	dc *api.CassandraDatacenter,
+	replicaCount int,
+	useDefunctManagedByForPvc bool) (*appsv1.StatefulSet, error) {
 
 	replicaCountInt32 := int32(replicaCount)
 
 	// see https://github.com/kubernetes/kubernetes/pull/74941
 	// pvc labels are ignored before k8s 1.15.0
 	pvcLabels := dc.GetRackLabels(rackName)
-	oplabels.AddManagedByLabel(pvcLabels)
+	if useDefunctManagedByForPvc {
+		oplabels.AddDefunctManagedByLabel(pvcLabels)
+	} else {
+		oplabels.AddManagedByLabel(pvcLabels)
+	}
 
 	statefulSetLabels := dc.GetRackLabels(rackName)
 	oplabels.AddManagedByLabel(statefulSetLabels)

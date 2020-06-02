@@ -105,7 +105,7 @@ func reloadLocalImage(image string) {
 
 func setupKubeconfig() {
 	k3dConfig := shutil.OutputPanic("k3d", "get-kubeconfig")
-	currentConfig := kubectl.GetKubeconfig()
+	currentConfig := kubectl.GetKubeconfig(true)
 
 	// merge current config + new k3d config
 	// the new config must appear before the current config to update it

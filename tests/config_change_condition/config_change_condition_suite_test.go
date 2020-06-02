@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package config_change
+package config_change_condition
 
 import (
 	"fmt"

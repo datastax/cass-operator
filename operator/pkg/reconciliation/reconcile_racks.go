@@ -17,6 +17,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/kubernetes/pkg/util/slice"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -146,6 +147,28 @@ func (rc *ReconciliationContext) CheckRackCreation() result.ReconcileResult {
 	return result.Continue()
 }
 
+func (rc *ReconciliationContext) desiredStatefulSetForExistingStatefulSet(sts *appsv1.StatefulSet, rackName string) (desiredSts *appsv1.StatefulSet, err error) {
+	dc := rc.Datacenter
+
+	// have to use zero here, because each statefulset is created with no replicas
+	// in GetStatefulSetForRack()
+	replicas := 0
+
+	// when Cass Operator was released, we accidentally used the incorrect managed-by
+	// label of "cassandra-operator" we have since fixed this to be "cass-operator",
+	// but unfortunately, we cannot modify the labels in the volumeClaimTemplates of a
+	// StatefulSet. Consequently, we must preserve the old labels in this case.
+	usesDefunct := usesDefunctPvcManagedByLabel(sts)
+
+	if usesDefunct {
+		desiredSts, err = newStatefulSetForCassandraDatacenterWithDefunctPvcManagedBy(rackName, dc, replicas)
+	} else {
+		desiredSts, err = newStatefulSetForCassandraDatacenter(rackName, dc, replicas)
+	}
+
+	return
+}
+
 func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 	logger := rc.ReqLogger
 	dc := rc.Datacenter
@@ -161,9 +184,8 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 		}
 		statefulSet := rc.statefulSets[idx]
 
-		// have to use zero here, because each statefulset is created with no replicas
-		// in GetStatefulSetForRack()
-		desiredSts, err := newStatefulSetForCassandraDatacenter(rackName, dc, 0)
+		desiredSts, err := rc.desiredStatefulSetForExistingStatefulSet(statefulSet, rackName)
+		
 		if err != nil {
 			logger.Error(err, "error calling newStatefulSetForCassandraDatacenter")
 			return result.Error(err)
@@ -250,6 +272,81 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 
 	logger.Info("done CheckRackPodTemplate()")
 	return result.Continue()
+}
+
+func (rc *ReconciliationContext) CheckRackForceUpgrade() result.ReconcileResult {
+	// This code is *very* similar to CheckRackPodTemplate(), but it's not an exact
+	// copy. Some 3 to 5 line parts could maybe be extracted into functions.
+	logger := rc.ReqLogger
+	dc := rc.Datacenter
+	logger.Info("starting CheckRackForceUpgrade()")
+
+	forceRacks := dc.Spec.ForceUpgradeRacks
+	if len(forceRacks) == 0 {
+		return result.Continue()
+	}
+
+	for idx := range rc.desiredRackInformation {
+		rackName := rc.desiredRackInformation[idx].RackName
+		if slice.ContainsString(forceRacks, rackName, nil) {
+
+			statefulSet := rc.statefulSets[idx]
+
+			// have to use zero here, because each statefulset is created with no replicas
+			// in GetStatefulSetForRack()
+			desiredSts, err := newStatefulSetForCassandraDatacenter(rackName, dc, 0)
+			if err != nil {
+				logger.Error(err, "error calling newStatefulSetForCassandraDatacenter")
+				return result.Error(err)
+			}
+
+			// "fix" the replica count, and maintain labels and annotations the k8s admin may have set
+			desiredSts.Spec.Replicas = statefulSet.Spec.Replicas
+			desiredSts.Labels = utils.MergeMap(map[string]string{}, statefulSet.Labels, desiredSts.Labels)
+			desiredSts.Annotations = utils.MergeMap(map[string]string{}, statefulSet.Annotations, desiredSts.Annotations)
+
+			desiredSts.DeepCopyInto(statefulSet)
+
+			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.UpdatingRack,
+				"Force updating rack %s", rackName)
+
+			dcPatch := client.MergeFrom(dc.DeepCopy())
+			rc.setCondition(api.NewDatacenterCondition(api.DatacenterUpdating, corev1.ConditionTrue))
+
+			if err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch); err != nil {
+				logger.Error(err, "error patching datacenter status for updating condition")
+				return result.Error(err)
+			}
+
+			if err := setOperatorProgressStatus(rc, api.ProgressUpdating); err != nil {
+				return result.Error(err)
+			}
+
+			logger.Info("Force updating statefulset pod specs",
+				"statefulSet", statefulSet,
+			)
+
+			if err := rc.Client.Update(rc.Ctx, statefulSet); err != nil {
+				logger.Error(
+					err,
+					"Unable to perform update on statefulset for force update config",
+					"statefulSet", statefulSet)
+				return result.Error(err)
+			}
+
+		}
+	}
+
+	dcPatch := client.MergeFrom(dc.DeepCopy())
+	dc.Spec.ForceUpgradeRacks = nil
+
+	if err := rc.Client.Patch(rc.Ctx, dc, dcPatch); err != nil {
+		logger.Error(err, "error patching datacenter to clear force upgrade")
+		return result.Error(err)
+	}
+
+	logger.Info("done CheckRackForceUpgrade()")
+	return result.Done()
 }
 
 func (rc *ReconciliationContext) CheckRackLabels() result.ReconcileResult {
@@ -1865,6 +1962,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	}
 
 	if recResult := rc.CheckRackStoppedState(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckRackForceUpgrade(); recResult.Completed() {
 		return recResult.Output()
 	}
 

@@ -31,6 +31,7 @@ const (
 	genClientImage             = "operator-gen-client"
 	mermaidJsImage             = "operator-mermaid-js"
 	generatedDseDataCentersCrd = "operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml"
+	helmChartCrd               = "charts/cass-operator-chart/templates/customresourcedefinition.yaml"
 	packagePath                = "github.com/datastax/cass-operator/operator"
 	envGitBranch               = "MO_BRANCH"
 	envVersionString           = "MO_VERSION"
@@ -232,6 +233,19 @@ func doSdkGenerate() {
 
 	generateK8sAndOpenApi()
 	postProcessCrd()
+	patchCrdToTemplate()
+}
+
+func cpCrdToChart() {
+	crd, err := ioutil.ReadFile(generatedDseDataCentersCrd)
+	mageutil.PanicOnError(err)
+
+	err = ioutil.WriteFile(helmChartCrd, crd, os.ModePerm)
+	mageutil.PanicOnError(err)
+}
+
+func patchCrdToTemplate() {
+	shutil.RunVPanic("patch", generatedDseDataCentersCrd, "mage/operator/crd.patch", "-o", helmChartCrd)
 }
 
 // Generate files with the operator-sdk.

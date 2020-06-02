@@ -72,6 +72,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		},
 	}
 
+	// NOTE: We do not currently watch PVC resources, but if we did, we'd have to
+	// account for the fact that they might use the old managed-by label value
+	// (oplabels.ManagedByLabelDefunctValue) for CassandraDatacenters originally
+	// created in version 1.1.0 or earlier.
+
 	err = c.Watch(
 		&source.Kind{Type: &appsv1.StatefulSet{}},
 		&handler.EnqueueRequestForOwner{
