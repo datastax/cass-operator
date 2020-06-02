@@ -11,7 +11,7 @@ import (
 
 func buildOverrideArgs(overrides map[string]string) []string {
 	args := []string{}
-	if overrides != nil && len(overrides) > 0 {
+	if len(overrides) > 0 {
 		var overrideString = ""
 		for key, val := range overrides {
 			if overrideString == "" {
