@@ -139,6 +139,7 @@ func (in *CassandraDatacenterStatus) DeepCopyInto(out *CassandraDatacenterStatus
 		}
 	}
 	in.SuperUserUpserted.DeepCopyInto(&out.SuperUserUpserted)
+	in.UsersUpserted.DeepCopyInto(&out.UsersUpserted)
 	in.LastServerNodeStarted.DeepCopyInto(&out.LastServerNodeStarted)
 	in.LastRollingRestart.DeepCopyInto(&out.LastRollingRestart)
 	if in.NodeStatuses != nil {
