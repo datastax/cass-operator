@@ -191,7 +191,7 @@ func (client *NodeMgmtClient) CallKeyspaceCleanupEndpoint(pod *corev1.Pod, jobs 
 	}
 
 	request := nodeMgmtRequest{
-		endpoint: fmt.Sprintf("/api/v0/ops/keyspace/cleanup"),
+		endpoint: "/api/v0/ops/keyspace/cleanup",
 		host:     BuildPodHostFromPod(pod),
 		method:   http.MethodPost,
 		timeout:  time.Second * 20,
