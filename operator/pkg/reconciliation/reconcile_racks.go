@@ -91,7 +91,7 @@ func (rc *ReconciliationContext) CalculateRackInformation() error {
 		desiredRackInformation = append(desiredRackInformation, nextRack)
 	}
 
-	statefulSets := make([]*appsv1.StatefulSet, len(desiredRackInformation), len(desiredRackInformation))
+	statefulSets := make([]*appsv1.StatefulSet, len(desiredRackInformation))
 
 	rc.desiredRackInformation = desiredRackInformation
 	rc.statefulSets = statefulSets
@@ -352,7 +352,7 @@ func (rc *ReconciliationContext) CheckRackForceUpgrade() result.ReconcileResult 
 func (rc *ReconciliationContext) CheckRackLabels() result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_racks::CheckRackLabels")
 
-	for idx, _ := range rc.desiredRackInformation {
+	for idx := range rc.desiredRackInformation {
 		rackInfo := rc.desiredRackInformation[idx]
 		statefulSet := rc.statefulSets[idx]
 		patch := client.MergeFrom(statefulSet.DeepCopy())
@@ -665,7 +665,7 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 func (rc *ReconciliationContext) CheckRackPodLabels() result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_racks::CheckRackPodLabels")
 
-	for idx, _ := range rc.desiredRackInformation {
+	for idx := range rc.desiredRackInformation {
 		statefulSet := rc.statefulSets[idx]
 
 		if err := rc.ReconcilePods(statefulSet); err != nil {
