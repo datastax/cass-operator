@@ -348,7 +348,7 @@ func (dc *CassandraDatacenter) GetConditionStatus(conditionType DatacenterCondit
 func (status *CassandraDatacenterStatus) SetCondition(condition DatacenterCondition) {
 	conditions := status.Conditions
 	added := false
-	for i, _ := range status.Conditions {
+	for i := range status.Conditions {
 		if status.Conditions[i].Type == condition.Type {
 			status.Conditions[i] = condition
 			added = true

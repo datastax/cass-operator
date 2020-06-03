@@ -336,7 +336,7 @@ func (ns *NsWrapper) GetDatacenterPodNames(dcName string) []string {
 
 	output := ns.OutputPanic(k)
 	podNames := strings.Split(output, " ")
-	sort.Sort(sort.StringSlice(podNames))
+	sort.Strings(podNames)
 
 	return podNames
 }
@@ -349,7 +349,7 @@ func (ns *NsWrapper) GetDatacenterReadyPodNames(dcName string) []string {
 
 	output := ns.OutputPanic(k)
 	podNames := strings.Split(output, " ")
-	sort.Sort(sort.StringSlice(podNames))
+	sort.Strings(podNames)
 
 	return podNames
 }

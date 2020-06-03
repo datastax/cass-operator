@@ -182,7 +182,7 @@ func checkCassandraSeedListsAlignWithSeedLabels(info DatacenterInfo) {
 			expectedSeeds = append(expectedSeeds, node.IP)
 		}
 	}
-	sort.Sort(sort.StringSlice(expectedSeeds))
+	sort.Strings(expectedSeeds)
 
 	re := regexp.MustCompile(`[0-9]+[.][0-9]+[.][0-9]+[.][0-9]+`)
 	for _, node := range info.Nodes {
@@ -193,7 +193,7 @@ func checkCassandraSeedListsAlignWithSeedLabels(info DatacenterInfo) {
 			if node.Seed {
 				seeds = append(seeds, node.IP)
 			}
-			sort.Sort(sort.StringSlice(seeds))
+			sort.Strings(seeds)
 
 			Expect(seeds).To(Equal(expectedSeeds), "Expected pod %s to have seeds %v but had %v", node.Name, expectedSeeds, seeds)
 		}
