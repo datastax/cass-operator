@@ -26,12 +26,16 @@ func ensureWebhookCertificate(cfg *rest.Config, namespace string) (err error) {
 	var webhook map[string]interface{}
 	var bundled string
 	var client crclient.Client
+	var certpool *x509.CertPool
 	if contents, err = ioutil.ReadFile(serverCertFile); err == nil && len(contents) > 0 {
 		if client, err = crclient.New(cfg, crclient.Options{}); err == nil {
 			if err, _, webhook, _ = fetchWebhookForNamespace(client, namespace); err == nil {
 				if bundled, _, err = unstructured.NestedString(webhook, "clientConfig", "caBundle"); err == nil {
 					if base64.StdEncoding.EncodeToString([]byte(contents)) == bundled {
-						certpool := x509.NewCertPool()
+						certpool, err = x509.SystemCertPool()
+						if err != nil {
+							certpool = x509.NewCertPool()
+						}
 						var block *pem.Block
 						if block, _ = pem.Decode(contents); err == nil && block != nil {
 							var cert *x509.Certificate
