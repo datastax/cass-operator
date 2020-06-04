@@ -676,52 +676,84 @@ func (rc *ReconciliationContext) CheckRackPodLabels() result.ReconcileResult {
 	return result.Continue()
 }
 
-func shouldUpsertSuperUser(dc api.CassandraDatacenter) bool {
-	lastCreated := dc.Status.SuperUserUpserted
+func shouldUpsertUsers(dc api.CassandraDatacenter) bool {
+	lastCreated := dc.Status.UsersUpserted
 	return time.Now().After(lastCreated.Add(time.Minute * 4))
 }
 
-func (rc *ReconciliationContext) CreateSuperuser() result.ReconcileResult {
-	if rc.Datacenter.Spec.Stopped {
-		rc.ReqLogger.Info("cluster is stopped, skipping CreateSuperuser")
-		return result.Continue()
+func (rc *ReconciliationContext) createUser(user api.CassandraUser) error {
+	dc := rc.Datacenter
+	namespace := dc.ObjectMeta.Namespace
+
+	namespacedName := types.NamespacedName{
+		Name:      user.SecretName,
+		Namespace: namespace,
 	}
 
-	//Skip upsert if already did so recently
-	if !shouldUpsertSuperUser(*rc.Datacenter) {
-		rc.ReqLogger.Info(fmt.Sprintf("The CQL superuser was last upserted at %v, skipping upsert", rc.Datacenter.Status.SuperUserUpserted))
-		return result.Continue()
-	}
+	secret, err := rc.retrieveSecret(namespacedName)
 
-	rc.ReqLogger.Info("reconcile_racks::CreateSuperuser")
-
-	// Get the secret
-	secret, err := rc.retrieveSuperuserSecret()
 	if err != nil {
-		rc.ReqLogger.Error(err, "error retrieving SuperuserSecret for CassandraDatacenter.")
-		return result.Error(err)
+		return err
 	}
 
 	// We will call mgmt API on the first pod
-
 	pod := rc.dcPods[0]
 
 	err = rc.NodeMgmtClient.CallCreateRoleEndpoint(
 		pod,
 		string(secret.Data["username"]),
-		string(secret.Data["password"]))
-	if err != nil {
-		rc.ReqLogger.Error(err, "error creating superuser")
-		return result.Error(err)
+		string(secret.Data["password"]),
+		user.Superuser)
+
+	return err
+}
+
+func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
+	dc := rc.Datacenter
+
+	if dc.Spec.Stopped {
+		rc.ReqLogger.Info("cluster is stopped, skipping CreateUser")
+		return result.Continue()
 	}
 
-	rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.CreatedSuperuser,
+	//Skip upsert if already did so recently
+	if !shouldUpsertUsers(*dc) {
+		rc.ReqLogger.Info("users upserted recently, skipping upsert", 
+			"lastUpsert", dc.Status.UsersUpserted)
+		return result.Continue()
+	}
+
+	rc.ReqLogger.Info("reconcile_racks::CreateUsers")
+
+	// make sure the default superuser secret exists
+	_, err := rc.retrieveSuperuserSecretOrCreateDefault()
+
+	// add the standard superuser to our list of users
+	users := dc.Spec.Users
+	users = append(users, api.CassandraUser{
+		Superuser: true, 
+		SecretName: dc.GetSuperuserSecretNamespacedName().Name,
+	})
+
+	for _, user := range users {
+		err = rc.createUser(user)
+	}
+
+	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedUsers,
+		"Created users")
+
+	// For backwards compatiblity
+	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedSuperuser,
 		"Created superuser")
 
 	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
+	rc.Datacenter.Status.UsersUpserted = metav1.Now()
+	
+	// For backwards compatibility
 	rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
+
 	if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
-		rc.ReqLogger.Error(err, "error updating the CQL superuser upsert timestamp")
+		rc.ReqLogger.Error(err, "error updating the users upsert timestamp")
 		return result.Error(err)
 	}
 
@@ -1954,7 +1986,7 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
-	if recResult := rc.CreateSuperuser(); recResult.Completed() {
+	if recResult := rc.CreateUsers(); recResult.Completed() {
 		return recResult.Output()
 	}
 

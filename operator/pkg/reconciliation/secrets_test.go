@@ -39,7 +39,7 @@ func Test_buildDefaultSuperuserSecret(t *testing.T) {
 			t.Errorf("expected default secret name '%s' but was '%s'", expectedSecretName, secret.ObjectMeta.Name)
 		}
 
-		errors := validateSuperuserSecretContent(dc, secret)
+		errors := validateCassandraUserSecretContent(dc, secret)
 		if len(errors) > 0 {
 			t.Errorf("expected default secret to be valid, but was not: %w", errors[0])
 		}
@@ -70,7 +70,7 @@ func Test_buildDefaultSuperuserSecret(t *testing.T) {
 	})
 }
 
-func Test_validateSuperuserSecretContent(t *testing.T) {
+func Test_validateCassandraUserSecretContent(t *testing.T) {
 	var (
 		name        = "datacenter-example"
 		namespace   = "default"
@@ -84,17 +84,6 @@ func Test_validateSuperuserSecretContent(t *testing.T) {
 		valid           bool
 		message         string
 	}{
-		{
-			secretNil: true,
-			valid:     true,
-			message:   "validation should pass when a secret is going to be auto-generated",
-		},
-		{
-			superuserSecret: "my-fun-secret",
-			secretNil:       true,
-			valid:           false,
-			message:         "validation should fail when the user explicitly specifies a secret but it does not exist",
-		},
 		{
 			superuserSecret: "my-fun-secret",
 			secretNil:       false,
@@ -149,7 +138,7 @@ func Test_validateSuperuserSecretContent(t *testing.T) {
 				Data: test.data,
 			}
 		}
-		got := (len(validateSuperuserSecretContent(dc, secret)) == 0)
+		got := (len(validateCassandraUserSecretContent(dc, secret)) == 0)
 		if got != test.valid {
 			t.Error(test.message)
 		}

@@ -159,7 +159,11 @@ func (rc *ReconciliationContext) isValid(dc *api.CassandraDatacenter) error {
 
 	// Basic validation up here
 
+	// validate the required superuser
 	errs = append(errs, rc.validateSuperuserSecret()...)
+
+	// validate any other defined users
+	errs = append(errs, rc.validateCassandraUserSecrets()...)
 
 	// Validate Management API config
 	errs = append(errs, httphelper.ValidateManagementApiConfig(dc, rc.Client, rc.Ctx)...)

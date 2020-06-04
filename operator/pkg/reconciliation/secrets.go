@@ -78,10 +78,7 @@ func buildDefaultSuperuserSecret(dc *api.CassandraDatacenter) (*corev1.Secret, e
 	return secret, nil
 }
 
-func (rc *ReconciliationContext) retrieveSuperuserSecret() (*corev1.Secret, error) {
-	dc := rc.Datacenter
-	secretNamespacedName := dc.GetSuperuserSecretNamespacedName()
-
+func (rc *ReconciliationContext) retrieveSecret(secretNamespacedName types.NamespacedName) (*corev1.Secret, error) {
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -103,6 +100,12 @@ func (rc *ReconciliationContext) retrieveSuperuserSecret() (*corev1.Secret, erro
 	}
 
 	return secret, nil
+}
+
+func (rc *ReconciliationContext) retrieveSuperuserSecret() (*corev1.Secret, error) {
+	dc := rc.Datacenter
+	secretNamespacedName := dc.GetSuperuserSecretNamespacedName()
+	return rc.retrieveSecret(secretNamespacedName)
 }
 
 func (rc *ReconciliationContext) retrieveSuperuserSecretOrCreateDefault() (*corev1.Secret, error) {
@@ -134,44 +137,67 @@ func (rc *ReconciliationContext) retrieveSuperuserSecretOrCreateDefault() (*core
 
 
 // Helper function that is easier to test
-func validateSuperuserSecretContent(dc *api.CassandraDatacenter, secret *corev1.Secret) []error {
+func validateCassandraUserSecretContent(dc *api.CassandraDatacenter, secret *corev1.Secret) []error {
 	var errs []error
-	if secret != nil {
-		namespacedName := types.NamespacedName{
-			Name: secret.ObjectMeta.Name, 
-			Namespace: secret.ObjectMeta.Namespace,
-		}
-		errorPrefix := fmt.Sprintf("Validation failed for superuser secret: %s", namespacedName.String())
 
-		for _, key := range []string{"username", "password"} {
-			value, ok := secret.Data[key]
-			if !ok {
-				errs = append(errs, fmt.Errorf("%s Missing key: %s", errorPrefix, key))
-			} else if !utf8.Valid(value) {
-				errs = append(errs, fmt.Errorf("%s Key did not have valid utf8 value: %s", errorPrefix, key))
-			}
-		}
-	} else {
-		if !dc.ShouldGenerateSuperuserSecret() {
-			// We are not going to generate a secret and the user didn't provide us with
-			// one, this is an error
-			return []error{
-				fmt.Errorf("Could not load superuser secret for CassandraCluster: %s", 
-					dc.GetSuperuserSecretNamespacedName().String()),
-			}
+	namespacedName := types.NamespacedName{
+		Name: secret.ObjectMeta.Name, 
+		Namespace: secret.ObjectMeta.Namespace,
+	}
+	errorPrefix := fmt.Sprintf("Validation failed for user secret: %s", namespacedName.String())
+
+	for _, key := range []string{"username", "password"} {
+		value, ok := secret.Data[key]
+		if !ok {
+			errs = append(errs, fmt.Errorf("%s Missing key: %s", errorPrefix, key))
+		} else if !utf8.Valid(value) {
+			errs = append(errs, fmt.Errorf("%s Key did not have valid utf8 value: %s", errorPrefix, key))
 		}
 	}
+
 	return errs
 }
 
 func (rc *ReconciliationContext) validateSuperuserSecret() []error {
+	dc := rc.Datacenter
 	secret, err := rc.retrieveSuperuserSecret()
 	if err != nil {
 		if errors.IsNotFound(err) {
-			secret = nil
+			if dc.ShouldGenerateSuperuserSecret() {
+				return []error{}
+			} else {
+				return []error{
+					fmt.Errorf("Could not load superuser secret for CassandraCluster: %s", 
+						dc.GetSuperuserSecretNamespacedName().String()),
+					}
+			}
 		} else {
 			return []error{fmt.Errorf("Validation of superuser secret failed due to an error: %w", err)}
 		}
 	}
-	return validateSuperuserSecretContent(rc.Datacenter, secret)
+	return validateCassandraUserSecretContent(rc.Datacenter, secret)
+}
+
+func (rc *ReconciliationContext) validateCassandraUserSecrets() []error {
+	users := rc.Datacenter.Spec.Users
+	dc := rc.Datacenter
+	errs := []error{}
+
+	for _, user := range users {
+		secretName := user.SecretName
+		namespace := dc.ObjectMeta.Namespace
+	
+		secret, err := rc.retrieveSecret(types.NamespacedName{
+			Name:      secretName,
+			Namespace: namespace,
+		})
+
+		if err != nil {
+			errs = append(errs, fmt.Errorf("Validation of user secret failed due to an error: %w", err))
+		}
+
+		errs = append(errs, validateCassandraUserSecretContent(dc, secret)...)
+	}
+
+	return errs
 }
