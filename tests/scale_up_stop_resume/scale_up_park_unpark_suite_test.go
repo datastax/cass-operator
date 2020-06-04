@@ -107,6 +107,10 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true true true true true", 1200)
 
+			step = "check recorded host IDs"
+			nodeStatusesHostIds := ns.GetNodeStatusesHostIds(dcName)
+			Expect(len(nodeStatusesHostIds), 5)
+
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
 			ns.ExecAndLog(step, k)
