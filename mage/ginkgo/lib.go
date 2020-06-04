@@ -361,7 +361,7 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 		WithLabel("name=cass-operator").
 		WithFlag("field-selector", "status.phase=Running").
 		FormatOutput(json)
-	ns.WaitForOutputAndLog(step, k, "true", 120)
+	ns.WaitForOutputAndLog(step, k, "true", 240)
 }
 
 func (ns NsWrapper) HelmInstall(chartPath string) {
