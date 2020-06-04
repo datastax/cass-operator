@@ -718,8 +718,8 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 
 	//Skip upsert if already did so recently
 	if !shouldUpsertUsers(*dc) {
-		rc.ReqLogger.Info(fmt.Sprintf("The users were last upserted at %v, skipping upsert", 
-			dc.Status.UsersUpserted))
+		rc.ReqLogger.Info("users upserted recently, skipping upsert", 
+			"lastUpsert", dc.Status.UsersUpserted)
 		return result.Continue()
 	}
 
