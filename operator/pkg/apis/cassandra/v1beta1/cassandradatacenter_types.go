@@ -236,7 +236,7 @@ type CassandraDatacenterStatus struct {
 	// +optional
 	SuperUserUpserted metav1.Time `json:"superUserUpserted,omitempty"`
 
-	// The timestamp at which managed cassandra users' crednetials
+	// The timestamp at which managed cassandra users' credentials
 	// were last upserted to the management API
 	// +optional
 	UsersUpserted metav1.Time `json:"usersUpserted,omitempty"`
