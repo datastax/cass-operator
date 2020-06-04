@@ -6,6 +6,7 @@ package superuser_secret_provided
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -21,6 +22,9 @@ var (
 	defaultSecretName   = "cluster2-superuser"
 	superuserName       = "bob"
 	superuserPass       = "bobber"
+	superuserNewPass    = "somefancypantsnewpassword"
+	secretYaml          = "../testdata/bob-secret-changed.yaml"
+	secretChangedYaml   = "../testdata/bob-secret.yaml"
 	secretResource      = fmt.Sprintf("secret/%s", superuserSecretName)
 	dcName              = "dc2"
 	dcYaml              = "../testdata/default-single-rack-2-node-dc-with-superuser-secret.yaml"
@@ -59,7 +63,7 @@ var _ = Describe(testName, func() {
 			ns.WaitForOperatorReady()
 
 			step = "create superuser secret"
-			k = kubectl.CreateSecretLiteral(superuserSecretName, superuserName, superuserPass)
+			k = kubectl.ApplyFiles(secretYaml)
 			ns.ExecAndLog(step, k)
 
 			step = "creating a datacenter resource with 1 racks/2 nodes"
@@ -98,6 +102,22 @@ var _ = Describe(testName, func() {
 			By(step)
 			err = ns.ExecV(k)
 			Expect(err).To(HaveOccurred())
+
+			step = "check change superuser secret updates user"
+			k = kubectl.ApplyFiles(secretChangedYaml)
+			ns.ExecAndLog(step, k)
+
+			// Give the operator a minute to pick up the change
+			time.Sleep(1 * time.Minute)
+
+			step = "verify new credentials work"
+			k = kubectl.ExecOnPod(
+				podNames[0], "--", "cqlsh",
+				"--user", superuserName,
+				"--password", superuserNewPass,
+				"-e", "select * from system_schema.keyspaces;").
+				WithFlag("container", "cassandra")
+			ns.ExecAndLog(step, k)
 		})
 	})
 })
