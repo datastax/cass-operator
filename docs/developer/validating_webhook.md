@@ -20,7 +20,7 @@ The operator will look for, and if present, use, the certificates in the
 default location that the controller-manager expects the certificates.  If the
 files there don't exist, or the certificate does not appear to be valid, then
 the operator will generate a self-signed CA, and attempt to update the various
-kuberentes references to that certificate, specifically:
+kubernetes references to that certificate, specifically:
 * The CA defined in the webhook
 * The cert and key stored in the relevant secret in the cass-operator namespace.
 
