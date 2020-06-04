@@ -113,7 +113,7 @@ func (client *NodeMgmtClient) CallMetadataEndpointsEndpoint(pod *corev1.Pod) (Ca
 }
 
 // Create a new superuser with the given username and password
-func (client *NodeMgmtClient) CallCreateRoleEndpoint(pod *corev1.Pod, username string, password string) error {
+func (client *NodeMgmtClient) CallCreateRoleEndpoint(pod *corev1.Pod, username string, password string, superuser bool) error {
 	client.Log.Info(
 		"calling Management API create role - POST /api/v0/ops/auth/role",
 		"pod", pod.Name,
@@ -123,7 +123,7 @@ func (client *NodeMgmtClient) CallCreateRoleEndpoint(pod *corev1.Pod, username s
 	postData.Set("username", username)
 	postData.Set("password", password)
 	postData.Set("can_login", "true")
-	postData.Set("is_superuser", "true")
+	postData.Set("is_superuser", strconv.FormatBool(superuser))
 
 	request := nodeMgmtRequest{
 		endpoint: fmt.Sprintf("/api/v0/ops/auth/role?%s", postData.Encode()),
@@ -191,7 +191,7 @@ func (client *NodeMgmtClient) CallKeyspaceCleanupEndpoint(pod *corev1.Pod, jobs 
 	}
 
 	request := nodeMgmtRequest{
-		endpoint: fmt.Sprintf("/api/v0/ops/keyspace/cleanup"),
+		endpoint: "/api/v0/ops/keyspace/cleanup",
 		host:     BuildPodHostFromPod(pod),
 		method:   http.MethodPost,
 		timeout:  time.Second * 20,

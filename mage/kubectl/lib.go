@@ -62,9 +62,7 @@ func (k KCmd) ToCliArgs() []string {
 		args = append(args, fmt.Sprintf("--%s=%s", k, v))
 	}
 	args = append(args, k.Command)
-	for _, r := range k.Args {
-		args = append(args, r)
-	}
+	args = append(args, k.Args...)
 	return args
 }
 
