@@ -194,7 +194,6 @@ type Rack struct {
 
 type CassandraNodeStatus struct {
 	HostID string `json:"hostID,omitempty"`
-	NodeIP string `json:"nodeIP,omitempty"`
 }
 
 type CassandraStatusMap map[string]CassandraNodeStatus

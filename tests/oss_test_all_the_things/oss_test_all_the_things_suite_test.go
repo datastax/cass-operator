@@ -55,6 +55,12 @@ var _ = Describe(testName, func() {
 			k := kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
+			ns.WaitForSuperUserUpserted(dcName, 600)
+
+			step = "check recorded host IDs"
+			nodeStatusesHostIds := ns.GetNodeStatusesHostIds(dcName)
+			Expect(len(nodeStatusesHostIds), 3)
+
 			ns.WaitForDatacenterReady(dcName)
 			ns.WaitForDatacenterCondition(dcName, "Ready", string(corev1.ConditionTrue))
 			ns.WaitForDatacenterCondition(dcName, "Initialized", string(corev1.ConditionTrue))
