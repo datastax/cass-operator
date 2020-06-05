@@ -1,13 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"bytes"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"fmt"
 	"math/big"
 	"time"
 )
@@ -29,11 +29,11 @@ func getNewCertAndKey(namespace string) (keypem, certpem string, err error) {
 				NotBefore: notBefore,
 				NotAfter:  notAfter,
 
-				IsCA: true,
+				IsCA:                  true,
 				KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
 				ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 				BasicConstraintsValid: true,
-				DNSNames:              []string{fmt.Sprintf("cassandradatacenter-webhook-service.%s.svc",namespace) },
+				DNSNames:              []string{fmt.Sprintf("cassandradatacenter-webhook-service.%s.svc", namespace)},
 			}
 			var derBytes []byte
 			if derBytes, err = x509.CreateCertificate(rand.Reader, &template, &template, &priv.PublicKey, priv); err == nil {
@@ -50,5 +50,5 @@ func getNewCertAndKey(namespace string) (keypem, certpem string, err error) {
 			}
 		}
 	}
-	return "","", err
+	return "", "", err
 }

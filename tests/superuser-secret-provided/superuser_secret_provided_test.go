@@ -25,6 +25,8 @@ var (
 	superuserNewPass    = "somefancypantsnewpassword"
 	secretYaml          = "../testdata/bob-secret-changed.yaml"
 	secretChangedYaml   = "../testdata/bob-secret.yaml"
+	bobbyuserName       = "bobby"
+	bobbyuserPass       = "littlebobbydroptables"
 	secretResource      = fmt.Sprintf("secret/%s", superuserSecretName)
 	dcName              = "dc2"
 	dcYaml              = "../testdata/default-single-rack-2-node-dc-with-superuser-secret.yaml"
@@ -66,6 +68,10 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(secretYaml)
 			ns.ExecAndLog(step, k)
 
+			step = "create user secret"
+			k = kubectl.CreateSecretLiteral("bobby-secret", bobbyuserName, bobbyuserPass)
+			ns.ExecAndLog(step, k)
+			
 			step = "creating a datacenter resource with 1 racks/2 nodes"
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
@@ -73,6 +79,15 @@ var _ = Describe(testName, func() {
 			ns.WaitForDatacenterReady(dcName)
 
 			podNames := ns.GetDatacenterPodNames(dcName)
+
+			step = "check Bobby's credentials work"
+			k = kubectl.ExecOnPod(
+				podNames[0], "--", "cqlsh",
+				"--user", bobbyuserName,
+				"--password", bobbyuserPass,
+				"-e", "select * from system_schema.keyspaces;").
+				WithFlag("container", "cassandra")
+			ns.ExecAndLog(step, k)
 
 			step = "check superuser credentials work"
 			k = kubectl.ExecOnPod(
