@@ -19,8 +19,6 @@ import (
 )
 
 const (
-	defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.0"
-
 	// ClusterLabel is the operator's label for the cluster name
 	ClusterLabel = "cassandra.datastax.com/cluster"
 
@@ -48,10 +46,15 @@ const (
 type ProgressState string
 
 const (
-	cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.2"
-	cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.2"
-	dse_6_8_0        = "datastax/dse-server:6.8.0"
-	EnvBaseImageOs   = "BASE_IMAGE_OS"
+	defaultConfigBuilderImage     = "datastax/cass-config-builder:1.0.0"
+	cassandra_3_11_6              = "datastax/cassandra-mgmtapi-3_11_6:v0.1.2"
+	cassandra_4_0_0               = "datastax/cassandra-mgmtapi-4_0_0:v0.1.2"
+	dse_6_8_0                     = "datastax/dse-server:6.8.0"
+	ubi_cassandra_3_11_6          = "TODO"
+	ubi_cassandra_4_0_0           = "TODO"
+	ubi_dse_6_8_0                 = "registry.connect.redhat.com/datastax/dse-server:6.8.0"
+	ubi_defaultConfigBuilderImage = "registry.connect.redhat.com/datastax/cass-config-builder:1.0.0"
+	EnvBaseImageOs                = "BASE_IMAGE_OS"
 )
 
 // getImageForServerVersion tries to look up a known image for a server type and version number.
@@ -68,6 +71,10 @@ func getImageForServerVersion(server, version string) (string, error) {
 		imageCalc = getImageForDefaultBaseOs
 		errMsg = fmt.Sprintf("server '%s' and version '%s' do not work together", server, version)
 	} else {
+		// if this operator was compiled using a UBI base image
+		// such as registry.access.redhat.com/ubi7/ubi-minimal:7.8
+		// then we use specific cassandra and init container coordinates
+		// that are built accordingly
 		errMsg = fmt.Sprintf("server '%s' and version '%s', along with the specified base OS '%s', do not work together", server, version, baseImageOs)
 		imageCalc = getImageForUniversalBaseOs
 	}
@@ -95,14 +102,11 @@ func getImageForDefaultBaseOs(sv string) (string, bool) {
 func getImageForUniversalBaseOs(sv string) (string, bool) {
 	switch sv {
 	case "dse-6.8.0":
-		//TODO need ubi coords
-		return "", false
+		return ubi_dse_6_8_0, true
 	case "cassandra-3.11.6":
-		//TODO need ubi coords
-		return "", false
+		return ubi_cassandra_3_11_6, true
 	case "cassandra-4.0.0":
-		//TODO need ubi coords
-		return "", false
+		return ubi_cassandra_4_0_0, true
 	}
 	return "", false
 }
@@ -337,8 +341,7 @@ func (dc *CassandraDatacenter) GetConfigBuilderImage() string {
 	if dc.Spec.ConfigBuilderImage != "" {
 		image = dc.Spec.ConfigBuilderImage
 	} else if baseImageOs := os.Getenv(EnvBaseImageOs); baseImageOs != "" {
-		//TODO actual config builder ubi image
-		image = "config-builder-ubi:test1"
+		image = ubi_defaultConfigBuilderImage
 	} else {
 		image = defaultConfigBuilderImage
 	}
