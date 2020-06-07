@@ -1989,6 +1989,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
+	if recResult := rc.CheckReaperSchemaInitialized(); recResult.Completed() {
+		return recResult.Output()
+	}
+
 	if recResult := rc.CheckRollingRestart(); recResult.Completed() {
 		return recResult.Output()
 	}
