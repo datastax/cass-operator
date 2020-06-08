@@ -39,7 +39,7 @@ func namespacedNameFromString(s string) types.NamespacedName {
 	comps := strings.Split(s, "/")
 	name := comps[len(comps)-1]
 	namespace := strings.TrimSuffix(s, name)
-	namespace = strings.TrimRight(s, "/")
+	namespace = strings.TrimRight(namespace, "/")
 
 	return types.NamespacedName{Name: name, Namespace: namespace,}
 }
