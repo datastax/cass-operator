@@ -68,8 +68,24 @@ func namespacedNamesFromStringArray(names []string) []types.NamespacedName {
 	return namespacedNames
 }
 
-func getWatcherNames(meta metav1.Object) []string {
+func getAnnotationsOrEmptyMap(meta metav1.Object) map[string]string {
 	annotations := meta.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	return annotations
+}
+
+func getLabelsOrEmptyMap(meta metav1.Object) map[string]string {
+	labels := meta.GetLabels()
+	if labels == nil {
+		labels = map[string]string{}
+	}
+	return labels
+}
+
+func getWatcherNames(meta metav1.Object) []string {
+	annotations := getAnnotationsOrEmptyMap(meta)
 	content, ok := annotations[WatchedByAnnotation]
 
 	if !ok {
@@ -91,7 +107,7 @@ func getWatcherNames(meta metav1.Object) []string {
 }
 
 func hasWatchedLabel(meta metav1.Object) bool {
-	labels := meta.GetLabels()
+	labels := getLabelsOrEmptyMap(meta)
 	value, ok := labels[WatchedLabel]
 	return ok && "true" == value
 }
@@ -101,11 +117,10 @@ func updateWatcherNames(meta metav1.Object, names []string) bool {
 	originalHasWatchedLabel := hasWatchedLabel(meta)
 
 	if len(names) == 0 {
-		annotations := meta.GetAnnotations()
+		annotations := getAnnotationsOrEmptyMap(meta)
 		delete(annotations, WatchedByAnnotation)
 		meta.SetAnnotations(annotations)
-		labels := meta.GetLabels()
-		delete(labels, WatchedLabel)
+		labels := getLabelsOrEmptyMap(meta)
 		meta.SetLabels(labels)
 	} else {
 		bytes, err := json.Marshal(names)
@@ -113,10 +128,10 @@ func updateWatcherNames(meta metav1.Object, names []string) bool {
 		if err != nil {
 			// TODO: Log an error
 		} else {
-			annotations := meta.GetAnnotations()
+			annotations := getAnnotationsOrEmptyMap(meta)
 			annotations[WatchedByAnnotation] = string(bytes)
 			meta.SetAnnotations(annotations)
-			labels := meta.GetLabels()
+			labels := getLabelsOrEmptyMap(meta)
 			labels[WatchedLabel] = "true"
 			meta.SetLabels(labels)
 		}
