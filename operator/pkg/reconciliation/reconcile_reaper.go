@@ -19,7 +19,8 @@ import (
 const (
 	ReaperUIPort          = 7080
 	ReaperAdminPort       = 7081
-	ReaperDefaultImage    = "thelastpickle/cassandra-reaper:2.0.5"
+	//ReaperDefaultImage    = "thelastpickle/cassandra-reaper:2.0.5"
+	ReaperDefaultImage    = "jsanda/cassandra-reaper:dev"
 	ReaperContainerName   = "reaper"
 	ReaperHealthCheckPath = "/healthcheck"
 	ReaperKeyspace        = "reaper_db"
@@ -34,7 +35,7 @@ func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
 	container := corev1.Container{
 		Name: ReaperContainerName,
 		Image: ReaperDefaultImage,
-		ImagePullPolicy: corev1.PullIfNotPresent,
+		ImagePullPolicy: corev1.PullAlways,
 		Ports: ports,
 		LivenessProbe: probe(ReaperAdminPort, ReaperHealthCheckPath, 30, 10),
 		// TODO Calculate the initial delay based on the initial delay of the Cassandra containers and the size
