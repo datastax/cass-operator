@@ -6,6 +6,7 @@ package reconciliation
 import (
 	"fmt"
 	"time"
+	"context"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -21,6 +22,7 @@ import (
 	"github.com/datastax/cass-operator/operator/internal/result"
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
+	"github.com/datastax/cass-operator/operator/pkg/dynamicwatch"
 )
 
 // Use a var so we can mock this function
@@ -71,6 +73,7 @@ type ReconcileCassandraDatacenter struct {
 	client   client.Client
 	scheme   *runtime.Scheme
 	recorder record.EventRecorder
+	dynamicwatch.DynamicSecretWatches
 }
 
 // Reconcile reads that state of the cluster for a Datacenter object
@@ -99,7 +102,7 @@ func (r *ReconcileCassandraDatacenter) Reconcile(request reconcile.Request) (rec
 
 	logger.Info("======== handler::Reconcile has been called")
 
-	rc, err := CreateReconciliationContext(&request, r.client, r.scheme, r.recorder, logger)
+	rc, err := CreateReconciliationContext(&request, r.client, r.scheme, r.recorder, r.DynamicSecretWatches, logger)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -192,9 +195,15 @@ func (rc *ReconciliationContext) isValid(dc *api.CassandraDatacenter) error {
 
 // NewReconciler returns a new reconcile.Reconciler
 func NewReconciler(mgr manager.Manager) reconcile.Reconciler {
+	client := mgr.GetClient()
+	dynamicWatches := &dynamicwatch.DynamicSecretWatchesAnnotationImpl {
+		Client: client,
+		Ctx: context.Background(),
+	}
 	return &ReconcileCassandraDatacenter{
-		client:   mgr.GetClient(),
-		scheme:   mgr.GetScheme(),
-		recorder: mgr.GetEventRecorderFor("cass-operator"),
+		client:               mgr.GetClient(),
+		scheme:               mgr.GetScheme(),
+		recorder:             mgr.GetEventRecorderFor("cass-operator"),
+		DynamicSecretWatches: dynamicWatches,
 	}
 }

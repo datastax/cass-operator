@@ -691,6 +691,10 @@ func (rc *ReconciliationContext) createUser(user api.CassandraUser) error {
 		return err
 	}
 
+	// TODO: Check annotation for revision of this secret last 
+	//       applied for this datacenter. If we've already applied
+	//       this revision, then skip upsert
+
 	// We will call mgmt API on the first pod
 	pod := rc.dcPods[0]
 
@@ -699,6 +703,35 @@ func (rc *ReconciliationContext) createUser(user api.CassandraUser) error {
 		string(secret.Data["username"]),
 		string(secret.Data["password"]),
 		user.Superuser)
+
+	// TODO: Update annotation on secret indicating we've applied
+	//       this revision for this datacenter
+
+	return err
+}
+
+func (rc *ReconciliationContext) GetUsers() []api.CassandraUser {
+	dc := rc.Datacenter
+	// add the standard superuser to our list of users
+	users := dc.Spec.Users
+	users = append(users, api.CassandraUser{
+		Superuser: true, 
+		SecretName: dc.GetSuperuserSecretNamespacedName().Name,
+	})
+
+	return users
+}
+
+func (rc *ReconciliationContext) UpdateSecretWatches() error {
+	dc := rc.Datacenter
+	users := rc.GetUsers()
+	names := []types.NamespacedName{}
+	for _, user := range users {
+		name := types.NamespacedName{Name: user.SecretName, Namespace: dc.Namespace}
+		names = append(names, name)
+	}
+	dcNamespacedName := types.NamespacedName{Name: dc.Name, Namespace: dc.Namespace,}
+	err := rc.DynamicSecretWatches.UpdateSecretWatch(dcNamespacedName, names)
 
 	return err
 }
@@ -720,15 +753,15 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 
 	rc.ReqLogger.Info("reconcile_racks::CreateUsers")
 
-	// make sure the default superuser secret exists
-	_, err := rc.retrieveSuperuserSecretOrCreateDefault()
+	err := rc.UpdateSecretWatches()
+	if err != nil {
+		rc.ReqLogger.Error(err, "Failed to update dynamic watches on secrets")
+	}
 
-	// add the standard superuser to our list of users
-	users := dc.Spec.Users
-	users = append(users, api.CassandraUser{
-		Superuser: true, 
-		SecretName: dc.GetSuperuserSecretNamespacedName().Name,
-	})
+	// make sure the default superuser secret exists
+	_, err = rc.retrieveSuperuserSecretOrCreateDefault()
+
+	users := rc.GetUsers()
 
 	for _, user := range users {
 		err = rc.createUser(user)
@@ -762,40 +795,6 @@ func findHostIdForIpFromEndpointsData(endpointsData []httphelper.EndpointState, 
 		}
 	}
 	return ""
-}
-
-func findValueIndexFromStringArray(a []string, v string) int {
-	foundIdx := -1
-	for idx, item := range a {
-		if item == v {
-			foundIdx = idx
-			break
-		}
-	}
-
-	return foundIdx
-}
-
-func removeValueFromStringArray(a []string, v string) []string {
-	foundIdx := findValueIndexFromStringArray(a, v)
-
-	if foundIdx > -1 {
-		copy(a[foundIdx:], a[foundIdx+1:])
-		a[len(a)-1] = ""
-		a = a[:len(a)-1]
-	}
-	return a
-}
-
-func appendValuesToStringArrayIfNotPresent(a []string, values ...string) []string {
-	for _, v := range values {
-		idx := findValueIndexFromStringArray(a, v)
-		if idx < 0 {
-			// array does not contain this value, so add it
-			a = append(a, v)
-		}
-	}
-	return a
 }
 
 func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
@@ -845,13 +844,13 @@ func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
 	if len(dc.Status.NodeReplacements) > 0 {
 		for _, pod := range startedPods {
 			// Since pod is labeled as started, it should be done being replaced
-			if findValueIndexFromStringArray(dc.Status.NodeReplacements, pod.Name) > -1 {
+			if utils.FindValueIndexFromStringArray(dc.Status.NodeReplacements, pod.Name) > -1 {
 				logger.Info("Finished replacing pod", "pod", pod.Name)
 
 				rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.FinishedReplaceNode,
 					"Finished replacing pod %s", pod.Name)
 
-				dc.Status.NodeReplacements = removeValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
+				dc.Status.NodeReplacements = utils.RemoveValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
 			}
 		}
 	}
@@ -873,7 +872,7 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 		rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.ReplacingNode,
 			"Replacing Cassandra nodes for pods %s", podNamesString)
 
-		dc.Status.NodeReplacements = appendValuesToStringArrayIfNotPresent(
+		dc.Status.NodeReplacements = utils.AppendValuesToStringArrayIfNotPresent(
 			dc.Status.NodeReplacements,
 			dc.Spec.ReplaceNodes...)
 
@@ -1510,7 +1509,7 @@ func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMeta
 	mgmtClient := rc.NodeMgmtClient
 
 	// Are we replacing this node?
-	shouldReplacePod := findValueIndexFromStringArray(dc.Status.NodeReplacements, pod.Name) > -1
+	shouldReplacePod := utils.FindValueIndexFromStringArray(dc.Status.NodeReplacements, pod.Name) > -1
 
 	replaceAddress := ""
 

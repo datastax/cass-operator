@@ -110,6 +110,31 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	// Setup watches for Secrets. These secrets are often not owned by or created by
+	// the operator, so we must create a mapping back to the appropriate datacenters.
+
+	// FIXME: This cast should always succeed, but we should probably have some kind of
+	//        sanity check to make sure
+	rd := r.(*reconciliation.ReconcileCassandraDatacenter)
+	dynamicSecretWatches := rd.DynamicSecretWatches
+
+	toRequests := handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
+		watchers := dynamicSecretWatches.FindWatchers(a.Meta, a.Object)
+		requests := []reconcile.Request{}
+		for _, watcher := range watchers {
+			requests = append(requests, reconcile.Request{NamespacedName: watcher})
+		}
+		return requests
+	})
+
+	err = c.Watch(
+		&source.Kind{Type: &corev1.Secret{}},
+		&handler.EnqueueRequestsFromMapFunc{ToRequests: toRequests,},
+	)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 

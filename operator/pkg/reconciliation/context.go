@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/tools/record"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"github.com/datastax/cass-operator/operator/pkg/dynamicwatch"
 
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/events"
@@ -30,6 +31,9 @@ type ReconciliationContext struct {
 	NodeMgmtClient httphelper.NodeMgmtClient
 	Recorder       record.EventRecorder
 	ReqLogger      logr.Logger
+
+	dynamicwatch.DynamicSecretWatches
+	
 	// According to golang recommendations the context should not be stored in a struct but given that
 	// this is passed around as a parameter we feel that its a fair compromise. For further discussion
 	// see: golang/go#22602
@@ -48,6 +52,7 @@ func CreateReconciliationContext(
 	cli runtimeClient.Client,
 	scheme *runtime.Scheme,
 	rec record.EventRecorder,
+	watches dynamicwatch.DynamicSecretWatches,
 	reqLogger logr.Logger) (*ReconciliationContext, error) {
 
 	rc := &ReconciliationContext{}
@@ -55,6 +60,7 @@ func CreateReconciliationContext(
 	rc.Client = cli
 	rc.Scheme = scheme
 	rc.Recorder = &events.LoggingEventRecorder{EventRecorder: rec, ReqLogger: reqLogger,}
+	rc.DynamicSecretWatches = watches
 	rc.ReqLogger = reqLogger
 	rc.Ctx = context.Background()
 
