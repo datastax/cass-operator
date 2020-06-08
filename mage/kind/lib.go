@@ -64,7 +64,7 @@ func createCluster() {
 			"--config",
 			"tests/testdata/kind/kind_config_6_workers.yaml",
 			"--image",
-			"kindest/node:v1.15.7@sha256:e2df133f80ef633c53c0200114fce2ed5e1f6947477dbc83261a6a921169488d")
+			"kindest/node:v1.17.5@sha256:ab3f9e6ec5ad8840eeb1f76c89bb7948c77bbf76bcebe1a8b59790b8ae9a283a")
 		if err != nil {
 			fmt.Printf("KIND failed to create the cluster. %v retries left.\n", retries)
 			retries--
