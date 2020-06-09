@@ -17,7 +17,6 @@ import (
 
 	"github.com/go-logr/logr"
 
-	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -68,17 +67,10 @@ type CassMetadataEndpoints struct {
 }
 
 func BuildPodHostFromPod(pod *corev1.Pod) string {
-	return GetPodHost(
-		pod.Name,
-		pod.Labels[api.ClusterLabel],
-		pod.Labels[api.DatacenterLabel],
-		pod.Namespace)
-}
-
-func GetPodHost(podName, clusterName, dcName, namespace string) string {
-	nodeServicePattern := "%s.%s-%s-service.%s"
-
-	return fmt.Sprintf(nodeServicePattern, podName, clusterName, dcName, namespace)
+	// This function previously returned the dns hostname which includes the StatefulSet's headless service,
+	// which is the datacenter service. There are times though that we want to make a mgmt api call to the pod
+	// before the dns hostnames are available. It is therefore more reliable to simply use the PodIP.
+	return pod.Status.PodIP
 }
 
 func parseMetadataEndpointsResponseBody(body []byte) (*CassMetadataEndpoints, error) {
