@@ -676,7 +676,7 @@ func shouldUpsertUsers(dc api.CassandraDatacenter) bool {
 	return time.Now().After(lastCreated.Add(time.Minute * 4))
 }
 
-func (rc *ReconciliationContext) createUser(user api.CassandraUser) error {
+func (rc *ReconciliationContext) updateUser(user api.CassandraUser) (bool, error) {
 	dc := rc.Datacenter
 	namespace := dc.ObjectMeta.Namespace
 
@@ -686,28 +686,29 @@ func (rc *ReconciliationContext) createUser(user api.CassandraUser) error {
 	}
 
 	secret, err := rc.retrieveSecret(namespacedName)
-
 	if err != nil {
-		return err
+		return false, err
 	}
 
-	// TODO: Check annotation for revision of this secret last 
-	//       applied for this datacenter. If we've already applied
-	//       this revision, then skip upsert
+	if !rc.HasProcessed(dc, secret) {
+		rc.ReqLogger.Info("Updating user for secret", "secretName", user.SecretName)
 
-	// We will call mgmt API on the first pod
-	pod := rc.dcPods[0]
+		// We will call mgmt API on the first pod
+		pod := rc.dcPods[0]
 
-	err = rc.NodeMgmtClient.CallCreateRoleEndpoint(
-		pod,
-		string(secret.Data["username"]),
-		string(secret.Data["password"]),
-		user.Superuser)
+		err = rc.NodeMgmtClient.CallCreateRoleEndpoint(
+			pod,
+			string(secret.Data["username"]),
+			string(secret.Data["password"]),
+			user.Superuser)
 
-	// TODO: Update annotation on secret indicating we've applied
-	//       this revision for this datacenter
-
-	return err
+		if err != nil {
+			return false, err
+		}
+		rc.MarkAsProcessed(dc, secret)
+		return true, nil
+	}
+	return false, nil
 }
 
 func (rc *ReconciliationContext) GetUsers() []api.CassandraUser {
@@ -731,7 +732,7 @@ func (rc *ReconciliationContext) UpdateSecretWatches() error {
 		names = append(names, name)
 	}
 	dcNamespacedName := types.NamespacedName{Name: dc.Name, Namespace: dc.Namespace,}
-	err := rc.DynamicSecretWatches.UpdateSecretWatch(dcNamespacedName, names)
+	err := rc.UpdateSecretWatch(dcNamespacedName, names)
 
 	return err
 }
@@ -741,13 +742,6 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 
 	if dc.Spec.Stopped {
 		rc.ReqLogger.Info("cluster is stopped, skipping CreateUser")
-		return result.Continue()
-	}
-
-	//Skip upsert if already did so recently
-	if !shouldUpsertUsers(*dc) {
-		rc.ReqLogger.Info("users upserted recently, skipping upsert", 
-			"lastUpsert", dc.Status.UsersUpserted)
 		return result.Continue()
 	}
 
@@ -763,28 +757,36 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 
 	users := rc.GetUsers()
 
+	anyChanges := false
 	for _, user := range users {
-		err = rc.createUser(user)
+		changed, err := rc.updateUser(user)
+		if err != nil {
+			rc.ReqLogger.Error(err, "error updating user", "secretName", user.SecretName)
+			return result.Error(err)
+		} else {
+			anyChanges = changed || anyChanges	
+		}
 	}
 
-	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedUsers,
-		"Created users")
+	if anyChanges {
+		rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedUsers,
+			"Created users")
 
-	// For backwards compatiblity
-	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedSuperuser,
-		"Created superuser")
+		// For backwards compatiblity
+		rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedSuperuser,
+			"Created superuser")
 
-	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
-	rc.Datacenter.Status.UsersUpserted = metav1.Now()
-	
-	// For backwards compatibility
-	rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
-
-	if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
-		rc.ReqLogger.Error(err, "error updating the users upsert timestamp")
-		return result.Error(err)
+		patch := client.MergeFrom(rc.Datacenter.DeepCopy())
+		rc.Datacenter.Status.UsersUpserted = metav1.Now()
+		
+		// For backwards compatibility
+		rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
+		
+		if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
+			rc.ReqLogger.Error(err, "error updating the users upsert timestamp")
+			return result.Error(err)
+		}
 	}
-
 	return result.Continue()
 }
 

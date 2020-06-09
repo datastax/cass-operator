@@ -74,6 +74,7 @@ type ReconcileCassandraDatacenter struct {
 	scheme   *runtime.Scheme
 	recorder record.EventRecorder
 	dynamicwatch.DynamicSecretWatches
+	dynamicwatch.ResourceVersionTracker
 }
 
 // Reconcile reads that state of the cluster for a Datacenter object
@@ -102,7 +103,7 @@ func (r *ReconcileCassandraDatacenter) Reconcile(request reconcile.Request) (rec
 
 	logger.Info("======== handler::Reconcile has been called")
 
-	rc, err := CreateReconciliationContext(&request, r.client, r.scheme, r.recorder, r.DynamicSecretWatches, logger)
+	rc, err := CreateReconciliationContext(&request, r.client, r.scheme, r.recorder, r.DynamicSecretWatches, r.ResourceVersionTracker, logger)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -201,9 +202,10 @@ func NewReconciler(mgr manager.Manager) reconcile.Reconciler {
 		Ctx: context.Background(),
 	}
 	return &ReconcileCassandraDatacenter{
-		client:               mgr.GetClient(),
-		scheme:               mgr.GetScheme(),
-		recorder:             mgr.GetEventRecorderFor("cass-operator"),
-		DynamicSecretWatches: dynamicWatches,
+		client:                 mgr.GetClient(),
+		scheme:                 mgr.GetScheme(),
+		recorder:               mgr.GetEventRecorderFor("cass-operator"),
+		DynamicSecretWatches:   dynamicWatches,
+		ResourceVersionTracker: dynamicWatches,
 	}
 }

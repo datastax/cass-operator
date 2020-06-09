@@ -20,8 +20,9 @@ import (
 )
 
 const (
-	WatchedByAnnotation = "cassandra.datastax.com/watched-by"
-	WatchedLabel = "cassandra.datastax.com/watched"
+	WatchedByAnnotation             = "cassandra.datastax.com/watched-by"
+	WatchedLabel                    = "cassandra.datastax.com/watched"
+	LastVersionProcessedAnnotation  = "cassandra.datastax.com/last-version-processed"
 )
 
 type DynamicSecretWatches interface {
@@ -144,7 +145,15 @@ func updateWatcherNames(meta metav1.Object, names []string) bool {
 func removeWatcher(meta metav1.Object, watcher string) bool {
 	watchers := getWatcherNames(meta)
 	watchers = utils.RemoveValueFromStringArray(watchers, watcher)
-	return updateWatcherNames(meta, watchers)
+	changedWatcherValues := updateWatcherNames(meta, watchers)
+	
+	// clean up any uses of LastVersionProcessedAnnotation while we are at it
+	processed := getProcessedMap(meta)
+	clearProcessedEntriesForProcessorNamespacedNameString(processed, watcher)
+	// TODO: Review error handling here
+	changedProcessedMap, _ := updateProcessedMap(meta, processed)
+
+	return changedWatcherValues || changedProcessedMap
 }
 
 func addWatcher(meta metav1.Object, watcher string) bool {
@@ -260,4 +269,162 @@ func (impl *DynamicSecretWatchesAnnotationImpl) RemoveSecretWatch(watcher types.
 func (impl *DynamicSecretWatchesAnnotationImpl) FindWatchers(meta metav1.Object, object runtime.Object) []types.NamespacedName {
 	watchersAsStrings := getWatcherNames(meta)
 	return namespacedNamesFromStringArray(watchersAsStrings)
+}
+
+
+type ResourceVersionTracker interface {
+	HasProcessed(processor metav1.Object, object metav1.Object) bool
+	MarkAsProcessed(processor metav1.Object, object metav1.Object) error
+}
+
+func getProcessorValueString(processor metav1.Object) string {
+	name := types.NamespacedName{Name: processor.GetName(), Namespace: processor.GetNamespace(),}
+	uid := processor.GetUID()
+
+	// Technically, the UID can be any string, not necessarily a UUID. 
+	// However, the name must be a valid DNS subdomain and the namespace must 
+	// be a valid DNS label, so we can use '#' to separate the resource name
+	// from the UID.
+
+	key := fmt.Sprintf("%s#%s", uid, namespacedNameToString(name))
+	return key
+}
+
+func lastVersionProcessedForProcessor(processedMap map[string]string, processor metav1.Object) string {
+	uid := processor.GetUID()
+	prefix := fmt.Sprintf("%s#", uid)
+	for key, value := range processedMap {
+		if strings.HasPrefix(key, prefix) {
+			return value
+		}
+	}
+	return ""
+}
+
+func clearProcessedEntriesForProcessorNamespacedNameString(processedMap map[string]string, processorNamespacedNameString string) {
+	suffix := fmt.Sprintf("#%s", processorNamespacedNameString)
+
+	for key, _ := range processedMap {
+		if strings.HasSuffix(key, suffix) {
+			delete(processedMap, key)
+		}
+	}
+}
+
+func clearProcessorEntriesForProcessorGUID(processedMap map[string]string, uid types.UID) {
+	prefix := fmt.Sprintf("%s#", uid)
+
+	for key, _ := range processedMap {
+		if strings.HasPrefix(key, prefix) {
+			delete(processedMap, key)
+		}
+	}
+}
+
+func clearProcessedEntriesForProcessor(processedMap map[string]string, processor metav1.Object) {
+	clearProcessedEntriesForProcessorNamespacedNameString(
+		processedMap, 
+		namespacedNameToString(types.NamespacedName{Name: processor.GetName(), Namespace: processor.GetNamespace(),}))
+	clearProcessorEntriesForProcessorGUID(processedMap, processor.GetUID())
+}
+
+func updateVersionProcessedForProcessor(processedMap map[string]string, processor metav1.Object, resourceVersion string) {
+	// get rid of any old entries
+	clearProcessedEntriesForProcessor(processedMap, processor)
+	key := getProcessorValueString(processor)
+	processedMap[key] = resourceVersion
+}
+
+func updateProcessedMap(object metav1.Object, processedMap map[string]string) (bool, error) {
+	originalProcessedMap := getProcessedMap(object)
+	if reflect.DeepEqual(originalProcessedMap, processedMap) {
+		return false, nil
+	}
+
+	bytes, err := json.Marshal(processedMap)
+	if err != nil {
+		return false, err
+	}
+	annotations := getAnnotationsOrEmptyMap(object)
+	annotations[LastVersionProcessedAnnotation] = string(bytes)
+	object.SetAnnotations(annotations)
+
+	return true, nil
+}
+
+func getProcessedMap(object metav1.Object) map[string]string {
+	annotations := getAnnotationsOrEmptyMap(object)
+	content := annotations[LastVersionProcessedAnnotation]
+	
+	data := map[string]string{}
+
+	if "" == content {
+		return data
+	}
+
+	// parse the annotation value
+	err := json.Unmarshal([]byte(content), &data)
+	if err != nil {
+		// TODO: log a warning
+		// As opposed to erroring out here, we'll just allow the
+		// annotation to be replaced with a valid one
+		data = map[string]string{}
+	}
+
+	return data
+}
+
+func (impl *DynamicSecretWatchesAnnotationImpl) HasProcessed(processor metav1.Object, object metav1.Object) bool {
+	processedMap := getProcessedMap(object)
+	versionLast := lastVersionProcessedForProcessor(processedMap, processor)
+	currentVersion := object.GetResourceVersion()
+	return currentVersion == versionLast
+}
+
+func retrieveSecret(client client.Client, ctx context.Context, namespace, name string) (*corev1.Secret, error) {
+	secret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+	}
+
+	err := client.Get(
+		ctx,
+		types.NamespacedName{Name: name, Namespace: namespace,},
+		secret)
+	return secret, err
+}
+
+func (impl *DynamicSecretWatchesAnnotationImpl) MarkAsProcessed(processor metav1.Object, object metav1.Object) error {
+	// Lets avoid actually loading the secret if we can
+	if impl.HasProcessed(processor, object) {
+		return nil
+	}
+
+	// Do we already just have a secret?
+	secret, ok := object.(*corev1.Secret)
+
+	if !ok {
+		// Nope, lets load the secret
+		var err error
+		secret, err = retrieveSecret(impl.Client, impl.Ctx, object.GetNamespace(), object.GetName())
+		if err != nil {
+			return err
+		}
+	}
+
+	patch := client.MergeFrom(secret.DeepCopy())
+	processedMap := getProcessedMap(secret)
+	updateVersionProcessedForProcessor(processedMap, processor, secret.GetResourceVersion())
+	_, err := updateProcessedMap(secret, processedMap)
+	if err != nil {
+		return err
+	}
+	err = impl.Client.Patch(impl.Ctx, secret, patch)
+	return err
 }

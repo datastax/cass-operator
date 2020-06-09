@@ -33,7 +33,8 @@ type ReconciliationContext struct {
 	ReqLogger      logr.Logger
 
 	dynamicwatch.DynamicSecretWatches
-	
+	dynamicwatch.ResourceVersionTracker
+
 	// According to golang recommendations the context should not be stored in a struct but given that
 	// this is passed around as a parameter we feel that its a fair compromise. For further discussion
 	// see: golang/go#22602
@@ -53,6 +54,7 @@ func CreateReconciliationContext(
 	scheme *runtime.Scheme,
 	rec record.EventRecorder,
 	watches dynamicwatch.DynamicSecretWatches,
+	versionTracker dynamicwatch.ResourceVersionTracker,
 	reqLogger logr.Logger) (*ReconciliationContext, error) {
 
 	rc := &ReconciliationContext{}
@@ -61,6 +63,7 @@ func CreateReconciliationContext(
 	rc.Scheme = scheme
 	rc.Recorder = &events.LoggingEventRecorder{EventRecorder: rec, ReqLogger: reqLogger,}
 	rc.DynamicSecretWatches = watches
+	rc.ResourceVersionTracker = versionTracker
 	rc.ReqLogger = reqLogger
 	rc.Ctx = context.Background()
 
