@@ -24,6 +24,7 @@ const (
 	ReaperContainerName   = "reaper"
 	ReaperHealthCheckPath = "/healthcheck"
 	ReaperKeyspace        = "reaper_db"
+	ReaperSchemaInitJob   = "ReaperSchemaInitJob"
 )
 
 func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
@@ -37,11 +38,8 @@ func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
 		Image: ReaperDefaultImage,
 		ImagePullPolicy: corev1.PullAlways,
 		Ports: ports,
-		LivenessProbe: probe(ReaperAdminPort, ReaperHealthCheckPath, 30, 10),
-		// TODO Calculate the initial delay based on the initial delay of the Cassandra containers and the size
-		//      of the Cassandra cluster. The readiness probe will fail until the Reaper keyspace is created,
-		//      and that cannot happen until the C* cluster is ready.
-		ReadinessProbe: probe(ReaperAdminPort, ReaperHealthCheckPath, 180, 15),
+		LivenessProbe: probe(ReaperAdminPort, ReaperHealthCheckPath, int(60 * dc.Spec.Size), 10),
+		ReadinessProbe: probe(ReaperAdminPort, ReaperHealthCheckPath, 30, 15),
 		Env: []corev1.EnvVar{
 			{Name: "REAPER_STORAGE_TYPE", Value: "cassandra"},
 			{Name: "REAPER_ENABLE_DYNAMIC_SEED_LIST", Value: "false"},
@@ -50,6 +48,7 @@ func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
 			{Name: "REAPER_SERVER_ADMIN_PORT", Value: strconv.Itoa(ReaperAdminPort)},
 			{Name: "REAPER_CASS_CLUSTER_NAME", Value: dc.ClusterName},
 			{Name: "REAPER_CASS_CONTACT_POINTS", Value: fmt.Sprintf("[%s]", dc.GetSeedServiceName())},
+			{Name: "REAPER_AUTH_ENABLED", Value: "false"},
 		},
 	}
 
@@ -66,13 +65,13 @@ func (rc *ReconciliationContext) CheckReaperSchemaInitialized() result.Reconcile
 	if err != nil && errors.IsNotFound(err) {
 		// Create the job
 		schemaJob := buildInitReaperSchemaJob(rc)
-		rc.ReqLogger.Info("creating Reaper schema init job", "ReaperSchemaInitJob", schemaJob.Name)
+		rc.ReqLogger.Info("creating Reaper schema init job", ReaperSchemaInitJob, schemaJob.Name)
 		if err := setControllerReference(rc.Datacenter, schemaJob, rc.Scheme); err != nil {
-			rc.ReqLogger.Error(err, "failed to set owner reference", "ReaperSchemaInitJob", schemaJob.Name)
+			rc.ReqLogger.Error(err, "failed to set owner reference", ReaperSchemaInitJob, schemaJob.Name)
 			return result.Error(err)
 		}
 		if err := rc.Client.Create(rc.Ctx, schemaJob); err != nil {
-			rc.ReqLogger.Error(err, "failed to create job", "ReaperSchemaInitJob", schemaJob.Name)
+			rc.ReqLogger.Error(err, "failed to create job", ReaperSchemaInitJob, schemaJob.Name)
 			return result.Error(err)
 		} else {
 			return result.RequeueSoon(2)
@@ -105,7 +104,7 @@ func buildInitReaperSchemaJob(rc *ReconciliationContext) *v1batch.Job {
 						{
 							Name:getReaperSchemaInitJobName(rc.Datacenter),
 							Image: "jsanda/reaper-init-keyspace:latest",
-							ImagePullPolicy: corev1.PullIfNotPresent,
+							ImagePullPolicy: corev1.PullAlways,
 							Env: []corev1.EnvVar{
 								{
 									Name: "KEYSPACE",
