@@ -18,14 +18,15 @@ import (
 )
 
 const (
-	ReaperUIPort          = 7080
-	ReaperAdminPort       = 7081
+	ReaperUIPort            = 7080
+	ReaperAdminPort         = 7081
 	//ReaperDefaultImage    = "thelastpickle/cassandra-reaper:2.0.5"
-	ReaperDefaultImage    = "jsanda/cassandra-reaper:dev"
-	ReaperContainerName   = "reaper"
-	ReaperHealthCheckPath = "/healthcheck"
-	ReaperKeyspace        = "reaper_db"
-	ReaperSchemaInitJob   = "ReaperSchemaInitJob"
+	ReaperDefaultImage      = "jsanda/cassandra-reaper:dev"
+	ReaperDefaultPullPolicy = corev1.PullIfNotPresent
+	ReaperContainerName     = "reaper"
+	ReaperHealthCheckPath   = "/healthcheck"
+	ReaperKeyspace          = "reaper_db"
+	ReaperSchemaInitJob     = "ReaperSchemaInitJob"
 )
 
 func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
@@ -36,8 +37,8 @@ func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
 
 	container := corev1.Container{
 		Name: ReaperContainerName,
-		Image: ReaperDefaultImage,
-		ImagePullPolicy: corev1.PullAlways,
+		Image: getReaperImage(dc),
+		ImagePullPolicy: getReaperPullPolicy(dc),
 		Ports: ports,
 		LivenessProbe: probe(ReaperAdminPort, ReaperHealthCheckPath, int(60 * dc.Spec.Size), 10),
 		ReadinessProbe: probe(ReaperAdminPort, ReaperHealthCheckPath, 30, 15),
@@ -56,11 +57,29 @@ func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
 	return container
 }
 
+func getReaperImage(dc *api.CassandraDatacenter) string {
+	if len(dc.Spec.Reaper.Image) == 0 {
+		return ReaperDefaultImage
+	}
+	return dc.Spec.Reaper.Image
+}
+
+func getReaperPullPolicy(dc *api.CassandraDatacenter) corev1.PullPolicy {
+	if len(dc.Spec.Reaper.ImagePullPolicy) == 0 {
+		return ReaperDefaultPullPolicy
+	}
+	return dc.Spec.Reaper.ImagePullPolicy
+}
+
 func (rc *ReconciliationContext) CheckReaperSchemaInitialized() result.ReconcileResult {
 	// Using a job eventually get replaced with calls to the mgmt api once it has support for
 	// creating keyspaces and tables.
 
 	rc.ReqLogger.Info("reconcile_reaper::CheckReaperSchemaInitialized")
+
+	if !rc.Datacenter.Spec.Reaper.Enabled {
+		return result.Continue()
+	}
 
 	jobName := getReaperSchemaInitJobName(rc.Datacenter)
 	schemaJob := &v1batch.Job{}

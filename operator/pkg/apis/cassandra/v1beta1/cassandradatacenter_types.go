@@ -166,7 +166,7 @@ type CassandraDatacenterSpec struct {
 	// Cassandra users to bootstrap
 	Users []CassandraUser `json:"users,omitempty"`
 
-	Reaper *ReaperConfig `json:"reaper,omitempty"`
+	Reaper ReaperConfig `json:"reaper,omitempty"`
 }
 
 type StorageConfig struct {

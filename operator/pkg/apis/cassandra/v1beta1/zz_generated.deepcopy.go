@@ -115,11 +115,7 @@ func (in *CassandraDatacenterSpec) DeepCopyInto(out *CassandraDatacenterSpec) {
 		*out = make([]CassandraUser, len(*in))
 		copy(*out, *in)
 	}
-	if in.Reaper != nil {
-		in, out := &in.Reaper, &out.Reaper
-		*out = new(ReaperConfig)
-		**out = **in
-	}
+	out.Reaper = in.Reaper
 	return
 }
 
