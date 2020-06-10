@@ -23,8 +23,8 @@ var (
 	superuserName       = "bob"
 	superuserPass       = "bobber"
 	superuserNewPass    = "somefancypantsnewpassword"
-	secretYaml          = "../testdata/bob-secret-changed.yaml"
-	secretChangedYaml   = "../testdata/bob-secret.yaml"
+	secretChangedYaml   = "../testdata/bob-secret-changed.yaml"
+	secretYaml          = "../testdata/bob-secret.yaml"
 	bobbyuserName       = "bobby"
 	bobbyuserPass       = "littlebobbydroptables"
 	secretResource      = fmt.Sprintf("secret/%s", superuserSecretName)
@@ -34,6 +34,7 @@ var (
 	dcResource          = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel             = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
 	ns                  = ginkgo_util.NewWrapper(testName, namespace)
+	labelAnnoPrefix     = "cassandra.datastax.com/"
 )
 
 func TestLifecycle(t *testing.T) {
@@ -122,8 +123,8 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(secretChangedYaml)
 			ns.ExecAndLog(step, k)
 
-			// Give the operator a minute to pick up the change
-			time.Sleep(1 * time.Minute)
+			// Give the operator a few seconds to respond to the change
+			time.Sleep(30 * time.Second)
 
 			step = "verify new credentials work"
 			k = kubectl.ExecOnPod(
@@ -133,6 +134,19 @@ var _ = Describe(testName, func() {
 				"-e", "select * from system_schema.keyspaces;").
 				WithFlag("container", "cassandra")
 			ns.ExecAndLog(step, k)
+
+			step = "delete datacenter"
+			k = kubectl.Delete("CassandraDatacenter", dcName)
+			ns.ExecAndLog(step, k)
+
+			// Ensure secret annotations and labels cleaned up on DC delete
+			json := "jsonpath={.metadata.annotations}{.metadata.labels}"
+			step = "check annotations and labels removed"
+			k = kubectl.Get("secret", superuserSecretName).FormatOutput(json)
+			output := ns.OutputAndLog(step, k)
+			Expect(output).ToNot(ContainSubstring(labelAnnoPrefix), 
+				"Secret %s should no longer have annotations or labels namespaced with %s", 
+				superuserSecretName, labelAnnoPrefix)
 		})
 	})
 })

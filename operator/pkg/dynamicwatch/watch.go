@@ -18,6 +18,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"github.com/go-logr/logr"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
@@ -36,6 +38,7 @@ type DynamicWatchesAnnotationImpl struct {
 	Ctx             context.Context
 	WatchedType     metav1.TypeMeta
 	WatchedListType metav1.TypeMeta
+	Logger          logr.Logger
 }
 
 func NewDynamicSecretWatches(client client.Client) DynamicWatches {
@@ -50,9 +53,14 @@ func NewDynamicSecretWatches(client client.Client) DynamicWatches {
 			APIVersion: "v1",
 			Kind:       "SecretList",
 		},
+		Logger: logf.Log.WithName("dynamicwatches"),
 	}
 	return impl
 }
+
+//
+// Utility functions
+//
 
 func namespacedNameString(meta metav1.Object) string {
 	return namespacedNameToString(types.NamespacedName{Name: meta.GetName(), Namespace: meta.GetNamespace(),})
@@ -107,7 +115,11 @@ func getLabelsOrEmptyMap(meta metav1.Object) map[string]string {
 	return labels
 }
 
-func getWatcherNames(meta metav1.Object) []string {
+//
+// Functions for loading and saving watchers in an annotation
+// 
+
+func (impl *DynamicWatchesAnnotationImpl) getWatcherNames(meta metav1.Object) []string {
 	annotations := getAnnotationsOrEmptyMap(meta)
 	content, ok := annotations[WatchedByAnnotation]
 
@@ -119,7 +131,9 @@ func getWatcherNames(meta metav1.Object) []string {
 	if content != "" {
 		err := json.Unmarshal([]byte(content), &data)
 		if err != nil {
-			// TODO: log a warning
+			impl.Logger.Error(err, "Failed to parse watchers data", 
+				"watched", namespacedNameString(meta))
+
 			// As opposed to erroring out here, we'll just allow the
 			// annotation to be replaced with a valid one
 			data = []string{}
@@ -129,14 +143,8 @@ func getWatcherNames(meta metav1.Object) []string {
 	return data
 }
 
-func hasWatchedLabel(meta metav1.Object) bool {
-	labels := getLabelsOrEmptyMap(meta)
-	value, ok := labels[WatchedLabel]
-	return ok && "true" == value
-}
-
-func updateWatcherNames(meta metav1.Object, names []string) bool {
-	originalWatchers := getWatcherNames(meta)
+func (impl *DynamicWatchesAnnotationImpl) updateWatcherNames(meta metav1.Object, names []string) bool {
+	originalWatchers := impl.getWatcherNames(meta)
 	originalHasWatchedLabel := hasWatchedLabel(meta)
 
 	if len(names) == 0 {
@@ -151,7 +159,7 @@ func updateWatcherNames(meta metav1.Object, names []string) bool {
 		bytes, err := json.Marshal(names)
 
 		if err != nil {
-			// TODO: Log an error
+			impl.Logger.Error(err, "Failed to updated watchers on watched resource", "watched", namespacedNameString(meta))
 		} else {
 			annotations := getAnnotationsOrEmptyMap(meta)
 			annotations[WatchedByAnnotation] = string(bytes)
@@ -161,29 +169,38 @@ func updateWatcherNames(meta metav1.Object, names []string) bool {
 			meta.SetLabels(labels)
 		}
 	}
-	newWatchers := getWatcherNames(meta)
+	newWatchers := impl.getWatcherNames(meta)
 	newHasWatchedLabel := hasWatchedLabel(meta)
 	return !reflect.DeepEqual(originalWatchers, newWatchers) || originalHasWatchedLabel != newHasWatchedLabel
 }
 
-func removeWatcher(meta metav1.Object, watcher string) bool {
-	watchers := getWatcherNames(meta)
+//
+// Functions for manipulating watchers in annotation
+//
+
+func (impl *DynamicWatchesAnnotationImpl) removeWatcher(meta metav1.Object, watcher string) bool {
+	watchers := impl.getWatcherNames(meta)
 	watchers = utils.RemoveValueFromStringArray(watchers, watcher)
-	changedWatcherValues := updateWatcherNames(meta, watchers)
+	changedWatcherValues := impl.updateWatcherNames(meta, watchers)
 
 	return changedWatcherValues
 }
 
-func addWatcher(meta metav1.Object, watcher string) bool {
-	watchers := getWatcherNames(meta)
+func (impl *DynamicWatchesAnnotationImpl) addWatcher(meta metav1.Object, watcher string) bool {
+	watchers := impl.getWatcherNames(meta)
 	watchers = utils.AppendValuesToStringArrayIfNotPresent(watchers, watcher)
-	return updateWatcherNames(meta, watchers)
+	return impl.updateWatcherNames(meta, watchers)
 }
 
-type toUpdate struct {
-	watchedItem *unstructured.Unstructured
-	patch       client.Patch
+func hasWatchedLabel(meta metav1.Object) bool {
+	labels := getLabelsOrEmptyMap(meta)
+	value, ok := labels[WatchedLabel]
+	return ok && "true" == value
 }
+
+//
+// DAO functions
+//
 
 func (impl *DynamicWatchesAnnotationImpl) listAllWatched(namespace string) ([]unstructured.Unstructured, error) {
 	watchedList := &unstructured.UnstructuredList{}
@@ -232,6 +249,15 @@ func (impl *DynamicWatchesAnnotationImpl) getWatched(watched types.NamespacedNam
 	return watchedItem, nil
 }
 
+//
+// Core implementation functions of DynamicWatcher interface
+//
+
+type toUpdate struct {
+	watchedItem *unstructured.Unstructured
+	patch       client.Patch
+}
+
 func (impl *DynamicWatchesAnnotationImpl) UpdateWatch(watcher types.NamespacedName, watched []types.NamespacedName) error {
 	// Since `watched` is a comprehensive list of what `watcher` is watching,
 	// we can clean up any stale annotations on resources no longer being watched
@@ -255,7 +281,7 @@ func (impl *DynamicWatchesAnnotationImpl) UpdateWatch(watcher types.NamespacedNa
 				// This is not a resource that `watcher` is watching. Make sure
 				// `watcher` is not recorded as watching this resource in its
 				// annotation.
-				if removeWatcher(watchedItem, watcherAsString) {
+				if impl.removeWatcher(watchedItem, watcherAsString) {
 					itemsToUpdate = append(itemsToUpdate, toUpdate{watchedItem: watchedItem, patch: patch,})
 				}
 			}
@@ -270,7 +296,7 @@ func (impl *DynamicWatchesAnnotationImpl) UpdateWatch(watcher types.NamespacedNa
 		if err != nil {
 			if errors.IsNotFound(err) {
 				// we are attempting to watch a resource that does not exist...
-				// TODO: Log warning
+				impl.Logger.Error(err, "Watched resource not found", "watched", namespacedNameString(watchedItem))
 				continue
 			} else {
 				return err
@@ -279,7 +305,7 @@ func (impl *DynamicWatchesAnnotationImpl) UpdateWatch(watcher types.NamespacedNa
 
 		patch := client.MergeFrom(watchedItem.DeepCopy())
 
-		if addWatcher(watchedItem, watcherAsString) {
+		if impl.addWatcher(watchedItem, watcherAsString) {
 			itemsToUpdate = append(itemsToUpdate, toUpdate{watchedItem: watchedItem, patch: patch,})
 		}
 	}
@@ -306,6 +332,6 @@ func (impl *DynamicWatchesAnnotationImpl) RemoveWatcher(watcher types.Namespaced
 }
 
 func (impl *DynamicWatchesAnnotationImpl) FindWatchers(meta metav1.Object, object runtime.Object) []types.NamespacedName {
-	watchersAsStrings := getWatcherNames(meta)
+	watchersAsStrings := impl.getWatcherNames(meta)
 	return namespacedNamesFromStringArray(watchersAsStrings)
 }
