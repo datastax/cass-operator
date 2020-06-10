@@ -6,7 +6,6 @@ package reconciliation
 import (
 	"fmt"
 	"time"
-	"context"
 
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -196,10 +195,7 @@ func (rc *ReconciliationContext) isValid(dc *api.CassandraDatacenter) error {
 // NewReconciler returns a new reconcile.Reconciler
 func NewReconciler(mgr manager.Manager) reconcile.Reconciler {
 	client := mgr.GetClient()
-	dynamicWatches := &dynamicwatch.DynamicSecretWatchesAnnotationImpl {
-		Client: client,
-		Ctx: context.Background(),
-	}
+	dynamicWatches := dynamicwatch.NewDynamicSecretWatches(client)
 	return &ReconcileCassandraDatacenter{
 		client:                 mgr.GetClient(),
 		scheme:                 mgr.GetScheme(),

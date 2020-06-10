@@ -9,7 +9,8 @@ import (
 	"encoding/json"
 	"strings"
 	"fmt"
-	corev1 "k8s.io/api/core/v1"
+	// corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -17,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
 
 const (
@@ -31,8 +33,26 @@ type DynamicSecretWatches interface {
 }
 
 type DynamicSecretWatchesAnnotationImpl struct {
-	Client runtimeClient.Client
-	Ctx context.Context
+	Client          runtimeClient.Client
+	Ctx             context.Context
+	WatchedType     metav1.TypeMeta
+	WatchedListType metav1.TypeMeta
+}
+
+func NewDynamicSecretWatches(client client.Client) DynamicSecretWatches {
+	impl := &DynamicSecretWatchesAnnotationImpl{
+		Client: client,
+		Ctx: context.Background(),
+		WatchedType: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind: "Secret",
+		},
+		WatchedListType: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "SecretList",
+		},
+	}
+	return impl
 }
 
 func namespacedNameFromString(s string) types.NamespacedName {
@@ -120,7 +140,7 @@ func updateWatcherNames(meta metav1.Object, names []string) bool {
 		annotations := getAnnotationsOrEmptyMap(meta)
 		delete(annotations, WatchedByAnnotation)
 		meta.SetAnnotations(annotations)
-		
+
 		labels := getLabelsOrEmptyMap(meta)
 		delete(labels, WatchedLabel)
 		meta.SetLabels(labels)
@@ -157,12 +177,12 @@ func addWatcher(meta metav1.Object, watcher string) bool {
 	return updateWatcherNames(meta, watchers)
 }
 
-func namespacedNameStringForSecret(secret *corev1.Secret) string {
-	return namespacedNameToString(types.NamespacedName{Name: secret.Name, Namespace: secret.Namespace,})
+func namespacedNameStringForSecret(meta metav1.Object) string {
+	return namespacedNameToString(types.NamespacedName{Name: meta.GetName(), Namespace: meta.GetNamespace(),})
 }
 
 type toUpdate struct {
-	secret *corev1.Secret
+	secret *unstructured.Unstructured
 	patch client.Patch
 }
 
@@ -171,16 +191,27 @@ func (impl *DynamicSecretWatchesAnnotationImpl) UpdateSecretWatch(watcher types.
 	// we can clean up any stale annotations on secrets no longer being watched
 	// by `watcher`.
 	watcherAsString := namespacedNameToString(watcher)
-	secrets := corev1.SecretList{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "SecretList",
-			APIVersion: "v1",
-		},
+	// secrets := corev1.SecretList{
+	// 	TypeMeta: metav1.TypeMeta{
+	// 		Kind:       "SecretList",
+	// 		APIVersion: "v1",
+	// 	},
+	// }
+	secrets := &unstructured.UnstructuredList{}
+	secrets.SetKind(impl.WatchedListType.Kind)
+	secrets.SetAPIVersion(impl.WatchedListType.APIVersion)
+
+	selector := map[string]string{"cassandra.datastax.com/watched": "true",}
+
+	listOptions := &client.ListOptions{
+		LabelSelector: labels.SelectorFromSet(selector),
+		Namespace: watcher.Namespace,
 	}
+
 	err := impl.Client.List(
 		impl.Ctx,
-		&secrets,
-		client.MatchingLabels{"cassandra.datastax.com/watched": "true"})
+		secrets,
+		listOptions)
 	
 	if err != nil && !errors.IsNotFound(err) {
 		return err
@@ -198,7 +229,7 @@ func (impl *DynamicSecretWatchesAnnotationImpl) UpdateSecretWatch(watcher types.
 				// This is not a secret that `watcher` is watching. Make sure
 				// `watcher` is not recorded as watching this secret in its
 				// annotation.
-				if removeWatcher(&secret.ObjectMeta, watcherAsString) {
+				if removeWatcher(secret, watcherAsString) {
 					secretsToUpdate = append(secretsToUpdate, toUpdate{secret: secret, patch: patch,})
 				}
 			}
@@ -208,16 +239,11 @@ func (impl *DynamicSecretWatchesAnnotationImpl) UpdateSecretWatch(watcher types.
 
 	// Now we need to add `watcher` to the relevant secrets
 	for _, name := range watched {
-		secret := &corev1.Secret{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "Secret",
-				APIVersion: "v1",
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      name.Name,
-				Namespace: name.Namespace,
-			},
-		}
+		secret := &unstructured.Unstructured{}
+		secret.SetKind(impl.WatchedType.Kind)
+		secret.SetAPIVersion(impl.WatchedType.APIVersion)
+		secret.SetName(name.Name)
+		secret.SetNamespace(name.Namespace)
 	
 		err := impl.Client.Get(
 			impl.Ctx,
@@ -235,7 +261,7 @@ func (impl *DynamicSecretWatchesAnnotationImpl) UpdateSecretWatch(watcher types.
 
 		patch := client.MergeFrom(secret.DeepCopy())
 
-		if addWatcher(&secret.ObjectMeta, watcherAsString) {
+		if addWatcher(secret, watcherAsString) {
 			secretsToUpdate = append(secretsToUpdate, toUpdate{secret: secret, patch: patch,})
 		}
 	}
