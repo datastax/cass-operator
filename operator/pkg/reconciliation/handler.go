@@ -69,10 +69,10 @@ var log = logf.Log.WithName("reconciliation_handler")
 type ReconcileCassandraDatacenter struct {
 	// This client, initialized using mgr.client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client   client.Client
-	scheme   *runtime.Scheme
-	recorder record.EventRecorder
-	dynamicwatch.DynamicSecretWatches
+	client        client.Client
+	scheme        *runtime.Scheme
+	recorder      record.EventRecorder
+	SecretWatches dynamicwatch.DynamicWatches
 }
 
 // Reconcile reads that state of the cluster for a Datacenter object
@@ -101,7 +101,7 @@ func (r *ReconcileCassandraDatacenter) Reconcile(request reconcile.Request) (rec
 
 	logger.Info("======== handler::Reconcile has been called")
 
-	rc, err := CreateReconciliationContext(&request, r.client, r.scheme, r.recorder, r.DynamicSecretWatches, logger)
+	rc, err := CreateReconciliationContext(&request, r.client, r.scheme, r.recorder, r.SecretWatches, logger)
 
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -197,9 +197,9 @@ func NewReconciler(mgr manager.Manager) reconcile.Reconciler {
 	client := mgr.GetClient()
 	dynamicWatches := dynamicwatch.NewDynamicSecretWatches(client)
 	return &ReconcileCassandraDatacenter{
-		client:                 mgr.GetClient(),
-		scheme:                 mgr.GetScheme(),
-		recorder:               mgr.GetEventRecorderFor("cass-operator"),
-		DynamicSecretWatches:   dynamicWatches,
+		client:        mgr.GetClient(),
+		scheme:        mgr.GetScheme(),
+		recorder:      mgr.GetEventRecorderFor("cass-operator"),
+		SecretWatches: dynamicWatches,
 	}
 }

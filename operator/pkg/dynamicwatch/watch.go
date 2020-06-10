@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"strings"
 	"fmt"
-	// corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,25 +21,25 @@ import (
 )
 
 const (
-	WatchedByAnnotation             = "cassandra.datastax.com/watched-by"
-	WatchedLabel                    = "cassandra.datastax.com/watched"
+	WatchedByAnnotation = "cassandra.datastax.com/watched-by"
+	WatchedLabel        = "cassandra.datastax.com/watched"
 )
 
-type DynamicSecretWatches interface {
-	UpdateSecretWatch(watcher types.NamespacedName, secrets []types.NamespacedName) error
-	RemoveSecretWatch(watcher types.NamespacedName) error
+type DynamicWatches interface {
+	UpdateWatch(watcher types.NamespacedName, watched []types.NamespacedName) error
+	RemoveWatcher(watcher types.NamespacedName) error
 	FindWatchers(meta metav1.Object, object runtime.Object) []types.NamespacedName
 }
 
-type DynamicSecretWatchesAnnotationImpl struct {
+type DynamicWatchesAnnotationImpl struct {
 	Client          runtimeClient.Client
 	Ctx             context.Context
 	WatchedType     metav1.TypeMeta
 	WatchedListType metav1.TypeMeta
 }
 
-func NewDynamicSecretWatches(client client.Client) DynamicSecretWatches {
-	impl := &DynamicSecretWatchesAnnotationImpl{
+func NewDynamicSecretWatches(client client.Client) DynamicWatches {
+	impl := &DynamicWatchesAnnotationImpl{
 		Client: client,
 		Ctx: context.Background(),
 		WatchedType: metav1.TypeMeta{
@@ -53,6 +52,10 @@ func NewDynamicSecretWatches(client client.Client) DynamicSecretWatches {
 		},
 	}
 	return impl
+}
+
+func namespacedNameString(meta metav1.Object) string {
+	return namespacedNameToString(types.NamespacedName{Name: meta.GetName(), Namespace: meta.GetNamespace(),})
 }
 
 func namespacedNameFromString(s string) types.NamespacedName {
@@ -177,101 +180,116 @@ func addWatcher(meta metav1.Object, watcher string) bool {
 	return updateWatcherNames(meta, watchers)
 }
 
-func namespacedNameStringForSecret(meta metav1.Object) string {
-	return namespacedNameToString(types.NamespacedName{Name: meta.GetName(), Namespace: meta.GetNamespace(),})
-}
-
 type toUpdate struct {
-	secret *unstructured.Unstructured
-	patch client.Patch
+	watchedItem *unstructured.Unstructured
+	patch       client.Patch
 }
 
-func (impl *DynamicSecretWatchesAnnotationImpl) UpdateSecretWatch(watcher types.NamespacedName, watched []types.NamespacedName) error {
-	// Since `watched` is a comprehensive list of what `watcher` is watching,
-	// we can clean up any stale annotations on secrets no longer being watched
-	// by `watcher`.
-	watcherAsString := namespacedNameToString(watcher)
-	// secrets := corev1.SecretList{
-	// 	TypeMeta: metav1.TypeMeta{
-	// 		Kind:       "SecretList",
-	// 		APIVersion: "v1",
-	// 	},
-	// }
-	secrets := &unstructured.UnstructuredList{}
-	secrets.SetKind(impl.WatchedListType.Kind)
-	secrets.SetAPIVersion(impl.WatchedListType.APIVersion)
+func (impl *DynamicWatchesAnnotationImpl) listAllWatched(namespace string) ([]unstructured.Unstructured, error) {
+	watchedList := &unstructured.UnstructuredList{}
+	watchedList.SetKind(impl.WatchedListType.Kind)
+	watchedList.SetAPIVersion(impl.WatchedListType.APIVersion)
 
-	selector := map[string]string{"cassandra.datastax.com/watched": "true",}
+	selector := map[string]string{WatchedLabel: "true",}
 
 	listOptions := &client.ListOptions{
 		LabelSelector: labels.SelectorFromSet(selector),
-		Namespace: watcher.Namespace,
+		Namespace: namespace,
 	}
 
 	err := impl.Client.List(
 		impl.Ctx,
-		secrets,
+		watchedList,
 		listOptions)
 	
-	if err != nil && !errors.IsNotFound(err) {
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil
+		} else {
+			return nil, err	
+		}
+	}
+
+	return watchedList.Items, nil
+}
+
+func (impl *DynamicWatchesAnnotationImpl) getWatched(watched types.NamespacedName) (*unstructured.Unstructured, error) {
+	watchedItem := &unstructured.Unstructured{}
+	watchedItem.SetKind(impl.WatchedType.Kind)
+	watchedItem.SetAPIVersion(impl.WatchedType.APIVersion)
+	watchedItem.SetName(watched.Name)
+	watchedItem.SetNamespace(watched.Namespace)
+
+	err := impl.Client.Get(
+		impl.Ctx,
+		watched,
+		watchedItem)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return watchedItem, nil
+}
+
+func (impl *DynamicWatchesAnnotationImpl) UpdateWatch(watcher types.NamespacedName, watched []types.NamespacedName) error {
+	// Since `watched` is a comprehensive list of what `watcher` is watching,
+	// we can clean up any stale annotations on resources no longer being watched
+	// by `watcher`.
+	watcherAsString := namespacedNameToString(watcher)
+
+	items, err := impl.listAllWatched(watcher.Namespace)
+	if err != nil {
 		return err
 	}
 
-	secretsToUpdate := []toUpdate{}
+	itemsToUpdate := []toUpdate{}
 
 	if err == nil {
 		watchedAsStrings := namespacedNamesToStringArray(watched)
-		for i := range secrets.Items {
-			secret := &secrets.Items[i]
-			patch := client.MergeFrom(secret.DeepCopy())
-			namespacedNameAsString := namespacedNameStringForSecret(secret)
+		for i := range items {
+			watchedItem := &items[i]
+			patch := client.MergeFrom(watchedItem.DeepCopy())
+			namespacedNameAsString := namespacedNameString(watchedItem)
 			if -1 == utils.FindValueIndexFromStringArray(watchedAsStrings, namespacedNameAsString) {
-				// This is not a secret that `watcher` is watching. Make sure
-				// `watcher` is not recorded as watching this secret in its
+				// This is not a resource that `watcher` is watching. Make sure
+				// `watcher` is not recorded as watching this resource in its
 				// annotation.
-				if removeWatcher(secret, watcherAsString) {
-					secretsToUpdate = append(secretsToUpdate, toUpdate{secret: secret, patch: patch,})
+				if removeWatcher(watchedItem, watcherAsString) {
+					itemsToUpdate = append(itemsToUpdate, toUpdate{watchedItem: watchedItem, patch: patch,})
 				}
 			}
 
 		}
 	}
 
-	// Now we need to add `watcher` to the relevant secrets
+	// Now we need to add `watcher` to the relevant resource
 	for _, name := range watched {
-		secret := &unstructured.Unstructured{}
-		secret.SetKind(impl.WatchedType.Kind)
-		secret.SetAPIVersion(impl.WatchedType.APIVersion)
-		secret.SetName(name.Name)
-		secret.SetNamespace(name.Namespace)
-	
-		err := impl.Client.Get(
-			impl.Ctx,
-			name,
-			secret)
+		watchedItem, err := impl.getWatched(name)
 	
 		if err != nil {
 			if errors.IsNotFound(err) {
-				// we are attempting to watch a secret that does not exist...
+				// we are attempting to watch a resource that does not exist...
 				// TODO: Log warning
+				continue
 			} else {
 				return err
 			}
 		}
 
-		patch := client.MergeFrom(secret.DeepCopy())
+		patch := client.MergeFrom(watchedItem.DeepCopy())
 
-		if addWatcher(secret, watcherAsString) {
-			secretsToUpdate = append(secretsToUpdate, toUpdate{secret: secret, patch: patch,})
+		if addWatcher(watchedItem, watcherAsString) {
+			itemsToUpdate = append(itemsToUpdate, toUpdate{watchedItem: watchedItem, patch: patch,})
 		}
 	}
 
-	// persist the watch state
+	// Persist the watch state
 	errors := []error{}
-	for _, update := range secretsToUpdate {
-		err := impl.Client.Patch(impl.Ctx, update.secret, update.patch)
+	for _, update := range itemsToUpdate {
+		err := impl.Client.Patch(impl.Ctx, update.watchedItem, update.patch)
 		if err != nil {
-			// make a best effort to update as many secrets as possible
+			// make a best effort to update as many resources as possible
 			errors = append(errors, err)
 		}
 	}
@@ -283,11 +301,11 @@ func (impl *DynamicSecretWatchesAnnotationImpl) UpdateSecretWatch(watcher types.
 	}
 }
 
-func (impl *DynamicSecretWatchesAnnotationImpl) RemoveSecretWatch(watcher types.NamespacedName) error {
-	return impl.UpdateSecretWatch(watcher, []types.NamespacedName{})
+func (impl *DynamicWatchesAnnotationImpl) RemoveWatcher(watcher types.NamespacedName) error {
+	return impl.UpdateWatch(watcher, []types.NamespacedName{})
 }
 
-func (impl *DynamicSecretWatchesAnnotationImpl) FindWatchers(meta metav1.Object, object runtime.Object) []types.NamespacedName {
+func (impl *DynamicWatchesAnnotationImpl) FindWatchers(meta metav1.Object, object runtime.Object) []types.NamespacedName {
 	watchersAsStrings := getWatcherNames(meta)
 	return namespacedNamesFromStringArray(watchersAsStrings)
 }

@@ -116,7 +116,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// FIXME: This cast should always succeed, but we should probably have some kind of
 	//        sanity check to make sure
 	rd := r.(*reconciliation.ReconcileCassandraDatacenter)
-	dynamicSecretWatches := rd.DynamicSecretWatches
+	dynamicSecretWatches := rd.SecretWatches
 
 	toRequests := handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
 		watchers := dynamicSecretWatches.FindWatchers(a.Meta, a.Object)

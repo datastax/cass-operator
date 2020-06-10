@@ -27,7 +27,7 @@ func (rc *ReconciliationContext) ProcessDeletion() result.ReconcileResult {
 	}
 
 	// Clean up annotation litter on the user Secrets
-	err := rc.RemoveSecretWatch(types.NamespacedName{
+	err := rc.SecretWatches.RemoveWatcher(types.NamespacedName{
 		Name: rc.Datacenter.GetName(), Namespace: rc.Datacenter.GetNamespace(),})
 
 	if err != nil {

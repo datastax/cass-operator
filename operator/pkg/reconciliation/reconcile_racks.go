@@ -723,7 +723,7 @@ func (rc *ReconciliationContext) UpdateSecretWatches() error {
 		names = append(names, name)
 	}
 	dcNamespacedName := types.NamespacedName{Name: dc.Name, Namespace: dc.Namespace,}
-	err := rc.UpdateSecretWatch(dcNamespacedName, names)
+	err := rc.SecretWatches.UpdateWatch(dcNamespacedName, names)
 
 	return err
 }
