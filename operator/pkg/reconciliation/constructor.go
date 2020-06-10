@@ -415,9 +415,13 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 	}
 	loggerContainer.VolumeMounts = []corev1.VolumeMount{cassServerLogsMount}
 
-	reaperContainer := buildReaperContainer(dc)
+	containers := []corev1.Container{cassContainer, loggerContainer}
+	if dc.Spec.Reaper.Enabled {
+		reaperContainer := buildReaperContainer(dc)
+		containers = append(containers, reaperContainer)
+	}
 
-	return []corev1.Container{cassContainer, loggerContainer, reaperContainer}, nil
+	return containers, nil
 }
 
 func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1.Container, error) {
