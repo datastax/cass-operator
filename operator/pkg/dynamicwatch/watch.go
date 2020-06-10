@@ -120,7 +120,9 @@ func updateWatcherNames(meta metav1.Object, names []string) bool {
 		annotations := getAnnotationsOrEmptyMap(meta)
 		delete(annotations, WatchedByAnnotation)
 		meta.SetAnnotations(annotations)
+		
 		labels := getLabelsOrEmptyMap(meta)
+		delete(labels, WatchedLabel)
 		meta.SetLabels(labels)
 	} else {
 		bytes, err := json.Marshal(names)
