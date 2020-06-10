@@ -22,7 +22,6 @@ import (
 const (
 	WatchedByAnnotation             = "cassandra.datastax.com/watched-by"
 	WatchedLabel                    = "cassandra.datastax.com/watched"
-	LastVersionProcessedAnnotation  = "cassandra.datastax.com/last-version-processed"
 )
 
 type DynamicSecretWatches interface {
