@@ -676,7 +676,7 @@ func shouldUpsertUsers(dc api.CassandraDatacenter) bool {
 	return time.Now().After(lastCreated.Add(time.Minute * 4))
 }
 
-func (rc *ReconciliationContext) updateUser(user api.CassandraUser) (bool, error) {
+func (rc *ReconciliationContext) updateUser(user api.CassandraUser) error {
 	dc := rc.Datacenter
 	namespace := dc.ObjectMeta.Namespace
 
@@ -687,28 +687,19 @@ func (rc *ReconciliationContext) updateUser(user api.CassandraUser) (bool, error
 
 	secret, err := rc.retrieveSecret(namespacedName)
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	if !rc.HasProcessed(dc, secret) {
-		rc.ReqLogger.Info("Updating user for secret", "secretName", user.SecretName)
+	// We will call mgmt API on the first pod
+	pod := rc.dcPods[0]
 
-		// We will call mgmt API on the first pod
-		pod := rc.dcPods[0]
+	err = rc.NodeMgmtClient.CallCreateRoleEndpoint(
+		pod,
+		string(secret.Data["username"]),
+		string(secret.Data["password"]),
+		user.Superuser)
 
-		err = rc.NodeMgmtClient.CallCreateRoleEndpoint(
-			pod,
-			string(secret.Data["username"]),
-			string(secret.Data["password"]),
-			user.Superuser)
-
-		if err != nil {
-			return false, err
-		}
-		rc.MarkAsProcessed(dc, secret)
-		return true, nil
-	}
-	return false, nil
+	return err
 }
 
 func (rc *ReconciliationContext) GetUsers() []api.CassandraUser {
@@ -757,36 +748,32 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 
 	users := rc.GetUsers()
 
-	anyChanges := false
 	for _, user := range users {
-		changed, err := rc.updateUser(user)
+		err := rc.updateUser(user)
 		if err != nil {
 			rc.ReqLogger.Error(err, "error updating user", "secretName", user.SecretName)
 			return result.Error(err)
-		} else {
-			anyChanges = changed || anyChanges	
 		}
 	}
 
-	if anyChanges {
-		rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedUsers,
-			"Created users")
+	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedUsers,
+		"Created users")
 
-		// For backwards compatiblity
-		rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedSuperuser,
-			"Created superuser")
+	// For backwards compatiblity
+	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedSuperuser,
+		"Created superuser")
 
-		patch := client.MergeFrom(rc.Datacenter.DeepCopy())
-		rc.Datacenter.Status.UsersUpserted = metav1.Now()
-		
-		// For backwards compatibility
-		rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
-		
-		if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
-			rc.ReqLogger.Error(err, "error updating the users upsert timestamp")
-			return result.Error(err)
-		}
+	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
+	rc.Datacenter.Status.UsersUpserted = metav1.Now()
+	
+	// For backwards compatibility
+	rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
+	
+	if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
+		rc.ReqLogger.Error(err, "error updating the users upsert timestamp")
+		return result.Error(err)
 	}
+
 	return result.Continue()
 }
 
