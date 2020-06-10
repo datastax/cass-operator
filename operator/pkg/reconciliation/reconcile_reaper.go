@@ -57,6 +57,9 @@ func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
 }
 
 func (rc *ReconciliationContext) CheckReaperSchemaInitialized() result.ReconcileResult {
+	// Using a job eventually get replaced with calls to the mgmt api once it has support for
+	// creating keyspaces and tables.
+
 	rc.ReqLogger.Info("reconcile_reaper::CheckReaperSchemaInitialized")
 
 	jobName := getReaperSchemaInitJobName(rc.Datacenter)
