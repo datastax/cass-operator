@@ -18,15 +18,16 @@ import (
 )
 
 const (
-	ReaperUIPort            = 7080
-	ReaperAdminPort         = 7081
-	//ReaperDefaultImage    = "thelastpickle/cassandra-reaper:2.0.5"
-	ReaperDefaultImage      = "jsanda/cassandra-reaper:dev"
-	ReaperDefaultPullPolicy = corev1.PullIfNotPresent
-	ReaperContainerName     = "reaper"
-	ReaperHealthCheckPath   = "/healthcheck"
-	ReaperKeyspace          = "reaper_db"
-	ReaperSchemaInitJob     = "ReaperSchemaInitJob"
+	ReaperUIPort             = 7080
+	ReaperAdminPort          = 7081
+	//ReaperDefaultImage     = "thelastpickle/cassandra-reaper:2.0.5"
+	ReaperDefaultImage       = "jsanda/cassandra-reaper:dev"
+	ReaperDefaultPullPolicy  = corev1.PullIfNotPresent
+	ReaperContainerName      = "reaper"
+	ReaperHealthCheckPath    = "/healthcheck"
+	ReaperKeyspace           = "reaper_db"
+	ReaperSchemaInitJob      = "ReaperSchemaInitJob"
+	ReaperSchemaInitJobImage = "jsanda/reaper-init-keyspace:latest"
 )
 
 func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
@@ -87,7 +88,7 @@ func (rc *ReconciliationContext) CheckReaperSchemaInitialized() result.Reconcile
 	err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: rc.Datacenter.Namespace, Name: jobName}, schemaJob)
 	if err != nil && errors.IsNotFound(err) {
 		// Create the job
-		schemaJob := buildInitReaperSchemaJob(rc)
+		schemaJob := buildInitReaperSchemaJob(rc.Datacenter)
 		rc.ReqLogger.Info("creating Reaper schema init job", ReaperSchemaInitJob, schemaJob.Name)
 		if err := setControllerReference(rc.Datacenter, schemaJob, rc.Scheme); err != nil {
 			rc.ReqLogger.Error(err, "failed to set owner reference", ReaperSchemaInitJob, schemaJob.Name)
@@ -108,16 +109,16 @@ func (rc *ReconciliationContext) CheckReaperSchemaInitialized() result.Reconcile
 	}
 }
 
-func buildInitReaperSchemaJob(rc *ReconciliationContext) *v1batch.Job {
+func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1batch.Job {
 	return &v1batch.Job{
 		TypeMeta: metav1.TypeMeta{
 			Kind: "Job",
 			APIVersion: "batch/v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: rc.Datacenter.Namespace,
-			Name: getReaperSchemaInitJobName(rc.Datacenter),
-			Labels: rc.Datacenter.GetDatacenterLabels(),
+			Namespace: dc.Namespace,
+			Name: getReaperSchemaInitJobName(dc),
+			Labels: dc.GetDatacenterLabels(),
 		},
 		Spec: v1batch.JobSpec{
 			Template: corev1.PodTemplateSpec{
@@ -125,8 +126,8 @@ func buildInitReaperSchemaJob(rc *ReconciliationContext) *v1batch.Job {
 					RestartPolicy: corev1.RestartPolicyOnFailure,
 					Containers: []corev1.Container{
 						{
-							Name:getReaperSchemaInitJobName(rc.Datacenter),
-							Image: "jsanda/reaper-init-keyspace:latest",
+							Name:getReaperSchemaInitJobName(dc),
+							Image: ReaperSchemaInitJobImage,
 							ImagePullPolicy: corev1.PullAlways,
 							Env: []corev1.EnvVar{
 								{
@@ -135,13 +136,13 @@ func buildInitReaperSchemaJob(rc *ReconciliationContext) *v1batch.Job {
 								},
 								{
 									Name: "CONTACT_POINTS",
-									Value: rc.Datacenter.GetSeedServiceName(),
+									Value: dc.GetSeedServiceName(),
 								},
 								// TODO Add replication_factor. There is already a function in tlp-stress-operator
 								//      that does the serialization. I need to move that function to a shared lib.
 								{
 									Name: "REPLICATION",
-									Value: getReaperReplication(rc.Datacenter),
+									Value: getReaperReplication(dc),
 								},
 							},
 						},
