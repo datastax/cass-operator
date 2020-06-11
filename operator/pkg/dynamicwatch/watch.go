@@ -119,8 +119,8 @@ func getLabelsOrEmptyMap(meta metav1.Object) map[string]string {
 // Functions for loading and saving watchers in an annotation
 // 
 
-func (impl *DynamicWatchesAnnotationImpl) getWatcherNames(meta metav1.Object) []string {
-	annotations := getAnnotationsOrEmptyMap(meta)
+func (impl *DynamicWatchesAnnotationImpl) getWatcherNames(watched metav1.Object) []string {
+	annotations := getAnnotationsOrEmptyMap(watched)
 	content, ok := annotations[WatchedByAnnotation]
 
 	if !ok {
@@ -132,7 +132,7 @@ func (impl *DynamicWatchesAnnotationImpl) getWatcherNames(meta metav1.Object) []
 		err := json.Unmarshal([]byte(content), &data)
 		if err != nil {
 			impl.Logger.Error(err, "Failed to parse watchers data", 
-				"watched", namespacedNameString(meta))
+				"watched", namespacedNameString(watched))
 
 			// As opposed to erroring out here, we'll just allow the
 			// annotation to be replaced with a valid one
@@ -143,34 +143,34 @@ func (impl *DynamicWatchesAnnotationImpl) getWatcherNames(meta metav1.Object) []
 	return data
 }
 
-func (impl *DynamicWatchesAnnotationImpl) updateWatcherNames(meta metav1.Object, names []string) bool {
-	originalWatchers := impl.getWatcherNames(meta)
-	originalHasWatchedLabel := hasWatchedLabel(meta)
+func (impl *DynamicWatchesAnnotationImpl) updateWatcherNames(watched metav1.Object, watcherNames []string) bool {
+	originalWatchers := impl.getWatcherNames(watched)
+	originalHasWatchedLabel := hasWatchedLabel(watched)
 
-	if len(names) == 0 {
-		annotations := getAnnotationsOrEmptyMap(meta)
+	if len(watcherNames) == 0 {
+		annotations := getAnnotationsOrEmptyMap(watched)
 		delete(annotations, WatchedByAnnotation)
-		meta.SetAnnotations(annotations)
+		watched.SetAnnotations(annotations)
 
-		labels := getLabelsOrEmptyMap(meta)
+		labels := getLabelsOrEmptyMap(watched)
 		delete(labels, WatchedLabel)
-		meta.SetLabels(labels)
+		watched.SetLabels(labels)
 	} else {
-		bytes, err := json.Marshal(names)
+		bytes, err := json.Marshal(watcherNames)
 
 		if err != nil {
-			impl.Logger.Error(err, "Failed to updated watchers on watched resource", "watched", namespacedNameString(meta))
+			impl.Logger.Error(err, "Failed to updated watchers on watched resource", "watched", namespacedNameString(watched))
 		} else {
-			annotations := getAnnotationsOrEmptyMap(meta)
+			annotations := getAnnotationsOrEmptyMap(watched)
 			annotations[WatchedByAnnotation] = string(bytes)
-			meta.SetAnnotations(annotations)
-			labels := getLabelsOrEmptyMap(meta)
+			watched.SetAnnotations(annotations)
+			labels := getLabelsOrEmptyMap(watched)
 			labels[WatchedLabel] = "true"
-			meta.SetLabels(labels)
+			watched.SetLabels(labels)
 		}
 	}
-	newWatchers := impl.getWatcherNames(meta)
-	newHasWatchedLabel := hasWatchedLabel(meta)
+	newWatchers := impl.getWatcherNames(watched)
+	newHasWatchedLabel := hasWatchedLabel(watched)
 	return !reflect.DeepEqual(originalWatchers, newWatchers) || originalHasWatchedLabel != newHasWatchedLabel
 }
 
@@ -178,18 +178,18 @@ func (impl *DynamicWatchesAnnotationImpl) updateWatcherNames(meta metav1.Object,
 // Functions for manipulating watchers in annotation
 //
 
-func (impl *DynamicWatchesAnnotationImpl) removeWatcher(meta metav1.Object, watcher string) bool {
-	watchers := impl.getWatcherNames(meta)
+func (impl *DynamicWatchesAnnotationImpl) removeWatcher(watched metav1.Object, watcher string) bool {
+	watchers := impl.getWatcherNames(watched)
 	watchers = utils.RemoveValueFromStringArray(watchers, watcher)
-	changedWatcherValues := impl.updateWatcherNames(meta, watchers)
+	changedWatcherValues := impl.updateWatcherNames(watched, watchers)
 
 	return changedWatcherValues
 }
 
-func (impl *DynamicWatchesAnnotationImpl) addWatcher(meta metav1.Object, watcher string) bool {
-	watchers := impl.getWatcherNames(meta)
+func (impl *DynamicWatchesAnnotationImpl) addWatcher(watched metav1.Object, watcher string) bool {
+	watchers := impl.getWatcherNames(watched)
 	watchers = utils.AppendValuesToStringArrayIfNotPresent(watchers, watcher)
-	return impl.updateWatcherNames(meta, watchers)
+	return impl.updateWatcherNames(watched, watchers)
 }
 
 func hasWatchedLabel(meta metav1.Object) bool {
@@ -331,7 +331,7 @@ func (impl *DynamicWatchesAnnotationImpl) RemoveWatcher(watcher types.Namespaced
 	return impl.UpdateWatch(watcher, []types.NamespacedName{})
 }
 
-func (impl *DynamicWatchesAnnotationImpl) FindWatchers(meta metav1.Object, object runtime.Object) []types.NamespacedName {
-	watchersAsStrings := impl.getWatcherNames(meta)
+func (impl *DynamicWatchesAnnotationImpl) FindWatchers(watchedMeta metav1.Object, watchedObject runtime.Object) []types.NamespacedName {
+	watchersAsStrings := impl.getWatcherNames(watchedMeta)
 	return namespacedNamesFromStringArray(watchersAsStrings)
 }

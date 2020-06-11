@@ -676,7 +676,7 @@ func shouldUpsertUsers(dc api.CassandraDatacenter) bool {
 	return time.Now().After(lastCreated.Add(time.Minute * 4))
 }
 
-func (rc *ReconciliationContext) updateUser(user api.CassandraUser) error {
+func (rc *ReconciliationContext) upsertUser(user api.CassandraUser) error {
 	dc := rc.Datacenter
 	namespace := dc.ObjectMeta.Namespace
 
@@ -749,7 +749,7 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 	users := rc.GetUsers()
 
 	for _, user := range users {
-		err := rc.updateUser(user)
+		err := rc.upsertUser(user)
 		if err != nil {
 			rc.ReqLogger.Error(err, "error updating user", "secretName", user.SecretName)
 			return result.Error(err)
