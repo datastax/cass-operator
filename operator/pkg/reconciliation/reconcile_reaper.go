@@ -174,6 +174,10 @@ func jobFinished(job *v1batch.Job) bool {
 func (rc *ReconciliationContext) CheckReaperService() result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_reaper::CheckReaperService")
 
+	if !rc.Datacenter.Spec.Reaper.Enabled {
+		return result.Continue()
+	}
+
 	serviceName := getReaperServiceName(rc.Datacenter)
 	service := &corev1.Service{}
 
