@@ -101,9 +101,15 @@ func main() {
 
 	printVersion()
 
-	namespace, err := k8sutil.GetWatchNamespace()
+	watchNs, err := k8sutil.GetWatchNamespace()
 	if err != nil {
 		log.Error(err, "Failed to get watch namespace")
+		os.Exit(1)
+	}
+
+	operatorNs, err := k8sutil.GetOperatorNamespace()
+	if err != nil {
+		log.Error(err, "Failed to get operator namespace")
 		os.Exit(1)
 	}
 
@@ -132,16 +138,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = ensureWebhookConfigVolume(cfg, namespace); err != nil {
+	if err = ensureWebhookConfigVolume(cfg, operatorNs); err != nil {
 		log.Error(err, "Failed to ensure webhook volume")
 	}
-	if err = ensureWebhookCertificate(cfg, namespace); err != nil {
+	if err = ensureWebhookCertificate(cfg, operatorNs); err != nil {
 		log.Error(err, "Failed to ensure webhook CA configuration")
 	}
 
 	// Set default manager options
 	options := manager.Options{
-		Namespace:          namespace,
+		Namespace:          watchNs,
 		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
 		CertDir:            certDir,
 		Port:               8443,
@@ -151,7 +157,7 @@ func main() {
 	// Note that this is not intended to be used for excluding namespaces, this is better done via a Predicate
 	// Also note that you may face performance issues when using this with a high number of namespaces.
 	// More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
-	if strings.Contains(namespace, ",") {
+	if strings.Contains(watchNs, ",") {
 		options.Namespace = ""
 		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(namespace, ","))
 	}
