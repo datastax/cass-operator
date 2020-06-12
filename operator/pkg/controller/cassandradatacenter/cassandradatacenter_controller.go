@@ -4,6 +4,8 @@
 package cassandradatacenter
 
 import (
+	"fmt"
+	
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
@@ -105,6 +107,33 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			OwnerType:    &api.CassandraDatacenter{},
 		},
 		managedByCassandraOperatorPredicate,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Setup watches for Secrets. These secrets are often not owned by or created by
+	// the operator, so we must create a mapping back to the appropriate datacenters.
+
+	rd, ok := r.(*reconciliation.ReconcileCassandraDatacenter)
+	if !ok {
+		// This should never happen. - John 06/10/2020
+		return fmt.Errorf("%v was not of type ReconcileCassandraDatacenter", r)
+	}
+	dynamicSecretWatches := rd.SecretWatches
+
+	toRequests := handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
+		watchers := dynamicSecretWatches.FindWatchers(a.Meta, a.Object)
+		requests := []reconcile.Request{}
+		for _, watcher := range watchers {
+			requests = append(requests, reconcile.Request{NamespacedName: watcher})
+		}
+		return requests
+	})
+
+	err = c.Watch(
+		&source.Kind{Type: &corev1.Secret{}},
+		&handler.EnqueueRequestsFromMapFunc{ToRequests: toRequests,},
 	)
 	if err != nil {
 		return err

@@ -34,3 +34,37 @@ func SearchMap(mapToSearch map[string]interface{}, key string) map[string]interf
 
 	return make(map[string]interface{})
 }
+
+func IndexOfString(a []string, v string) int {
+	foundIdx := -1
+	for idx, item := range a {
+		if item == v {
+			foundIdx = idx
+			break
+		}
+	}
+
+	return foundIdx
+}
+
+func RemoveValueFromStringArray(a []string, v string) []string {
+	foundIdx := IndexOfString(a, v)
+
+	if foundIdx > -1 {
+		copy(a[foundIdx:], a[foundIdx+1:])
+		a[len(a)-1] = ""
+		a = a[:len(a)-1]
+	}
+	return a
+}
+
+func AppendValuesToStringArrayIfNotPresent(a []string, values ...string) []string {
+	for _, v := range values {
+		idx := IndexOfString(a, v)
+		if idx < 0 {
+			// array does not contain this value, so add it
+			a = append(a, v)
+		}
+	}
+	return a
+}
