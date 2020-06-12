@@ -72,6 +72,10 @@ type ReconcileCassandraDatacenter struct {
 	client        client.Client
 	scheme        *runtime.Scheme
 	recorder      record.EventRecorder
+
+	// SecretWatches is used in the controller when setting up the watches and
+	// during reconciliation where we update the mappings for the watches. 
+	// Putting it here allows us to get it to both places.
 	SecretWatches dynamicwatch.DynamicWatches
 }
 

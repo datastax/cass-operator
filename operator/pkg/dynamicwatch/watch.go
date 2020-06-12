@@ -277,7 +277,7 @@ func (impl *DynamicWatchesAnnotationImpl) UpdateWatch(watcher types.NamespacedNa
 			watchedItem := &items[i]
 			patch := client.MergeFrom(watchedItem.DeepCopy())
 			namespacedNameAsString := namespacedNameString(watchedItem)
-			if -1 == utils.FindValueIndexFromStringArray(watchedAsStrings, namespacedNameAsString) {
+			if -1 == utils.IndexOfString(watchedAsStrings, namespacedNameAsString) {
 				// This is not a resource that `watcher` is watching. Make sure
 				// `watcher` is not recorded as watching this resource in its
 				// annotation.

@@ -833,7 +833,7 @@ func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
 	if len(dc.Status.NodeReplacements) > 0 {
 		for _, pod := range startedPods {
 			// Since pod is labeled as started, it should be done being replaced
-			if utils.FindValueIndexFromStringArray(dc.Status.NodeReplacements, pod.Name) > -1 {
+			if utils.IndexOfString(dc.Status.NodeReplacements, pod.Name) > -1 {
 				logger.Info("Finished replacing pod", "pod", pod.Name)
 
 				rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.FinishedReplaceNode,
@@ -1498,7 +1498,7 @@ func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMeta
 	mgmtClient := rc.NodeMgmtClient
 
 	// Are we replacing this node?
-	shouldReplacePod := utils.FindValueIndexFromStringArray(dc.Status.NodeReplacements, pod.Name) > -1
+	shouldReplacePod := utils.IndexOfString(dc.Status.NodeReplacements, pod.Name) > -1
 
 	replaceAddress := ""
 

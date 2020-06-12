@@ -35,7 +35,7 @@ func SearchMap(mapToSearch map[string]interface{}, key string) map[string]interf
 	return make(map[string]interface{})
 }
 
-func FindValueIndexFromStringArray(a []string, v string) int {
+func IndexOfString(a []string, v string) int {
 	foundIdx := -1
 	for idx, item := range a {
 		if item == v {
@@ -48,7 +48,7 @@ func FindValueIndexFromStringArray(a []string, v string) int {
 }
 
 func RemoveValueFromStringArray(a []string, v string) []string {
-	foundIdx := FindValueIndexFromStringArray(a, v)
+	foundIdx := IndexOfString(a, v)
 
 	if foundIdx > -1 {
 		copy(a[foundIdx:], a[foundIdx+1:])
@@ -60,7 +60,7 @@ func RemoveValueFromStringArray(a []string, v string) []string {
 
 func AppendValuesToStringArrayIfNotPresent(a []string, values ...string) []string {
 	for _, v := range values {
-		idx := FindValueIndexFromStringArray(a, v)
+		idx := IndexOfString(a, v)
 		if idx < 0 {
 			// array does not contain this value, so add it
 			a = append(a, v)
