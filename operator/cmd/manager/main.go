@@ -159,7 +159,7 @@ func main() {
 	// More Info: https://godoc.org/github.com/kubernetes-sigs/controller-runtime/pkg/cache#MultiNamespacedCacheBuilder
 	if strings.Contains(watchNs, ",") {
 		options.Namespace = ""
-		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(namespace, ","))
+		options.NewCache = cache.MultiNamespacedCacheBuilder(strings.Split(watchNs, ","))
 	}
 
 	// Create a new manager to provide shared dependencies and start components
