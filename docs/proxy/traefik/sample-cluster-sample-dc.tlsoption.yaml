@@ -1,0 +1,11 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: TLSOption
+metadata:
+  name: sample-cluster-sample-dc-options
+  namespace: default
+spec:
+  clientAuth:
+    secretNames:
+      - ca-cert
+    clientAuthType: RequireAndVerifyClientCert
+  sniStrict: true
