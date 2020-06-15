@@ -172,7 +172,7 @@ roleName: cass-operator
 roleBindingName: cass-operator
 deploymentName: cass-operator
 deploymentReplicas: 1
-image: "datastax/cass-operator:1.1.0"
+image: "datastax/cass-operator:1.2.0"
 imagePullPolicy: IfNotPresent
 ```
 
