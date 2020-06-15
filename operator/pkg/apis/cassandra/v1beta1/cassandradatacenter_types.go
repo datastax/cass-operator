@@ -345,7 +345,7 @@ type ReaperConfig struct {
 
 	Image string `json:"image,omitempty"`
 
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
