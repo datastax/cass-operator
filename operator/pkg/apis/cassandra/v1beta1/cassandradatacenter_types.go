@@ -50,7 +50,7 @@ type ProgressState string
 // In the event that no image is found, an error is returned
 func getImageForServerVersion(server, version string) (string, error) {
 	const (
-		cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.2"
+		cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.4"
 		cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.2"
 		dse_6_8_0        = "datastax/dse-server:6.8.0"
 	)
@@ -299,7 +299,7 @@ type ReaperConfig struct {
 
 	Image string `json:"image,omitempty"`
 
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy"`
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
