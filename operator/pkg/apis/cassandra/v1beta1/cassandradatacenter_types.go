@@ -50,7 +50,7 @@ const (
 	cassandra_3_11_6              = "datastax/cassandra-mgmtapi-3_11_6:v0.1.2"
 	cassandra_4_0_0               = "datastax/cassandra-mgmtapi-4_0_0:v0.1.2"
 	dse_6_8_0                     = "datastax/dse-server:6.8.0"
-	ubi_cassandra_3_11_6          = "TODO"
+	ubi_cassandra_3_11_6          = "registry.connect.redhat.com/datastax/cassandra:3.11.6"
 	ubi_cassandra_4_0_0           = "TODO"
 	ubi_dse_6_8_0                 = "registry.connect.redhat.com/datastax/dse-server:6.8.0"
 	ubi_defaultConfigBuilderImage = "registry.connect.redhat.com/datastax/cass-config-builder:1.0.0"
@@ -106,7 +106,8 @@ func getImageForUniversalBaseOs(sv string) (string, bool) {
 	case "cassandra-3.11.6":
 		return ubi_cassandra_3_11_6, true
 	case "cassandra-4.0.0":
-		return ubi_cassandra_4_0_0, true
+		//TODO no image available yet
+		return ubi_cassandra_4_0_0, false
 	}
 	return "", false
 }
