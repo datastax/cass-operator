@@ -6,7 +6,7 @@ spec:
   clusterName: cluster1
   serverType: cassandra
   serverVersion: "3.11.6"
-  serverImage: datastax/cassandra-mgmtapi-3_11_6:v0.1.2
+  serverImage: datastax/cassandra-mgmtapi-3_11_6:v0.1.4
   configBuilderImage: datastax/cass-config-builder:1.0.0
   managementApiAuth:
     insecure: {}

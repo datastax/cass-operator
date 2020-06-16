@@ -81,14 +81,9 @@ func TestReconcileReaper_CheckReaperSchemaNotInitialized(t *testing.T) {
 	reconcileResult := rc.CheckReaperSchemaInitialized()
 	assert.False(t, reconcileResult.Completed())
 
-	result, err := reconcileResult.Output()
-
-	assert.NoError(t, err)
-	assert.True(t, result.Requeue, "should requeue request")
-
 	job := &v1batch.Job{}
 	jobName := getReaperSchemaInitJobName(rc.Datacenter)
-	err = rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: rc.Datacenter.Namespace, Name: jobName}, job)
+	err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: rc.Datacenter.Namespace, Name: jobName}, job)
 
 	assert.True(t, errors.IsNotFound(err), "did not expect to find job %s", jobName)
 }
@@ -96,6 +91,8 @@ func TestReconcileReaper_CheckReaperSchemaNotInitialized(t *testing.T) {
 func TestReconcileReaper_CheckReaperService(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
+
+	rc.Datacenter.Spec.Reaper.Enabled = true
 
 	trackObjects := []runtime.Object{rc.Datacenter}
 
@@ -115,15 +112,21 @@ func TestReconcileReaper_CheckReaperServiceReaperDisabled(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	trackObjects := []runtime.Object{rc.Datacenter}
+	serviceName := getReaperServiceName(rc.Datacenter)
+	service := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: rc.Datacenter.Namespace,
+			Name: serviceName,
+		},
+	}
+
+	trackObjects := []runtime.Object{rc.Datacenter, service}
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
 	reconcileResult := rc.CheckReaperService()
 	assert.False(t, reconcileResult.Completed())
 
-	service := &corev1.Service{}
-	serviceName := getReaperServiceName(rc.Datacenter)
 	err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: rc.Datacenter.Namespace, Name: serviceName}, service)
 
 	assert.True(t, errors.IsNotFound(err), "did not expect to find service %s", serviceName)
