@@ -187,7 +187,18 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 		desiredSts, err := rc.desiredStatefulSetForExistingStatefulSet(statefulSet, rackName)
 		
 		if err != nil {
-			logger.Error(err, "error calling newStatefulSetForCassandraDatacenter")
+			logger.Error(err, "error calling desiredStatefulSetForExistingStatefulSet")
+			return result.Error(err)
+		}
+
+		// Set the CassandraDatacenter as the owner and controller
+		err = setControllerReference(
+			rc.Datacenter,
+			desiredSts,
+			rc.Scheme)
+		if err != nil {
+			logger.Error(err, "error calling setControllerReference for statefulset", "desiredSts.Namespace",
+				desiredSts.Namespace, "desireSts.Name", desiredSts.Name)
 			return result.Error(err)
 		}
 
@@ -297,6 +308,17 @@ func (rc *ReconciliationContext) CheckRackForceUpgrade() result.ReconcileResult 
 			desiredSts, err := newStatefulSetForCassandraDatacenter(rackName, dc, 0)
 			if err != nil {
 				logger.Error(err, "error calling newStatefulSetForCassandraDatacenter")
+				return result.Error(err)
+			}
+
+			// Set the CassandraDatacenter as the owner and controller
+			err = setControllerReference(
+				rc.Datacenter,
+				desiredSts,
+				rc.Scheme)
+			if err != nil {
+				logger.Error(err, "error calling setControllerReference for statefulset", "desiredSts.Namespace",
+					desiredSts.Namespace, "desireSts.Name", desiredSts.Name)
 				return result.Error(err)
 			}
 
