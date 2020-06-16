@@ -82,15 +82,8 @@ func CreateReconciliationContext(
 	if rc.Datacenter.Status.LastServerNodeStarted.IsZero() {
 		rc.Datacenter.Status.LastServerNodeStarted = metav1.Unix(1, 0)
 	}
-
 	if rc.Datacenter.Status.LastRollingRestart.IsZero() {
-		dcPatch := runtimeClient.MergeFrom(dc.DeepCopy())
-		dc.Status.LastRollingRestart = metav1.Now()
-		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
-		if err != nil {
-			rc.ReqLogger.Error(err, "error patching datacenter status for rolling restart")
-			return nil, err
-		}
+		rc.Datacenter.Status.LastRollingRestart = metav1.Unix(1, 0)
 	}
 
 	httpClient, err := httphelper.BuildManagementApiHttpClient(dc, cli, rc.Ctx)
