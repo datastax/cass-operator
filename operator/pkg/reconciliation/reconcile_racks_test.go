@@ -188,6 +188,50 @@ func TestReconcileRacks_ReconcilePods(t *testing.T) {
 	assert.NotNil(t, result, "Result should not be nil")
 }
 
+func TestCheckRackPodTemplate_SetControllerRefOnStatefulSet(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	rc.Datacenter.Spec.Racks = []api.Rack{
+		{Name: "rack1", Zone: "zone-1"},
+	}
+
+	if err := rc.CalculateRackInformation(); err != nil {
+		t.Fatalf("failed to calculate rack information: %s", err)
+	}
+
+	result := rc.CheckRackCreation()
+	assert.False(t, result.Completed(), "CheckRackCreation did not complete as expected")
+
+	if err := rc.Client.Update(rc.Ctx, rc.Datacenter); err != nil {
+		t.Fatalf("failed to add rack to cassandradatacenter: %s", err)
+	}
+
+	var actualOwner, actualObject metav1.Object
+	invocations := 0
+	setControllerReference = func(owner, object metav1.Object, scheme *runtime.Scheme) error {
+		actualOwner = owner
+		actualObject = object
+		invocations++
+		return nil
+	}
+
+	terminationGracePeriod := int64(35)
+	podTemplateSpec := &corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{
+			TerminationGracePeriodSeconds: &terminationGracePeriod,
+		},
+	}
+	rc.Datacenter.Spec.PodTemplateSpec = podTemplateSpec
+
+	result = rc.CheckRackPodTemplate()
+	assert.True(t, result.Completed())
+
+	assert.Equal(t, 1, invocations)
+	assert.Equal(t, rc.Datacenter, actualOwner)
+	assert.Equal(t, rc.statefulSets[0].Name, actualObject.GetName())
+}
+
 func TestReconcilePods(t *testing.T) {
 	t.Skip()
 	rc, _, cleanupMockScr := setupTest()
@@ -1218,6 +1262,7 @@ func Test_callPodEndpoint(t *testing.T) {
 	}
 
 	pod := makeReloadTestPod()
+	pod.Status.PodIP = "1.2.3.4"
 
 	if err := client.CallReloadSeedsEndpoint(pod); err != nil {
 		assert.Fail(t, "Should not have returned error")
