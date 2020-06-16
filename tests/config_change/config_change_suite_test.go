@@ -56,7 +56,7 @@ var _ = Describe(testName, func() {
 			ns.WaitForDatacenterReady(dcName)
 
 			step = "scale up to 6 nodes"
-			json := "{\"spec\": {\"size\": 6}}"
+			json := `{"spec": {"size": 6}}`
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
@@ -64,7 +64,20 @@ var _ = Describe(testName, func() {
 			ns.WaitForDatacenterReady(dcName)
 
 			step = "change the config"
-			json = "{\"spec\": {\"config\": {\"cassandra-yaml\": {\"file_cache_size_in_mb\": 123}, \"jvm-server-options\": {\"garbage_collector\": \"CMS\"}}}}"
+			json = `
+			{
+				"spec": {
+					"config": {
+						"cassandra-yaml": {
+							"file_cache_size_in_mb": 123
+						},
+						"jvm-server-options": {
+							"garbage_collector": "CMS"
+						}
+					}
+				}
+			}
+			`
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
