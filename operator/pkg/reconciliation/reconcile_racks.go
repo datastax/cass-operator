@@ -311,6 +311,17 @@ func (rc *ReconciliationContext) CheckRackForceUpgrade() result.ReconcileResult 
 				return result.Error(err)
 			}
 
+			// Set the CassandraDatacenter as the owner and controller
+			err = setControllerReference(
+				rc.Datacenter,
+				desiredSts,
+				rc.Scheme)
+			if err != nil {
+				logger.Error(err, "error calling setControllerReference for statefulset", "desiredSts.Namespace",
+					desiredSts.Namespace, "desireSts.Name", desiredSts.Name)
+				return result.Error(err)
+			}
+
 			// "fix" the replica count, and maintain labels and annotations the k8s admin may have set
 			desiredSts.Spec.Replicas = statefulSet.Spec.Replicas
 			desiredSts.Labels = utils.MergeMap(map[string]string{}, statefulSet.Labels, desiredSts.Labels)
