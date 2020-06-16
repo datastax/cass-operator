@@ -11,7 +11,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	ioutil "io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
