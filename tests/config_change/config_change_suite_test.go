@@ -15,20 +15,22 @@ import (
 )
 
 var (
-	testName     = "Config change rollout"
-	namespace    = "test-config-change-rollout"
-	dcName       = "dc1"
-	dcYaml       = "../testdata/default-three-rack-three-node-dc.yaml"
-	operatorYaml = "../testdata/operator.yaml"
-	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
-	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
-	ns           = ginkgo_util.NewWrapper(testName, namespace)
+	testName   = "Config change rollout"
+	namespace  = "test-config-change-rollout"
+	dcName     = "dc1"
+	dcYaml     = "../testdata/default-three-rack-three-node-dc.yaml"
+	dcResource = fmt.Sprintf("CassandraDatacenter/%s", dcName)
+	dcLabel    = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
+	ns         = ginkgo_util.NewWrapper(testName, namespace)
 )
 
 func TestLifecycle(t *testing.T) {
 	AfterSuite(func() {
 		logPath := fmt.Sprintf("%s/aftersuite", ns.LogDir)
-		kubectl.DumpAllLogs(logPath).ExecV()
+		err := kubectl.DumpAllLogs(logPath).ExecV()
+		if err != nil {
+			fmt.Printf("\n\tError during dumping logs: %s\n\n", err.Error())
+		}
 		fmt.Printf("\n\tPost-run logs dumped at: %s\n\n", logPath)
 		ns.Terminate()
 	})
