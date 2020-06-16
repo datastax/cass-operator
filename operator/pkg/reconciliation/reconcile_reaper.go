@@ -20,8 +20,7 @@ import (
 const (
 	ReaperUIPort             = 7080
 	ReaperAdminPort          = 7081
-	//ReaperDefaultImage     = "thelastpickle/cassandra-reaper:2.0.5"
-	ReaperDefaultImage       = "jsanda/cassandra-reaper:dev"
+	ReaperDefaultImage     = "thelastpickle/cassandra-reaper:2.0.5"
 	ReaperDefaultPullPolicy  = corev1.PullIfNotPresent
 	ReaperContainerName      = "reaper"
 	ReaperHealthCheckPath    = "/healthcheck"
@@ -52,6 +51,8 @@ func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
 			{Name: "REAPER_CASS_CLUSTER_NAME", Value: dc.ClusterName},
 			{Name: "REAPER_CASS_CONTACT_POINTS", Value: fmt.Sprintf("[%s]", dc.GetSeedServiceName())},
 			{Name: "REAPER_AUTH_ENABLED", Value: "false"},
+			{Name: "REAPER_JMX_AUTH_USERNAME", Value: ""},
+			{Name: "REAPER_JMX_AUTH_PASSWORD", Value: ""},
 		},
 	}
 
@@ -138,8 +139,6 @@ func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1batch.Job {
 									Name: "CONTACT_POINTS",
 									Value: dc.GetSeedServiceName(),
 								},
-								// TODO Add replication_factor. There is already a function in tlp-stress-operator
-								//      that does the serialization. I need to move that function to a shared lib.
 								{
 									Name: "REPLICATION",
 									Value: getReaperReplication(dc),
