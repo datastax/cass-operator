@@ -1218,6 +1218,7 @@ func Test_callPodEndpoint(t *testing.T) {
 	}
 
 	pod := makeReloadTestPod()
+	pod.Status.PodIP = "1.2.3.4"
 
 	if err := client.CallReloadSeedsEndpoint(pod); err != nil {
 		assert.Fail(t, "Should not have returned error")
