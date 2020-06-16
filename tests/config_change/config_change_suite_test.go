@@ -91,16 +91,28 @@ var _ = Describe(testName, func() {
 			ns.WaitForOutputContainsAndLog(step, k, "\"file_cache_size_in_mb\":123", 30)
 			ns.WaitForOutputContainsAndLog(step, k, "\"garbage_collector\":\"CMS\"", 30)
 
+			step = "checking that statefulsets have the right owner reference"
+			json = "jsonpath={.metadata.ownerReferences[0].name}"
+			k = kubectl.Get("sts/cluster1-dc1-r1-sts").
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "dc1", 30)
+
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "checking that the dc no longer exists"
+			step = "checking that the cassdc no longer exists"
 			json = "jsonpath={.items}"
 			k = kubectl.Get("CassandraDatacenter").
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "[]", 60)
+
+			step = "checking that the statefulsets no longer exists"
+			json = "jsonpath={.items}"
+			k = kubectl.Get("StatefulSet").
 				WithLabel(dcLabel).
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "[]", 300)
+			ns.WaitForOutputAndLog(step, k, "[]", 60)
 		})
 	})
 })
