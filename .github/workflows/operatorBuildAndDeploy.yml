@@ -38,6 +38,7 @@ jobs:
           MO_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+          cat ./operator/cmd/manager/main.go
           mage operator:testAndBuild
           cat ./build/tagsToPush.txt > ./build/fullTagsToPush.txt
           echo "|" >> ./build/fullTagsToPush.txt
