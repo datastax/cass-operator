@@ -91,7 +91,7 @@ func (rc *ReconciliationContext) CalculateRackInformation() error {
 		desiredRackInformation = append(desiredRackInformation, nextRack)
 	}
 
-	statefulSets := make([]*appsv1.StatefulSet, len(desiredRackInformation), len(desiredRackInformation))
+	statefulSets := make([]*appsv1.StatefulSet, len(desiredRackInformation))
 
 	rc.desiredRackInformation = desiredRackInformation
 	rc.statefulSets = statefulSets
@@ -187,7 +187,18 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 		desiredSts, err := rc.desiredStatefulSetForExistingStatefulSet(statefulSet, rackName)
 		
 		if err != nil {
-			logger.Error(err, "error calling newStatefulSetForCassandraDatacenter")
+			logger.Error(err, "error calling desiredStatefulSetForExistingStatefulSet")
+			return result.Error(err)
+		}
+
+		// Set the CassandraDatacenter as the owner and controller
+		err = setControllerReference(
+			rc.Datacenter,
+			desiredSts,
+			rc.Scheme)
+		if err != nil {
+			logger.Error(err, "error calling setControllerReference for statefulset", "desiredSts.Namespace",
+				desiredSts.Namespace, "desireSts.Name", desiredSts.Name)
 			return result.Error(err)
 		}
 
@@ -300,6 +311,17 @@ func (rc *ReconciliationContext) CheckRackForceUpgrade() result.ReconcileResult 
 				return result.Error(err)
 			}
 
+			// Set the CassandraDatacenter as the owner and controller
+			err = setControllerReference(
+				rc.Datacenter,
+				desiredSts,
+				rc.Scheme)
+			if err != nil {
+				logger.Error(err, "error calling setControllerReference for statefulset", "desiredSts.Namespace",
+					desiredSts.Namespace, "desireSts.Name", desiredSts.Name)
+				return result.Error(err)
+			}
+
 			// "fix" the replica count, and maintain labels and annotations the k8s admin may have set
 			desiredSts.Spec.Replicas = statefulSet.Spec.Replicas
 			desiredSts.Labels = utils.MergeMap(map[string]string{}, statefulSet.Labels, desiredSts.Labels)
@@ -352,7 +374,7 @@ func (rc *ReconciliationContext) CheckRackForceUpgrade() result.ReconcileResult 
 func (rc *ReconciliationContext) CheckRackLabels() result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_racks::CheckRackLabels")
 
-	for idx, _ := range rc.desiredRackInformation {
+	for idx := range rc.desiredRackInformation {
 		rackInfo := rc.desiredRackInformation[idx]
 		statefulSet := rc.statefulSets[idx]
 		patch := client.MergeFrom(statefulSet.DeepCopy())
@@ -529,7 +551,7 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 
 	// step 1 - see if any nodes are already coming up
 
-	nodeIsStarting, nodeStarted, err := rc.findStartingNodes()
+	nodeIsStarting, _, err := rc.findStartingNodes()
 
 	if err != nil {
 		return result.Error(err)
@@ -573,11 +595,6 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 	desiredSize := int(rc.Datacenter.Spec.Size)
 
 	if desiredSize == readyPodCount && desiredSize == startedLabelCount {
-		// When the ready and started counts match the desired counts and nodeStarted is true, then that means we have
-		// just started the last node in the data center.
-		if nodeStarted {
-			return result.RequeueSoon(2)
-		}
 		return result.Continue()
 	} else {
 		err := fmt.Errorf("checks failed desired:%d, ready:%d, started:%d", desiredSize, readyPodCount, startedLabelCount)
@@ -665,7 +682,7 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 func (rc *ReconciliationContext) CheckRackPodLabels() result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_racks::CheckRackPodLabels")
 
-	for idx, _ := range rc.desiredRackInformation {
+	for idx := range rc.desiredRackInformation {
 		statefulSet := rc.statefulSets[idx]
 
 		if err := rc.ReconcilePods(statefulSet); err != nil {
@@ -676,52 +693,106 @@ func (rc *ReconciliationContext) CheckRackPodLabels() result.ReconcileResult {
 	return result.Continue()
 }
 
-func shouldUpsertSuperUser(dc api.CassandraDatacenter) bool {
-	lastCreated := dc.Status.SuperUserUpserted
+func shouldUpsertUsers(dc api.CassandraDatacenter) bool {
+	lastCreated := dc.Status.UsersUpserted
 	return time.Now().After(lastCreated.Add(time.Minute * 4))
 }
 
-func (rc *ReconciliationContext) CreateSuperuser() result.ReconcileResult {
-	if rc.Datacenter.Spec.Stopped {
-		rc.ReqLogger.Info("cluster is stopped, skipping CreateSuperuser")
-		return result.Continue()
+func (rc *ReconciliationContext) upsertUser(user api.CassandraUser) error {
+	dc := rc.Datacenter
+	namespace := dc.ObjectMeta.Namespace
+
+	namespacedName := types.NamespacedName{
+		Name:      user.SecretName,
+		Namespace: namespace,
 	}
 
-	//Skip upsert if already did so recently
-	if !shouldUpsertSuperUser(*rc.Datacenter) {
-		rc.ReqLogger.Info(fmt.Sprintf("The CQL superuser was last upserted at %v, skipping upsert", rc.Datacenter.Status.SuperUserUpserted))
-		return result.Continue()
-	}
-
-	rc.ReqLogger.Info("reconcile_racks::CreateSuperuser")
-
-	// Get the secret
-	secret, err := rc.retrieveSuperuserSecret()
+	secret, err := rc.retrieveSecret(namespacedName)
 	if err != nil {
-		rc.ReqLogger.Error(err, "error retrieving SuperuserSecret for CassandraDatacenter.")
-		return result.Error(err)
+		return err
 	}
 
 	// We will call mgmt API on the first pod
-
 	pod := rc.dcPods[0]
 
 	err = rc.NodeMgmtClient.CallCreateRoleEndpoint(
 		pod,
 		string(secret.Data["username"]),
-		string(secret.Data["password"]))
-	if err != nil {
-		rc.ReqLogger.Error(err, "error creating superuser")
-		return result.Error(err)
+		string(secret.Data["password"]),
+		user.Superuser)
+
+	return err
+}
+
+func (rc *ReconciliationContext) GetUsers() []api.CassandraUser {
+	dc := rc.Datacenter
+	// add the standard superuser to our list of users
+	users := dc.Spec.Users
+	users = append(users, api.CassandraUser{
+		Superuser: true, 
+		SecretName: dc.GetSuperuserSecretNamespacedName().Name,
+	})
+
+	return users
+}
+
+func (rc *ReconciliationContext) UpdateSecretWatches() error {
+	dc := rc.Datacenter
+	users := rc.GetUsers()
+	names := []types.NamespacedName{}
+	for _, user := range users {
+		name := types.NamespacedName{Name: user.SecretName, Namespace: dc.Namespace}
+		names = append(names, name)
+	}
+	dcNamespacedName := types.NamespacedName{Name: dc.Name, Namespace: dc.Namespace,}
+	err := rc.SecretWatches.UpdateWatch(dcNamespacedName, names)
+
+	return err
+}
+
+func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
+	dc := rc.Datacenter
+
+	if dc.Spec.Stopped {
+		rc.ReqLogger.Info("cluster is stopped, skipping CreateUser")
+		return result.Continue()
 	}
 
-	rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.CreatedSuperuser,
+	rc.ReqLogger.Info("reconcile_racks::CreateUsers")
+
+	err := rc.UpdateSecretWatches()
+	if err != nil {
+		rc.ReqLogger.Error(err, "Failed to update dynamic watches on secrets")
+	}
+
+	// make sure the default superuser secret exists
+	_, err = rc.retrieveSuperuserSecretOrCreateDefault()
+
+	users := rc.GetUsers()
+
+	for _, user := range users {
+		err := rc.upsertUser(user)
+		if err != nil {
+			rc.ReqLogger.Error(err, "error updating user", "secretName", user.SecretName)
+			return result.Error(err)
+		}
+	}
+
+	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedUsers,
+		"Created users")
+
+	// For backwards compatiblity
+	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedSuperuser,
 		"Created superuser")
 
 	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
+	rc.Datacenter.Status.UsersUpserted = metav1.Now()
+	
+	// For backwards compatibility
 	rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
+	
 	if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
-		rc.ReqLogger.Error(err, "error updating the CQL superuser upsert timestamp")
+		rc.ReqLogger.Error(err, "error updating the users upsert timestamp")
 		return result.Error(err)
 	}
 
@@ -737,51 +808,15 @@ func findHostIdForIpFromEndpointsData(endpointsData []httphelper.EndpointState, 
 	return ""
 }
 
-func findValueIndexFromStringArray(a []string, v string) int {
-	foundIdx := -1
-	for idx, item := range a {
-		if item == v {
-			foundIdx = idx
-			break
-		}
-	}
-
-	return foundIdx
-}
-
-func removeValueFromStringArray(a []string, v string) []string {
-	foundIdx := findValueIndexFromStringArray(a, v)
-
-	if foundIdx > -1 {
-		copy(a[foundIdx:], a[foundIdx+1:])
-		a[len(a)-1] = ""
-		a = a[:len(a)-1]
-	}
-	return a
-}
-
-func appendValuesToStringArrayIfNotPresent(a []string, values ...string) []string {
-	for _, v := range values {
-		idx := findValueIndexFromStringArray(a, v)
-		if idx < 0 {
-			// array does not contain this value, so add it
-			a = append(a, v)
-		}
-	}
-	return a
-}
-
 func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 	logger := rc.ReqLogger
 	dc := rc.Datacenter
-
-	pods := ListAllStartedPods(rc.dcPods)
 
 	if dc.Status.NodeStatuses == nil {
 		dc.Status.NodeStatuses = map[string]api.CassandraNodeStatus{}
 	}
 
-	for _, pod := range pods {
+	for _, pod := range rc.dcPods {
 		nodeStatus, ok := dc.Status.NodeStatuses[pod.Name]
 		if !ok {
 			nodeStatus = api.CassandraNodeStatus{}
@@ -803,10 +838,6 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 					rc.ReqLogger.Error(err, "Could not get endpoints data")
 				}
 			}
-
-			if nodeStatus.HostID != "" {
-				nodeStatus.NodeIP = pod.Status.PodIP
-			}
 		}
 
 		dc.Status.NodeStatuses[pod.Name] = nodeStatus
@@ -824,13 +855,13 @@ func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
 	if len(dc.Status.NodeReplacements) > 0 {
 		for _, pod := range startedPods {
 			// Since pod is labeled as started, it should be done being replaced
-			if findValueIndexFromStringArray(dc.Status.NodeReplacements, pod.Name) > -1 {
+			if utils.IndexOfString(dc.Status.NodeReplacements, pod.Name) > -1 {
 				logger.Info("Finished replacing pod", "pod", pod.Name)
 
 				rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.FinishedReplaceNode,
 					"Finished replacing pod %s", pod.Name)
 
-				dc.Status.NodeReplacements = removeValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
+				dc.Status.NodeReplacements = utils.RemoveValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
 			}
 		}
 	}
@@ -852,7 +883,7 @@ func (rc *ReconciliationContext) startReplacePodsIfReplacePodsSpecified() error 
 		rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.ReplacingNode,
 			"Replacing Cassandra nodes for pods %s", podNamesString)
 
-		dc.Status.NodeReplacements = appendValuesToStringArrayIfNotPresent(
+		dc.Status.NodeReplacements = utils.AppendValuesToStringArrayIfNotPresent(
 			dc.Status.NodeReplacements,
 			dc.Spec.ReplaceNodes...)
 
@@ -1427,13 +1458,6 @@ func (rc *ReconciliationContext) labelServerPodStartedNotReady(pod *corev1.Pod) 
 	return err
 }
 
-func (rc *ReconciliationContext) callNodeManagementStart(pod *corev1.Pod) error {
-	mgmtClient := rc.NodeMgmtClient
-	err := mgmtClient.CallLifecycleStartEndpoint(pod)
-
-	return err
-}
-
 // Checks to see if any node is starting. This is done by checking to see if the cassandra.datastax.com/node-state label
 // has a value of Starting. If it does then check to see if the C* node is ready. If the node is ready, the pod's
 // cassandra.datastax.com/node-state label is set to a value of Started. This function returns two bools and an error.
@@ -1496,7 +1520,7 @@ func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMeta
 	mgmtClient := rc.NodeMgmtClient
 
 	// Are we replacing this node?
-	shouldReplacePod := findValueIndexFromStringArray(dc.Status.NodeReplacements, pod.Name) > -1
+	shouldReplacePod := utils.IndexOfString(dc.Status.NodeReplacements, pod.Name) > -1
 
 	replaceAddress := ""
 
@@ -1844,6 +1868,22 @@ func (rc *ReconciliationContext) cleanupAfterScaling() error {
 	return err
 }
 
+func (rc *ReconciliationContext) CheckCassandraNodeStatuses() result.ReconcileResult {
+	dc := rc.Datacenter
+	logger := rc.ReqLogger
+
+	// Check that we have a HostID for every pod in the datacenter
+	for _, pod := range rc.dcPods {
+		nodeStatus, ok := dc.Status.NodeStatuses[pod.Name]
+		if !ok || nodeStatus.HostID == "" {
+			logger.Info("Missing host id", "pod", pod.Name)
+			return result.RequeueSoon(2)
+		}
+	}
+
+	return result.Continue()
+}
+
 func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileResult {
 	dc := rc.Datacenter
 	logger := rc.ReqLogger
@@ -1945,6 +1985,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
+	if recResult := rc.CheckCassandraNodeStatuses(); recResult.Completed() {
+		return recResult.Output()
+	}
+
 	if recResult := rc.CheckRollingRestart(); recResult.Completed() {
 		return recResult.Output()
 	}
@@ -1961,7 +2005,7 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
-	if recResult := rc.CreateSuperuser(); recResult.Completed() {
+	if recResult := rc.CreateUsers(); recResult.Completed() {
 		return recResult.Output()
 	}
 

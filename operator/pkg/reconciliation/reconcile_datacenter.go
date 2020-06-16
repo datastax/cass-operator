@@ -10,6 +10,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 )
@@ -23,6 +24,14 @@ func (rc *ReconciliationContext) ProcessDeletion() result.ReconcileResult {
 	// set the label here but no need to remove since we're deleting the CassandraDatacenter
 	if err := setOperatorProgressStatus(rc, api.ProgressUpdating); err != nil {
 		return result.Error(err)
+	}
+
+	// Clean up annotation litter on the user Secrets
+	err := rc.SecretWatches.RemoveWatcher(types.NamespacedName{
+		Name: rc.Datacenter.GetName(), Namespace: rc.Datacenter.GetNamespace(),})
+
+	if err != nil {
+		rc.ReqLogger.Error(err, "Failed to remove dynamic secret watches for CassandraDatacenter")
 	}
 
 	if err := rc.deletePVCs(); err != nil {

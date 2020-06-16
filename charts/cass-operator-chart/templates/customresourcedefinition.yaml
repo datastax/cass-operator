@@ -1313,10 +1313,12 @@ spec:
                               - containerPort
                               type: object
                             type: array
+                            {{- if semverCompare ">= 1.16-0" .Capabilities.KubeVersion.GitVersion }}
                             x-kubernetes-list-map-keys:
                             - containerPort
                             - protocol
                             x-kubernetes-list-type: map
+                            {{- end }}
                           readinessProbe:
                             description: 'Periodic probe of container service readiness.
                               Container will be removed from service endpoints if
@@ -3645,10 +3647,12 @@ spec:
                               - containerPort
                               type: object
                             type: array
+                            {{- if semverCompare ">= 1.16-0" .Capabilities.KubeVersion.GitVersion }}
                             x-kubernetes-list-map-keys:
                             - containerPort
                             - protocol
                             x-kubernetes-list-type: map
+                            {{- end }}
                           readinessProbe:
                             description: 'Periodic probe of container service readiness.
                               Container will be removed from service endpoints if
@@ -4579,10 +4583,12 @@ spec:
                         - whenUnsatisfiable
                         type: object
                       type: array
+                      {{- if semverCompare ">= 1.16-0" .Capabilities.KubeVersion.GitVersion }}
                       x-kubernetes-list-map-keys:
                       - topologyKey
                       - whenUnsatisfiable
                       x-kubernetes-list-type: map
+                      {{- end }}
                     volumes:
                       description: 'List of volumes that can be mounted by containers
                         belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes'
@@ -6080,6 +6086,19 @@ spec:
               description: This secret defines the username and password for the Cassandra
                 server superuser. If it is omitted, we will generate a secret instead.
               type: string
+            users:
+              description: Cassandra users to bootstrap
+              items:
+                properties:
+                  secretName:
+                    type: string
+                  superuser:
+                    type: boolean
+                required:
+                - secretName
+                - superuser
+                type: object
+              type: array
           required:
           - clusterName
           - serverType
@@ -6125,18 +6144,24 @@ spec:
                 properties:
                   hostID:
                     type: string
-                  nodeIP:
-                    type: string
                 type: object
               type: object
             superUserUpserted:
-              description: The timestamp at which CQL superuser credentials were last
-                upserted to the management API
+              description: Deprecated. Use usersUpserted instead. The timestamp at
+                which CQL superuser credentials were last upserted to the management
+                API
+              format: date-time
+              type: string
+            usersUpserted:
+              description: The timestamp at which managed cassandra users' credentials
+                were last upserted to the management API
               format: date-time
               type: string
           type: object
       type: object
+      {{- if semverCompare ">= 1.15-0" .Capabilities.KubeVersion.GitVersion }}
       x-kubernetes-preserve-unknown-fields: true
+      {{- end }}
   version: v1beta1
   versions:
   - name: v1beta1

@@ -181,11 +181,55 @@ func TestReconcileRacks_ReconcilePods(t *testing.T) {
 	rackInfo := []*RackInformation{nextRack}
 
 	rc.desiredRackInformation = rackInfo
-	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo))
 
 	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
 	assert.NotNil(t, result, "Result should not be nil")
+}
+
+func TestCheckRackPodTemplate_SetControllerRefOnStatefulSet(t *testing.T) {
+	rc, _, cleanupMockScr := setupTest()
+	defer cleanupMockScr()
+
+	rc.Datacenter.Spec.Racks = []api.Rack{
+		{Name: "rack1", Zone: "zone-1"},
+	}
+
+	if err := rc.CalculateRackInformation(); err != nil {
+		t.Fatalf("failed to calculate rack information: %s", err)
+	}
+
+	result := rc.CheckRackCreation()
+	assert.False(t, result.Completed(), "CheckRackCreation did not complete as expected")
+
+	if err := rc.Client.Update(rc.Ctx, rc.Datacenter); err != nil {
+		t.Fatalf("failed to add rack to cassandradatacenter: %s", err)
+	}
+
+	var actualOwner, actualObject metav1.Object
+	invocations := 0
+	setControllerReference = func(owner, object metav1.Object, scheme *runtime.Scheme) error {
+		actualOwner = owner
+		actualObject = object
+		invocations++
+		return nil
+	}
+
+	terminationGracePeriod := int64(35)
+	podTemplateSpec := &corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{
+			TerminationGracePeriodSeconds: &terminationGracePeriod,
+		},
+	}
+	rc.Datacenter.Spec.PodTemplateSpec = podTemplateSpec
+
+	result = rc.CheckRackPodTemplate()
+	assert.True(t, result.Completed())
+
+	assert.Equal(t, 1, invocations)
+	assert.Equal(t, rc.Datacenter, actualOwner)
+	assert.Equal(t, rc.statefulSets[0].Name, actualObject.GetName())
 }
 
 func TestReconcilePods(t *testing.T) {
@@ -424,7 +468,7 @@ func TestReconcileRacks(t *testing.T) {
 	rackInfo = append(rackInfo, nextRack)
 
 	rc.desiredRackInformation = rackInfo
-	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo))
 
 	result, err := rc.ReconcileAllRacks()
 
@@ -496,7 +540,7 @@ func TestReconcileRacks_WaitingForReplicas(t *testing.T) {
 	rackInfo = append(rackInfo, nextRack)
 
 	rc.desiredRackInformation = rackInfo
-	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo))
 
 	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
@@ -531,7 +575,7 @@ func TestReconcileRacks_NeedMoreReplicas(t *testing.T) {
 	rackInfo = append(rackInfo, nextRack)
 
 	rc.desiredRackInformation = rackInfo
-	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo))
 
 	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
@@ -571,7 +615,7 @@ func TestReconcileRacks_DoesntScaleDown(t *testing.T) {
 	rackInfo = append(rackInfo, nextRack)
 
 	rc.desiredRackInformation = rackInfo
-	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo))
 
 	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
@@ -607,7 +651,7 @@ func TestReconcileRacks_NeedToPark(t *testing.T) {
 	rackInfo = append(rackInfo, nextRack)
 
 	rc.desiredRackInformation = rackInfo
-	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo))
 
 	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Apply() should not have returned an error")
@@ -655,7 +699,7 @@ func TestReconcileRacks_AlreadyReconciled(t *testing.T) {
 	rackInfo = append(rackInfo, nextRack)
 
 	rc.desiredRackInformation = rackInfo
-	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo))
 
 	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
@@ -706,7 +750,7 @@ func TestReconcileRacks_FirstRackAlreadyReconciled(t *testing.T) {
 	rackInfo = append(rackInfo, rack0, rack1)
 
 	rc.desiredRackInformation = rackInfo
-	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo))
 
 	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
@@ -810,7 +854,7 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 	rackInfo = append(rackInfo, rack0)
 
 	rc.desiredRackInformation = rackInfo
-	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo))
 
 	result, err := rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
@@ -833,7 +877,7 @@ func TestReconcileRacks_UpdateConfig(t *testing.T) {
 	rc.Datacenter.Spec.Config = configJson
 
 	rc.desiredRackInformation = rackInfo
-	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo), len(rackInfo))
+	rc.statefulSets = make([]*appsv1.StatefulSet, len(rackInfo))
 
 	result, err = rc.ReconcileAllRacks()
 	assert.NoErrorf(t, err, "Should not have returned an error")
@@ -1218,6 +1262,7 @@ func Test_callPodEndpoint(t *testing.T) {
 	}
 
 	pod := makeReloadTestPod()
+	pod.Status.PodIP = "1.2.3.4"
 
 	if err := client.CallReloadSeedsEndpoint(pod); err != nil {
 		assert.Fail(t, "Should not have returned error")

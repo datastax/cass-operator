@@ -19,7 +19,8 @@ const (
 	UnlabeledPodAsSeed                string = "UnlabeledPodAsSeed"
 	LabeledRackResource               string = "LabeledRackResource"
 	ScalingUpRack                     string = "ScalingUpRack"
-	CreatedSuperuser                  string = "CreatedSuperuser"
+	CreatedSuperuser                  string = "CreatedSuperuser" // deprecated
+	CreatedUsers                      string = "CreatedUsers"
 	FinishedReplaceNode               string = "FinishedReplaceNode"
 	ReplacingNode                     string = "ReplacingNode"
 	StartingCassandraAndReplacingNode string = "StartingCassandraAndReplacingNode"

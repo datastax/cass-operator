@@ -47,7 +47,8 @@ func AddManagementApiServerSecurity(dc *api.CassandraDatacenter, pod *corev1.Pod
 func BuildManagmenetApiSecurityProvider(dc *api.CassandraDatacenter) (ManagementApiSecurityProvider, error) {
 	options := []func(*api.CassandraDatacenter) (ManagementApiSecurityProvider, error){
 		buildManualApiSecurityProvider,
-		buildInsecureManagementApiSecurityProvider}
+		buildInsecureManagementApiSecurityProvider,
+	}
 
 	var selectedProvider ManagementApiSecurityProvider = nil
 
@@ -73,7 +74,6 @@ func BuildManagmenetApiSecurityProvider(dc *api.CassandraDatacenter) (Management
 
 func ValidateManagementApiConfig(dc *api.CassandraDatacenter, client client.Client, ctx context.Context) []error {
 	provider, err := BuildManagmenetApiSecurityProvider(dc)
-
 	if err != nil {
 		return []error{err}
 	}
@@ -227,13 +227,15 @@ func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(pod *core
 	container.LivenessProbe.Handler.HTTPGet = nil
 	container.LivenessProbe.Handler.TCPSocket = nil
 	container.LivenessProbe.Handler.Exec = &corev1.ExecAction{
-		Command: []string{"wget",
+		Command: []string{
+			"wget",
 			"--output-document", "/dev/null",
 			"--no-check-certificate",
 			"--certificate", tlsCrt,
 			"--private-key", tlsKey,
 			"--ca-certificate", caCertPath,
-			livenessEndpoint},
+			livenessEndpoint,
+		},
 	}
 
 	// Update Readiness probe to account for mutual auth (can't just use HTTP probe now)
@@ -247,13 +249,15 @@ func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(pod *core
 	container.ReadinessProbe.Handler.HTTPGet = nil
 	container.ReadinessProbe.Handler.TCPSocket = nil
 	container.ReadinessProbe.Handler.Exec = &corev1.ExecAction{
-		Command: []string{"wget",
+		Command: []string{
+			"wget",
 			"--output-document", "/dev/null",
 			"--no-check-certificate",
 			"--certificate", tlsCrt,
 			"--private-key", tlsKey,
 			"--ca-certificate", caCertPath,
-			readinessEndpoint},
+			readinessEndpoint,
+		},
 	}
 
 	return nil
@@ -349,7 +353,7 @@ func validateCertificate(data []byte) []error {
 	return validationErrors
 }
 
-func validateKeyAndCertificate(certificate []byte, privateKey []byte, caCertificate []byte) []error {
+func validateKeyAndCertificate(certificate, privateKey, caCertificate []byte) []error {
 	var validationErrors []error
 
 	privateKeyValidationErrors := validatePrivateKey(privateKey)
@@ -373,7 +377,6 @@ func validateKeyAndCertificate(certificate []byte, privateKey []byte, caCertific
 	_, err := tls.X509KeyPair(
 		certificate,
 		privateKey)
-
 	if err != nil {
 		validationErrors = append(
 			validationErrors,
@@ -419,7 +422,7 @@ func validateCertificateChain(chain []*x509.Certificate) error {
 	return nil
 }
 
-func validatePeerACertificateSignedByPeerBCa(peerACertificate []byte, peerACa []byte, peerBCa []byte) error {
+func validatePeerACertificateSignedByPeerBCa(peerACertificate, peerACa, peerBCa []byte) error {
 	// In order for the certificate of peer A (`peerACertificate`) to be
 	// properly signed, it must be possible to construct a chain of trust from
 	// peer A's certificate and peer A's CA (`peerACA`) to peer B's CA
@@ -484,7 +487,8 @@ func validatePeerACertificateSignedByPeerBCa(peerACertificate []byte, peerACa []
 func validateSecretStructure(secret *corev1.Secret) error {
 	secretNamespacedName := types.NamespacedName{
 		Name:      secret.ObjectMeta.Name,
-		Namespace: secret.ObjectMeta.Namespace}
+		Namespace: secret.ObjectMeta.Namespace,
+	}
 
 	// Check secret type
 	if secret.Type != "kubernetes.io/tls" {
@@ -508,17 +512,17 @@ func validateSecretStructure(secret *corev1.Secret) error {
 	return nil
 }
 
-func loadSecret(client client.Client, ctx context.Context, namespace string, name string) (*corev1.Secret, error) {
+func loadSecret(client client.Client, ctx context.Context, namespace, name string) (*corev1.Secret, error) {
 	secretNamespacedName := types.NamespacedName{
 		Name:      name,
-		Namespace: namespace}
+		Namespace: namespace,
+	}
 
 	secret := &corev1.Secret{}
 	err := client.Get(
 		ctx,
 		secretNamespacedName,
 		secret)
-
 	if err != nil {
 		// Couldn't get the secret
 		return nil, err
@@ -629,14 +633,14 @@ func (provider *ManualManagementApiSecurityProvider) BuildHttpClient(client clie
 	// Get the client Secret
 	secretNamespacedName := types.NamespacedName{
 		Name:      provider.Config.ClientSecretName,
-		Namespace: provider.Namespace}
+		Namespace: provider.Namespace,
+	}
 
 	secret := &corev1.Secret{}
 	err := client.Get(
 		ctx,
 		secretNamespacedName,
 		secret)
-
 	if err != nil {
 		// Couldn't get the secret
 		return nil, err

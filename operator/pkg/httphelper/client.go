@@ -17,7 +17,6 @@ import (
 
 	"github.com/go-logr/logr"
 
-	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -67,12 +66,22 @@ type CassMetadataEndpoints struct {
 	Entity []EndpointState `json:"entity"`
 }
 
-func BuildPodHostFromPod(pod *corev1.Pod) string {
-	return GetPodHost(
-		pod.Name,
-		pod.Labels[api.ClusterLabel],
-		pod.Labels[api.DatacenterLabel],
-		pod.Namespace)
+type NoPodIPError error
+
+func newNoPodIPError(pod *corev1.Pod) NoPodIPError {
+	return fmt.Errorf("pod %s has no IP", pod.Name)
+}
+
+func BuildPodHostFromPod(pod *corev1.Pod) (string, error) {
+	// This function previously returned the dns hostname which includes the StatefulSet's headless service,
+	// which is the datacenter service. There are times though that we want to make a mgmt api call to the pod
+	// before the dns hostnames are available. It is therefore more reliable to simply use the PodIP.
+
+	if len(pod.Status.PodIP) == 0 {
+		return "", newNoPodIPError(pod)
+	}
+
+	return pod.Status.PodIP, nil
 }
 
 func GetPodHost(podName, clusterName, dcName, namespace string) string {
@@ -92,9 +101,14 @@ func parseMetadataEndpointsResponseBody(body []byte) (*CassMetadataEndpoints, er
 func (client *NodeMgmtClient) CallMetadataEndpointsEndpoint(pod *corev1.Pod) (CassMetadataEndpoints, error) {
 	client.Log.Info("requesting Cassandra metadata endpoints from Node Management API", "pod", pod.Name)
 
+	podHost, err := BuildPodHostFromPod(pod)
+	if err != nil {
+		return CassMetadataEndpoints{}, err
+	}
+
 	request := nodeMgmtRequest{
 		endpoint: "/api/v0/metadata/endpoints",
-		host:     BuildPodHostFromPod(pod),
+		host:     podHost,
 		method:   http.MethodGet,
 	}
 
@@ -113,7 +127,7 @@ func (client *NodeMgmtClient) CallMetadataEndpointsEndpoint(pod *corev1.Pod) (Ca
 }
 
 // Create a new superuser with the given username and password
-func (client *NodeMgmtClient) CallCreateRoleEndpoint(pod *corev1.Pod, username string, password string) error {
+func (client *NodeMgmtClient) CallCreateRoleEndpoint(pod *corev1.Pod, username string, password string, superuser bool) error {
 	client.Log.Info(
 		"calling Management API create role - POST /api/v0/ops/auth/role",
 		"pod", pod.Name,
@@ -123,14 +137,19 @@ func (client *NodeMgmtClient) CallCreateRoleEndpoint(pod *corev1.Pod, username s
 	postData.Set("username", username)
 	postData.Set("password", password)
 	postData.Set("can_login", "true")
-	postData.Set("is_superuser", "true")
+	postData.Set("is_superuser", strconv.FormatBool(superuser))
+
+	podHost, err := BuildPodHostFromPod(pod)
+	if err != nil {
+		return err
+	}
 
 	request := nodeMgmtRequest{
 		endpoint: fmt.Sprintf("/api/v0/ops/auth/role?%s", postData.Encode()),
-		host:     BuildPodHostFromPod(pod),
+		host:     podHost,
 		method:   http.MethodPost,
 	}
-	_, err := callNodeMgmtEndpoint(client, request, "")
+	_, err = callNodeMgmtEndpoint(client, request, "")
 	return err
 }
 
@@ -140,13 +159,18 @@ func (client *NodeMgmtClient) CallProbeClusterEndpoint(pod *corev1.Pod, consiste
 		"pod", pod.Name,
 	)
 
+	podHost, err := BuildPodHostFromPod(pod)
+	if err != nil {
+		return err
+	}
+
 	request := nodeMgmtRequest{
 		endpoint: fmt.Sprintf("/api/v0/probes/cluster?consistency_level=%s&rf_per_dc=%d", consistencyLevel, rfPerDc),
-		host:     BuildPodHostFromPod(pod),
+		host:     podHost,
 		method:   http.MethodGet,
 	}
 
-	_, err := callNodeMgmtEndpoint(client, request, "")
+	_, err = callNodeMgmtEndpoint(client, request, "")
 	return err
 }
 
@@ -156,14 +180,19 @@ func (client *NodeMgmtClient) CallDrainEndpoint(pod *corev1.Pod) error {
 		"pod", pod.Name,
 	)
 
+	podHost, err := BuildPodHostFromPod(pod)
+	if err != nil {
+		return err
+	}
+
 	request := nodeMgmtRequest{
 		endpoint: "/api/v0/ops/node/drain",
-		host:     BuildPodHostFromPod(pod),
+		host:     podHost,
 		method:   http.MethodPost,
 		timeout:  time.Minute * 2,
 	}
 
-	_, err := callNodeMgmtEndpoint(client, request, "")
+	_, err = callNodeMgmtEndpoint(client, request, "")
 	return err
 }
 
@@ -190,9 +219,14 @@ func (client *NodeMgmtClient) CallKeyspaceCleanupEndpoint(pod *corev1.Pod, jobs 
 		return err
 	}
 
+	podHost, err := BuildPodHostFromPod(pod)
+	if err != nil {
+		return err
+	}
+
 	request := nodeMgmtRequest{
-		endpoint: fmt.Sprintf("/api/v0/ops/keyspace/cleanup"),
-		host:     BuildPodHostFromPod(pod),
+		endpoint: "/api/v0/ops/keyspace/cleanup",
+		host:     podHost,
 		method:   http.MethodPost,
 		timeout:  time.Second * 20,
 		body:     body,
@@ -241,13 +275,18 @@ func (client *NodeMgmtClient) CallReloadSeedsEndpoint(pod *corev1.Pod) error {
 		"pod", pod.Name,
 	)
 
+	podHost, err := BuildPodHostFromPod(pod)
+	if err != nil {
+		return err
+	}
+
 	request := nodeMgmtRequest{
 		endpoint: "/api/v0/ops/seeds/reload",
-		host:     BuildPodHostFromPod(pod),
+		host:     podHost,
 		method:   http.MethodPost,
 	}
 
-	_, err := callNodeMgmtEndpoint(client, request, "")
+	_, err = callNodeMgmtEndpoint(client, request, "")
 	return err
 }
 

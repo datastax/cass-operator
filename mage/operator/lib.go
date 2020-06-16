@@ -234,7 +234,7 @@ func doSdkGenerate() {
 
 	generateK8sAndOpenApi()
 	postProcessCrd()
-	cpCrdToChart()
+	patchCrdToTemplate()
 }
 
 func cpCrdToChart() {
@@ -243,6 +243,10 @@ func cpCrdToChart() {
 
 	err = ioutil.WriteFile(helmChartCrd, crd, os.ModePerm)
 	mageutil.PanicOnError(err)
+}
+
+func patchCrdToTemplate() {
+	shutil.RunVPanic("patch", generatedDseDataCentersCrd, "mage/operator/crd.patch", "-o", helmChartCrd)
 }
 
 // Generate files with the operator-sdk.

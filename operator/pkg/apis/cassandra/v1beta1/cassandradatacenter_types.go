@@ -112,6 +112,11 @@ func getImageForUniversalBaseOs(sv string) (string, bool) {
 	return "", false
 }
 
+type CassandraUser struct {
+	SecretName string `json:"secretName"`
+	Superuser bool `json:"superuser"`
+}
+
 // CassandraDatacenterSpec defines the desired state of a CassandraDatacenter
 // +k8s:openapi-gen=true
 type CassandraDatacenterSpec struct {
@@ -202,6 +207,9 @@ type CassandraDatacenterSpec struct {
 
 	// PodTemplate provides customisation options (labels, annotations, affinity rules, resource requests, and so on) for the cassandra pods
 	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplateSpec,omitempty"`
+
+	// Cassandra users to bootstrap
+	Users []CassandraUser `json:"users,omitempty"`
 }
 
 type StorageConfig struct {
@@ -231,7 +239,6 @@ type Rack struct {
 
 type CassandraNodeStatus struct {
 	HostID string `json:"hostID,omitempty"`
-	NodeIP string `json:"nodeIP,omitempty"`
 }
 
 type CassandraStatusMap map[string]CassandraNodeStatus
@@ -267,10 +274,16 @@ func NewDatacenterCondition(conditionType DatacenterConditionType, status corev1
 type CassandraDatacenterStatus struct {
 	Conditions []DatacenterCondition `json:"conditions,omitempty"`
 
-	// The timestamp at which CQL superuser credentials
-	// were last upserted to the management API
+	// Deprecated. Use usersUpserted instead. The timestamp at 
+	// which CQL superuser credentials were last upserted to the 
+	// management API
 	// +optional
 	SuperUserUpserted metav1.Time `json:"superUserUpserted,omitempty"`
+
+	// The timestamp at which managed cassandra users' credentials
+	// were last upserted to the management API
+	// +optional
+	UsersUpserted metav1.Time `json:"usersUpserted,omitempty"`
 
 	// The timestamp when the operator last started a Server node
 	// with the management API
@@ -398,7 +411,7 @@ func (dc *CassandraDatacenter) GetConditionStatus(conditionType DatacenterCondit
 func (status *CassandraDatacenterStatus) SetCondition(condition DatacenterCondition) {
 	conditions := status.Conditions
 	added := false
-	for i, _ := range status.Conditions {
+	for i := range status.Conditions {
 		if status.Conditions[i].Type == condition.Type {
 			status.Conditions[i] = condition
 			added = true

@@ -336,7 +336,7 @@ func (ns *NsWrapper) GetDatacenterPodNames(dcName string) []string {
 
 	output := ns.OutputPanic(k)
 	podNames := strings.Split(output, " ")
-	sort.Sort(sort.StringSlice(podNames))
+	sort.Strings(podNames)
 
 	return podNames
 }
@@ -349,7 +349,7 @@ func (ns *NsWrapper) GetDatacenterReadyPodNames(dcName string) []string {
 
 	output := ns.OutputPanic(k)
 	podNames := strings.Split(output, " ")
-	sort.Sort(sort.StringSlice(podNames))
+	sort.Strings(podNames)
 
 	return podNames
 }
@@ -361,7 +361,7 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 		WithLabel("name=cass-operator").
 		WithFlag("field-selector", "status.phase=Running").
 		FormatOutput(json)
-	ns.WaitForOutputAndLog(step, k, "true", 120)
+	ns.WaitForOutputAndLog(step, k, "true", 240)
 }
 
 func (ns NsWrapper) HelmInstall(chartPath string) {

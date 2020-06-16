@@ -87,6 +87,10 @@ var _ = Describe(testName, func() {
 			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
 			ns.WaitForDatacenterReady(dcName)
 
+			step = "check recorded host IDs"
+			nodeStatusesHostIds := ns.GetNodeStatusesHostIds(dcName)
+			Expect(len(nodeStatusesHostIds), 5)
+
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
 			ns.ExecAndLog(step, k)
