@@ -174,29 +174,31 @@ func jobFinished(job *v1batch.Job) bool {
 func (rc *ReconciliationContext) CheckReaperService() result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_reaper::CheckReaperService")
 
-	if !rc.Datacenter.Spec.Reaper.Enabled {
-		return result.Continue()
-	}
-
 	serviceName := getReaperServiceName(rc.Datacenter)
 	service := &corev1.Service{}
 
 	err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: rc.Datacenter.Namespace, Name: serviceName}, service)
 	if err != nil && errors.IsNotFound(err) {
-		// Create the service
-		service = newReaperService(rc.Datacenter)
-		rc.ReqLogger.Info("creating Reaper service")
-		if err := setControllerReference(rc.Datacenter, service, rc.Scheme); err != nil {
-			rc.ReqLogger.Error(err, "failed to set owner reference", ReaperSchemaInitJob, serviceName)
-			return result.Error(err)
+		if rc.Datacenter.Spec.Reaper.Enabled {
+			// Create the service
+			service = newReaperService(rc.Datacenter)
+			rc.ReqLogger.Info("creating Reaper service")
+			if err := setControllerReference(rc.Datacenter, service, rc.Scheme); err != nil {
+				rc.ReqLogger.Error(err, "failed to set owner reference", "ReaperService", serviceName)
+				return result.Error(err)
+			}
+			if err := rc.Client.Create(rc.Ctx, service); err != nil {
+				rc.ReqLogger.Error(err, "failed to create Reaper service")
+				return result.Error(err)
+			}
+			return result.Continue()
 		}
-		if err := rc.Client.Create(rc.Ctx, service); err != nil {
-			rc.ReqLogger.Error(err, "failed to create Reaper service")
-			return result.Error(err)
-		}
-		return result.Continue()
 	} else if err != nil {
 		return result.Error(err)
+	} else if !rc.Datacenter.Spec.Reaper.Enabled {
+		if err := rc.Client.Delete(rc.Ctx, service); err != nil {
+			rc.ReqLogger.Error(err, "failed to delete Reaper service", "ReaperService", serviceName)
+		}
 	}
 	return result.Continue()
 }
