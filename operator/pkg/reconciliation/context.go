@@ -14,12 +14,11 @@ import (
 	"k8s.io/client-go/tools/record"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"github.com/datastax/cass-operator/operator/pkg/dynamicwatch"
-
-	"github.com/datastax/cass-operator/operator/pkg/httphelper"
-	"github.com/datastax/cass-operator/operator/pkg/events"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/dynamicwatch"
+	"github.com/datastax/cass-operator/operator/pkg/events"
+	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 )
 
 // ReconciliationContext contains all of the input necessary to calculate a list of ReconciliationActions
@@ -32,7 +31,7 @@ type ReconciliationContext struct {
 	Recorder       record.EventRecorder
 	ReqLogger      logr.Logger
 
-	SecretWatches  dynamicwatch.DynamicWatches
+	SecretWatches dynamicwatch.DynamicWatches
 
 	// According to golang recommendations the context should not be stored in a struct but given that
 	// this is passed around as a parameter we feel that its a fair compromise. For further discussion
@@ -54,12 +53,11 @@ func CreateReconciliationContext(
 	rec record.EventRecorder,
 	secretWatches dynamicwatch.DynamicWatches,
 	reqLogger logr.Logger) (*ReconciliationContext, error) {
-
 	rc := &ReconciliationContext{}
 	rc.Request = req
 	rc.Client = cli
 	rc.Scheme = scheme
-	rc.Recorder = &events.LoggingEventRecorder{EventRecorder: rec, ReqLogger: reqLogger,}
+	rc.Recorder = &events.LoggingEventRecorder{EventRecorder: rec, ReqLogger: reqLogger}
 	rc.SecretWatches = secretWatches
 	rc.ReqLogger = reqLogger
 	rc.Ctx = context.Background()
@@ -84,15 +82,8 @@ func CreateReconciliationContext(
 	if rc.Datacenter.Status.LastServerNodeStarted.IsZero() {
 		rc.Datacenter.Status.LastServerNodeStarted = metav1.Unix(1, 0)
 	}
-
 	if rc.Datacenter.Status.LastRollingRestart.IsZero() {
-		dcPatch := runtimeClient.MergeFrom(dc.DeepCopy())
-		dc.Status.LastRollingRestart = metav1.Now()
-		err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
-		if err != nil {
-			rc.ReqLogger.Error(err, "error patching datacenter status for rolling restart")
-			return nil, err
-		}
+		rc.Datacenter.Status.LastRollingRestart = metav1.Unix(1, 0)
 	}
 
 	httpClient, err := httphelper.BuildManagementApiHttpClient(dc, cli, rc.Ctx)
