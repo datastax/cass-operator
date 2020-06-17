@@ -9,6 +9,7 @@ import (
 	"os/user"
 	"regexp"
 	"time"
+	"golang.org/x/crypto/ssh/terminal"
 
 	shutil "github.com/datastax/cass-operator/mage/sh"
 	mageutil "github.com/datastax/cass-operator/mage/util"
@@ -197,6 +198,14 @@ func PatchJson(resource string, data string) KCmd {
 	return KCmd{Command: "patch", Args: args}
 }
 
+func erasePreviousLine() {
+	//cursor up one line
+	fmt.Print("\033[A")
+
+	//erase line
+	fmt.Print("\033[K")
+}
+
 func waitForOutputPattern(k KCmd, pattern string, expected string, seconds int) error {
 	re := regexp.MustCompile(pattern)
 	c := make(chan string)
@@ -204,16 +213,33 @@ func waitForOutputPattern(k KCmd, pattern string, expected string, seconds int) 
 	cquit := make(chan bool)
 	defer close(cquit)
 
+	counter := 0
+	outputIsTerminal := terminal.IsTerminal(int(os.Stdout.Fd()))
 	var actual string
 	var err error
 
 	go func() {
+		printedRerunMsg := false
 		for !re.MatchString(actual) {
 			select {
 			case <-cquit:
+				fmt.Println("")
 				return
 			default:
 				actual, err = k.Output()
+				if outputIsTerminal && counter > 0 {
+					erasePreviousLine()
+
+					if printedRerunMsg {
+						// We need to erase both the new exec output,
+						// as well as our previous "rerunning" line now
+						erasePreviousLine()
+					}
+
+					fmt.Printf("Rerunning previous command (%v)\n", counter)
+					printedRerunMsg = true
+				}
+				counter++
 				// Execute at most once every two seconds
 				time.Sleep(time.Second * 2)
 			}
