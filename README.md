@@ -136,7 +136,7 @@ The operator creates a secure Cassandra cluster by default, with a new superuser
 $ # get CASS_USER and CASS_PASS variables into the current shell
 $ CASS_USER=$(kubectl -n cass-operator get secret cluster1-superuser -o json | jq -r '.data.username' | base64 --decode)
 $ CASS_PASS=$(kubectl -n cass-operator get secret cluster1-superuser -o json | jq -r '.data.password' | base64 --decode)
-$ kubectl -n cass-operator exec -ti cluster1-dc1-default-sts-0 -c cassandra -- bash -c "cqlsh -u $CASS_USER -p $CASS_PASS"
+$ kubectl -n cass-operator exec -ti cluster1-dc1-default-sts-0 -c cassandra -- sh -c "cqlsh -u '$CASS_USER' -p '$CASS_PASS'"
 
 Connected to cluster1 at 127.0.0.1:9042.
 [cqlsh 5.0.1 | Cassandra 3.11.6 | CQL spec 3.4.4 | Native protocol v4]
