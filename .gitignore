@@ -154,3 +154,7 @@ tags
 # End of https://www.gitignore.io/api/go,osx,vim,linux,emacs,visualstudiocode
 
 /build
+
+# Certificates
+*.pem
+*.csr
