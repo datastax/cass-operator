@@ -49,13 +49,12 @@ func createCluster() {
 	retries := 5
 	var err error
 	for retries > 0 {
-		// We explicitly request a kubernetes v1.15 cluster with --image
 		err = shutil.RunV(
 			"k3d",
 			"create",
 			"-w", "6",
 			"-image",
-			"rancher/k3s:v1.16.9-rc1-k3s1",
+			"rancher/k3s:v1.17.6-k3s1",
 		)
 		if err != nil {
 			fmt.Printf("k3d failed to create the cluster. %v retries left.\n", retries)
