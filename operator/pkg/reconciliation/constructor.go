@@ -8,6 +8,7 @@ package reconciliation
 import (
 	"fmt"
 	"os"
+	"k8s.io/api/batch/v1"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
@@ -417,7 +418,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 	loggerContainer.VolumeMounts = []corev1.VolumeMount{cassServerLogsMount}
 
 	containers := []corev1.Container{cassContainer, loggerContainer}
-	if dc.Spec.Reaper.Enabled {
+	if dc.Spec.Reaper.Enabled && dc.Spec.ServerType == "cassandra" {
 		reaperContainer := buildReaperContainer(dc)
 		containers = append(containers, reaperContainer)
 	}
@@ -519,3 +520,46 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 
 	return baseTemplate, nil
 }
+
+func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1.Job {
+	return &v1.Job{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Job",
+			APIVersion: "batch/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: dc.Namespace,
+			Name:      getReaperSchemaInitJobName(dc),
+			Labels:    dc.GetDatacenterLabels(),
+		},
+		Spec: v1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+					Containers: []corev1.Container{
+						{
+							Name:            getReaperSchemaInitJobName(dc),
+							Image:           ReaperSchemaInitJobImage,
+							ImagePullPolicy: corev1.PullIfNotPresent,
+							Env: []corev1.EnvVar{
+								{
+									Name:  "KEYSPACE",
+									Value: ReaperKeyspace,
+								},
+								{
+									Name:  "CONTACT_POINTS",
+									Value: dc.GetSeedServiceName(),
+								},
+								{
+									Name:  "REPLICATION",
+									Value: getReaperReplication(dc),
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+

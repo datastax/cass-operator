@@ -26,6 +26,7 @@ const (
 	ReaperHealthCheckPath    = "/healthcheck"
 	ReaperKeyspace           = "reaper_db"
 	ReaperSchemaInitJob      = "ReaperSchemaInitJob"
+	// This code currently lives at https://github.com/jsanda/create_keyspace.
 	ReaperSchemaInitJobImage = "jsanda/reaper-init-keyspace:latest"
 )
 
@@ -107,48 +108,6 @@ func (rc *ReconciliationContext) CheckReaperSchemaInitialized() result.Reconcile
 		return result.Continue()
 	} else {
 		return result.RequeueSoon(2)
-	}
-}
-
-func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1batch.Job {
-	return &v1batch.Job{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "Job",
-			APIVersion: "batch/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: dc.Namespace,
-			Name: getReaperSchemaInitJobName(dc),
-			Labels: dc.GetDatacenterLabels(),
-		},
-		Spec: v1batch.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyOnFailure,
-					Containers: []corev1.Container{
-						{
-							Name:getReaperSchemaInitJobName(dc),
-							Image: ReaperSchemaInitJobImage,
-							ImagePullPolicy: corev1.PullAlways,
-							Env: []corev1.EnvVar{
-								{
-									Name: "KEYSPACE",
-									Value: ReaperKeyspace,
-								},
-								{
-									Name: "CONTACT_POINTS",
-									Value: dc.GetSeedServiceName(),
-								},
-								{
-									Name: "REPLICATION",
-									Value: getReaperReplication(dc),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
 	}
 }
 
