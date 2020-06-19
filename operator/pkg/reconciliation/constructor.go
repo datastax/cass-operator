@@ -379,7 +379,6 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 		{Name: "MGMT_API_EXPLICIT_START", Value: "true"},
 		// TODO remove this post 1.0
 		{Name: "DSE_MGMT_EXPLICIT_START", Value: "true"},
-		{Name: "IGNORE_DEFAULTS", Value: "true"},
 	}
 
 	ports, err := dc.GetContainerPorts()
