@@ -90,12 +90,6 @@ func GetPodHost(podName, clusterName, dcName, namespace string) string {
 	return fmt.Sprintf(nodeServicePattern, podName, clusterName, dcName, namespace)
 }
 
-func GetPodHost(podName, clusterName, dcName, namespace string) string {
-	nodeServicePattern := "%s.%s-%s-service.%s"
-
-	return fmt.Sprintf(nodeServicePattern, podName, clusterName, dcName, namespace)
-}
-
 func parseMetadataEndpointsResponseBody(body []byte) (*CassMetadataEndpoints, error) {
 	endpoints := &CassMetadataEndpoints{}
 	if err := json.Unmarshal(body, &endpoints); err != nil {

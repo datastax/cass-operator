@@ -29,8 +29,10 @@ func Test_BuildPodHostFromPod(t *testing.T) {
 		},
 	}
 
-	result := BuildPodHostFromPod(pod)
-	expected := "pod-foo.the-foobar-cluster-dc-bar-service.somenamespace"
+	result, err := BuildPodHostFromPod(pod)
+	assert.NoError(t, err)
+
+	expected := "1.2.3.4"
 
 	assert.Equal(t, expected, result)
 }
