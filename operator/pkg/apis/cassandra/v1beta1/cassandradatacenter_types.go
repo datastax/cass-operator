@@ -50,8 +50,8 @@ type ProgressState string
 // In the event that no image is found, an error is returned
 func getImageForServerVersion(server, version string) (string, error) {
 	const (
-		cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.2"
-		cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.2"
+		cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.4"
+		cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.4"
 		dse_6_8_0        = "datastax/dse-server:6.8.0"
 	)
 	sv := server + "-" + version
