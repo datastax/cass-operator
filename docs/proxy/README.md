@@ -78,117 +78,114 @@ It is possible to configure a service within Kubernetes outside of those provide
 
 ## Ingresses
 
-Ingresses forward requests to services running within a Kubernetes cluster based on rules. These rules may include specifying the protocol, port, or even path. They may provide additional functionality like termination of SSL / TLS traffic, load balancing across a number of protocols, and name-based virtual hosting. Behind the Ingress K8s type is an Ingress Controller. There are a number of controllers available with varying features to service the defined ingress rules. Think of Ingress as an interface for routing and an Ingress Controller as the implementation of that interface. In this way, any number of Ingress Controllers may be used based on the workload requirements. Ingress Controllers function at Layer 4 of the OSI model.
+Ingresses forward requests to services running within a Kubernetes cluster based on rules. These rules may include specifying the protocol, port, or even path. They may provide additional functionality like termination of SSL / TLS traffic, load balancing across a number of protocols, and name-based virtual hosting. Behind the Ingress K8s type is an Ingress Controller. There are a number of controllers available with varying features to service the defined ingress rules. Think of Ingress as an interface for routing and an Ingress Controller as the implementation of that interface. In this way, any number of Ingress Controllers may be used based on the workload requirements. Ingress Controllers function at Layer 4 & 7 of the OSI model.
 
 When the ingress specification was created it focused specifically on HTTP / HTTPS workloads. From the documentation, "An Ingress does not expose arbitrary ports or protocols. Exposing services other than HTTP and HTTPS to the internet typically uses a service of type Service.`Type=NodePort` or Service.`Type=LoadBalancer`." Cassandra workloads do NOT use HTTP as a protocol, but rather a specific TCP protocol.
 
 Ingress Controllers we are looking to leverage require support for TCP load balancing. This will provide routing semantics similar to those of LoadBalancer Services. If the Ingress Controller also supports SSL termination with [SNI](https://en.wikipedia.org/wiki/Server_Name_Indication). Then secure access is possible from outside the cluster while _keeping Token Aware routing support_. Additionally, operators should consider whether the chosen Ingress Controller supports client SSL certificates allowing for [mutual TLS](https://en.wikipedia.org/wiki/Mutual_authentication) to restrict access from unauthorized clients.
 
-### Nginx
+**Pros**
 
-_TBD_
+* Highly-available, entrypoint in to the cluster
+* _Some_ implementations support TCP load balancing
+* _Some_ implementations support Mutual TLS
+* _Some_ implementations support SNI
 
-### Kong
+**Cons**
 
-_TBD_
+* No _standard_ implementation. Requires careful selection.
+* Initially designed for HTTP/HTTPS only workloads
+  * Many ingresses support pure TCP workloads, but it is _NOT_ defined in the original design specification
+* _Only some_ implementations support TCP load balancing
+* _Only some_ implementations support mTLS
+* _Only some_ implementations support SNI with TCP workloads
 
-### Ambassador
+### NGINX
 
-_TBD_
+[NGINX Ingress controller](https://docs.nginx.com/nginx-ingress-controller/overview/#nginx-ingress-controller) works with both NGINX and NGINX Plus and supports the standard Ingress features - content-based routing and TLS / SSL termination. Additionally, several NGINX and NGINX Plus features are available as extensions to the Ingress resource via annotations and the ConfigMap resource. In addition to HTTP, NGINX Ingress controller supports load balancing Websocket, gRPC, TCP and UDP applications.
 
-### Gloo
+_Note_ that NGINX closely follows the k8s ingress specification and does **not** expose feature rich configuration for TCP based protocols (like CQL). It is _possible_ to our preferred methods for deployment, but the configuration is less user-friendly compared to other approaches. These implementations are annotated appropriately below.
 
-_TBD_
+#### Sample Implementations
+
+* Port based load balancing _TBD_
+* TLS based load balancing with mTLS _TBD_ **warning** advanced implementation
+* TLS based load balancing with SNI & mTLS _TBD_ **warning** advanced implementation
+
+### Kong Gateway
+
+[Kong Gateway](https://docs.konghq.com/2.0.x/proxy/) is an open-source, lightweight API gateway optimized for microservices. While usually this relates to HTTP and gRPC based services the Kong Gateway includes Layer 4 routing which meshes extremely well with our use case. Kong Gateway builds off the open source Nginx project with some functionality being offloaded to Lua plugins.
+
+#### Sample Implementations
+
+* Port based load balancing _TBD_
+* TLS based load balancing with mTLS _TBD_
+* TLS based load balancing with SNI & mTLS _TBD_
 
 ### Envoy
 
-_TBD_
+[Envoy](https://www.envoyproxy.io/docs/envoy/latest/intro/what_is_envoy) is an open source, high performance L3, 4, & 7 proxy written in C++. While not specifically an ingress controller it is worth including in the list here as it may be configured to function as an ingress gateway.
 
-### HAProxy
+#### Sample Implementations
 
-_TBD_
+* Port based load balancing _TBD_
+* TLS based load balancing with mTLS _TBD_
+* TLS based load balancing with SNI & mTLS _TBD_
+
+### Ambassador
+
+[Ambassador API Gateway](https://www.getambassador.io/docs/latest/topics/install/install-ambassador-oss/) builds off of the Envoy proxy turning it in to an Ingress controller. The `TCPMapping` custom resource handles routing requests and terminating TLS connections with SNI.
+
+#### Sample Implementations
+
+* Port based load balancing _TBD_
+* TLS based load balancing with mTLS _TBD_
+* TLS based load balancing with SNI & mTLS _TBD_
+
+### Gloo
+
+[Gloo](https://docs.solo.io/gloo/latest) is a feature-rich, Kubernetes-native ingress controller, and next-generation API gateway. It leverages the Envoy proxy in a way similar to Ambassador providing plumbing between custom resources proxy configurations.
+
+#### Sample Implementations
+
+* Port based load balancing _TBD_
+* TLS based load balancing with mTLS _TBD_
+* TLS based load balancing with SNI & mTLS _TBD_
+
+### HAProxy Ingress
+
+[HAProxy](https://haproxy-ingress.github.io/docs/) is a legendary TCP / HTTP load balancer that has been deployed and in use long before Kubernetes became popular. Given its history it was only a matter of time until configuration for this tooling became possible with Kubernetes Custom Resources.
+
+_Note_ that HAProxy closely follows the k8s ingress specification and does **not** expose feature rich configuration for TCP based protocols (like CQL). It is _possible_ to our preferred methods for deployment, but the configuration is less user-friendly compared to other approaches. These implementations are annotated appropriately below.
+
+#### Sample Implementations
+
+* Port based load balancing _TBD_
+* TLS based load balancing with mTLS _TBD_ **warning** advanced implementation
+* TLS based load balancing with SNI & mTLS _TBD_ **warning** advanced implementation
 
 ### Voyager
 
-_TBD_
+[Voyager](https://voyagermesh.com/docs/v12.0.0/welcome/) is a HAProxy backed secure L7 and L4 ingress controller for Kubernetes. It smoothes over some of the rough edges of the pure HAProxy implementations above with cleaner configurations for more advanced configurations.
+
+#### Sample Implementations
+
+* Port based load balancing _TBD_
+* TLS based load balancing with mTLS _TBD_
+* TLS based load balancing with SNI & mTLS _TBD_
 
 ### Traefik
 
 [Traefik](https://containo.us/traefik/) is an open-source Edge Router that is designed to work in a number of environments, not just Kubernetes. When running on Kubernetes, Traefik is generally installed as an Ingress Controller. Traefik supports TCP load balancing along with SSL termination and SNI.  It is automatically included as the default Ingress Controller of [K3s](https://k3s.io/) and [K3d](https://k3d.io/).
 
-1. _Optional_ - if Traefik is not already installed, then follow this step
+#### Sample Implementations
 
-   ```bash
-   helm repo add traefik https://containous.github.io/traefik-helm-chart
-   helm repo update
-   helm install traefik traefik/traefik
-   ```
+* Port based load balancing _TBD_
+* TLS based load balancing with mTLS _TBD_
+* [TLS based load balancing with SNI & mTLS](traefik/tls-sni)
 
-1. _Optional_ - if Traefik was preinstalled ensure that the ClusterRoleBinding is updated and CustomResourceDefinitions are installed
+## Service Meshes
 
-    ```bash
-    kubectl apply -f traefik/clusterrole.yaml
-    kubectl apply -f traefik/customresourcedefinition.yaml
-    ```
-
-1. Install `cass-operator` via Helm
-
-    ```bash
-    helm install --namespace=default cass-operator ./charts/cass-operator-chart
-    ```
-
-1. Deploy a Cassandra cluster
-
-    ```bash
-    kubectl apply -f sample-cluster-sample-dc.yaml
-    ```
-
-1. Edit the traefik `configmap` and include the `entryPoints.cassandra-tls` block found in [traefik/configmap.yaml](traefik/configmap.yaml). Note that any port value and name may be used here, a single ingress may service multiple clusters.
-
-    ```bash
-    kubectl edit configmap traefik -n kube-system
-    ```
-
-    Note our configmap also includes an `api` block.
-
-1. With the config map updated the fastest way to see those changes reflected is to delete the existing pod. The deployment will handle recreating it with the updated config.
-
-    ```bash
-    kubectl delete pod -n kube-system -l app=traefik
-    ```
-
-1. With a new EntryPoint defined we must update the existing service with the new ports.
-
-    ```bash
-    kubectl edit svc traefik -n kube-system
-    ```
-
-1. Query the host ID values used in the cluster
-
-    ```bash
-    kubectl get cassdc -o json | jq ".items[0].status.nodeStatuses"
-    {
-      "sample-cluster-sample-dc-sample-rack-sts-0": {
-        "hostID": "b8f2960c-0192-45ce-9c90-9ad57ba9c19e",
-        "nodeIP": "10.42.0.29"
-      }
-    }
-    ```
-
-1. Generate the TLS certificates and add them as secrets to the cluster with the guide in the [ssl](ssl) directory.
-
-1. Install TLS Options to add support for mutual TLS
-
-    ```bash
-    kubectl apply -f traefik/sample-cluster-sample-dc.tlsoption.yaml
-    ```
-
-1. Edit and create the `IngressTCPRoute`. This provides the SNI mapping for routing TCP requests from the ingress to individual pods.
-
-    ```bash
-    kubectl apply -f traefik/sample-cluster-sample-dc.ingressroutetcp.yaml
-    ```
-1. Test the configuration in the [Java Driver Configuration]() section
 
 ## Java Driver Configuration
 
