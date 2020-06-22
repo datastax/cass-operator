@@ -95,7 +95,7 @@ Ingress Controllers we are looking to leverage require support for TCP load bala
 
 * No _standard_ implementation. Requires careful selection.
 * Initially designed for HTTP/HTTPS only workloads
-  * Many ingresses support pure TCP workloads, but it is _NOT_ defined in the original design specification
+  * Many ingresses support pure TCP workloads, but it is _NOT_ defined in the original design specification. Some configurations require fairly heavy handed templating of base configuration files. This may lead to difficult upgrade paths of those components in the future.
 * _Only some_ implementations support TCP load balancing
 * _Only some_ implementations support mTLS
 * _Only some_ implementations support SNI with TCP workloads
