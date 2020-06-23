@@ -121,7 +121,7 @@ func newStatefulSetForCassandraDatacenterWithDefunctPvcManagedBy(
 	rackName string,
 	dc *api.CassandraDatacenter,
 	replicaCount int) (*appsv1.StatefulSet, error) {
-	
+
 	return newStatefulSetForCassandraDatacenterHelper(rackName, dc, replicaCount, true)
 }
 
@@ -132,7 +132,7 @@ func usesDefunctPvcManagedByLabel(sts *appsv1.StatefulSet) bool {
 		if ok && value == oplabels.ManagedByLabelDefunctValue {
 			usesDefunct = true
 			break
-		} 
+		}
 	}
 
 	return usesDefunct
@@ -414,6 +414,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 }
 
 func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1.Container, error) {
+	dc.EnsureStaticSeedProviders()
 	serverCfg := corev1.Container{}
 	serverCfg.Name = "server-config-init"
 	serverCfg.Image = dc.GetConfigBuilderImage()
