@@ -434,7 +434,9 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 	// We use the cluster seed-service name here for the seed list as it will
 	// resolve to the seed nodes. This obviates the need to update the
 	// cassandra.yaml whenever the seed nodes change.
-	modelValues := serverconfig.GetModelValues([]string{dc.GetSeedServiceName()}, dc.Spec.ClusterName, dc.Name)
+	seeds := []string{dc.GetSeedServiceName()}
+	seeds = append(seeds, dc.Spec.StaticSeedIPs...)
+	modelValues := serverconfig.GetModelValues(seeds, dc.Spec.ClusterName, dc.Name)
 
 	var modelBytes []byte
 

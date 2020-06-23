@@ -414,7 +414,6 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 }
 
 func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1.Container, error) {
-	dc.EnsureStaticSeedProviders()
 	serverCfg := corev1.Container{}
 	serverCfg.Name = "server-config-init"
 	serverCfg.Image = dc.GetConfigBuilderImage()
