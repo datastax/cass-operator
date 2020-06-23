@@ -87,6 +87,10 @@ func (dc *CassandraDatacenter) EnsureStaticSeedProviders() error {
 	//   ]
 	// }
 	//]
+
+	if len(dc.Spec.StaticSeedIPs) == 0 {
+		return nil
+	}
 	config, err := dc.GetConfigAsJSON()
 	if err != nil {
 		return err
