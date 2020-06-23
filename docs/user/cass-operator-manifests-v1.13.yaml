@@ -6089,6 +6089,19 @@ spec:
               description: This secret defines the username and password for the Cassandra
                 server superuser. If it is omitted, we will generate a secret instead.
               type: string
+            users:
+              description: Cassandra users to bootstrap
+              items:
+                properties:
+                  secretName:
+                    type: string
+                  superuser:
+                    type: boolean
+                required:
+                - secretName
+                - superuser
+                type: object
+              type: array
           required:
           - clusterName
           - serverType
@@ -6134,13 +6147,17 @@ spec:
                 properties:
                   hostID:
                     type: string
-                  nodeIP:
-                    type: string
                 type: object
               type: object
             superUserUpserted:
-              description: The timestamp at which CQL superuser credentials were last
-                upserted to the management API
+              description: Deprecated. Use usersUpserted instead. The timestamp at
+                which CQL superuser credentials were last upserted to the management
+                API
+              format: date-time
+              type: string
+            usersUpserted:
+              description: The timestamp at which managed cassandra users' credentials
+                were last upserted to the management API
               format: date-time
               type: string
           type: object
