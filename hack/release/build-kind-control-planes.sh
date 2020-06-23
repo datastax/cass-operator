@@ -24,3 +24,6 @@ hack/release/make-yaml-bundle.sh
 
 kind create cluster --image kindest/node:v1.17.5 --name k-1-17
 hack/release/make-yaml-bundle.sh
+
+kind create cluster --image kindest/node:v1.18.4 --name k-1-18
+hack/release/make-yaml-bundle.sh
