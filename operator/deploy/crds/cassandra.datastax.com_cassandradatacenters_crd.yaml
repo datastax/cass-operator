@@ -5942,6 +5942,10 @@ spec:
               format: int32
               minimum: 1
               type: integer
+            staticSeedIPs:
+              items:
+                type: string
+              type: array
             stopped:
               description: A stopped CassandraDatacenter will have no running server
                 pods, like using "stop" with traditional System V init scripts. Other
