@@ -130,6 +130,28 @@ UN  10.233.92.96    186.48 KiB  1            61.6%             b119eae5-2ff4-4b0
 UN  10.233.90.54    205.1 KiB   1            73.1%             0a96e814-dcf6-48b9-a2ca-663686c8a495  r1
 ```
 
+The operator creates a secure Cassandra cluster by default, with a new superuser (not the traditional `cassandra` user) and a random password. You can get those out of a Kubernetes secret and use them to log into your Cassandra cluster for the first time. For example:
+
+```console
+$ # get CASS_USER and CASS_PASS variables into the current shell
+$ CASS_USER=$(kubectl -n cass-operator get secret cluster1-superuser -o json | jq -r '.data.username' | base64 --decode)
+$ CASS_PASS=$(kubectl -n cass-operator get secret cluster1-superuser -o json | jq -r '.data.password' | base64 --decode)
+$ kubectl -n cass-operator exec -ti cluster1-dc1-default-sts-0 -c cassandra -- sh -c "cqlsh -u '$CASS_USER' -p '$CASS_PASS'"
+
+Connected to cluster1 at 127.0.0.1:9042.
+[cqlsh 5.0.1 | Cassandra 3.11.6 | CQL spec 3.4.4 | Native protocol v4]
+Use HELP for help.
+
+cluster1-superuser@cqlsh> select * from system.peers;
+
+ peer      | data_center | host_id                              | preferred_ip | rack    | release_version | rpc_address | schema_version                       | tokens
+-----------+-------------+--------------------------------------+--------------+---------+-----------------+-------------+--------------------------------------+--------------------------
+ 10.28.0.4 |         dc1 | 4bf5e110-6c19-440e-9d97-c013948f007c |         null | default |          3.11.6 |   10.28.0.4 | e84b6a60-24cf-30ca-9b58-452d92911703 | {'-7957039572378599263'}
+ 10.28.5.5 |         dc1 | 3e84b0f1-9c1e-4deb-b6f8-043731eaead4 |         null | default |          3.11.6 |   10.28.5.5 | e84b6a60-24cf-30ca-9b58-452d92911703 | {'-3984092431318102676'}
+
+(2 rows)
+```
+
 ### (Optional) Loading the operator via Helm
 
 Helm may be used to load the operator.  The destination namespace must be created first.
@@ -149,7 +171,7 @@ roleName: cass-operator
 roleBindingName: cass-operator
 deploymentName: cass-operator
 deploymentReplicas: 1
-image: "datastax/cass-operator:1.1.0"
+image: "datastax/cass-operator:1.2.0"
 imagePullPolicy: IfNotPresent
 ```
 

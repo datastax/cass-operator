@@ -47,8 +47,8 @@ type ProgressState string
 
 const (
 	defaultConfigBuilderImage     = "datastax/cass-config-builder:1.0.0"
-	cassandra_3_11_6              = "datastax/cassandra-mgmtapi-3_11_6:v0.1.2"
-	cassandra_4_0_0               = "datastax/cassandra-mgmtapi-4_0_0:v0.1.2"
+	cassandra_3_11_6              = "datastax/cassandra-mgmtapi-3_11_6:v0.1.5"
+	cassandra_4_0_0               = "datastax/cassandra-mgmtapi-4_0_0:v0.1.5"
 	dse_6_8_0                     = "datastax/dse-server:6.8.0"
 	ubi_cassandra_3_11_6          = "registry.connect.redhat.com/datastax/cassandra:3.11.6"
 	ubi_cassandra_4_0_0           = "TODO"
