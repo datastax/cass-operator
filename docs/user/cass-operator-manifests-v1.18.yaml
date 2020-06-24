@@ -1334,6 +1334,9 @@ spec:
                               - containerPort
                               type: object
                             type: array
+                            x-kubernetes-list-map-keys:
+                            - containerPort
+                            x-kubernetes-list-type: map
                           readinessProbe:
                             description: 'Periodic probe of container service readiness.
                               Container will be removed from service endpoints if
@@ -3662,6 +3665,9 @@ spec:
                               - containerPort
                               type: object
                             type: array
+                            x-kubernetes-list-map-keys:
+                            - containerPort
+                            x-kubernetes-list-type: map
                           readinessProbe:
                             description: 'Periodic probe of container service readiness.
                               Container will be removed from service endpoints if
@@ -4592,6 +4598,10 @@ spec:
                         - whenUnsatisfiable
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - topologyKey
+                      - whenUnsatisfiable
+                      x-kubernetes-list-type: map
                     volumes:
                       description: 'List of volumes that can be mounted by containers
                         belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes'

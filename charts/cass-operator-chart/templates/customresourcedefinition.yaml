@@ -1316,7 +1316,9 @@ spec:
                             {{- if semverCompare ">= 1.16-0" .Capabilities.KubeVersion.GitVersion }}
                             x-kubernetes-list-map-keys:
                             - containerPort
+                            {{- if semverCompare "< 1.18-0" .Capabilities.KubeVersion.GitVersion }}
                             - protocol
+                            {{- end }}
                             x-kubernetes-list-type: map
                             {{- end }}
                           readinessProbe:
@@ -3650,7 +3652,9 @@ spec:
                             {{- if semverCompare ">= 1.16-0" .Capabilities.KubeVersion.GitVersion }}
                             x-kubernetes-list-map-keys:
                             - containerPort
+                            {{- if semverCompare "< 1.18-0" .Capabilities.KubeVersion.GitVersion }}
                             - protocol
+                            {{- end }}
                             x-kubernetes-list-type: map
                             {{- end }}
                           readinessProbe:
