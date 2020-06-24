@@ -1,32 +1,36 @@
---- operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml	2020-05-27 00:06:53.000000000 -0400
-+++ charts/cass-operator-chart/templates/customresourcedefinition.yaml	2020-05-27 09:58:56.000000000 -0400
-@@ -1313,10 +1313,12 @@
+--- operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml	2020-06-23 14:09:22.000000000 -0400
++++ charts/cass-operator-chart/templates/customresourcedefinition.yaml	2020-06-23 15:58:57.000000000 -0400
+@@ -1313,10 +1313,14 @@
                                - containerPort
                                type: object
                              type: array
 +                            {{- if semverCompare ">= 1.16-0" .Capabilities.KubeVersion.GitVersion }}
                              x-kubernetes-list-map-keys:
                              - containerPort
++                            {{- if semverCompare "< 1.18-0" .Capabilities.KubeVersion.GitVersion }}
                              - protocol
++                            {{- end }}
                              x-kubernetes-list-type: map
 +                            {{- end }}
                            readinessProbe:
                              description: 'Periodic probe of container service readiness.
                                Container will be removed from service endpoints if
-@@ -3645,10 +3647,12 @@
+@@ -3645,10 +3649,14 @@
                                - containerPort
                                type: object
                              type: array
 +                            {{- if semverCompare ">= 1.16-0" .Capabilities.KubeVersion.GitVersion }}
                              x-kubernetes-list-map-keys:
                              - containerPort
++                            {{- if semverCompare "< 1.18-0" .Capabilities.KubeVersion.GitVersion }}
                              - protocol
++                            {{- end }}
                              x-kubernetes-list-type: map
 +                            {{- end }}
                            readinessProbe:
                              description: 'Periodic probe of container service readiness.
                                Container will be removed from service endpoints if
-@@ -4579,10 +4583,12 @@
+@@ -4579,10 +4587,12 @@
                          - whenUnsatisfiable
                          type: object
                        type: array
@@ -39,7 +43,7 @@
                      volumes:
                        description: 'List of volumes that can be mounted by containers
                          belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes'
-@@ -6136,7 +6142,9 @@
+@@ -6153,7 +6163,9 @@
                type: string
            type: object
        type: object
