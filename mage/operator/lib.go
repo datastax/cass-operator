@@ -23,6 +23,8 @@ import (
 )
 
 const (
+	dockerBase                 = "./operator/docker/base/Dockerfile"
+	dockerUbi                  = "./operator/docker/ubi/Dockerfile"
 	rootBuildDir               = "./build"
 	sdkBuildDir                = "operator/build"
 	diagramsDir                = "./docs/developer/diagrams"
@@ -36,6 +38,7 @@ const (
 	envGitBranch               = "MO_BRANCH"
 	envVersionString           = "MO_VERSION"
 	envGitHash                 = "MO_HASH"
+	EnvBaseOs                  = "MO_BASE_OS"
 
 	errorUnstagedPreGenerate = `
   Unstaged changes detected.
@@ -73,7 +76,7 @@ func checkForUnstagedChanges(message string) {
 func writeBuildFile(fileName string, contents string) {
 	mageutil.EnsureDir(rootBuildDir)
 	outputPath := filepath.Join(rootBuildDir, fileName)
-	err := ioutil.WriteFile(outputPath, []byte(contents+"\n"), 0666)
+	err := ioutil.WriteFile(outputPath, []byte(contents), 0666)
 	if err != nil {
 		fmt.Printf("Failed to write file at %s\n", outputPath)
 		panic(err)
@@ -349,17 +352,34 @@ func calcFullVersion(settings cfgutil.BuildSettings, git GitData) FullVersion {
 	}
 }
 
-func runDockerBuild(version FullVersion) []string {
+func calcVersionAndTags(version FullVersion, ubiBase bool) (string, []string) {
 	repoPath := "datastax/cass-operator"
-	versionedTag := fmt.Sprintf("%s:%v", repoPath, version)
-	tagsToPush := []string{
-		versionedTag,
-		fmt.Sprintf("%s:%s", repoPath, version.Hash),
+	var versionedTag string
+	var tagsToPush []string
+
+	if ubiBase {
+		versionedTag = fmt.Sprintf("%s:%v-ubi", repoPath, version)
+		tagsToPush = []string{
+			versionedTag,
+			fmt.Sprintf("%s:%s-ubi", repoPath, version.Hash),
+			fmt.Sprintf("%s:latest-ubi", repoPath),
+		}
+	} else {
+		versionedTag = fmt.Sprintf("%s:%v", repoPath, version)
+		tagsToPush = []string{
+			versionedTag,
+			fmt.Sprintf("%s:%s", repoPath, version.Hash),
+			fmt.Sprintf("%s:latest", repoPath),
+		}
 	}
-	tags := append(tagsToPush, fmt.Sprintf("%s:latest", repoPath))
+
+	return versionedTag, tagsToPush
+}
+
+func runDockerBuild(versionedTag string, dockerTags []string, extraBuildArgs []string, dockerfile string) {
 	buildArgs := []string{fmt.Sprintf("VERSION_STAMP=%s", versionedTag)}
-	dockerutil.Build(".", "", "./operator/Dockerfile", tags, buildArgs).ExecVPanic()
-	return tagsToPush
+	buildArgs = append(buildArgs, extraBuildArgs...)
+	dockerutil.Build(".", "", dockerfile, dockerTags, buildArgs).ExecVPanic()
 }
 
 func runGoBuild(version string) {
@@ -423,12 +443,24 @@ func BuildDocker() {
 	settings := cfgutil.ReadBuildSettings()
 	git := getGitData()
 	version := calcFullVersion(settings, git)
-	operatorTags := runDockerBuild(version)
+
+	//build regular docker image
+	versionedTag, dockerTags := calcVersionAndTags(version, false)
+	runDockerBuild(versionedTag, dockerTags, nil, dockerBase)
+
+	if baseOs := os.Getenv(EnvBaseOs); baseOs != "" {
+		//build ubi docker image
+		args := []string{fmt.Sprintf("BASE_OS=%s", baseOs)}
+		ubiVersionedTag, ubiDockerTags := calcVersionAndTags(version, true)
+		runDockerBuild(ubiVersionedTag, ubiDockerTags, args, dockerUbi)
+		dockerTags = append(dockerTags, ubiDockerTags...)
+	}
+
 	// Write the versioned image tags to a file in our build
 	// directory so that other targets in the build process can identify
 	// what was built. This is particularly important to know
 	// for targets that retag and deploy to external docker repositories
-	outputText := strings.Join(operatorTags, "|")
+	outputText := strings.Join(dockerTags, "|")
 	writeBuildFile("tagsToPush.txt", outputText)
 }
 

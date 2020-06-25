@@ -58,9 +58,10 @@ func retagAndPush(tags []string, remoteUrl string) {
 func retagAndPushForGH(tags []string) {
 	pkgRepo := mageutil.RequireEnv(envGHPackageRepo)
 	reg := regexp.MustCompile(`.*\:`)
-	for _, tag := range tags {
+	for _, t := range tags {
+		tag := strings.TrimSpace(t)
 		updatedTag := reg.ReplaceAllString(tag, fmt.Sprintf("%s:", pkgRepo))
-		fullGHTag := fmt.Sprintf("%s/%s", ghPackagesRegistry, updatedTag)
+		fullGHTag := fmt.Sprintf("%s/%s", ghPackagesRegistry, strings.TrimSpace(updatedTag))
 		dockerTag(tag, fullGHTag)
 		fmt.Printf("- Pushing image %s\n", fullGHTag)
 		dockerutil.Push(fullGHTag).WithCfg(rootBuildDir).ExecVPanic()

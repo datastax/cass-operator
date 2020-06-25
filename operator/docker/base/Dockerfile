@@ -48,6 +48,9 @@ RUN MO_VERSION=${VERSION_STAMP} mage operator:buildGo
 FROM alpine:3.9
 
 ENV GOPATH=/go
+
+RUN mkdir -p /var/lib/cass-operator/
+RUN touch /var/lib/cass-operator/base_os
 WORKDIR /go
 
 # All we need from the builder image is operator executable
