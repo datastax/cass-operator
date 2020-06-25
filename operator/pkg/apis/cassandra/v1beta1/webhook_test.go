@@ -33,6 +33,19 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 			errString: "",
 		},
 		{
+			name: "Dse 6.8.1 Valid",
+			dc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					ServerType:    "dse",
+					ServerVersion: "6.8.1",
+				},
+			},
+			errString: "",
+		},
+		{
 			name: "Dse Invalid",
 			dc: &CassandraDatacenter{
 				ObjectMeta: metav1.ObjectMeta{
