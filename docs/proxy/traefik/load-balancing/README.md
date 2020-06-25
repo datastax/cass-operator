@@ -87,4 +87,4 @@ When leveraging a single endpoint ingress / load balancer we lose the ability to
     kubectl apply -f traefik/load-balancing/sample-cluster-sample-dc.ingressroutetcp.yaml
     ```
 
-1. Check out the [sample application]() to validate your deployment
+1. Check out the [sample application](../../sample-java-application) to validate your deployment

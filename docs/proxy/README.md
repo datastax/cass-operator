@@ -190,13 +190,7 @@ _Note_ that HAProxy closely follows the k8s ingress specification and does **not
 
 ## Java Driver Configuration
 
-### Host Network & Host Port
-
-### Service Load Balancer
-
-### Ingress Load Balancer
-
-### Ingress with TLS & SNI
+Each of the three reference implementations has a corresponding configuration in the [sample application](sample-java-application) with associated configuration files and sample code.
 
 ## Sample `CassandraDatacenter` Reference
 

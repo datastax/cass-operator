@@ -111,4 +111,4 @@ When leveraging a single endpoint ingress / load balancer we naturally remove th
    kubectl expose pod sample-cluster-sample-dc-sample-rack-sts-2
    ```
 
-1. Check out the [sample application]() to validate your deployment
+1. Check out the [sample application](../../sample-java-application) to validate your deployment
