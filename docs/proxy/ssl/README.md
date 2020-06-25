@@ -20,12 +20,11 @@ keytool -import -v -trustcacerts -alias CARoot -file ca.pem -keystore client.tru
 ## Generate Ingress Certificate
 
 ```bash
-# Retrieve the host IDs to include in the Ingress CSR
-# Make sure all nodes are up, then extract the values from
-# the nodeStatuses field.
+# If you are using SNI, retrieve the host IDs to include in the Ingress CSR
+# Make sure all nodes are up, then extract the values from the nodeStatuses field.
 kubectl get cassdc sample-dc -o yaml
 
-# Create and sign Ingress certificate
+# Create and sign the Ingress certificate
 cfssl gencert -ca ca.pem -ca-key ca-key.pem ingress.csr.json | cfssljson -bare ingress
 
 # Create the secret resource

@@ -75,6 +75,7 @@ It is possible to configure a service within Kubernetes outside of those provide
 
 * Requires WhiteListPolicy Load Balancing Policy (LBP) to restrict attempts by the drivers to connect directly with pods
 * Removes the possibility of TokenAwarePolicy LBP
+* Does not support TLS termination at the service layer, but rather within the application.
 
 ## Ingresses
 
@@ -180,9 +181,9 @@ _Note_ that HAProxy closely follows the k8s ingress specification and does **not
 
 #### Sample Implementations
 
-* Port based load balancing _TBD_
-* TLS based load balancing with mTLS _TBD_
-* [TLS based load balancing with SNI & mTLS](traefik/tls-sni)
+* [Simple load balancing](traefik/load-balancing)
+* [mTLS with load balancing](traefik/mtls-load-balancing)
+* [mTLS with SNI](traefik/mtls-sni)
 
 ## Service Meshes
 
