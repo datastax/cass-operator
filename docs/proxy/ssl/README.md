@@ -11,7 +11,7 @@
 cfssl gencert -initca ca.csr.json | cfssljson -bare ca
 
 # Create the secret resource
-kubectl create secret tls ca-cert --cert ca.pem --key ca-key.pem
+kubectl create secret generic ca-cert --from-file=tls.cert=ca.pem --from-file=tls.ca=ca.pem
 ```
 
 ## Generate Ingress Certificate
@@ -26,7 +26,7 @@ kubectl get cassdc sample-dc -o yaml
 cfssl gencert -ca ca.pem -ca-key ca-key.pem ingress.csr.json | cfssljson -bare ingress
 
 # Create the secret resource
-kubectl create secret tls sample-cluster-sample-dc-cert --cert ingress.pem --key ingress-key.pem
+kubectl create secret generic sample-cluster-sample-dc-cert --from-file=tls.cert=ingress.pem --from-file=tls.key=ingress-key.pem --from-file=tls.ca=ca.pem
 ```
 
 ## Generate Client Certificate
