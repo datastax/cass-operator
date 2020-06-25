@@ -38,22 +38,13 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testGenerateClient
-      - name: Build docker - standard image
-        env:
-          MO_BRANCH: ${{ github.event.pull_request.head.ref }}
-        run: |
-          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          mage operator:testAndBuild
-          cat ./build/tagsToPush.txt > ./build/fullTagsToPush.txt
-          echo "|" >> ./build/fullTagsToPush.txt
-      - name: Build docker - ubi image
+      - name: Build docker - standard and ubi images
         env:
           MO_BRANCH: ${{ github.event.pull_request.head.ref }}
           MO_BASE_OS: 'registry.access.redhat.com/ubi7/ubi-minimal:7.8'
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testAndBuild
-          cat ./build/tagsToPush.txt >> ./build/fullTagsToPush.txt
       - name: Deploy to ECR
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
         env:
@@ -62,7 +53,7 @@ jobs:
           MO_ECR_REPO: ${{ secrets.ECR_REPO }}
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          export MO_TAGS=$(cat ./build/fullTagsToPush.txt)
+          export MO_TAGS=$(cat ./build/tagsToPush.txt)
           mage operator:deployToECR
       - name: Deploy to GH Packages
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
