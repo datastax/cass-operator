@@ -77,7 +77,7 @@
     }
     ```
 
-1. Generate the TLS certificates and add them as secrets to the cluster with the guide in the [ssl](ssl) directory.
+1. Generate the TLS certificates and add them as secrets to the cluster with the guide in the [ssl](../ssl) directory.
 
 1. Install TLS Options to add support for mutual TLS. This configures the CA that must be used in the client certificate
 
@@ -91,8 +91,82 @@
     kubectl apply -f traefik/tls-sni/sample-cluster-sample-dc.ingressroutetcp.yaml
     ```
 
-1. Create the `service` for the pod
+1. Create the `service` for the pod with `kubectl expose`. Note the service name will match the pod name.
 
    ```bash
    kubectl expose pod sample-cluster-sample-dc-sample-rack-sts-0
+   kubectl expose pod sample-cluster-sample-dc-sample-rack-sts-1
+   kubectl expose pod sample-cluster-sample-dc-sample-rack-sts-2
+   ```
+
+1. Test connecting with a simple Java application.
+
+   ```java
+   package com.datastax.examples;
+
+   import com.datastax.oss.driver.api.core.CqlSession;
+   import com.datastax.oss.driver.api.core.cql.ResultSet;
+   import com.datastax.oss.driver.internal.core.metadata.SniEndPoint;
+   import com.datastax.oss.driver.internal.core.ssl.SniSslEngineFactory;
+
+   import javax.net.ssl.KeyManagerFactory;
+   import javax.net.ssl.SSLContext;
+   import javax.net.ssl.TrustManagerFactory;
+   import java.net.InetSocketAddress;
+   import java.security.KeyStore;
+   import java.security.SecureRandom;
+
+   public class SampleApp
+   {
+       public static void main( String[] args ) throws Exception
+       {
+           SampleApp app = new SampleApp();
+           app.run();
+       }
+
+       public void run() throws Exception {
+           // Configre the SSLEngineFactory
+           char[] password = "foobarbaz".toCharArray();
+
+           KeyStore ks = KeyStore.getInstance("JKS");
+           ks.load(getClass().getResourceAsStream("/client.keystore"), password);
+           KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
+           kmf.init(ks, password);
+
+           KeyStore ts = KeyStore.getInstance("JKS");
+           ts.load(getClass().getResourceAsStream("/client.truststore"), password);
+           TrustManagerFactory tmf =
+                   TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+           tmf.init(ts);
+
+           SSLContext sslContext = SSLContext.getInstance("SSL");
+           sslContext.init(kmf.getKeyManagers(), tmf.getTrustManagers(), new SecureRandom());
+
+           SniSslEngineFactory sslEngineFactory = new SniSslEngineFactory(sslContext);
+
+           // Proxy address
+           InetSocketAddress proxyAddress = new InetSocketAddress("traefik.k3s.local", 9042);
+
+           // Endpoint (contact point)
+           SniEndPoint endPoint = new SniEndPoint(proxyAddress, "d1ba31b6-4b0e-4a7a-ba7e-8721271ae99a");
+
+           CqlSession session = CqlSession.builder()
+                   .addContactEndPoint(endPoint)
+                   .withLocalDatacenter("sample-dc")
+                   .withSslEngineFactory(sslEngineFactory)
+                   .withCloudProxyAddress(proxyAddress)
+                   .build();
+
+           ResultSet rs = session.execute("SELECT data_center, rack, host_id, release_version FROM system.local");
+           System.out.println(rs.one().getFormattedContents());
+
+           session.close();
+       }
+   }
+   ```
+
+   If everything worked correctly you should see some information from a node in the cluster.
+
+   ```text
+   [data_center:'sample-dc', rack:'sample-rack', host_id:d1ba31b6-4b0e-4a7a-ba7e-8721271ae99a, release_version:'3.11.6']
    ```

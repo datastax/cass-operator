@@ -14,7 +14,8 @@ spec:
     insecure: {}
   racks:
     - name: sample-rack
-  size: 1
+  size: 3
+  allowMultipleNodesPerWorker: true
   storageConfig:
     cassandraDataVolumeClaimSpec:
       storageClassName: local-path
