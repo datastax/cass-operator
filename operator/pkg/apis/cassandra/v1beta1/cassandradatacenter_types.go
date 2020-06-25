@@ -50,10 +50,10 @@ const (
 	cassandra_3_11_6              = "datastax/cassandra-mgmtapi-3_11_6:v0.1.5"
 	cassandra_4_0_0               = "datastax/cassandra-mgmtapi-4_0_0:v0.1.5"
 	dse_6_8_0                     = "datastax/dse-server:6.8.0"
-	ubi_cassandra_3_11_6          = "registry.connect.redhat.com/datastax/cassandra:3.11.6"
-	ubi_cassandra_4_0_0           = "TODO"
-	ubi_dse_6_8_0                 = "registry.connect.redhat.com/datastax/dse-server:6.8.0"
-	ubi_defaultConfigBuilderImage = "registry.connect.redhat.com/datastax/cass-config-builder:1.0.0"
+	ubi_cassandra_3_11_6          = "datastax/cassandra:3.11.6-ubi7"
+	ubi_cassandra_4_0_0           = "datastax/cassandra:4.0-ubi7"
+	ubi_dse_6_8_0                 = "datastax/dse-server:6.8.0-ubi7"
+	ubi_defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.0-ubi7"
 	EnvBaseImageOs                = "BASE_IMAGE_OS"
 )
 
@@ -106,15 +106,14 @@ func getImageForUniversalBaseOs(sv string) (string, bool) {
 	case "cassandra-3.11.6":
 		return ubi_cassandra_3_11_6, true
 	case "cassandra-4.0.0":
-		//TODO no image available yet
-		return ubi_cassandra_4_0_0, false
+		return ubi_cassandra_4_0_0, true
 	}
 	return "", false
 }
 
 type CassandraUser struct {
 	SecretName string `json:"secretName"`
-	Superuser bool `json:"superuser"`
+	Superuser  bool   `json:"superuser"`
 }
 
 // CassandraDatacenterSpec defines the desired state of a CassandraDatacenter
@@ -274,8 +273,8 @@ func NewDatacenterCondition(conditionType DatacenterConditionType, status corev1
 type CassandraDatacenterStatus struct {
 	Conditions []DatacenterCondition `json:"conditions,omitempty"`
 
-	// Deprecated. Use usersUpserted instead. The timestamp at 
-	// which CQL superuser credentials were last upserted to the 
+	// Deprecated. Use usersUpserted instead. The timestamp at
+	// which CQL superuser credentials were last upserted to the
 	// management API
 	// +optional
 	SuperUserUpserted metav1.Time `json:"superUserUpserted,omitempty"`

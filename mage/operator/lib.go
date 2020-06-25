@@ -23,6 +23,8 @@ import (
 )
 
 const (
+	dockerBase                 = "./operator/docker/base/Dockerfile"
+	dockerUbi                  = "./operator/docker/ubi/Dockerfile"
 	rootBuildDir               = "./build"
 	sdkBuildDir                = "operator/build"
 	diagramsDir                = "./docs/developer/diagrams"
@@ -350,12 +352,12 @@ func calcFullVersion(settings cfgutil.BuildSettings, git GitData) FullVersion {
 	}
 }
 
-func calcVersionAndTags(version FullVersion) (string, []string) {
+func calcVersionAndTags(version FullVersion, ubiBase bool) (string, []string) {
 	repoPath := "datastax/cass-operator"
 	var versionedTag string
 	var tagsToPush []string
 
-	if baseOs := os.Getenv(EnvBaseOs); baseOs != "" {
+	if ubiBase {
 		versionedTag = fmt.Sprintf("%s:%v-ubi", repoPath, version)
 		tagsToPush = []string{
 			versionedTag,
@@ -370,15 +372,14 @@ func calcVersionAndTags(version FullVersion) (string, []string) {
 			fmt.Sprintf("%s:latest", repoPath),
 		}
 	}
+
 	return versionedTag, tagsToPush
 }
 
-func runDockerBuild(versionedTag string, dockerTags []string) {
+func runDockerBuild(versionedTag string, dockerTags []string, extraBuildArgs []string, dockerfile string) {
 	buildArgs := []string{fmt.Sprintf("VERSION_STAMP=%s", versionedTag)}
-	if baseOs := os.Getenv(EnvBaseOs); baseOs != "" {
-		buildArgs = append(buildArgs, fmt.Sprintf("BASE_OS=%s", baseOs))
-	}
-	dockerutil.Build(".", "", "./operator/Dockerfile", dockerTags, buildArgs).ExecVPanic()
+	buildArgs = append(buildArgs, extraBuildArgs...)
+	dockerutil.Build(".", "", dockerfile, dockerTags, buildArgs).ExecVPanic()
 }
 
 func runGoBuild(version string) {
@@ -443,8 +444,18 @@ func BuildDocker() {
 	git := getGitData()
 	version := calcFullVersion(settings, git)
 
-	versionedTag, dockerTags := calcVersionAndTags(version)
-	runDockerBuild(versionedTag, dockerTags)
+	//build regular docker image
+	versionedTag, dockerTags := calcVersionAndTags(version, false)
+	runDockerBuild(versionedTag, dockerTags, nil, dockerBase)
+
+	if baseOs := os.Getenv(EnvBaseOs); baseOs != "" {
+		//build ubi docker image
+		args := []string{fmt.Sprintf("BASE_OS=%s", baseOs)}
+		ubiVersionedTag, ubiDockerTags := calcVersionAndTags(version, true)
+		runDockerBuild(ubiVersionedTag, ubiDockerTags, args, dockerUbi)
+		dockerTags = append(dockerTags, ubiDockerTags...)
+	}
+
 	// Write the versioned image tags to a file in our build
 	// directory so that other targets in the build process can identify
 	// what was built. This is particularly important to know
