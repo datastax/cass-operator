@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.0"
+	defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.1"
 
 	// ClusterLabel is the operator's label for the cluster name
 	ClusterLabel = "cassandra.datastax.com/cluster"

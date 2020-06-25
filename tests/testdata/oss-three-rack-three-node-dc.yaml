@@ -7,7 +7,6 @@ spec:
   serverType: cassandra
   serverVersion: "3.11.6"
   serverImage: datastax/cassandra-mgmtapi-3_11_6:v0.1.5
-  configBuilderImage: datastax/cass-config-builder:1.0.0
   managementApiAuth:
     insecure: {}
   size: 3
