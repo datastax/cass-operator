@@ -115,8 +115,8 @@ func (in *CassandraDatacenterSpec) DeepCopyInto(out *CassandraDatacenterSpec) {
 		*out = make([]CassandraUser, len(*in))
 		copy(*out, *in)
 	}
-	if in.StaticSeedIPs != nil {
-		in, out := &in.StaticSeedIPs, &out.StaticSeedIPs
+	if in.AdditionalSeeds != nil {
+		in, out := &in.AdditionalSeeds, &out.AdditionalSeeds
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}

@@ -35,6 +35,10 @@ spec:
         spec:
           description: CassandraDatacenterSpec defines the desired state of a CassandraDatacenter
           properties:
+            additionalSeeds:
+              items:
+                type: string
+              type: array
             allowMultipleNodesPerWorker:
               description: Turning this option on allows multiple server pods to be
                 created on a k8s worker node. By default the operator creates just
@@ -5952,10 +5956,6 @@ spec:
               format: int32
               minimum: 1
               type: integer
-            staticSeedIPs:
-              items:
-                type: string
-              type: array
             stopped:
               description: A stopped CassandraDatacenter will have no running server
                 pods, like using "stop" with traditional System V init scripts. Other

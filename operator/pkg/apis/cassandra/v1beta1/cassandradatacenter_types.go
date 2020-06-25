@@ -166,7 +166,7 @@ type CassandraDatacenterSpec struct {
 	// Cassandra users to bootstrap
 	Users []CassandraUser `json:"users,omitempty"`
 
-	StaticSeedIPs []string `json:"staticSeedIPs,omitempty"`
+	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 }
 
 type StorageConfig struct {
@@ -435,7 +435,7 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 	// resolve to the seed nodes. This obviates the need to update the
 	// cassandra.yaml whenever the seed nodes change.
 	seeds := []string{dc.GetSeedServiceName()}
-	seeds = append(seeds, dc.Spec.StaticSeedIPs...)
+	seeds = append(seeds, dc.Spec.AdditionalSeeds...)
 	modelValues := serverconfig.GetModelValues(seeds, dc.Spec.ClusterName, dc.Name)
 
 	var modelBytes []byte
