@@ -43,6 +43,7 @@ jobs:
           MO_BRANCH: ${{ github.event.pull_request.head.ref }}
           MO_BASE_OS: 'registry.access.redhat.com/ubi7/ubi-minimal:7.8'
         run: |
+          echo "BRANCH: [${MO_BRANCH}]"
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testAndBuild
       - name: Deploy to ECR
