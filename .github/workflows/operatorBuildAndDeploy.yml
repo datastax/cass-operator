@@ -48,7 +48,6 @@ jobs:
           else
             export MO_BRANCH="master"
           fi;
-          echo "MO_BRANCH: [${MO_BRANCH}]"
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testAndBuild
       - name: Deploy to ECR
