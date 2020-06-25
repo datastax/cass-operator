@@ -69,7 +69,7 @@ func getImageForServerVersion(server, version string) (string, error) {
 
 type CassandraUser struct {
 	SecretName string `json:"secretName"`
-	Superuser bool `json:"superuser"`
+	Superuser  bool   `json:"superuser"`
 }
 
 // CassandraDatacenterSpec defines the desired state of a CassandraDatacenter
@@ -165,6 +165,8 @@ type CassandraDatacenterSpec struct {
 
 	// Cassandra users to bootstrap
 	Users []CassandraUser `json:"users,omitempty"`
+
+	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 }
 
 type StorageConfig struct {
@@ -229,8 +231,8 @@ func NewDatacenterCondition(conditionType DatacenterConditionType, status corev1
 type CassandraDatacenterStatus struct {
 	Conditions []DatacenterCondition `json:"conditions,omitempty"`
 
-	// Deprecated. Use usersUpserted instead. The timestamp at 
-	// which CQL superuser credentials were last upserted to the 
+	// Deprecated. Use usersUpserted instead. The timestamp at
+	// which CQL superuser credentials were last upserted to the
 	// management API
 	// +optional
 	SuperUserUpserted metav1.Time `json:"superUserUpserted,omitempty"`
@@ -432,7 +434,9 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 	// We use the cluster seed-service name here for the seed list as it will
 	// resolve to the seed nodes. This obviates the need to update the
 	// cassandra.yaml whenever the seed nodes change.
-	modelValues := serverconfig.GetModelValues([]string{dc.GetSeedServiceName()}, dc.Spec.ClusterName, dc.Name)
+	seeds := []string{dc.GetSeedServiceName()}
+	seeds = append(seeds, dc.Spec.AdditionalSeeds...)
+	modelValues := serverconfig.GetModelValues(seeds, dc.Spec.ClusterName, dc.Name)
 
 	var modelBytes []byte
 
