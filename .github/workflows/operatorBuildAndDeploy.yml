@@ -24,7 +24,6 @@ jobs:
           go-version: 1.13
       - name: Install Mage
         run: |
-          echo "GH_EVENT: [${GITHUB_EVENT_NAME}]"
           cd /tmp
           wget https://github.com/magefile/mage/releases/download/v1.9.0/mage_1.9.0_Linux-64bit.tar.gz
           tar -xvf mage_1.9.0_Linux-64bit.tar.gz
@@ -44,8 +43,9 @@ jobs:
           PR_REF: ${{ github.event.pull_request.head.ref }}
           MO_BASE_OS: 'registry.access.redhat.com/ubi7/ubi-minimal:7.8'
         run: |
-          if [ ${GITHUB_EVENT_NAME} -eq "pull_request" ]; then export MO_BRANCH=${PR_REF}; fi;
+          if [ "${GITHUB_EVENT_NAME}" == "pull_request" ]; then export MO_BRANCH=${PR_REF}; fi;
           echo "MO_BRANCH: [${MO_BRANCH}]"
+          echo "PR_REF: [${PR_REF}]"
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testAndBuild
       - name: Deploy to ECR
