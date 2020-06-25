@@ -230,8 +230,8 @@ func readBaseOsIntoEnv() error {
 	}
 
 	baseOs := strings.TrimSpace(string(rawVal))
-	os.Setenv("BASE_IMAGE_OS", baseOs)
-	log.Info(fmt.Sprintf("BASE_IMAGE_OS set to '%s'", baseOs))
+	os.Setenv(api.EnvBaseImageOs, baseOs)
+	log.Info(fmt.Sprintf("%s set to '%s'", api.EnvBaseImageOs, baseOs))
 
 	return nil
 }

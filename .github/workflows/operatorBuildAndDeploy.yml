@@ -43,9 +43,12 @@ jobs:
           PR_REF: ${{ github.event.pull_request.head.ref }}
           MO_BASE_OS: 'registry.access.redhat.com/ubi7/ubi-minimal:7.8'
         run: |
-          if [ "${GITHUB_EVENT_NAME}" == "pull_request" ]; then export MO_BRANCH=${PR_REF}; fi;
+          if [ "${GITHUB_EVENT_NAME}" == "pull_request" ]; then
+            export MO_BRANCH=${PR_REF}
+          else
+            export MO_BRANCH="master"
+          fi;
           echo "MO_BRANCH: [${MO_BRANCH}]"
-          echo "PR_REF: [${PR_REF}]"
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testAndBuild
       - name: Deploy to ECR
