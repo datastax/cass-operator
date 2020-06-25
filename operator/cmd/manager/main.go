@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -120,6 +121,7 @@ func main() {
 	ctx := context.Background()
 	// Become the leader before proceeding
 	err = leader.Become(ctx, "cass-operator-lock")
+
 	if err != nil {
 		log.Error(err, "could not become leader")
 		os.Exit(1)
@@ -130,6 +132,10 @@ func main() {
 	}
 	if err = ensureWebhookCertificate(cfg, namespace); err != nil {
 		log.Error(err, "Failed to ensure webhook CA configuration")
+	}
+
+	if err = readBaseOsIntoEnv(); err != nil {
+		log.Error(err, "Failed to read base OS into env")
 	}
 
 	// Set default manager options
@@ -198,6 +204,36 @@ func main() {
 		log.Error(err, "Manager exited non-zero")
 		os.Exit(1)
 	}
+}
+
+func readBaseOsIntoEnv() error {
+	baseOsArgFilePath := "/var/lib/cass-operator/base_os"
+
+	info, err := os.Stat(baseOsArgFilePath)
+	if os.IsNotExist(err) {
+		msg := fmt.Sprintf("Could not locate base OS arg file at %s", baseOsArgFilePath)
+		err = fmt.Errorf("%s. %v", msg, err)
+		return err
+	}
+
+	if info.IsDir() {
+		msg := fmt.Sprintf("Base OS arg path is a directory not a file: %s", baseOsArgFilePath)
+		err = fmt.Errorf("%s. %v", msg, err)
+		return err
+	}
+
+	rawVal, err := ioutil.ReadFile(baseOsArgFilePath)
+	if err != nil {
+		msg := fmt.Sprintf("Failed to read base OS arg file at %s", baseOsArgFilePath)
+		err = fmt.Errorf("%s. %v", msg, err)
+		return err
+	}
+
+	baseOs := strings.TrimSpace(string(rawVal))
+	os.Setenv(api.EnvBaseImageOs, baseOs)
+	log.Info(fmt.Sprintf("%s set to '%s'", api.EnvBaseImageOs, baseOs))
+
+	return nil
 }
 
 // addMetrics will create the Services and Service Monitors to allow the operator export the metrics by using

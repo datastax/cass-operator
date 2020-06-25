@@ -7,6 +7,7 @@ package reconciliation
 
 import (
 	"fmt"
+	"os"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
@@ -404,7 +405,11 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 	// server logger container
 	loggerContainer := corev1.Container{}
 	loggerContainer.Name = "server-system-logger"
-	loggerContainer.Image = "busybox"
+	if baseImageOs := os.Getenv(api.EnvBaseImageOs); baseImageOs != "" {
+		loggerContainer.Image = baseImageOs
+	} else {
+		loggerContainer.Image = "busybox"
+	}
 	loggerContainer.Args = []string{
 		"/bin/sh", "-c", "tail -n+1 -F /var/log/cassandra/system.log",
 	}

@@ -1,8 +1,9 @@
-name: Cass Operator Stable Build & Deploy
+name: Cass Operator Build & Deploy
 on:
   push:
-    branches:    
-      - master
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
 jobs:
   build_operator_docker:
     name: Build Cass Operator Docker Image
@@ -12,6 +13,11 @@ jobs:
       GOROOT: /usr/local/go1.13
     steps:
       - uses: actions/checkout@v2
+        if: github.event_name == 'pull_request'
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/checkout@v2
+        if: github.event_name != 'pull_request'
       - name: Set up Go 1.13
         uses: actions/setup-go@v1
         with:
@@ -32,12 +38,21 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testGenerateClient
-      - name: Build docker
+      - name: Build docker - standard and ubi images
+        env:
+          PR_REF: ${{ github.event.pull_request.head.ref }}
+          MO_BASE_OS: 'registry.access.redhat.com/ubi7/ubi-minimal:7.8'
         run: |
+          if [ "${GITHUB_EVENT_NAME}" == "pull_request" ]; then
+            export MO_BRANCH=${PR_REF}
+          else
+            export MO_BRANCH="master"
+          fi;
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testAndBuild
       - name: Deploy to ECR
-        env: 
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
+        env:
           MO_ECR_ID: ${{ secrets.ECR_ID }}
           MO_ECR_SECRET: ${{ secrets.ECR_SECRET }}
           MO_ECR_REPO: ${{ secrets.ECR_REPO }}
@@ -46,6 +61,7 @@ jobs:
           export MO_TAGS=$(cat ./build/tagsToPush.txt)
           mage operator:deployToECR
       - name: Deploy to GH Packages
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
         env:
           MO_GH_USR: 'datastax/cass-operator'
           MO_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
