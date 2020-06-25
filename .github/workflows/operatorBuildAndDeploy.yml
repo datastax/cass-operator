@@ -68,5 +68,5 @@ jobs:
           MO_GH_PKG_REPO: 'datastax/cass-operator/operator'
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          export MO_TAGS=$(cat ./build/fullTagsToPush.txt)
+          export MO_TAGS=$(cat ./build/tagsToPush.txt)
           mage operator:deployToGHPackages
