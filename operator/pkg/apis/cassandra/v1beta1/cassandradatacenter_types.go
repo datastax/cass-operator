@@ -53,11 +53,14 @@ func getImageForServerVersion(server, version string) (string, error) {
 		cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.5"
 		cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.5"
 		dse_6_8_0        = "datastax/dse-server:6.8.0"
+		dse_6_8_1        = "datastax/dse-server:6.8.1"
 	)
 	sv := server + "-" + version
 	switch sv {
 	case "dse-6.8.0":
 		return dse_6_8_0, nil
+	case "dse-6.8.1":
+		return dse_6_8_1, nil
 	case "cassandra-3.11.6":
 		return cassandra_3_11_6, nil
 	case "cassandra-4.0.0":
@@ -85,7 +88,7 @@ type CassandraDatacenterSpec struct {
 
 	// Version string for config builder,
 	// used to generate Cassandra server configuration
-	// +kubebuilder:validation:Enum="6.8.0";"3.11.6";"4.0.0"
+	// +kubebuilder:validation:Enum="6.8.0";"6.8.1";"3.11.6";"4.0.0"
 	ServerVersion string `json:"serverVersion"`
 
 	// Cassandra server image name.
