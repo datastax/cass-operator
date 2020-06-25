@@ -106,6 +106,8 @@
 
    import com.datastax.oss.driver.api.core.CqlSession;
    import com.datastax.oss.driver.api.core.cql.ResultSet;
+   import com.datastax.oss.driver.api.core.cql.Row;
+   import com.datastax.oss.driver.api.core.metadata.Node;
    import com.datastax.oss.driver.internal.core.metadata.SniEndPoint;
    import com.datastax.oss.driver.internal.core.ssl.SniSslEngineFactory;
 
@@ -148,7 +150,7 @@
            InetSocketAddress proxyAddress = new InetSocketAddress("traefik.k3s.local", 9042);
 
            // Endpoint (contact point)
-           SniEndPoint endPoint = new SniEndPoint(proxyAddress, "d1ba31b6-4b0e-4a7a-ba7e-8721271ae99a");
+           SniEndPoint endPoint = new SniEndPoint(proxyAddress, "ec448e83-8b83-407b-b342-13ce0250001c");
 
            CqlSession session = CqlSession.builder()
                    .addContactEndPoint(endPoint)
@@ -157,8 +159,27 @@
                    .withCloudProxyAddress(proxyAddress)
                    .build();
 
+           System.out.println("Discovered Nodes");
+           for (Node n :
+                   session.getMetadata().getNodes().values()) {
+               System.out.println(String.format("%s:%s:%s", n.getDatacenter(), n.getRack(), n.getHostId()));
+           }
+           System.out.println();
+
            ResultSet rs = session.execute("SELECT data_center, rack, host_id, release_version FROM system.local");
-           System.out.println(rs.one().getFormattedContents());
+           Node n = rs.getExecutionInfo().getCoordinator();
+           System.out.println(String.format("Coordinator: %s:%s:%s", n.getDatacenter(), n.getRack(), n.getHostId()));
+           rs.forEach(row -> {
+               System.out.println(row.getFormattedContents());
+           });
+           System.out.println();
+
+           rs = session.execute("SELECT data_center, rack, host_id, release_version FROM system.peers");
+           n = rs.getExecutionInfo().getCoordinator();
+           System.out.println(String.format("Coordinator: %s:%s:%s", n.getDatacenter(), n.getRack(), n.getHostId()));
+           rs.forEach(row -> {
+               System.out.println(row.getFormattedContents());
+           });
 
            session.close();
        }
@@ -168,5 +189,15 @@
    If everything worked correctly you should see some information from a node in the cluster.
 
    ```text
-   [data_center:'sample-dc', rack:'sample-rack', host_id:d1ba31b6-4b0e-4a7a-ba7e-8721271ae99a, release_version:'3.11.6']
+   Discovered Nodes
+   sample-dc:sample-rack:bba52d6e-8415-4869-ad8f-bf03e136e874
+   sample-dc:sample-rack:efe2564e-f8dc-4b0b-89a4-83cc12ec99a6
+   sample-dc:sample-rack:ec448e83-8b83-407b-b342-13ce0250001c
+
+   Coordinator: sample-dc:sample-rack:bba52d6e-8415-4869-ad8f-bf03e136e874
+   [data_center:'sample-dc', rack:'sample-rack', host_id:bba52d6e-8415-4869-ad8f-bf03e136e874, release_version:'3.11.6']
+
+   Coordinator: sample-dc:sample-rack:efe2564e-f8dc-4b0b-89a4-83cc12ec99a6
+   [data_center:'sample-dc', rack:'sample-rack', host_id:bba52d6e-8415-4869-ad8f-bf03e136e874, release_version:'3.11.6']
+   [data_center:'sample-dc', rack:'sample-rack', host_id:ec448e83-8b83-407b-b342-13ce0250001c, release_version:'3.11.6']
    ```
