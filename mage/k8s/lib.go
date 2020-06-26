@@ -172,7 +172,7 @@ func SetupCassandraCluster() {
 func SetupDSECluster() {
 	mg.Deps(SetupExampleCluster)
 	kubectl.ApplyFiles(
-		"operator/example-cassdc-yaml/dse-6.8.0/example-cassdc-minimal.yaml",
+		"operator/example-cassdc-yaml/dse-6.8.x/example-cassdc-minimal.yaml",
 	).ExecVPanic()
 	kubectl.WatchPods()
 }
