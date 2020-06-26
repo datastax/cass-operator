@@ -48,7 +48,7 @@ func TestReconcileReaper_newReaperService(t *testing.T) {
 
 func TestReconcileReaper_CheckReaperSchemaInitialized(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
-	rc.Datacenter.Spec.Reaper.Enabled = true
+	rc.Datacenter.Spec.Reaper = &api.ReaperConfig{Enabled: true}
 	defer cleanupMockScr()
 
 	trackObjects := []runtime.Object{rc.Datacenter}
@@ -92,7 +92,7 @@ func TestReconcileReaper_CheckReaperService(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
 	defer cleanupMockScr()
 
-	rc.Datacenter.Spec.Reaper.Enabled = true
+	rc.Datacenter.Spec.Reaper = &api.ReaperConfig{Enabled: true}
 
 	trackObjects := []runtime.Object{rc.Datacenter}
 

@@ -212,7 +212,7 @@ type CassandraDatacenterSpec struct {
 
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 
-	Reaper *ReaperConfig `json:"reaper,omitempty"
+	Reaper *ReaperConfig `json:"reaper,omitempty"`
 }
 
 type StorageConfig struct {

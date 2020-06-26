@@ -80,7 +80,7 @@ func (rc *ReconciliationContext) CheckReaperSchemaInitialized() result.Reconcile
 
 	rc.ReqLogger.Info("reconcile_reaper::CheckReaperSchemaInitialized")
 
-	if !rc.Datacenter.Spec.Reaper.Enabled {
+	if rc.Datacenter.Spec.Reaper == nil || !rc.Datacenter.Spec.Reaper.Enabled {
 		return result.Continue()
 	}
 
@@ -137,7 +137,7 @@ func (rc *ReconciliationContext) CheckReaperService() result.ReconcileResult {
 
 	err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: rc.Datacenter.Namespace, Name: serviceName}, service)
 	if err != nil && errors.IsNotFound(err) {
-		if rc.Datacenter.Spec.Reaper.Enabled {
+		if rc.Datacenter.Spec.Reaper != nil && rc.Datacenter.Spec.Reaper.Enabled {
 			// Create the service
 			service = newReaperService(rc.Datacenter)
 			rc.ReqLogger.Info("creating Reaper service")
@@ -153,7 +153,7 @@ func (rc *ReconciliationContext) CheckReaperService() result.ReconcileResult {
 		}
 	} else if err != nil {
 		return result.Error(err)
-	} else if !rc.Datacenter.Spec.Reaper.Enabled {
+	} else if rc.Datacenter.Spec.Reaper == nil || !rc.Datacenter.Spec.Reaper.Enabled {
 		if err := rc.Client.Delete(rc.Ctx, service); err != nil {
 			rc.ReqLogger.Error(err, "failed to delete Reaper service", "ReaperService", serviceName)
 		}

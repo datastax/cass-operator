@@ -417,7 +417,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 	loggerContainer.VolumeMounts = []corev1.VolumeMount{cassServerLogsMount}
 
 	containers := []corev1.Container{cassContainer, loggerContainer}
-	if dc.Spec.Reaper.Enabled && dc.Spec.ServerType == "cassandra" {
+	if dc.Spec.Reaper != nil && dc.Spec.Reaper.Enabled && dc.Spec.ServerType == "cassandra" {
 		reaperContainer := buildReaperContainer(dc)
 		containers = append(containers, reaperContainer)
 	}
