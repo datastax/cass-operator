@@ -172,7 +172,7 @@ func SetupCassandraCluster() {
 func SetupDSECluster() {
 	mg.Deps(SetupExampleCluster)
 	kubectl.ApplyFiles(
-		"operator/example-cassdc-yaml/dse-6.8.0/example-cassdc-minimal.yaml",
+		"operator/example-cassdc-yaml/dse-6.8.x/example-cassdc-minimal.yaml",
 	).ExecVPanic()
 	kubectl.WatchPods()
 }
@@ -190,6 +190,9 @@ func EnsureEmptyCluster() {
 	if !clusterActions.ClusterExists() {
 		SetupEmptyCluster()
 	} else {
+		// always load settings in case we have new images
+		// that an existing cluster is missing
+		loadSettings(*clusterActions)
 		// make sure kubectl is pointing to our cluster
 		clusterActions.SetupKubeconfig()
 		// we should still ensure that the storage is set up

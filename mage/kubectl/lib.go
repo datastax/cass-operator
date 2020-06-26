@@ -9,6 +9,7 @@ import (
 	"os/user"
 	"regexp"
 	"time"
+
 	"golang.org/x/crypto/ssh/terminal"
 
 	shutil "github.com/datastax/cass-operator/mage/sh"
@@ -206,7 +207,7 @@ func erasePreviousLine() {
 	fmt.Print("\033[K")
 }
 
-func waitForOutputPattern(k KCmd, pattern string, expected string, seconds int) error {
+func waitForOutputPattern(k KCmd, pattern string, seconds int) error {
 	re := regexp.MustCompile(pattern)
 	c := make(chan string)
 	timer := time.NewTimer(time.Duration(seconds) * time.Second)
@@ -250,8 +251,8 @@ func waitForOutputPattern(k KCmd, pattern string, expected string, seconds int) 
 	select {
 	case <-timer.C:
 		var expectedPhrase string
-		expectedPhrase = "Expected to output to contain:"
-		msg := fmt.Sprintf("Timed out waiting for value. %s %s, but got %s.", expectedPhrase, expected, actual)
+		expectedPhrase = "Expected output to match regex: "
+		msg := fmt.Sprintf("Timed out waiting for value. %s '%s', but '%s' did not match", expectedPhrase, pattern, actual)
 		if err != nil {
 			msg = fmt.Sprintf("%s\nThe following error occured while querying k8s: %v", msg, err)
 		}
@@ -263,15 +264,15 @@ func waitForOutputPattern(k KCmd, pattern string, expected string, seconds int) 
 }
 
 func WaitForOutputPattern(k KCmd, pattern string, seconds int) error {
-	return waitForOutputPattern(k, pattern, pattern, seconds)
+	return waitForOutputPattern(k, pattern, seconds)
 }
 
 func WaitForOutput(k KCmd, expected string, seconds int) error {
-	return waitForOutputPattern(k, fmt.Sprintf("^%s$", regexp.QuoteMeta(expected)), expected, seconds)
+	return waitForOutputPattern(k, fmt.Sprintf("^%s$", regexp.QuoteMeta(expected)), seconds)
 }
 
 func WaitForOutputContains(k KCmd, expected string, seconds int) error {
-	return waitForOutputPattern(k, regexp.QuoteMeta(expected), expected, seconds)
+	return waitForOutputPattern(k, regexp.QuoteMeta(expected), seconds)
 }
 
 func DumpAllLogs(path string) KCmd {

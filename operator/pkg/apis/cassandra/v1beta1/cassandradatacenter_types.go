@@ -46,15 +46,20 @@ const (
 type ProgressState string
 
 const (
-	defaultConfigBuilderImage     = "datastax/cass-config-builder:1.0.0"
-	cassandra_3_11_6              = "datastax/cassandra-mgmtapi-3_11_6:v0.1.5"
-	cassandra_4_0_0               = "datastax/cassandra-mgmtapi-4_0_0:v0.1.5"
-	dse_6_8_0                     = "datastax/dse-server:6.8.0"
-	ubi_cassandra_3_11_6          = "datastax/cassandra:3.11.6-ubi7"
-	ubi_cassandra_4_0_0           = "datastax/cassandra:4.0-ubi7"
-	ubi_dse_6_8_0                 = "datastax/dse-server:6.8.0-ubi7"
-	ubi_defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.0-ubi7"
-	EnvBaseImageOs                = "BASE_IMAGE_OS"
+	defaultConfigBuilderImage     = "datastax/cass-config-builder:1.0.1"
+	ubi_defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.1-ubi7"
+
+	cassandra_3_11_6     = "datastax/cassandra-mgmtapi-3_11_6:v0.1.5"
+	cassandra_4_0_0      = "datastax/cassandra-mgmtapi-4_0_0:v0.1.5"
+	ubi_cassandra_3_11_6 = "datastax/cassandra:3.11.6-ubi7"
+	ubi_cassandra_4_0_0  = "datastax/cassandra:4.0-ubi7"
+
+	dse_6_8_0     = "datastax/dse-server:6.8.0"
+	dse_6_8_1     = "datastax/dse-server:6.8.1"
+	ubi_dse_6_8_0 = "datastax/dse-server:6.8.0-ubi7"
+	ubi_dse_6_8_1 = "datastax/dse-server:6.8.1-ubi7"
+
+	EnvBaseImageOs = "BASE_IMAGE_OS"
 )
 
 // getImageForServerVersion tries to look up a known image for a server type and version number.
@@ -91,6 +96,8 @@ func getImageForDefaultBaseOs(sv string) (string, bool) {
 	switch sv {
 	case "dse-6.8.0":
 		return dse_6_8_0, true
+	case "dse-6.8.1":
+		return dse_6_8_1, true
 	case "cassandra-3.11.6":
 		return cassandra_3_11_6, true
 	case "cassandra-4.0.0":
@@ -103,6 +110,8 @@ func getImageForUniversalBaseOs(sv string) (string, bool) {
 	switch sv {
 	case "dse-6.8.0":
 		return ubi_dse_6_8_0, true
+	case "dse-6.8.1":
+		return ubi_dse_6_8_1, true
 	case "cassandra-3.11.6":
 		return ubi_cassandra_3_11_6, true
 	case "cassandra-4.0.0":
@@ -129,7 +138,7 @@ type CassandraDatacenterSpec struct {
 
 	// Version string for config builder,
 	// used to generate Cassandra server configuration
-	// +kubebuilder:validation:Enum="6.8.0";"3.11.6";"4.0.0"
+	// +kubebuilder:validation:Enum="6.8.0";"6.8.1";"3.11.6";"4.0.0"
 	ServerVersion string `json:"serverVersion"`
 
 	// Cassandra server image name.

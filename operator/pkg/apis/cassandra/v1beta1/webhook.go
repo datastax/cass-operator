@@ -30,15 +30,33 @@ func attemptedTo(action string, actionStrArgs ...interface{}) error {
 func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 	// Ensure serverVersion and serverType are compatible
 
-	if dc.Spec.ServerType == "dse" && dc.Spec.ServerVersion != "6.8.0" {
-		return attemptedTo("use unsupported DSE version '%s'", dc.Spec.ServerVersion)
+	var err error
+	if dc.Spec.ServerType == "dse" {
+		switch dc.Spec.ServerVersion {
+		case "6.8.0":
+			err = nil
+		case "6.8.1":
+			err = nil
+		default:
+			err = attemptedTo("use unsupported DSE version '%s'", dc.Spec.ServerVersion)
+		}
+	}
+	if err != nil {
+		return err
 	}
 
-	if dc.Spec.ServerType == "cassandra" && dc.Spec.ServerVersion != "3.11.6" && dc.Spec.ServerVersion != "4.0.0" {
-		return attemptedTo("use unsupported Cassandra version '%s'", dc.Spec.ServerVersion)
+	if dc.Spec.ServerType == "cassandra" {
+		switch dc.Spec.ServerVersion {
+		case "3.11.6":
+			err = nil
+		case "4.0.0":
+			err = nil
+		default:
+			err = attemptedTo("use unsupported Cassandra version '%s'", dc.Spec.ServerVersion)
+		}
 	}
 
-	return nil
+	return err
 }
 
 // Ensure that no values are improperly set
