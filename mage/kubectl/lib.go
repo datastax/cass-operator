@@ -264,15 +264,15 @@ func waitForOutputPattern(k KCmd, pattern string, seconds int) error {
 }
 
 func WaitForOutputPattern(k KCmd, pattern string, seconds int) error {
-	return waitForOutputPattern(k, pattern, pattern, seconds)
+	return waitForOutputPattern(k, pattern, seconds)
 }
 
 func WaitForOutput(k KCmd, expected string, seconds int) error {
-	return waitForOutputPattern(k, fmt.Sprintf("^%s$", regexp.QuoteMeta(expected)), expected, seconds)
+	return waitForOutputPattern(k, fmt.Sprintf("^%s$", regexp.QuoteMeta(expected)), seconds)
 }
 
 func WaitForOutputContains(k KCmd, expected string, seconds int) error {
-	return waitForOutputPattern(k, regexp.QuoteMeta(expected), expected, seconds)
+	return waitForOutputPattern(k, regexp.QuoteMeta(expected), seconds)
 }
 
 func DumpAllLogs(path string) KCmd {
