@@ -220,6 +220,8 @@ type CassandraDatacenterSpec struct {
 	Users []CassandraUser `json:"users,omitempty"`
 
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
+
+	Reaper *ReaperConfig `json:"reaper,omitempty"`
 }
 
 type StorageConfig struct {
@@ -345,6 +347,14 @@ type ManagementApiAuthConfig struct {
 	Insecure *ManagementApiAuthInsecureConfig `json:"insecure,omitempty"`
 	Manual   *ManagementApiAuthManualConfig   `json:"manual,omitempty"`
 	// other strategy configs (e.g. Cert Manager) go here
+}
+
+type ReaperConfig struct {
+	Enabled bool `json:"enabled,omitempty"`
+
+	Image string `json:"image,omitempty"`
+
+	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
