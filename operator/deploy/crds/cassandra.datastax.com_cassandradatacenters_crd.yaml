@@ -5886,6 +5886,17 @@ spec:
                 - name
                 type: object
               type: array
+            reaper:
+              properties:
+                enabled:
+                  type: boolean
+                image:
+                  type: string
+                imagePullPolicy:
+                  description: PullPolicy describes a policy for if/when to pull a
+                    container image
+                  type: string
+              type: object
             replaceNodes:
               description: A list of pod names that need to be replaced.
               items:
