@@ -107,9 +107,21 @@ Ingress Controllers we are looking to leverage require support for TCP load bala
 
 #### Sample Implementations
 
-* [Simple load balancing](traefik/load-balancing)
-* [mTLS with load balancing](traefik/mtls-load-balancing)
 * [mTLS with SNI](traefik/mtls-sni)
+* [mTLS with load balancing](traefik/mtls-load-balancing)
+* [Simple load balancing](traefik/load-balancing)
+
+### NGINX
+
+[NGINX Ingress controller](https://docs.nginx.com/nginx-ingress-controller/overview/#nginx-ingress-controller) works with both NGINX and NGINX Plus and supports the standard Ingress features - content-based routing and TLS / SSL termination. Additionally, several NGINX and NGINX Plus features are available as extensions to the `Ingress` resource via annotations and the `ConfigMap` resource. In addition to HTTP, NGINX Ingress controller supports load balancing Websocket, gRPC, TCP, and UDP applications.
+
+_Note_ that NGINX closely follows the k8s ingress specification and does **not** expose feature-rich configuration for TCP based protocols (like CQL). It is _possible_ to our preferred methods for deployment, but the configuration is less user-friendly compared to other approaches. These implementations are annotated appropriately below.
+
+#### Sample Implementations
+
+* TLS based load balancing with SNI & mTLS _TBD_ **warning** advanced implementation
+* TLS based load balancing with mTLS _TBD_ **warning** advanced implementation
+* Port-based load balancing _TBD_
 
 ## Service Meshes
 

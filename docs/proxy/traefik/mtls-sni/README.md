@@ -1,4 +1,4 @@
-# Traefik with TNS and SNI
+# Traefik with TLS and SNI
 
 When leveraging a single endpoint ingress / load balancer we naturally remove the ability to route requests based on token awareness. That is unless we leverage TLS with SNI. In this approach the TLS Client HELLO includes a server name which allows the single endpoint to forward the request to the appropriate pod based on rules we specify.
 

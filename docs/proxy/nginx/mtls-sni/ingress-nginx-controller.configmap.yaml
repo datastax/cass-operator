@@ -1,0 +1,24 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: ingress-nginx-controller
+data:
+  stream-snippets: |
+    map $ssl_server_name $targetBackend {
+      18482ce3-d085-497d-a24b-5be61efb4265 sample-cluster-sample-dc-sample-rack-sts-0:9042;
+      a9e79c28-8b1c-4a4a-af4f-688d88ef3c8b sample-cluster-sample-dc-sample-rack-sts-1:9042;
+      f768cd04-020c-4aba-9816-4049e6516c3b sample-cluster-sample-dc-sample-rack-sts-2:9042;
+    }
+
+    server {
+      listen 9042 ssl;
+
+      ssl_protocols       TLSv1.2;
+
+      ssl_certificate TBD;
+      ssl_certificate_key TBD;
+
+      ssl_client_certificate TBD;
+
+      proxy_pass $targetBackend;
+    }
