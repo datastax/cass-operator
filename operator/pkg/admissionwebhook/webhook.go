@@ -1,4 +1,4 @@
-package main
+package webhook
 
 import (
 	"context"
@@ -9,11 +9,14 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -21,7 +24,18 @@ import (
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func ensureWebhookCertificate(cfg *rest.Config, namespace string) (err error) {
+var (
+	altCertDir = filepath.Join(os.TempDir()) //Alt directory is necessary because regular key/cert mountpoint is read-only
+	certDir    = filepath.Join(os.TempDir(), "k8s-webhook-server", "serving-certs")
+
+	serverCertFile    = filepath.Join(os.TempDir(), "k8s-webhook-server", "serving-certs", "tls.crt")
+	altServerCertFile = filepath.Join(altCertDir, "tls.crt")
+	altServerKeyFile  = filepath.Join(altCertDir, "tls.key")
+
+	log = logf.Log.WithName("cmd")
+)
+
+func EnsureWebhookCertificate(cfg *rest.Config, namespace string) (certDir string, err error) {
 	var contents []byte
 	var webhook map[string]interface{}
 	var bundled string
@@ -48,7 +62,7 @@ func ensureWebhookCertificate(cfg *rest.Config, namespace string) (err error) {
 								}
 								if _, err = cert.Verify(verify_opts); err == nil {
 									log.Info("Found valid certificate for webhook")
-									return nil
+									return certDir, nil
 								}
 							}
 						}
@@ -60,10 +74,10 @@ func ensureWebhookCertificate(cfg *rest.Config, namespace string) (err error) {
 	return updateSecretAndWebhook(cfg, namespace)
 }
 
-func updateSecretAndWebhook(cfg *rest.Config, namespace string) (err error) {
+func updateSecretAndWebhook(cfg *rest.Config, namespace string) (certDir string, err error) {
 	var key, cert string
 	var client crclient.Client
-	if key, cert, err = getNewCertAndKey(namespace); err == nil {
+	if key, cert, err = utils.GetNewCAandKey(namespace); err == nil {
 		if client, err = crclient.New(cfg, crclient.Options{}); err == nil {
 			secret := &v1.Secret{}
 			err = client.Get(context.Background(), crclient.ObjectKey{
@@ -80,7 +94,7 @@ func updateSecretAndWebhook(cfg *rest.Config, namespace string) (err error) {
 						if err = ioutil.WriteFile(altServerKeyFile, []byte(key), 0600); err == nil {
 							certDir = altCertDir
 							log.Info("TLS secret updated in pod mount")
-							return updateWebhook(client, cert, namespace)
+							return certDir, updateWebhook(client, cert, namespace)
 						}
 					}
 				}
@@ -89,7 +103,7 @@ func updateSecretAndWebhook(cfg *rest.Config, namespace string) (err error) {
 		}
 	}
 	log.Error(err, "Failed to update certificates")
-	return err
+	return certDir, err
 }
 
 func fetchWebhookForNamespace(client crclient.Client, namespace string) (err error, webhook_config *unstructured.Unstructured, webhook map[string]interface{}, unstructured_index int) {
@@ -147,7 +161,7 @@ func updateWebhook(client crclient.Client, cert, namespace string) (err error) {
 	return err
 }
 
-func ensureWebhookConfigVolume(cfg *rest.Config, namespace string) (err error) {
+func EnsureWebhookConfigVolume(cfg *rest.Config, namespace string) (err error) {
 	var pod *v1.Pod
 	var client crclient.Client
 	if client, err = crclient.New(cfg, crclient.Options{}); err == nil {

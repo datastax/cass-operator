@@ -1,4 +1,4 @@
-package main
+package utils
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-func getNewCertAndKey(namespace string) (keypem, certpem string, err error) {
+func GetNewCAandKey(namespace string) (keypem, certpem string, err error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
 	var serialNumber *big.Int
 	if serialNumber, err = rand.Int(rand.Reader, serialNumberLimit); err == nil {
@@ -51,4 +51,8 @@ func getNewCertAndKey(namespace string) (keypem, certpem string, err error) {
 		}
 	}
 	return "", "", err
+}
+
+func GetSignedCertAndKey(cakeypem,cacertpem string, sans ...string) (signedcertpem, keypem string, err error) {
+return "","", nil
 }

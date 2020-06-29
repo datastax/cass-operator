@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -19,6 +18,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 
+	webhook "github.com/datastax/cass-operator/operator/pkg/admissionwebhook"
 	"github.com/datastax/cass-operator/operator/pkg/apis"
 	"github.com/datastax/cass-operator/operator/pkg/controller"
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
@@ -47,13 +47,6 @@ var (
 	metricsPort         int32 = 8383
 	operatorMetricsPort int32 = 8686
 	version                   = "DEV"
-
-	altCertDir = filepath.Join(os.TempDir()) //Alt directory is necessary because regular key/cert mountpoint is read-only
-	certDir    = filepath.Join(os.TempDir(), "k8s-webhook-server", "serving-certs")
-
-	serverCertFile    = filepath.Join(os.TempDir(), "k8s-webhook-server", "serving-certs", "tls.crt")
-	altServerCertFile = filepath.Join(altCertDir, "tls.crt")
-	altServerKeyFile  = filepath.Join(altCertDir, "tls.key")
 )
 var log = logf.Log.WithName("cmd")
 
@@ -127,10 +120,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = ensureWebhookConfigVolume(cfg, namespace); err != nil {
+	if err = webhook.EnsureWebhookConfigVolume(cfg, namespace); err != nil {
 		log.Error(err, "Failed to ensure webhook volume")
 	}
-	if err = ensureWebhookCertificate(cfg, namespace); err != nil {
+	var certDir string
+	if certDir, err = webhook.EnsureWebhookCertificate(cfg, namespace); err != nil {
 		log.Error(err, "Failed to ensure webhook CA configuration")
 	}
 

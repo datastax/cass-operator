@@ -401,6 +401,10 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 		Name:      pvcName,
 		MountPath: "/var/lib/cassandra",
 	})
+	serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
+		Name:      "encryption-cred-storage",
+		MountPath: "/etc/encryption/",
+	})
 	cassContainer.VolumeMounts = serverVolumeMounts
 
 	// server logger container
@@ -475,21 +479,7 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	affinity.PodAntiAffinity = calculatePodAntiAffinity(dc.Spec.AllowMultipleNodesPerWorker)
 	baseTemplate.Spec.Affinity = affinity
 
-	// volumes
-	vServerConfig := corev1.Volume{}
-	vServerConfig.Name = "server-config"
-	vServerConfig.VolumeSource = corev1.VolumeSource{
-		EmptyDir: &corev1.EmptyDirVolumeSource{},
-	}
-
-	vServerLogs := corev1.Volume{}
-	vServerLogs.Name = "server-logs"
-	vServerLogs.VolumeSource = corev1.VolumeSource{
-		EmptyDir: &corev1.EmptyDirVolumeSource{},
-	}
-
-	volumes := []corev1.Volume{vServerConfig, vServerLogs}
-	baseTemplate.Spec.Volumes = append(baseTemplate.Spec.Volumes, volumes...)
+	addVolumes(baseTemplate)
 
 	serviceAccount := "default"
 	if dc.Spec.ServiceAccount != "" {
@@ -562,3 +552,29 @@ func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1.Job {
 	}
 }
 
+func addVolumes(baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
+	vServerConfig := corev1.Volume{}
+	vServerConfig.Name = "server-config"
+	vServerConfig.VolumeSource = corev1.VolumeSource{
+		EmptyDir: &corev1.EmptyDirVolumeSource{},
+	}
+
+	vServerLogs := corev1.Volume{}
+	vServerLogs.Name = "server-logs"
+	vServerLogs.VolumeSource = corev1.VolumeSource{
+		EmptyDir: &corev1.EmptyDirVolumeSource{},
+	}
+
+	vServerEncryption := corev1.Volume{}
+	vServerEncryption.Name = "encryption-cred-storage"
+	vServerEncryption.VolumeSource = corev1.VolumeSource{
+		Secret: &corev1.SecretVolumeSource{
+			SecretName:"keystore"},
+	}
+
+
+	volumes := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
+	baseTemplate.Spec.Volumes = append(baseTemplate.Spec.Volumes, volumes...)
+	return volumes
+
+}
