@@ -56,6 +56,10 @@ spec:
         spec:
           description: CassandraDatacenterSpec defines the desired state of a CassandraDatacenter
           properties:
+            additionalSeeds:
+              items:
+                type: string
+              type: array
             allowMultipleNodesPerWorker:
               description: Turning this option on allows multiple server pods to be
                 created on a k8s worker node. By default the operator creates just
@@ -5891,6 +5895,17 @@ spec:
                 - name
                 type: object
               type: array
+            reaper:
+              properties:
+                enabled:
+                  type: boolean
+                image:
+                  type: string
+                imagePullPolicy:
+                  description: PullPolicy describes a policy for if/when to pull a
+                    container image
+                  type: string
+              type: object
             replaceNodes:
               description: A list of pod names that need to be replaced.
               items:
@@ -5940,6 +5955,7 @@ spec:
                 server configuration
               enum:
               - 6.8.0
+              - 6.8.1
               - 3.11.6
               - 4.0.0
               type: string
@@ -6261,6 +6277,12 @@ rules:
   - '*'
 - apiGroups:
   - cassandra.datastax.com
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - batch
   resources:
   - '*'
   verbs:
