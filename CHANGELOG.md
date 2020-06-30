@@ -1,8 +1,23 @@
 # Changelog
 
+## v1.3.0
+* Add DSE 6.8.1 support, and update to config-builder 1.0.1 [#139](https://github.com/datastax/cass-operator/commit/8026d3687ee6eb783743ea5481ee51e69e284e1c)
+* Experimental support for Cassandra Reaper running in sidecar mode [#116](https://github.com/datastax/cass-operator/commit/30ac85f3d71886b750414e90476c42394d439026)
+* Support using RedHat universal base image containers [#95](https://github.com/datastax/cass-operator/commit/6f383bd8d22491c5a784611620e1327dafc3ffae)
+* Provide an easy way to specify additional seeds in the CRD [#136](https://github.com/datastax/cass-operator/commit/0125b1f639830fad31f4b0b1b955ac991212fd16)
+* Unblocking Kubernetes 1.18 support [#132](https://github.com/datastax/cass-operator/commit/b8bbbf15394119cbbd604aa40fdb9224a9f312cd)
+* Bump version of Management API sidecar to 0.1.5 [#129](https://github.com/datastax/cass-operator/commit/248b30efe797d0656f2fc5c8e96dc3c431ab9a32)
+* No need to always set LastRollingRestart status [#124](https://github.com/datastax/cass-operator/commit/d0635a2507080455ed252a26252a336a96252bc9)
+* Set controller reference after updating StatefulSets, makes sure StatefulSets are cleaned up on delete [#121](https://github.com/datastax/cass-operator/commit/f90a4d30d37fa8ace8119dc7808fd7561df9270e)
+* Use the PodIP for Management API calls [#112](https://github.com/datastax/cass-operator/commit/dbf0f67aa7c3831cd5dacc52b10b4dd1c59a32d1)
+* Watch secrets to trigger reconciling user and password updates [#109](https://github.com/datastax/cass-operator/commit/394d25a6d6ec452ecd1667f3dca40b7496379eea)
+* Remove NodeIP from status [#96](https://github.com/datastax/cass-operator/commit/71ed104a7ec642e13ef27bafb6ac1a6c0a28a21e)
+* Add ability to specify additional Cassandra users in CassandraDatacenter [#94](https://github.com/datastax/cass-operator/commit/9b376e8be93976a0a344bcda2e417aa90dd9758f)
+* Improve validation for webhook configuration [#103](https://github.com/datastax/cass-operator/commit/6656d1a2fd9cdec1fe495c28dd3fbac9617341f6)
+
 ## v1.2.0
-* Support for several k8s versions in the helm chart - [#97](https://github.com/datastax/cass-operator/commit/9d76ad8258aa4e1d4893a357546de7de80aef0a0)
-* Ability to roll back a broken upgrade / configuration change - [#85](https://github.com/datastax/cass-operator/commit/86b869df65f8180524dc12ff11502f6f6889eef5)
+* Support for several k8s versions in the helm chart [#97](https://github.com/datastax/cass-operator/commit/9d76ad8258aa4e1d4893a357546de7de80aef0a0)
+* Ability to roll back a broken upgrade / configuration change [#85](https://github.com/datastax/cass-operator/commit/86b869df65f8180524dc12ff11502f6f6889eef5)
 * Mount root as read-only and temp dir as memory emptyvol [#86](https://github.com/datastax/cass-operator/commit/0474057e8339da4f89b2e901ab697f10a2184d78)
 * Fix managed-by label [#84](https://github.com/datastax/cass-operator/commit/39519b8bae8795542a5fb16a844aeb55cf3b2737)
 * Add sequence diagrams [#90](https://github.com/datastax/cass-operator/commit/f1fe5fb3e07cec71a2ba0df8fabfec2b7751a95b)
