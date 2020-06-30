@@ -78,7 +78,7 @@ following:
 Generally, `cluster-admin` privileges are required to register a
 `CustomResourceDefinition` (CRD). All privileges needed by the operator are
 present within the
-[operator-manifests YAML](https://github.com/datastax/cass-operator/tree/master/docs/user).
+[operator-manifests YAML](/docs/user).
 _Note the operator does not require `cluster-admin` privileges, only the user
 defining the CRD requires those permissions._
 
