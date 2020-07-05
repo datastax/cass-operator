@@ -1,0 +1,16 @@
+{
+  "CN": "Sample Self-Signed CA",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "names": [
+    {
+            "C": "US",
+            "ST": "California",
+            "L": "Santa Clara",
+            "O": "Engineering",
+            "OU": "Cassandra Operator"
+    }
+  ]
+}

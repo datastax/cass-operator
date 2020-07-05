@@ -1,0 +1,23 @@
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRouteTCP
+metadata:
+  name: sample-cluster-sample-dc
+spec:
+  entryPoints:
+    - cassandra
+  routes:
+    # Match is the rule corresponding to an underlying router.
+    - match: HostSNI(`*`)
+      services:
+        - name: sample-cluster-sample-dc-service
+          port: 9042
+          terminationDelay: 400
+          weight: 10
+  tls:
+    domains:
+    - main: sample-dc.sample-cluster
+    options:
+      name: sample-cluster-sample-dc-options
+      namespace: default
+    secretName: sample-cluster-sample-dc-cert
+    passthrough: false

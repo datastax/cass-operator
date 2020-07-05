@@ -240,3 +240,8 @@ tags
 # End of https://www.toptal.com/developers/gitignore/api/go,osx,vim,linux,emacs,visualstudiocode,intellij+all
 
 /build
+
+# Certificates
+*.pem
+*.csr
+*.p12

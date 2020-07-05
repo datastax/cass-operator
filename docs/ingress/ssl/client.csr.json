@@ -1,0 +1,17 @@
+{
+  "CN": "sample-application",
+  "key": {
+    "algo": "rsa",
+    "size": 2048
+  },
+  "hosts": [],
+  "names": [
+    {
+      "C": "US",
+      "ST": "California",
+      "L": "Santa Clara",
+      "O": "Engineering",
+      "OU": "Cassandra Operator"
+    }
+  ]
+}
