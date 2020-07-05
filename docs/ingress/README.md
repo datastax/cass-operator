@@ -73,7 +73,7 @@ It is possible to configure a service within Kubernetes outside of those provide
 
 **Cons**
 
-* Requires WhiteListPolicy Load Balancing Policy (LBP) to restrict attempts by the drivers to connect directly with pods
+* Requires use of an `AddressTranslator` client side to restrict attempts by the drivers to connect directly with pods and instead direct connnections to the load balancer.
 * Removes the possibility of TokenAwarePolicy LBP
 * Does not support TLS termination at the service layer, but rather within the application.
 
