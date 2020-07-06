@@ -13,6 +13,7 @@ require (
 	github.com/operator-framework/operator-sdk v0.17.0
 	github.com/pavel-v-chernykh/keystore-go v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
+	github.com/sethvargo/go-password v0.1.3
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.4.0
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975

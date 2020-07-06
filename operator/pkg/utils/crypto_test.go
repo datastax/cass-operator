@@ -72,7 +72,7 @@ func Test_GetJKS(t *testing.T) {
 			"cert": []byte(cert),
 			"key":  []byte(pem_key),
 		},
-	}, &corev1.Pod{ObjectMeta:metav1.ObjectMeta{Name:"somepodname"}}, "somedcname")
+	}, "somepodname", "somedcname")
 	if err != nil {
 		t.Errorf("Got an error: %e", err)
 	}
