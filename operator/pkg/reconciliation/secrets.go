@@ -15,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 )
 
 func generateUtf8Password() (string, error) {
@@ -22,8 +23,8 @@ func generateUtf8Password() (string, error) {
 	//
 	// https://security.stackexchange.com/questions/39849/does-bcrypt-have-a-maximum-password-length
 	//
-	// Since 1 ASCII character equals one byte in UTF-8, and base64 
-	// encoding generates 4 bytes (4 ASCII characters) for every 3 
+	// Since 1 ASCII character equals one byte in UTF-8, and base64
+	// encoding generates 4 bytes (4 ASCII characters) for every 3
 	// bytes encoded, we have:
 	//
 	//   55 encoded bytes * (3 unencoded bytes / 4 encoded bytes) = 41.25 unencoded bytes
@@ -135,13 +136,100 @@ func (rc *ReconciliationContext) retrieveSuperuserSecretOrCreateDefault() (*core
 	return secret, nil
 }
 
+func (rc *ReconciliationContext) createIntranodeCACredential() (*corev1.Secret, error) {
+	secret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      rc.keystoreCASecret().Name,
+			Namespace: rc.keystoreCASecret().Namespace,
+		},
+	}
+	if keypem, certpem, err := utils.GetNewCAandKey(fmt.Sprintf("%s-ca-keystore.%s", rc.Datacenter.Name, rc.Datacenter.Namespace)); err == nil {
+
+		secret.Data = map[string][]byte{
+			"key": []byte(keypem),
+			"cert": []byte(certpem),
+		}
+		return secret, nil
+	} else {
+		return nil, err
+	}
+}
+
+func (rc *ReconciliationContext) createCABootstrappingSecret(jksBlob []byte) (error) {
+	_, err := rc.retrieveSecret(types.NamespacedName{
+			Name:      fmt.Sprintf("%s-keystore", rc.Datacenter.Name),
+			Namespace: rc.Datacenter.Namespace,
+		})
+
+	if err == nil { // This secret already exists, nothing to do
+		return nil
+	}
+
+	secret := &corev1.Secret{
+
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-keystore", rc.Datacenter.Name),
+			Namespace: rc.Datacenter.Namespace,
+		},
+	}
+	secret.Data = map[string][]byte{
+		"node-keystore.jks": jksBlob,
+	}
+
+	return rc.Client.Create(rc.Ctx, secret)
+}
+
+func (rc *ReconciliationContext) keystoreCASecret() types.NamespacedName {
+	return types.NamespacedName{Name: fmt.Sprintf("%s-ca-keystore", rc.Datacenter.Name), Namespace: rc.Datacenter.Namespace}
+}
+
+func (rc *ReconciliationContext) retrieveIntranodeCredentialSecretOrCreateDefault() (*corev1.Secret, error) {
+	secret, retrieveErr := rc.retrieveSecret(rc.keystoreCASecret())
+	if retrieveErr != nil {
+		if errors.IsNotFound(retrieveErr) {
+			secret, err := rc.createIntranodeCACredential()
+
+			if err == nil && secret == nil {
+				return nil, retrieveErr
+			}
+
+			if err == nil {
+				err = rc.Client.Create(rc.Ctx, secret)
+			}
+
+			if err == nil {
+				var jksBlob []byte
+				jksBlob, err = utils.GenerateJKS(secret, rc.Datacenter.Name, rc.Datacenter.Name)
+				if err == nil {
+					err = rc.createCABootstrappingSecret(jksBlob)
+				}
+			}
+
+			if err != nil {
+				return nil, fmt.Errorf("Failed to create default superuser secret: %w", err)
+			}
+		} else {
+			return nil, retrieveErr
+		}
+	}
+
+	return secret, nil
+}
 
 // Helper function that is easier to test
 func validateCassandraUserSecretContent(dc *api.CassandraDatacenter, secret *corev1.Secret) []error {
 	var errs []error
 
 	namespacedName := types.NamespacedName{
-		Name: secret.ObjectMeta.Name, 
+		Name:      secret.ObjectMeta.Name,
 		Namespace: secret.ObjectMeta.Namespace,
 	}
 	errorPrefix := fmt.Sprintf("Validation failed for user secret: %s", namespacedName.String())
@@ -167,9 +255,9 @@ func (rc *ReconciliationContext) validateSuperuserSecret() []error {
 				return []error{}
 			} else {
 				return []error{
-					fmt.Errorf("Could not load superuser secret for CassandraCluster: %s", 
+					fmt.Errorf("Could not load superuser secret for CassandraCluster: %s",
 						dc.GetSuperuserSecretNamespacedName().String()),
-					}
+				}
 			}
 		} else {
 			return []error{fmt.Errorf("Validation of superuser secret failed due to an error: %w", err)}
@@ -186,7 +274,7 @@ func (rc *ReconciliationContext) validateCassandraUserSecrets() []error {
 	for _, user := range users {
 		secretName := user.SecretName
 		namespace := dc.ObjectMeta.Namespace
-	
+
 		secret, err := rc.retrieveSecret(types.NamespacedName{
 			Name:      secretName,
 			Namespace: namespace,

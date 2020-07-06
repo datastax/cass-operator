@@ -111,6 +111,18 @@ func (rc *ReconciliationContext) CheckSuperuserSecretCreation() result.Reconcile
 	return result.Continue()
 }
 
+func (rc *ReconciliationContext) CheckIntranodeCredentialCreation() result.ReconcileResult {
+	rc.ReqLogger.Info("reconcile_racks::CheckIntranodeCredentialCreation")
+
+	_, err := rc.retrieveIntranodeCredentialSecretOrCreateDefault()
+	if err != nil {
+		rc.ReqLogger.Error(err, "error retrieving IntranodeCredential for CassandraDatacenter.")
+		return result.Error(err)
+	}
+
+	return result.Continue()
+}
+
 func (rc *ReconciliationContext) CheckRackCreation() result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_racks::CheckRackCreation")
 	for idx := range rc.desiredRackInformation {
@@ -185,7 +197,7 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 		statefulSet := rc.statefulSets[idx]
 
 		desiredSts, err := rc.desiredStatefulSetForExistingStatefulSet(statefulSet, rackName)
-		
+
 		if err != nil {
 			logger.Error(err, "error calling desiredStatefulSetForExistingStatefulSet")
 			return result.Error(err)
@@ -729,7 +741,7 @@ func (rc *ReconciliationContext) GetUsers() []api.CassandraUser {
 	// add the standard superuser to our list of users
 	users := dc.Spec.Users
 	users = append(users, api.CassandraUser{
-		Superuser: true, 
+		Superuser:  true,
 		SecretName: dc.GetSuperuserSecretNamespacedName().Name,
 	})
 
@@ -744,7 +756,7 @@ func (rc *ReconciliationContext) UpdateSecretWatches() error {
 		name := types.NamespacedName{Name: user.SecretName, Namespace: dc.Namespace}
 		names = append(names, name)
 	}
-	dcNamespacedName := types.NamespacedName{Name: dc.Name, Namespace: dc.Namespace,}
+	dcNamespacedName := types.NamespacedName{Name: dc.Name, Namespace: dc.Namespace}
 	err := rc.SecretWatches.UpdateWatch(dcNamespacedName, names)
 
 	return err
@@ -787,10 +799,10 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 
 	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
 	rc.Datacenter.Status.UsersUpserted = metav1.Now()
-	
+
 	// For backwards compatibility
 	rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
-	
+
 	if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
 		rc.ReqLogger.Error(err, "error updating the users upsert timestamp")
 		return result.Error(err)
@@ -1515,6 +1527,34 @@ func (rc *ReconciliationContext) findStartedNotReadyNodes() (bool, error) {
 	return false, nil
 }
 
+func (rc *ReconciliationContext) copyPodCredentials(pod *corev1.Pod, jksBlob []byte) error {
+	_, err := rc.retrieveSecret(types.NamespacedName{
+			Name:      fmt.Sprintf("%s-keystore", rc.Datacenter.Name),
+			Namespace: rc.Datacenter.Namespace,
+		})
+
+	if err == nil { // This secret already exists, nothing to do
+		return nil
+	}
+
+	secret := &corev1.Secret{
+
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-keystore", rc.Datacenter.Name),
+			Namespace: rc.Datacenter.Namespace,
+		},
+	}
+	secret.Data = map[string][]byte{
+		"node-keystore.jks": jksBlob,
+	}
+
+	return rc.Client.Create(rc.Ctx, secret)
+}
+
 func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMetadataEndpoints, pod *corev1.Pod) error {
 	dc := rc.Datacenter
 	mgmtClient := rc.NodeMgmtClient
@@ -1543,6 +1583,16 @@ func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMeta
 	}
 
 	var err error
+	var intranodeCA *corev1.Secret
+
+	if intranodeCA, err = rc.retrieveIntranodeCredentialSecretOrCreateDefault(); err != nil {
+		return err
+	}
+	jksBlob, err := utils.GenerateJKS(intranodeCA, pod.ObjectMeta.Name, dc.Name)
+	if err = rc.copyPodCredentials(pod, jksBlob); err != nil {
+		return err
+	}
+
 	if shouldReplacePod && replaceAddress != "" {
 		// If we have a replace address that means the cassandra node did
 		// join the ring previously and is marked for replacement, so we
@@ -1561,7 +1611,6 @@ func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMeta
 	if err != nil {
 		return err
 	}
-
 	return rc.labelServerPodStarting(pod)
 }
 
@@ -1958,6 +2007,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	}
 
 	if recResult := rc.CheckSuperuserSecretCreation(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckIntranodeCredentialCreation(); recResult.Completed() {
 		return recResult.Output()
 	}
 

@@ -479,7 +479,7 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	affinity.PodAntiAffinity = calculatePodAntiAffinity(dc.Spec.AllowMultipleNodesPerWorker)
 	baseTemplate.Spec.Affinity = affinity
 
-	addVolumes(baseTemplate)
+	addVolumes(dc, baseTemplate)
 
 	serviceAccount := "default"
 	if dc.Spec.ServiceAccount != "" {
@@ -552,7 +552,7 @@ func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1.Job {
 	}
 }
 
-func addVolumes(baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
+func addVolumes(dc *api.CassandraDatacenter,baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
 	vServerConfig := corev1.Volume{}
 	vServerConfig.Name = "server-config"
 	vServerConfig.VolumeSource = corev1.VolumeSource{
@@ -569,7 +569,7 @@ func addVolumes(baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
 	vServerEncryption.Name = "encryption-cred-storage"
 	vServerEncryption.VolumeSource = corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
-			SecretName:"keystore"},
+			SecretName:fmt.Sprintf("%s-keystore", dc.Name)},
 	}
 
 
