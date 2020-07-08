@@ -87,3 +87,17 @@ When leveraging a single endpoint ingress / load balancer we lose the ability to
     ```
 
 1. Check out the [sample application](../../sample-java-application) to validate your deployment
+    
+    ```bash
+    Discovered Nodes
+    sample-dc:sample-rack:270acac9-e7d3-422c-b63f-fc210ce53250
+    sample-dc:sample-rack:270acac9-e7d3-422c-b63f-fc210ce53250
+    sample-dc:sample-rack:270acac9-e7d3-422c-b63f-fc210ce53250
+
+    Coordinator: sample-dc:sample-rack:270acac9-e7d3-422c-b63f-fc210ce53250
+    [data_center:'sample-dc', rack:'sample-rack', host_id:ac8cb07b-80eb-4882-b49d-183e28076840, release_version:'3.11.6']
+
+    Coordinator: sample-dc:sample-rack:270acac9-e7d3-422c-b63f-fc210ce53250
+    [data_center:'sample-dc', rack:'sample-rack', host_id:270acac9-e7d3-422c-b63f-fc210ce53250, release_version:'3.11.6']
+    [data_center:'sample-dc', rack:'sample-rack', host_id:71683027-8b66-420c-aa87-f16ef48e7846, release_version:'3.11.6']
+    ```
