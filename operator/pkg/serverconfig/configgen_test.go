@@ -28,7 +28,7 @@ func TestGetModelValues(t *testing.T) {
 				seeds:        []string{"seed0", "seed1", "seed2"},
 				clusterName:  "cluster-name",
 				dcName:       "dc-name",
-				graphEnabled: 0,
+				graphEnabled: 1,
 				solrEnabled:  0,
 				sparkEnabled: 0,
 			},
@@ -38,7 +38,7 @@ func TestGetModelValues(t *testing.T) {
 					"seeds": "seed0,seed1,seed2",
 				},
 				"datacenter-info": NodeConfig{
-					"graph-enabled": 0,
+					"graph-enabled": 1,
 					"name":          "dc-name",
 					"solr-enabled":  0,
 					"spark-enabled": 0,
@@ -51,7 +51,7 @@ func TestGetModelValues(t *testing.T) {
 				clusterName:  "cluster-name",
 				dcName:       "dc-name",
 				graphEnabled: 0,
-				solrEnabled:  0,
+				solrEnabled:  1,
 				sparkEnabled: 0,
 			},
 			want: NodeConfig{
@@ -62,7 +62,7 @@ func TestGetModelValues(t *testing.T) {
 				"datacenter-info": NodeConfig{
 					"graph-enabled": 0,
 					"name":          "dc-name",
-					"solr-enabled":  0,
+					"solr-enabled":  1,
 					"spark-enabled": 0,
 				}},
 		},
@@ -72,9 +72,9 @@ func TestGetModelValues(t *testing.T) {
 				seeds:        []string{"seed0", "seed1", "seed2"},
 				clusterName:  "",
 				dcName:       "dc-name",
-				graphEnabled: 0,
-				solrEnabled:  0,
-				sparkEnabled: 0,
+				graphEnabled: 1,
+				solrEnabled:  1,
+				sparkEnabled: 1,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -82,10 +82,10 @@ func TestGetModelValues(t *testing.T) {
 					"seeds": "seed0,seed1,seed2",
 				},
 				"datacenter-info": NodeConfig{
-					"graph-enabled": 0,
+					"graph-enabled": 1,
 					"name":          "dc-name",
-					"solr-enabled":  0,
-					"spark-enabled": 0,
+					"solr-enabled":  1,
+					"spark-enabled": 1,
 				}},
 		},
 		{
@@ -96,7 +96,7 @@ func TestGetModelValues(t *testing.T) {
 				dcName:       "",
 				graphEnabled: 0,
 				solrEnabled:  0,
-				sparkEnabled: 0,
+				sparkEnabled: 1,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -107,7 +107,7 @@ func TestGetModelValues(t *testing.T) {
 					"graph-enabled": 0,
 					"name":          "",
 					"solr-enabled":  0,
-					"spark-enabled": 0,
+					"spark-enabled": 1,
 				}},
 		},
 		{
