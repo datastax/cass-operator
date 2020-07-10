@@ -7,8 +7,8 @@ package reconciliation
 
 import (
 	"fmt"
-	"os"
 	"k8s.io/api/batch/v1"
+	"os"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
@@ -40,6 +40,10 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 		{
 			Name: "mgmt-api", Port: 8080, TargetPort: intstr.FromInt(8080),
 		},
+	}
+
+	if dc.Spec.PreserveClientSourceIps == true {
+		service.Spec.ExternalTrafficPolicy = "Local"
 	}
 
 	addHashAnnotation(service)
@@ -561,4 +565,3 @@ func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1.Job {
 		},
 	}
 }
-
