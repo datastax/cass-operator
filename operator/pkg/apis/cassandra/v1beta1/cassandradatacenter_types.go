@@ -219,6 +219,9 @@ type CassandraDatacenterSpec struct {
 	// Cassandra users to bootstrap
 	Users []CassandraUser `json:"users,omitempty"`
 
+	// Preserve client source-ips
+	PreserveClientSourceIps bool `json:"preserveClientSourceIps,omitempty"`
+
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 
 	Reaper *ReaperConfig `json:"reaper,omitempty"`

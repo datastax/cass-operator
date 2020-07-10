@@ -53,7 +53,7 @@ func (rc *ReconciliationContext) CheckHeadlessServices() result.ReconcileResult 
 
 	logger.Info("reconcile_services::ReconcileHeadlessServices")
 
-	// Check if there is a headless service for the cluster
+	// Check if the services are set up for this datacenter
 
 	cqlService := newServiceForCassandraDatacenter(dc)
 	seedService := newSeedServiceForCassandraDatacenter(dc)

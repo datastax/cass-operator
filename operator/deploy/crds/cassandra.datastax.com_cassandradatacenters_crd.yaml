@@ -5867,6 +5867,9 @@ spec:
                   - containers
                   type: object
               type: object
+            preserveClientSourceIps:
+              description: Preserve client source-ips
+              type: boolean
             racks:
               description: A list of the named racks in the datacenter, representing
                 independent failure domains. The number of racks should match the
