@@ -512,7 +512,12 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 	// cassandra.yaml whenever the seed nodes change.
 	seeds := []string{dc.GetSeedServiceName()}
 	seeds = append(seeds, dc.Spec.AdditionalSeeds...)
-	modelValues := serverconfig.GetModelValues(seeds, dc.Spec.ClusterName, dc.Name)
+	modelValues := serverconfig.GetModelValues(
+		seeds,
+		dc.Spec.ClusterName,
+		dc.Name,
+		dc.Spec.ServerType,
+		dc.Spec.DseWorkloads)
 
 	var modelBytes []byte
 

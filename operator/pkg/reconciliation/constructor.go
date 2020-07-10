@@ -398,7 +398,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 		{Name: "DSE_MGMT_EXPLICIT_START", Value: "true"},
 	}
 
-	if dc.Spec.DseWorkloads != nil {
+	if dc.Spec.ServerType == "dse" && dc.Spec.DseWorkloads != nil {
 		cassContainer.Env = append(
 			cassContainer.Env,
 			corev1.EnvVar{Name: "JVM_EXTRA_OPTS", Value: getJvmExtraOpts(dc)})
