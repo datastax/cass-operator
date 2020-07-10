@@ -43,7 +43,7 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 	}
 
 	if dc.Spec.PreserveClientSourceIps == true {
-		service.Spec.ExternalTrafficPolicy = "Local"
+		service.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeLocal
 	}
 
 	addHashAnnotation(service)
