@@ -213,6 +213,8 @@ type CassandraDatacenterSpec struct {
 	// roll out.
 	ForceUpgradeRacks []string `json:"forceUpgradeRacks,omitempty"`
 
+	DseWorkloads *DseWorkloads `json:"dseWorkloads,omitempty"`
+
 	// PodTemplate provides customisation options (labels, annotations, affinity rules, resource requests, and so on) for the cassandra pods
 	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplateSpec,omitempty"`
 
@@ -222,6 +224,12 @@ type CassandraDatacenterSpec struct {
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 
 	Reaper *ReaperConfig `json:"reaper,omitempty"`
+}
+
+type DseWorkloads struct {
+	AnalyticsEnabled bool `json:"analyticsEnabled,omitempty"`
+	GraphEnabled     bool `json:"graphEnabled,omitempty"`
+	SearchEnabled    bool `json:"searchEnabled,omitempty"`
 }
 
 type StorageConfig struct {
