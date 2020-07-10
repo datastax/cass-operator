@@ -512,12 +512,30 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 	// cassandra.yaml whenever the seed nodes change.
 	seeds := []string{dc.GetSeedServiceName()}
 	seeds = append(seeds, dc.Spec.AdditionalSeeds...)
+
+	graphEnabled := 0
+	solrEnabled := 0
+	sparkEnabled := 0
+
+	if dc.Spec.ServerType == "dse" && dc.Spec.DseWorkloads != nil {
+		if dc.Spec.DseWorkloads.AnalyticsEnabled == true {
+			sparkEnabled = 1
+		}
+		if dc.Spec.DseWorkloads.GraphEnabled == true {
+			graphEnabled = 1
+		}
+		if dc.Spec.DseWorkloads.SearchEnabled == true {
+			solrEnabled = 1
+		}
+	}
+
 	modelValues := serverconfig.GetModelValues(
 		seeds,
 		dc.Spec.ClusterName,
 		dc.Name,
-		dc.Spec.ServerType,
-		dc.Spec.DseWorkloads)
+		graphEnabled,
+		solrEnabled,
+		sparkEnabled)
 
 	var modelBytes []byte
 
