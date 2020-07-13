@@ -450,6 +450,7 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1
 	serverCfg.Env = []corev1.EnvVar{
 		{Name: "CONFIG_FILE_DATA", Value: configData},
 		{Name: "POD_IP", ValueFrom: selectorFromFieldPath("status.podIP")},
+		{Name: "HOST_IP", ValueFrom: selectorFromFieldPath("status.hostIP")},
 		{Name: "RACK_NAME", Value: rackName},
 		{Name: "PRODUCT_VERSION", Value: serverVersion},
 		{Name: "PRODUCT_NAME", Value: dc.Spec.ServerType},
