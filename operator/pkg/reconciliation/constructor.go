@@ -44,7 +44,8 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 
 	if dc.Spec.PreserveClientSourceIps == true {
 		service.Spec.Type = "NodePort"
-		service.Spec.ClusterIP = "None"
+		// Note: ClusterIp = "None" is not valid for NodePort
+		service.Spec.ClusterIP = ""
 		service.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeLocal
 	}
 
