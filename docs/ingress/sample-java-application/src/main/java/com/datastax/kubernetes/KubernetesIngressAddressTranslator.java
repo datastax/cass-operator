@@ -16,8 +16,8 @@ public class KubernetesIngressAddressTranslator implements AddressTranslator {
   @NonNull
   @Override
   public InetSocketAddress translate(@NonNull InetSocketAddress address) {
-    String ingressAddress = driverContext.getConfig().getDefaultProfile().getString(KubernetesIngressOption.INGRESS_ADDRESS);
-    int ingressPort = driverContext.getConfig().getDefaultProfile().getInt(KubernetesIngressOption.INGRESS_PORT);
+    String ingressAddress = driverContext.getConfig().getDefaultProfile().getString(KubernetesOption.INGRESS_ADDRESS);
+    int ingressPort = driverContext.getConfig().getDefaultProfile().getInt(KubernetesOption.INGRESS_PORT);
 
     return new InetSocketAddress(ingressAddress, ingressPort);
   }

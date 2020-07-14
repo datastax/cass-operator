@@ -4,49 +4,18 @@ When leveraging a single endpoint ingress / load balancer we lose the ability to
 
 1. _Optional_ provision a local cluster with k3d. If you already have a cluster provisioned and it is available via `kubectl` you may safely skip this step.
 
-   ```bash
-   # Create the cluster
-   k3d create cluster --k3s-server-arg --no-deploy --k3s-server-arg traefik
-   export KUBECONFIG="$(k3d get-kubeconfig --name='k3s-default')"
-   kubectl cluster-info
-
-   # Import images from the local Docker daemon
-   k3d load image --cluster k3s-default \
-     datastax/cass-operator:1.3.0 \
-     datastax/cass-config-builder:1.0.0-ubi7 \
-     datastax/dse-server:6.8.0-ubi7
-   ```
-
-1. Install Kong with Helm
-
-   ```bash
-   helm repo add kong https://charts.konghq.com
-   helm repo update
-   helm install kong kong/kong --set ingressController.installCRDs=false
-   ```
-
-1. Update the Kong service to include the port we want to forward from.
-
     ```bash
-    kubectl edit svc kong-kong-proxy
-    ```
+    # Create the cluster
+    k3d create cluster --k3s-server-arg --no-deploy --k3s-server-arg traefik
+    export KUBECONFIG="$(k3d get-kubeconfig --name='k3s-default')"
+    kubectl cluster-info
 
-    ```yaml
-      - name: kong-proxy
-        nodePort: 30374
-        port: 80
-        protocol: TCP
-        targetPort: 8000
-      - name: kong-proxy-tls
-        nodePort: 32570
-        port: 443
-        protocol: TCP
-        targetPort: 8443
-      # Add the following section, it is ideal to use the same name as your entrypoint. Additionally the port number MUST match
-      - name: cassandra
-        port: 9042
-        protocol: TCP
-        targetPort: 9042
+    # Import images from the local Docker daemon
+    k3d load image --cluster k3s-default \
+      datastax/cass-operator:1.3.0 \
+      datastax/cass-config-builder:1.0.0-ubi7 \
+      datastax/dse-server:6.8.0-ubi7 \
+      datastax/cassandra:3.11.6-ubi7
     ```
 
 1. Install `cass-operator` via Helm
@@ -61,6 +30,38 @@ When leveraging a single endpoint ingress / load balancer we lose the ability to
     kubectl apply -f sample-cluster-sample-dc.yaml
     ```
 
+1. Expose each pod as a service, **AFTER all pods are up and read**
+
+    ```bash
+    kubectl expose pod sample-cluster-sample-dc-sample-rack-sts-0
+    kubectl expose pod sample-cluster-sample-dc-sample-rack-sts-1
+    kubectl expose pod sample-cluster-sample-dc-sample-rack-sts-2
+    ```
+
+1. Generate and install [SSL certificates](../../ssl)
+
+1. Install Kong with Helm
+
+    ```bash
+    helm repo add kong https://charts.konghq.com
+    helm repo update
+    helm install kong kong/kong \
+      --set ingressController.installCRDs=false \
+      --set admin.enabled=true \
+      --set admin.http.enabled=true \
+      --set admin.servicePort=8001 \
+      --set admin.type=LoadBalancer
+
+
+      <!-- --set env.database=cassandra \
+      --set env.cassandra_contact_points=sample-cluster-sample-dc-service \
+      --set env.cassandra_lb_policy=DCAwareRoundRobin \
+      --set env.cassandra_local_datacenter=sample-dc \
+      --set env.cassandra_repl_strategy=NetworkTopologyStrategy \
+      --set env.cassandra_data_centers=sample-dc:3 \
+      --set env.db_update_propagation=30 -->
+    ```
+
 1. Patch the Kong deployment to listen on the ingress port (9042 in our example)
    
     ```bash
@@ -72,18 +73,32 @@ When leveraging a single endpoint ingress / load balancer we lose the ability to
             - name: proxy
               env:
                 - name: KONG_STREAM_LISTEN
-                  value: 0.0.0.0:9042
+                  # Note the port must match the `port` value in the patched service
+                  value: 0.0.0.0:9042 ssl
               ports:
                 - name: cassandra
+                  # Note this must match the `port` value in the patched service
                   containerPort: 9042
-                  protocol: TCP
-    '
+                  protocol: TCP'
+    ```
+
+1. Update the Kong service to include the port we want to forward from.
+
+    ```bash
+    kubectl patch svc kong-kong-proxy --patch '
+    spec:
+      ports:
+        # Note the `port` field can be any value. When running multiple clusters they must be different. `targetPort` *must* match the port C* is listening on, default: 9042
+        - name: cassandra
+          port: 9042
+          protocol: TCP
+          targetPort: 9042'
     ```
 
 1. Create a `TCPIngress`. This provides the mapping between Kong ingress and the internal Cassandra service.
 
     ```bash
-    kubectl apply -f kong/load-balancing/sample-cluster-sample-dc.tcpingress.yaml
+    kubectl apply -f kong/sni-ingress/sample-cluster-sample-dc.tcpingress.yaml
     ```
 
 1. Check out the [sample application](../../sample-java-application) to validate your deployment
