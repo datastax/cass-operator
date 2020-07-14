@@ -97,6 +97,38 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 			},
 			errString: "use unsupported Cassandra version '6.8.0'",
 		},
+		{
+			name: "Dse Workloads in Cassandra Invalid",
+			dc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					ServerType:    "cassandra",
+					ServerVersion: "6.8.0",
+					DseWorkloads: &DseWorkloads{
+						AnalyticsEnabled: true,
+					},
+				},
+			},
+			errString: "CassandraDatacenter write rejected, attempted to cannot enable DSE workloads if server type is Cassandra",
+		},
+		{
+			name: "Dse Workloads in Dse valid",
+			dc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					ServerType:    "dse",
+					ServerVersion: "6.8.1",
+					DseWorkloads: &DseWorkloads{
+						AnalyticsEnabled: true,
+					},
+				},
+			},
+			errString: "",
+		},
 	}
 
 	for _, tt := range tests {
