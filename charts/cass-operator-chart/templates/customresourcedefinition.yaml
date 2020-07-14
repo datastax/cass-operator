@@ -83,6 +83,16 @@ spec:
                   - serverSecretName
                   type: object
               type: object
+            networking:
+              properties:
+                nodePortConfig:
+                  properties:
+                    broadcastPort:
+                      type: integer
+                    cqlPort:
+                      type: integer
+                  type: object
+              type: object
             nodeSelector:
               additionalProperties:
                 type: string
@@ -5877,9 +5887,6 @@ spec:
                   - containers
                   type: object
               type: object
-            preserveClientSourceIps:
-              description: Preserve client source-ips
-              type: boolean
             racks:
               description: A list of the named racks in the datacenter, representing
                 independent failure domains. The number of racks should match the

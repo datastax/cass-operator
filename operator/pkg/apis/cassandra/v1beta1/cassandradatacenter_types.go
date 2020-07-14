@@ -219,12 +219,20 @@ type CassandraDatacenterSpec struct {
 	// Cassandra users to bootstrap
 	Users []CassandraUser `json:"users,omitempty"`
 
-	// Preserve client source-ips
-	PreserveClientSourceIps bool `json:"preserveClientSourceIps,omitempty"`
+	Networking *NetworkingConfig `json:"networking,omitempty"`
 
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 
 	Reaper *ReaperConfig `json:"reaper,omitempty"`
+}
+
+type NetworkingConfig struct {
+	NodePortConfig *NodePortConfig `json:"nodePortConfig,omitempty"`
+}
+
+type NodePortConfig struct {
+	CqlPort       int `json:"cqlPort,omitempty"`
+	BroadcastPort int `json:"broadcastPort,omitempty"`
 }
 
 type StorageConfig struct {

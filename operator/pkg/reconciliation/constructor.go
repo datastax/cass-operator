@@ -32,21 +32,47 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 	svcName := dc.GetDatacenterServiceName()
 	service := makeGenericHeadlessService(dc)
 	service.ObjectMeta.Name = svcName
-	service.Spec.Ports = []corev1.ServicePort{
-		// Note: Port Names cannot be more than 15 characters
-		{
-			Name: "native", Port: 9042, TargetPort: intstr.FromInt(9042),
-		},
-		{
-			Name: "mgmt-api", Port: 8080, TargetPort: intstr.FromInt(8080),
-		},
-	}
 
-	if dc.Spec.PreserveClientSourceIps == true {
+	if dc.Spec.Networking != nil && dc.Spec.Networking.NodePortConfig != nil {
 		service.Spec.Type = "NodePort"
 		// Note: ClusterIp = "None" is not valid for NodePort
 		service.Spec.ClusterIP = ""
 		service.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeLocal
+
+		cqlPort := dc.Spec.Networking.NodePortConfig.CqlPort
+		broadcastPort := dc.Spec.Networking.NodePortConfig.BroadcastPort
+
+		service.Spec.Ports = []corev1.ServicePort{
+			// Note: Port Names cannot be more than 15 characters
+			{
+				Name:       "broadcast",
+				Port:       int32(broadcastPort),
+				NodePort:   int32(broadcastPort),
+				TargetPort: intstr.FromInt(broadcastPort),
+			},
+			{
+				Name:       "native",
+				Port:       int32(cqlPort),
+				NodePort:   int32(cqlPort),
+				TargetPort: intstr.FromInt(cqlPort),
+			},
+			{
+				Name:       "mgmt-api",
+				Port:       8080,
+				NodePort:   int32(8080),
+				TargetPort: intstr.FromInt(8080),
+			},
+		}
+	} else {
+		service.Spec.Ports = []corev1.ServicePort{
+			// Note: Port Names cannot be more than 15 characters
+			{
+				Name: "native", Port: 9042, TargetPort: intstr.FromInt(9042),
+			},
+			{
+				Name: "mgmt-api", Port: 8080, TargetPort: intstr.FromInt(8080),
+			},
+		}
 	}
 
 	addHashAnnotation(service)
