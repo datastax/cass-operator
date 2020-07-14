@@ -67,10 +67,6 @@ public class SampleApp {
           .withSslEngineFactory(new SniSslEngineFactory(sslContext))
           .addContactEndPoints(builtEndpoints)
           .build();
-      } else if (args[0].equals("mtls-ingress")) {
-        session = CqlSession.builder()
-          .withConfigLoader(DriverConfigLoader.fromClasspath("mtls-ingress.conf"))
-          .build();
       } else if (args[0].equals("mtls-sni-ingress")) {
         DriverConfigLoader configLoader = DriverConfigLoader.fromClasspath("mtls-sni-ingress.conf");
         DriverExecutionProfile config = configLoader.getInitialConfig().getDefaultProfile();
@@ -159,7 +155,6 @@ public class SampleApp {
     System.err.println("  direct");
     System.err.println("  ingress");
     System.err.println("  sni-ingress");
-    System.err.println("  mtls-ingress");
     System.err.println("  mtls-sni-ingress");
   }
 
