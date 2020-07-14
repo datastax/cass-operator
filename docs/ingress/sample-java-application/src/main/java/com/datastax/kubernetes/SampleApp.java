@@ -72,8 +72,26 @@ public class SampleApp {
           .withConfigLoader(DriverConfigLoader.fromClasspath("mtls-ingress.conf"))
           .build();
       } else if (args[0].equals("mtls-sni-ingress")) {
+        DriverConfigLoader configLoader = DriverConfigLoader.fromClasspath("mtls-sni-ingress.conf");
+        DriverExecutionProfile config = configLoader.getInitialConfig().getDefaultProfile();
+
+        String ingressAddress = config.getString(KubernetesOption.INGRESS_ADDRESS);
+        int ingressPort = config.getInt(KubernetesOption.INGRESS_PORT);
+        InetSocketAddress cloudProxyAddress = new InetSocketAddress(ingressAddress, ingressPort);
+
+        Set<EndPoint> builtEndpoints = new HashSet<>();
+        List<String> configEndpoints = config.getStringList(KubernetesOption.ENDPOINTS);
+        for (String configEndpoint : configEndpoints) {
+          builtEndpoints.add(new SniEndPoint(cloudProxyAddress, configEndpoint));
+        }
+
+        SSLContext sslContext = buildContext(config);
+
         session = CqlSession.builder()
-          .withConfigLoader(DriverConfigLoader.fromClasspath("mtls-sni-ingress.conf"))
+          .withConfigLoader(configLoader)
+          .withCloudProxyAddress(cloudProxyAddress)
+          .withSslEngineFactory(new SniSslEngineFactory(sslContext))
+          .addContactEndPoints(builtEndpoints)
           .build();
       }
 

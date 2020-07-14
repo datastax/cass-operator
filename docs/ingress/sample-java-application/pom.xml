@@ -97,6 +97,22 @@
               </arguments>
             </configuration>
           </execution>
+          <execution>
+            <id>mtls-sni-ingress</id>
+            <goals>
+              <goal>java</goal>
+            </goals>
+            <configuration>
+              <executable>java</executable>
+              <arguments>
+                <!-- <argument>-javaagent:lib/jSSLKeyLog.jar=keylog.log</argument> -->
+                <argument>-classpath</argument>
+                <classpath />
+                <argument>com.datastax.kubernetes.SampleApp</argument>
+                <argument>mtls-sni-ingress</argument>
+              </arguments>
+            </configuration>
+          </execution>
         </executions>
       </plugin>
 
