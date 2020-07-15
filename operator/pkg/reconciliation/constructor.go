@@ -33,14 +33,14 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 	service := makeGenericHeadlessService(dc)
 	service.ObjectMeta.Name = svcName
 
+	cqlPort := dc.GetCqlPort()
+	broadcastPort := dc.GetBroadcastPort()
+
 	if dc.IsNodePortEnabled() {
 		service.Spec.Type = "NodePort"
 		// Note: ClusterIp = "None" is not valid for NodePort
 		service.Spec.ClusterIP = ""
 		service.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeLocal
-
-		cqlPort := dc.Spec.Networking.NodePortConfig.CqlPort
-		broadcastPort := dc.Spec.Networking.NodePortConfig.BroadcastPort
 
 		service.Spec.Ports = []corev1.ServicePort{
 			// Note: Port Names cannot be more than 15 characters
@@ -67,10 +67,14 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 		service.Spec.Ports = []corev1.ServicePort{
 			// Note: Port Names cannot be more than 15 characters
 			{
-				Name: "native", Port: 9042, TargetPort: intstr.FromInt(9042),
+				Name:       "native",
+				Port:       int32(cqlPort),
+				TargetPort: intstr.FromInt(cqlPort),
 			},
 			{
-				Name: "mgmt-api", Port: 8080, TargetPort: intstr.FromInt(8080),
+				Name:       "mgmt-api",
+				Port:       8080,
+				TargetPort: intstr.FromInt(8080),
 			},
 		}
 	}

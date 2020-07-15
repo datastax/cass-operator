@@ -17,7 +17,9 @@ func GetModelValues(
 	dcName string,
 	graphEnabled int,
 	solrEnabled int,
-	sparkEnabled int) NodeConfig {
+	sparkEnabled int,
+	cqlPort int,
+	broadcastPort int) NodeConfig {
 
 	seedsString := strings.Join(seeds, ",")
 
@@ -32,7 +34,12 @@ func GetModelValues(
 			"graph-enabled": graphEnabled,
 			"solr-enabled":  solrEnabled,
 			"spark-enabled": sparkEnabled,
-		}}
+		},
+		"cassandra-yaml": NodeConfig{
+			"native_transport_port": cqlPort,
+			"storage_port":          broadcastPort,
+		},
+	}
 
 	return modelValues
 }

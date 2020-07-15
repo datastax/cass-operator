@@ -545,13 +545,18 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 		}
 	}
 
+	cqlPort := dc.GetCqlPort()
+	broadcastPort := dc.GetBroadcastPort()
+
 	modelValues := serverconfig.GetModelValues(
 		seeds,
 		dc.Spec.ClusterName,
 		dc.Name,
 		graphEnabled,
 		solrEnabled,
-		sparkEnabled)
+		sparkEnabled,
+		cqlPort,
+		broadcastPort)
 
 	var modelBytes []byte
 
@@ -581,13 +586,31 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 	return modelParsed.String(), nil
 }
 
+func (dc *CassandraDatacenter) GetCqlPort() int {
+	if dc.IsNodePortEnabled() {
+		return dc.Spec.Networking.NodePortConfig.CqlPort
+	}
+	return 9042
+}
+
+func (dc *CassandraDatacenter) GetBroadcastPort() int {
+	if dc.IsNodePortEnabled() {
+		return dc.Spec.Networking.NodePortConfig.BroadcastPort
+	}
+	return 7000
+}
+
 // GetContainerPorts will return the container ports for the pods in a statefulset based on the provided config
 func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, error) {
+
+	cqlPort := dc.GetCqlPort()
+	broadcastPort := dc.GetBroadcastPort()
+
 	ports := []corev1.ContainerPort{
 		{
 			// Note: Port Names cannot be more than 15 characters
 			Name:          "native",
-			ContainerPort: 9042,
+			ContainerPort: int32(cqlPort),
 		},
 		{
 			Name:          "inter-node-msg",
@@ -595,7 +618,7 @@ func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, erro
 		},
 		{
 			Name:          "intra-node",
-			ContainerPort: 7000,
+			ContainerPort: int32(broadcastPort),
 		},
 		{
 			Name:          "tls-intra-node",

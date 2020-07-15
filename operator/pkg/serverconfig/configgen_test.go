@@ -10,12 +10,14 @@ import (
 
 func TestGetModelValues(t *testing.T) {
 	type args struct {
-		seeds        []string
-		clusterName  string
-		dcName       string
-		graphEnabled int
-		solrEnabled  int
-		sparkEnabled int
+		seeds         []string
+		clusterName   string
+		dcName        string
+		graphEnabled  int
+		solrEnabled   int
+		sparkEnabled  int
+		cqlPort       int
+		broadcastPort int
 	}
 	tests := []struct {
 		name string
@@ -25,12 +27,14 @@ func TestGetModelValues(t *testing.T) {
 		{
 			name: "Happy Path",
 			args: args{
-				seeds:        []string{"seed0", "seed1", "seed2"},
-				clusterName:  "cluster-name",
-				dcName:       "dc-name",
-				graphEnabled: 1,
-				solrEnabled:  0,
-				sparkEnabled: 0,
+				seeds:         []string{"seed0", "seed1", "seed2"},
+				clusterName:   "cluster-name",
+				dcName:        "dc-name",
+				graphEnabled:  1,
+				solrEnabled:   0,
+				sparkEnabled:  0,
+				cqlPort:       9042,
+				broadcastPort: 7000,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -42,17 +46,24 @@ func TestGetModelValues(t *testing.T) {
 					"name":          "dc-name",
 					"solr-enabled":  0,
 					"spark-enabled": 0,
-				}},
+				},
+				"cassandra-yaml": NodeConfig{
+					"native_transport_port": 9042,
+					"storage_port":          7000,
+				},
+			},
 		},
 		{
 			name: "Empty seeds",
 			args: args{
-				seeds:        []string{},
-				clusterName:  "cluster-name",
-				dcName:       "dc-name",
-				graphEnabled: 0,
-				solrEnabled:  1,
-				sparkEnabled: 0,
+				seeds:         []string{},
+				clusterName:   "cluster-name",
+				dcName:        "dc-name",
+				graphEnabled:  0,
+				solrEnabled:   1,
+				sparkEnabled:  0,
+				cqlPort:       9042,
+				broadcastPort: 7000,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -64,17 +75,24 @@ func TestGetModelValues(t *testing.T) {
 					"name":          "dc-name",
 					"solr-enabled":  1,
 					"spark-enabled": 0,
-				}},
+				},
+				"cassandra-yaml": NodeConfig{
+					"native_transport_port": 9042,
+					"storage_port":          7000,
+				},
+			},
 		},
 		{
 			name: "Missing cluster name",
 			args: args{
-				seeds:        []string{"seed0", "seed1", "seed2"},
-				clusterName:  "",
-				dcName:       "dc-name",
-				graphEnabled: 1,
-				solrEnabled:  1,
-				sparkEnabled: 1,
+				seeds:         []string{"seed0", "seed1", "seed2"},
+				clusterName:   "",
+				dcName:        "dc-name",
+				graphEnabled:  1,
+				solrEnabled:   1,
+				sparkEnabled:  1,
+				cqlPort:       9042,
+				broadcastPort: 7200,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -86,17 +104,24 @@ func TestGetModelValues(t *testing.T) {
 					"name":          "dc-name",
 					"solr-enabled":  1,
 					"spark-enabled": 1,
-				}},
+				},
+				"cassandra-yaml": NodeConfig{
+					"native_transport_port": 9042,
+					"storage_port":          7200,
+				},
+			},
 		},
 		{
 			name: "Missing dc name",
 			args: args{
-				seeds:        []string{"seed0", "seed1", "seed2"},
-				clusterName:  "cluster-name",
-				dcName:       "",
-				graphEnabled: 0,
-				solrEnabled:  0,
-				sparkEnabled: 1,
+				seeds:         []string{"seed0", "seed1", "seed2"},
+				clusterName:   "cluster-name",
+				dcName:        "",
+				graphEnabled:  0,
+				solrEnabled:   0,
+				sparkEnabled:  1,
+				cqlPort:       9142,
+				broadcastPort: 7000,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -108,17 +133,24 @@ func TestGetModelValues(t *testing.T) {
 					"name":          "",
 					"solr-enabled":  0,
 					"spark-enabled": 1,
-				}},
+				},
+				"cassandra-yaml": NodeConfig{
+					"native_transport_port": 9142,
+					"storage_port":          7000,
+				},
+			},
 		},
 		{
 			name: "Empty args",
 			args: args{
-				seeds:        nil,
-				clusterName:  "",
-				dcName:       "",
-				graphEnabled: 0,
-				solrEnabled:  0,
-				sparkEnabled: 0,
+				seeds:         nil,
+				clusterName:   "",
+				dcName:        "",
+				graphEnabled:  0,
+				solrEnabled:   0,
+				sparkEnabled:  0,
+				cqlPort:       0,
+				broadcastPort: 0,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -130,12 +162,25 @@ func TestGetModelValues(t *testing.T) {
 					"name":          "",
 					"solr-enabled":  0,
 					"spark-enabled": 0,
-				}},
+				},
+				"cassandra-yaml": NodeConfig{
+					"native_transport_port": 0,
+					"storage_port":          0,
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := GetModelValues(tt.args.seeds, tt.args.clusterName, tt.args.dcName, tt.args.graphEnabled, tt.args.solrEnabled, tt.args.sparkEnabled); !reflect.DeepEqual(got, tt.want) {
+			if got := GetModelValues(
+				tt.args.seeds,
+				tt.args.clusterName,
+				tt.args.dcName,
+				tt.args.graphEnabled,
+				tt.args.solrEnabled,
+				tt.args.sparkEnabled,
+				tt.args.cqlPort,
+				tt.args.broadcastPort); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetModelValues() = %v, want %v", got, tt.want)
 			}
 		})
