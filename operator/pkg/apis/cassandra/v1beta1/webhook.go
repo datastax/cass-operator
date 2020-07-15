@@ -83,6 +83,10 @@ func ValidateDatacenterFieldChanges(oldDc CassandraDatacenter, newDc CassandraDa
 		return attemptedTo("change storageConfig")
 	}
 
+	if oldDc.Spec.Size > newDc.Spec.Size {
+		return attemptedTo("decrease size")
+	}
+
 	// Topology changes - Racks
 	// - Rack Name and Zone changes are disallowed.
 	// - Removing racks is not supported.
