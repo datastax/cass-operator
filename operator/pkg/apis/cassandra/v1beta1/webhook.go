@@ -55,8 +55,33 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 			err = attemptedTo("use unsupported Cassandra version '%s'", dc.Spec.ServerVersion)
 		}
 	}
+	if err != nil {
+		return err
+	}
 
-	return err
+	isDse := dc.Spec.ServerType == "dse"
+	isCassandra3 := dc.Spec.ServerType == "cassandra" && strings.HasPrefix(dc.Spec.ServerVersion, "3.")
+	isCassandra4 := dc.Spec.ServerType == "cassandra" && strings.HasPrefix(dc.Spec.ServerVersion, "4.")
+
+	var c map[string]interface{}
+	_ = json.Unmarshal(dc.Spec.Config, &c)
+
+	_, hasJvmOptions := c["jvm-options"]
+	_, hasJvmServerOptions := c["jvm-server-options"]
+	_, hasDseYaml := c["dse-yaml"]
+
+	serverStr := fmt.Sprintf("%s-%s", dc.Spec.ServerType, dc.Spec.ServerVersion)
+	if hasJvmOptions && (isDse || isCassandra4) {
+		return attemptedTo("define config jvm-options with %s", serverStr)
+	}
+	if hasJvmServerOptions && isCassandra3 {
+		return attemptedTo("define config jvm-server-options with %s", serverStr)
+	}
+	if hasDseYaml && (isCassandra3 || isCassandra4) {
+		return attemptedTo("define config dse-yaml with %s", serverStr)
+	}
+
+	return nil
 }
 
 // Ensure that no values are improperly set
