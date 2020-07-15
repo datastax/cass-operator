@@ -58,6 +58,15 @@ spec:
             configBuilderImage:
               description: Container image for the config builder init container.
               type: string
+            dseWorkloads:
+              properties:
+                analyticsEnabled:
+                  type: boolean
+                graphEnabled:
+                  type: boolean
+                searchEnabled:
+                  type: boolean
+              type: object
             forceUpgradeRacks:
               description: Rack names in this list are set to the latest StatefulSet
                 configuration even if Cassandra nodes are down. Use this to recover

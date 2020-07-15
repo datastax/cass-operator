@@ -174,7 +174,7 @@ func Test_GenerateBaseConfigString(t *testing.T) {
 					Config:      []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
 				},
 			},
-			want:      `{"cassandra-yaml":{"authenticator":"AllowAllAuthenticator","batch_size_fail_threshold_in_kb":1280},"cluster-info":{"name":"exampleCluster","seeds":"exampleCluster-seed-service"},"datacenter-info":{"name":"exampleDC"}}`,
+			want:      `{"cassandra-yaml":{"authenticator":"AllowAllAuthenticator","batch_size_fail_threshold_in_kb":1280},"cluster-info":{"name":"exampleCluster","seeds":"exampleCluster-seed-service"},"datacenter-info":{"graph-enabled":0,"name":"exampleDC","solr-enabled":0,"spark-enabled":0}}`,
 			errString: "",
 		},
 		{
