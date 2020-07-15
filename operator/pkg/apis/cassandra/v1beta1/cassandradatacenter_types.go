@@ -213,6 +213,8 @@ type CassandraDatacenterSpec struct {
 	// roll out.
 	ForceUpgradeRacks []string `json:"forceUpgradeRacks,omitempty"`
 
+	DseWorkloads *DseWorkloads `json:"dseWorkloads,omitempty"`
+
 	// PodTemplate provides customisation options (labels, annotations, affinity rules, resource requests, and so on) for the cassandra pods
 	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplateSpec,omitempty"`
 
@@ -222,6 +224,12 @@ type CassandraDatacenterSpec struct {
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 
 	Reaper *ReaperConfig `json:"reaper,omitempty"`
+}
+
+type DseWorkloads struct {
+	AnalyticsEnabled bool `json:"analyticsEnabled,omitempty"`
+	GraphEnabled     bool `json:"graphEnabled,omitempty"`
+	SearchEnabled    bool `json:"searchEnabled,omitempty"`
 }
 
 type StorageConfig struct {
@@ -504,7 +512,30 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 	// cassandra.yaml whenever the seed nodes change.
 	seeds := []string{dc.GetSeedServiceName()}
 	seeds = append(seeds, dc.Spec.AdditionalSeeds...)
-	modelValues := serverconfig.GetModelValues(seeds, dc.Spec.ClusterName, dc.Name)
+
+	graphEnabled := 0
+	solrEnabled := 0
+	sparkEnabled := 0
+
+	if dc.Spec.ServerType == "dse" && dc.Spec.DseWorkloads != nil {
+		if dc.Spec.DseWorkloads.AnalyticsEnabled == true {
+			sparkEnabled = 1
+		}
+		if dc.Spec.DseWorkloads.GraphEnabled == true {
+			graphEnabled = 1
+		}
+		if dc.Spec.DseWorkloads.SearchEnabled == true {
+			solrEnabled = 1
+		}
+	}
+
+	modelValues := serverconfig.GetModelValues(
+		seeds,
+		dc.Spec.ClusterName,
+		dc.Name,
+		graphEnabled,
+		solrEnabled,
+		sparkEnabled)
 
 	var modelBytes []byte
 
