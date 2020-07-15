@@ -28,7 +28,7 @@ func attemptedTo(action string, actionStrArgs ...interface{}) error {
 	return fmt.Errorf("CassandraDatacenter write rejected, attempted to %s", msg)
 }
 
-// Ensure that no values are improperly set
+// ValidateSingleDatacenter checks that no values are improperly set on a CassandraDatacenter
 func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 	// Ensure serverVersion and serverType are compatible
 
@@ -86,7 +86,8 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 	return nil
 }
 
-// Ensure that no values are improperly set
+// ValidateDatacenterFieldChanges checks that no values are improperly changing while updating
+// a CassandraDatacenter
 func ValidateDatacenterFieldChanges(oldDc CassandraDatacenter, newDc CassandraDatacenter) error {
 
 	if oldDc.Spec.ClusterName != newDc.Spec.ClusterName {
