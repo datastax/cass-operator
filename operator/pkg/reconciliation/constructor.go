@@ -33,7 +33,7 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 	service := makeGenericHeadlessService(dc)
 	service.ObjectMeta.Name = svcName
 
-	if dc.Spec.Networking != nil && dc.Spec.Networking.NodePortConfig != nil {
+	if dc.IsNodePortEnabled() {
 		service.Spec.Type = "NodePort"
 		// Note: ClusterIp = "None" is not valid for NodePort
 		service.Spec.ClusterIP = ""
@@ -468,6 +468,12 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1
 	}
 	serverCfg.VolumeMounts = []corev1.VolumeMount{serverCfgMount}
 
+	// Convert the bool to a string for the env var setting
+	useHostIpForBroadcast := "false"
+	if dc.IsNodePortEnabled() {
+		useHostIpForBroadcast = "true"
+	}
+
 	configData, err := dc.GetConfigAsJSON()
 	if err != nil {
 		return nil, err
@@ -477,6 +483,7 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1
 		{Name: "CONFIG_FILE_DATA", Value: configData},
 		{Name: "POD_IP", ValueFrom: selectorFromFieldPath("status.podIP")},
 		{Name: "HOST_IP", ValueFrom: selectorFromFieldPath("status.hostIP")},
+		{Name: "USE_HOST_IP_FOR_BROADCAST", Value: useHostIpForBroadcast},
 		{Name: "RACK_NAME", Value: rackName},
 		{Name: "PRODUCT_VERSION", Value: serverVersion},
 		{Name: "PRODUCT_NAME", Value: dc.Spec.ServerType},

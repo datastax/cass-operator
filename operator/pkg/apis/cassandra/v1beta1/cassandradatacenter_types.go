@@ -235,6 +235,11 @@ type NodePortConfig struct {
 	BroadcastPort int `json:"broadcastPort,omitempty"`
 }
 
+// Is the NodePort service enabled?
+func (dc *CassandraDatacenter) IsNodePortEnabled() bool {
+	return dc.Spec.Networking != nil && dc.Spec.Networking.NodePortConfig != nil
+}
+
 type StorageConfig struct {
 	CassandraDataVolumeClaimSpec *corev1.PersistentVolumeClaimSpec `json:"cassandraDataVolumeClaimSpec,omitempty"`
 }
