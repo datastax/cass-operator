@@ -111,7 +111,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 					},
 				},
 			},
-			errString: "CassandraDatacenter write rejected, attempted to cannot enable DSE workloads if server type is Cassandra",
+			errString: "CassandraDatacenter write rejected, attempted to enable DSE workloads if server type is Cassandra",
 		},
 		{
 			name: "Dse Workloads in Dse valid",
