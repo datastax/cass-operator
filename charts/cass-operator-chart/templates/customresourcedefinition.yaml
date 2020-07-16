@@ -94,11 +94,15 @@ spec:
               type: object
             networking:
               properties:
-                nodePortConfig:
+                nodePort:
                   properties:
                     broadcastPort:
                       type: integer
+                    broadcastSslPort:
+                      type: integer
                     cqlPort:
+                      type: integer
+                    cqlSslPort:
                       type: integer
                   type: object
               type: object
