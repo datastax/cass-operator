@@ -13,25 +13,20 @@ With mTLS not only does the client authenticate the server, but the server ALSO 
     k3d create cluster --k3s-server-arg --no-deploy --k3s-server-arg traefik
     export KUBECONFIG="$(k3d get-kubeconfig --name='k3s-default')"
     kubectl cluster-info
-
-    # Import images from the local Docker daemon
-    k3d load image --cluster k3s-default \
-      datastax/cass-operator:1.3.0 \
-      datastax/cass-config-builder:1.0.0-ubi7 \
-      datastax/dse-server:6.8.0-ubi7 \
-      datastax/cassandra:3.11.6-ubi7
     ```
 
 1. Install `cass-operator` via Helm
 
     ```bash
-    helm install cass-operator ./charts/cass-operator-chart
+    helm repo add datastax https://datastax.github.io/charts
+    helm repo update
+    helm install cass-operator datastax/cass-operator
     ```
 
 1. Deploy a Cassandra cluster
 
     ```bash
-    kubectl apply -f sample-cluster-sample-dc.yaml
+    kubectl apply -f docs/ingress/sample-cluster-sample-dc.yaml
     ```
 
 1. Expose each pod as a service, **AFTER all pods are up and ready**
@@ -103,13 +98,13 @@ With mTLS not only does the client authenticate the server, but the server ALSO 
 1. Configure the mTLS Kong plugin
     
     ```bash
-    kubectl apply -f mtls-auth.kong-plugin.yaml
+    kubectl apply -f docs/ingress/kong/mtls-sni-ingress/mtls-auth.kong-plugin.yaml
     ```
 
 1. Create a `TCPIngress`. This provides the mapping between Kong ingress and the internal Cassandra service as well as an annotation directing Kong to leverage the mTLS plugin
 
     ```bash
-    kubectl apply -f kong/sni-ingress/sample-cluster-sample-dc.tcpingress.yaml
+    kubectl apply -f docs/ingress/kong/mtls-sni-ingress/sample-cluster-sample-dc.tcpingress.yaml
     ```
 
 1. Check out the [sample application](../../sample-java-application) to validate your deployment

@@ -21,13 +21,15 @@ When leveraging a single endpoint ingress / load balancer we lose the ability to
 1. Install `cass-operator` via Helm
 
     ```bash
-    helm install cass-operator ./charts/cass-operator-chart
+    helm repo add datastax https://datastax.github.io/charts
+    helm repo update
+    helm install cass-operator datastax/cass-operator
     ```
 
 1. Deploy a Cassandra cluster
 
     ```bash
-    kubectl apply -f sample-cluster-sample-dc.yaml
+    kubectl apply -f docs/ingress/sample-cluster-sample-dc.yaml
     ```
 
 1. Expose each pod as a service, **AFTER all pods are up and read**
@@ -89,7 +91,7 @@ When leveraging a single endpoint ingress / load balancer we lose the ability to
 1. Create a `TCPIngress`. This provides the mapping between Kong ingress and the internal Cassandra service.
 
     ```bash
-    kubectl apply -f kong/sni-ingress/sample-cluster-sample-dc.tcpingress.yaml
+    kubectl apply -f docs/ingress/kong/sni-ingress/sample-cluster-sample-dc.tcpingress.yaml
     ```
 
 1. Check out the [sample application](../../sample-java-application) to validate your deployment

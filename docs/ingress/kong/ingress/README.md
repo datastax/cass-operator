@@ -9,13 +9,21 @@ When leveraging a single endpoint ingress / load balancer we lose the ability to
    k3d create cluster --k3s-server-arg --no-deploy --k3s-server-arg traefik
    export KUBECONFIG="$(k3d get-kubeconfig --name='k3s-default')"
    kubectl cluster-info
-
-   # Import images from the local Docker daemon
-   k3d load image --cluster k3s-default \
-     datastax/cass-operator:1.3.0 \
-     datastax/cass-config-builder:1.0.0-ubi7 \
-     datastax/dse-server:6.8.0-ubi7
    ```
+
+1. Install `cass-operator` via Helm
+
+    ```bash
+    helm repo add datastax https://datastax.github.io/charts
+    helm repo update
+    helm install cass-operator datastax/cass-operator
+    ```
+
+1. Deploy a Cassandra cluster
+
+    ```bash
+    kubectl apply -f docs/ingress/sample-cluster-sample-dc.yaml
+    ```
 
 1. Install Kong with Helm
 
@@ -58,27 +66,16 @@ When leveraging a single endpoint ingress / load balancer we lose the ability to
           targetPort: 9042'
     ```
 
-1. Install `cass-operator` via Helm
-
-    ```bash
-    helm install cass-operator ./charts/cass-operator-chart
-    ```
-
-1. Deploy a Cassandra cluster
-
-    ```bash
-    kubectl apply -f sample-cluster-sample-dc.yaml
-    ```
-
 1. Create a `TCPIngress`. This provides the mapping between Kong ingress and the internal Cassandra service.
 
     ```bash
-    kubectl apply -f kong/load-balancing/sample-cluster-sample-dc.tcpingress.yaml
+    kubectl apply -f docs/ingress/kong/ingress/sample-cluster-sample-dc.tcpingress.yaml
     ```
 
 1. Check out the [sample application](../../sample-java-application) to validate your deployment
     
     ```bash
+    mvn exec:exec@ingress
     Discovered Nodes
     sample-dc:sample-rack:270acac9-e7d3-422c-b63f-fc210ce53250
     sample-dc:sample-rack:270acac9-e7d3-422c-b63f-fc210ce53250
