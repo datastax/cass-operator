@@ -101,6 +101,16 @@ Ingress Controllers we are looking to leverage require support for TCP load bala
 * _Only some_ implementations support mTLS
 * _Only some_ implementations support SNI with TCP workloads
 
+### Kong
+
+[Kong](https://konghq.com/kong/) is open source API gateway. Built for multi-cloud and hybrid, optimized for microservices and distributed architectures. Kong does not have to be deployed on Kubernetes supporting a multitude of environments. For our use case we will install Kong as an ingress for a Kubernetes cluster.
+
+#### Sample Implementations
+
+* [Simple Ingress](kong/ingress)
+* [SNI Ingress](kong/sni-ingress)
+* [mTLS with SNI Ingress](kong/mtls-sni-ingress)
+
 ### Traefik
 
 [Traefik](https://containo.us/traefik/) is an open-source Edge Router that is designed to work in a number of environments, not just Kubernetes. When running on Kubernetes, Traefik is generally installed as an Ingress Controller. Traefik supports TCP load balancing along with SSL termination and SNI.  It is automatically included as the default Ingress Controller of [K3s](https://k3s.io/) and [K3d](https://k3d.io/).

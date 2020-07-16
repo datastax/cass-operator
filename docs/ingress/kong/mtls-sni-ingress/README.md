@@ -1,4 +1,4 @@
-# Kong Simple Load Balancing
+# Kong mTLS SNI Ingress
 
 When leveraging a single endpoint ingress / load balancer we lose the ability to provide token aware routing without the use of SNI. SNI hints to the ingress (via TLS extensions) where the traffic should be routed from the proxy. In this case we use the hostId as the endpoint.
 
@@ -113,13 +113,13 @@ With mTLS not only does the client authenticate the server, but the server ALSO 
     mvn exec:exec@mtls-sni-ingress
     Discovered Nodes
     sample-dc:sample-rack:bbbf5a34-2240-4efb-ac06-c7974a2ec3dd
-    sample-dc:sample-rack:9b44aa04-6f5d-4cda-abab-f3fe89215826
-    sample-dc:sample-rack:7398967e-7797-46ad-be79-75d71ff8cb80
+    sample-dc:sample-rack:73a03b32-bdb6-4b2a-a5db-dfd078ec8131
+    sample-dc:sample-rack:deab7ace-711c-407f-96a0-bcba5099855b
 
-    Coordinator: sample-dc:sample-rack:9b44aa04-6f5d-4cda-abab-f3fe89215826
-    [data_center:'sample-dc', rack:'sample-rack', host_id:9b44aa04-6f5d-4cda-abab-f3fe89215826, release_version:'3.11.6']
+    Coordinator: sample-dc:sample-rack:73a03b32-bdb6-4b2a-a5db-dfd078ec8131
+    [data_center:'sample-dc', rack:'sample-rack', host_id:73a03b32-bdb6-4b2a-a5db-dfd078ec8131, release_version:'3.11.6']
 
-    Coordinator: sample-dc:sample-rack:9b44aa04-6f5d-4cda-abab-f3fe89215826
+    Coordinator: sample-dc:sample-rack:73a03b32-bdb6-4b2a-a5db-dfd078ec8131
     [data_center:'sample-dc', rack:'sample-rack', host_id:bbbf5a34-2240-4efb-ac06-c7974a2ec3dd, release_version:'3.11.6']
-    [data_center:'sample-dc', rack:'sample-rack', host_id:7398967e-7797-46ad-be79-75d71ff8cb80, release_version:'3.11.6']
+    [data_center:'sample-dc', rack:'sample-rack', host_id:deab7ace-711c-407f-96a0-bcba5099855b, release_version:'3.11.6']
     ```
