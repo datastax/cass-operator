@@ -1,0 +1,29 @@
+apiVersion: configuration.konghq.com/v1beta1
+kind: TCPIngress
+metadata:
+  name: sample-cluster-sample-dc
+  namespace: default
+spec:
+  tls:
+    - hosts:
+        - k3s.local
+        - bbbf5a34-2240-4efb-ac06-c7974a2ec3dd
+        - 7398967e-7797-46ad-be79-75d71ff8cb80
+        - 9b44aa04-6f5d-4cda-abab-f3fe89215826
+      secretName: sample-cluster-sample-dc-cert
+  rules:
+  - host: bbbf5a34-2240-4efb-ac06-c7974a2ec3dd
+    port: 9042
+    backend:
+      serviceName: sample-cluster-sample-dc-sample-rack-sts-0
+      servicePort: 9042
+  - host: 7398967e-7797-46ad-be79-75d71ff8cb80
+    port: 9042
+    backend:
+      serviceName: sample-cluster-sample-dc-sample-rack-sts-1
+      servicePort: 9042
+  - host: 9b44aa04-6f5d-4cda-abab-f3fe89215826
+    port: 9042
+    backend:
+      serviceName: sample-cluster-sample-dc-sample-rack-sts-2
+      servicePort: 9042

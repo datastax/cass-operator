@@ -1,0 +1,10 @@
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: mtls-auth
+config:
+  ca_certificates:
+  - d5551f47-b4b9-4103-adeb-3e462d1ddd8b
+  skip_consumer_lookup: true
+  revocation_check_mode: SKIP
+plugin: mtls-auth

@@ -8,8 +8,6 @@ spec:
   clusterName: sample-cluster
   serverType: cassandra
   serverVersion: "3.11.6"
-  serverImage: datastax/cassandra:3.11.6-ubi7
-  configBuilderImage: datastax/cass-config-builder:1.0.0-ubi7
   managementApiAuth:
     insecure: {}
   racks:
