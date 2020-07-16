@@ -47,7 +47,7 @@ public class SampleApp {
           .build();
       } else if (args[0].equals("sni-ingress")) {
         DriverConfigLoader configLoader = DriverConfigLoader.fromClasspath("sni-ingress.conf");
-        DriverExecutionProfile config = configLoader.getInitialConfig().getDefaultProfile();
+        DriverExecutionProfile config = configLoader.getInitialConfig().getDefaultProfile(); 
 
         String ingressAddress = config.getString(KubernetesOption.INGRESS_ADDRESS);
         int ingressPort = config.getInt(KubernetesOption.INGRESS_PORT);
@@ -156,42 +156,6 @@ public class SampleApp {
     System.err.println("  ingress");
     System.err.println("  sni-ingress");
     System.err.println("  mtls-sni-ingress");
-  }
-
-  private CqlSession getLoadBalancedSession() {
-    return CqlSession.builder()
-      .withConfigLoader(DriverConfigLoader.fromClasspath("load-balanced.conf"))
-      .build();
-  }
-
-  private CqlSession getSniSession() {
-    // Ingress address
-    InetSocketAddress ingressAddress = new InetSocketAddress("k3s.local", 9042);
-
-    // Endpoint (contact point)
-    SniEndPoint endPoint = new SniEndPoint(ingressAddress, "ec448e83-8b83-407b-b342-13ce0250001c");
-
-    return CqlSession.builder()
-      .withConfigLoader(DriverConfigLoader.fromClasspath("sni.conf"))
-      .build();
-  }
-
-  private CqlSession getMtlsLoadBalancedSession() {
-    return CqlSession.builder()
-      .withConfigLoader(DriverConfigLoader.fromClasspath("mtls-load-balanced.conf"))
-      .build();
-  }
-
-  private CqlSession getMtlsSniSession() {
-    // Ingress address
-    InetSocketAddress ingressAddress = new InetSocketAddress("k3s.local", 9042);
-
-    // Endpoint (contact point)
-    SniEndPoint endPoint = new SniEndPoint(ingressAddress, "ec448e83-8b83-407b-b342-13ce0250001c");
-
-    return CqlSession.builder()
-      .withConfigLoader(DriverConfigLoader.fromClasspath("mtls-sni.conf"))
-      .build();
   }
 
   public void run(CqlSession session) throws Exception {
