@@ -4,6 +4,7 @@
 package v1beta1
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -96,6 +97,109 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 				},
 			},
 			errString: "use unsupported Cassandra version '6.8.0'",
+		},
+		{
+			name: "Cassandra 3.11 invalid config file dse-yaml",
+			dc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					ServerType:    "cassandra",
+					ServerVersion: "3.11.6",
+					Config: json.RawMessage(`
+					{
+						"cassandra-yaml": {},
+						"dse-yaml": {
+							"key1": "value1"
+						}
+					}
+					`),
+				},
+			},
+			errString: "attempted to define config dse-yaml with cassandra-3.11.6",
+		},
+		{
+			name: "Cassandra 3.11 invalid config file jvm-server-options",
+			dc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					ServerType:    "cassandra",
+					ServerVersion: "3.11.6",
+					Config: json.RawMessage(`
+					{
+						"cassandra-yaml": {},
+						"jvm-server-options": {
+							"key1": "value1"
+						}
+					}
+					`),
+				},
+			},
+			errString: "attempted to define config jvm-server-options with cassandra-3.11.6",
+		},
+		{
+			name: "DSE 6.8 invalid config file jvm-options",
+			dc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					ServerType:    "dse",
+					ServerVersion: "6.8.1",
+					Config: json.RawMessage(`
+					{
+						"cassandra-yaml": {},
+						"jvm-options": {
+							"key1": "value1"
+						}
+					}
+					`),
+				},
+			},
+			errString: "attempted to define config jvm-options with dse-6.8.1",
+		},
+		{
+			name: "Allow multiple nodes per worker requires resource requests",
+			dc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					ServerType:                  "dse",
+					ServerVersion:               "6.8.1",
+					Config:                      json.RawMessage(`{}`),
+					AllowMultipleNodesPerWorker: true,
+					Resources: corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("1000m"),
+							corev1.ResourceMemory: resource.MustParse("4Gi"),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("1000m"),
+							corev1.ResourceMemory: resource.MustParse("4Gi"),
+						},
+					},
+				},
+			},
+			errString: "",
+		},
+		{
+			name: "Allow multiple nodes per worker requires resource requests",
+			dc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					ServerType:                  "dse",
+					ServerVersion:               "6.8.1",
+					Config:                      json.RawMessage(`{}`),
+					AllowMultipleNodesPerWorker: true,
+				},
+			},
+			errString: "use multiple nodes per worker without cpu and memory requests and limits",
 		},
 	}
 
@@ -339,6 +443,34 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 				},
 			},
 			errString: "remove rack",
+		},
+		{
+			name: "Scaling down",
+			oldDc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					Racks: []Rack{{
+						Name: "rack0",
+						Zone: "zone0",
+					}},
+					Size: 6,
+				},
+			},
+			newDc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					Racks: []Rack{{
+						Name: "rack0",
+						Zone: "zone0",
+					}},
+					Size: 3,
+				},
+			},
+			errString: "decrease size",
 		},
 		{
 			name: "Changed a rack name",
