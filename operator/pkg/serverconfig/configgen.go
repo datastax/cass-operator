@@ -11,7 +11,14 @@ import (
 type NodeConfig map[string]interface{}
 
 // GetModelValues will gather the cluster model values for cluster and datacenter
-func GetModelValues(seeds []string, clusterName string, dcName string) NodeConfig {
+func GetModelValues(
+	seeds []string,
+	clusterName string,
+	dcName string,
+	graphEnabled int,
+	solrEnabled int,
+	sparkEnabled int) NodeConfig {
+
 	seedsString := strings.Join(seeds, ",")
 
 	// Note: the operator does not currently support graph, solr, and spark
@@ -21,7 +28,10 @@ func GetModelValues(seeds []string, clusterName string, dcName string) NodeConfi
 			"seeds": seedsString,
 		},
 		"datacenter-info": NodeConfig{
-			"name": dcName,
+			"name":          dcName,
+			"graph-enabled": graphEnabled,
+			"solr-enabled":  solrEnabled,
+			"spark-enabled": sparkEnabled,
 		}}
 
 	return modelValues

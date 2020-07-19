@@ -21,7 +21,6 @@ func attemptedTo(action string, actionStrArgs ...interface{}) error {
 	var msg string
 	if actionStrArgs != nil {
 		msg = fmt.Sprintf(action, actionStrArgs...)
-
 	} else {
 		msg = action
 	}
@@ -45,6 +44,12 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 	}
 	if err != nil {
 		return err
+	}
+
+	if dc.Spec.ServerType == "cassandra" && dc.Spec.DseWorkloads != nil {
+		if dc.Spec.DseWorkloads.AnalyticsEnabled || dc.Spec.DseWorkloads.GraphEnabled || dc.Spec.DseWorkloads.SearchEnabled {
+			return attemptedTo("enable DSE workloads if server type is Cassandra")
+		}
 	}
 
 	if dc.Spec.ServerType == "cassandra" {

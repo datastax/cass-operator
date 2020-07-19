@@ -245,3 +245,6 @@ tags
 *.pem
 *.csr
 *.p12
+
+# Packet captures
+*.pcap
