@@ -85,17 +85,12 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 
 	// if using multiple nodes per worker, requests and limits should be set for both cpu and memory
 	if dc.Spec.AllowMultipleNodesPerWorker {
-		if dc.Spec.Resources.Requests.Cpu() == nil {
-			return attemptedTo("use multiple nodes per worker without cpu request")
-		}
-		if dc.Spec.Resources.Limits.Cpu() == nil {
-			return attemptedTo("use multiple nodes per worker without cpu limits")
-		}
-		if dc.Spec.Resources.Requests.Memory() == nil {
-			return attemptedTo("use multiple nodes per worker without memory request")
-		}
-		if dc.Spec.Resources.Limits.Memory() == nil {
-			return attemptedTo("use multiple nodes per worker without memory limits")
+		if dc.Spec.Resources.Requests.Cpu().IsZero() ||
+			dc.Spec.Resources.Limits.Cpu().IsZero() ||
+			dc.Spec.Resources.Requests.Memory().IsZero() ||
+			dc.Spec.Resources.Limits.Memory().IsZero() {
+
+			return attemptedTo("use multiple nodes per worker without cpu and memory requests and limits")
 		}
 	}
 
