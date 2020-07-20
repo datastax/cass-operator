@@ -352,3 +352,42 @@ func TestCassandraDatacenter_SplitRacks_balances_racks_when_some_extra_nodes(t *
 	rackNodeCounts := SplitRacks(13, 5)
 	assert.ElementsMatch(t, rackNodeCounts, []int{3, 3, 3, 2, 2}, "Rack node counts were not balanced")
 }
+
+func TestCassandraDatacenter_GetRackLabels(t *testing.T) {
+	type args struct {
+		rackName string
+	}
+	tests := []struct {
+		name   string
+		cassdc CassandraDatacenter
+		args   args
+		want   map[string]string
+	}{
+		{
+			name: "test GetRackLabels()",
+			cassdc: CassandraDatacenter{
+				Spec: CassandraDatacenterSpec{
+					ClusterName: "exampleCluster",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+			},
+			args: args{
+				rackName: "rack0",
+			},
+			want: map[string]string{
+				ClusterLabel:    "exampleCluster",
+				DatacenterLabel: "exampleDC",
+				RackLabel:       "rack0",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dc := &(tt.cassdc)
+			got := dc.GetRackLabels(tt.args.rackName)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

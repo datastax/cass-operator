@@ -4,9 +4,11 @@
 package v1beta1
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -25,7 +27,7 @@ func attemptedTo(action string, actionStrArgs ...interface{}) error {
 	return fmt.Errorf("CassandraDatacenter write rejected, attempted to %s", msg)
 }
 
-// Ensure that no values are improperly set
+// ValidateSingleDatacenter checks that no values are improperly set on a CassandraDatacenter
 func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 	// Ensure serverVersion and serverType are compatible
 
@@ -60,11 +62,48 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 			err = attemptedTo("use unsupported Cassandra version '%s'", dc.Spec.ServerVersion)
 		}
 	}
+	if err != nil {
+		return err
+	}
 
-	return err
+	isDse := dc.Spec.ServerType == "dse"
+	isCassandra3 := dc.Spec.ServerType == "cassandra" && strings.HasPrefix(dc.Spec.ServerVersion, "3.")
+	isCassandra4 := dc.Spec.ServerType == "cassandra" && strings.HasPrefix(dc.Spec.ServerVersion, "4.")
+
+	var c map[string]interface{}
+	_ = json.Unmarshal(dc.Spec.Config, &c)
+
+	_, hasJvmOptions := c["jvm-options"]
+	_, hasJvmServerOptions := c["jvm-server-options"]
+	_, hasDseYaml := c["dse-yaml"]
+
+	serverStr := fmt.Sprintf("%s-%s", dc.Spec.ServerType, dc.Spec.ServerVersion)
+	if hasJvmOptions && (isDse || isCassandra4) {
+		return attemptedTo("define config jvm-options with %s", serverStr)
+	}
+	if hasJvmServerOptions && isCassandra3 {
+		return attemptedTo("define config jvm-server-options with %s", serverStr)
+	}
+	if hasDseYaml && (isCassandra3 || isCassandra4) {
+		return attemptedTo("define config dse-yaml with %s", serverStr)
+	}
+
+	// if using multiple nodes per worker, requests and limits should be set for both cpu and memory
+	if dc.Spec.AllowMultipleNodesPerWorker {
+		if dc.Spec.Resources.Requests.Cpu().IsZero() ||
+			dc.Spec.Resources.Limits.Cpu().IsZero() ||
+			dc.Spec.Resources.Requests.Memory().IsZero() ||
+			dc.Spec.Resources.Limits.Memory().IsZero() {
+
+			return attemptedTo("use multiple nodes per worker without cpu and memory requests and limits")
+		}
+	}
+
+	return nil
 }
 
-// Ensure that no values are improperly set
+// ValidateDatacenterFieldChanges checks that no values are improperly changing while updating
+// a CassandraDatacenter
 func ValidateDatacenterFieldChanges(oldDc CassandraDatacenter, newDc CassandraDatacenter) error {
 
 	if oldDc.Spec.ClusterName != newDc.Spec.ClusterName {
@@ -86,6 +125,10 @@ func ValidateDatacenterFieldChanges(oldDc CassandraDatacenter, newDc CassandraDa
 	// StorageConfig changes are disallowed
 	if !reflect.DeepEqual(oldDc.Spec.StorageConfig, newDc.Spec.StorageConfig) {
 		return attemptedTo("change storageConfig")
+	}
+
+	if oldDc.Spec.Size > newDc.Spec.Size {
+		return attemptedTo("decrease size")
 	}
 
 	// Topology changes - Racks
