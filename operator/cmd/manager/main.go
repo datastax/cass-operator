@@ -127,10 +127,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = ensureWebhookConfigVolume(cfg, namespace); err != nil {
+	if err = ensureWebhookConfigVolume(cfg); err != nil {
 		log.Error(err, "Failed to ensure webhook volume")
 	}
-	if err = ensureWebhookCertificate(cfg, namespace); err != nil {
+	if err = ensureWebhookCertificate(cfg); err != nil {
 		log.Error(err, "Failed to ensure webhook CA configuration")
 	}
 
