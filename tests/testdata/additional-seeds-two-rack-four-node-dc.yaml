@@ -8,7 +8,8 @@ spec:
   serverVersion: "6.8.1"
   managementApiAuth:
     insecure: {}
-  size: 3
+  size: 4
+  additionalSeeds: ["cluster1-dc1-r1-sts-1", "cluster1-dc1-r2-sts-1"]
   storageConfig:
       cassandraDataVolumeClaimSpec:
         storageClassName: server-storage
@@ -20,7 +21,6 @@ spec:
   racks:
     - name: r1
     - name: r2
-    - name: r3
   config:
     jvm-server-options:
       initial_heap_size: "800m"
