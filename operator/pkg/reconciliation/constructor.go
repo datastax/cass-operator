@@ -74,6 +74,26 @@ func newSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.S
 	return service
 }
 
+// newAdditionalSeedServiceForCassandraDatacenter creates a headless service owned by the CassandraDatacenter,
+// which covers one additional seed server pod in the datacenter, whether it is ready or not
+func newAdditionalSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter, seedIdx int, seedName string) *corev1.Service {
+	labels := dc.GetDatacenterLabels()
+	oplabels.AddManagedByLabel(labels)
+	selector := dc.GetDatacenterLabels()
+	var service corev1.Service
+	service.ObjectMeta.Name = dc.GetAdditionalSeedServiceName(seedIdx)
+	service.ObjectMeta.Namespace = dc.Namespace
+	service.ObjectMeta.Labels = labels
+	service.Spec.Selector = selector
+	service.Spec.Type = "ExternalName"
+	service.Spec.ExternalName = seedName
+	service.Spec.PublishNotReadyAddresses = true
+
+	addHashAnnotation(&service)
+
+	return &service
+}
+
 // newAllPodsServiceForCassandraDatacenter creates a headless service owned by the CassandraDatacenter,
 // which covers all server pods in the datacenter, whether they are ready or not
 func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Service {

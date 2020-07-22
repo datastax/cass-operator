@@ -61,6 +61,12 @@ func (rc *ReconciliationContext) CheckHeadlessServices() result.ReconcileResult 
 
 	services := []*corev1.Service{cqlService, seedService, allPodsService}
 
+	for seedIdx := range dc.Spec.AdditionalSeeds {
+		additionalSeed := dc.Spec.AdditionalSeeds[seedIdx]
+		additionalSeedService := newAdditionalSeedServiceForCassandraDatacenter(dc, seedIdx, additionalSeed)
+		services = append(services, additionalSeedService)
+	}
+
 	createNeeded := []*corev1.Service{}
 
 	for idx := range services {
