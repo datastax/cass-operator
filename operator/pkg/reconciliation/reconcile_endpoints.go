@@ -49,8 +49,6 @@ func (rc *ReconciliationContext) CheckAdditionalSeedEndpoints() result.Reconcile
 
 	logger.Info("reconcile_endpoints::CheckAdditionalSeedEndpoints")
 
-	// Check if there is a headless service for the cluster
-
 	desiredEndpoints := newEndpointsForAdditionalSeeds(dc)
 
 	createNeeded := false
