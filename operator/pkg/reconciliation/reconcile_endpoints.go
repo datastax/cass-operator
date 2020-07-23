@@ -103,7 +103,7 @@ func (rc *ReconciliationContext) CheckAdditionalSeedEndpoints() result.Reconcile
 	}
 
 	if createNeeded {
-		rc.Endpoints = &desiredEndpoints
+		rc.Endpoints = desiredEndpoints
 		return rc.CreateEndpointsForAdditionalSeedService()
 	}
 
