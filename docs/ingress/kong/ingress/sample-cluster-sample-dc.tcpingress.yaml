@@ -1,0 +1,11 @@
+apiVersion: configuration.konghq.com/v1beta1
+kind: TCPIngress
+metadata:
+  name: sample-cluster-sample-dc
+  namespace: default
+spec:
+  rules:
+  - port: 9042
+    backend:
+      serviceName: sample-cluster-sample-dc-service
+      servicePort: 9042

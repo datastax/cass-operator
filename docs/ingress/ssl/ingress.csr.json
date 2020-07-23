@@ -5,10 +5,10 @@
     "size": 2048
   },
   "hosts": [
-    "traefik.k3s.local",
-    "ec448e83-8b83-407b-b342-13ce0250001c",
-    "efe2564e-f8dc-4b0b-89a4-83cc12ec99a6",
-    "bba52d6e-8415-4869-ad8f-bf03e136e874"
+    "k3s.local",
+    "c293a595-a08e-4a9c-b6bc-af5d279ffe76",
+    "deab7ace-711c-407f-96a0-bcba5099855b",
+    "73a03b32-bdb6-4b2a-a5db-dfd078ec8131"
   ],
   "names": [
     {

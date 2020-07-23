@@ -13,11 +13,7 @@ Any connections requiring TLS support should place their keystore an truststore 
 ## Building and Running
 
 ```
-mvn package
-java -cp target/sample-k8s-connectivity-1.0-SNAPSHOT-jar-with-dependencies.jar com.datastax.examples.SampleApp
-SLF4J: Failed to load class "org.slf4j.impl.StaticLoggerBinder".
-SLF4J: Defaulting to no-operation (NOP) logger implementation
-SLF4J: See http://www.slf4j.org/codes.html#StaticLoggerBinder for further details.
+mvn exec:exec@ingress
 Discovered Nodes
 sample-dc:sample-rack:fd280adc-e55e-4f3d-97d1-138a1e1abef4
 sample-dc:sample-rack:fd280adc-e55e-4f3d-97d1-138a1e1abef4

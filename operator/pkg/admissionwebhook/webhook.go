@@ -35,11 +35,15 @@ var (
 	log = logf.Log.WithName("cmd")
 )
 
-func EnsureWebhookCertificate(cfg *rest.Config, namespace string) (certDir string, err error) {
+func EnsureWebhookCertificate(cfg *rest.Config) (certDir string, err error) {
 	var contents []byte
 	var webhook map[string]interface{}
 	var bundled string
 	var client crclient.Client
+	namespace, err := k8sutil.GetOperatorNamespace()
+	if err != nil {
+		return err
+	}
 	var certpool *x509.CertPool
 	if contents, err = ioutil.ReadFile(serverCertFile); err == nil && len(contents) > 0 {
 		if client, err = crclient.New(cfg, crclient.Options{}); err == nil {
@@ -161,8 +165,12 @@ func updateWebhook(client crclient.Client, cert, namespace string) (err error) {
 	return err
 }
 
-func EnsureWebhookConfigVolume(cfg *rest.Config, namespace string) (err error) {
+func EnsureWebhookConfigVolume(cfg *rest.Config) (err error) {
 	var pod *v1.Pod
+	namespace, err := k8sutil.GetOperatorNamespace()
+	if err != nil {
+		return err
+	}
 	var client crclient.Client
 	if client, err = crclient.New(cfg, crclient.Options{}); err == nil {
 		if pod, err = k8sutil.GetPod(context.Background(), client, namespace); err == nil {

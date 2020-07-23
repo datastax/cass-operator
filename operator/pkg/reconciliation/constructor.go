@@ -7,8 +7,8 @@ package reconciliation
 
 import (
 	"fmt"
-	"os"
 	"k8s.io/api/batch/v1"
+	"os"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
@@ -362,6 +362,21 @@ func probe(port int, path string, initDelay int, period int) *corev1.Probe {
 	}
 }
 
+func getJvmExtraOpts(dc *api.CassandraDatacenter) string {
+	flags := ""
+
+	if dc.Spec.DseWorkloads.AnalyticsEnabled == true {
+		flags += "-k "
+	}
+	if dc.Spec.DseWorkloads.GraphEnabled == true {
+		flags += "-g "
+	}
+	if dc.Spec.DseWorkloads.SearchEnabled == true {
+		flags += "-s"
+	}
+	return flags
+}
+
 func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.VolumeMount) ([]corev1.Container, error) {
 	// cassandra container
 	cassContainer := corev1.Container{}
@@ -381,6 +396,12 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 		{Name: "MGMT_API_EXPLICIT_START", Value: "true"},
 		// TODO remove this post 1.0
 		{Name: "DSE_MGMT_EXPLICIT_START", Value: "true"},
+	}
+
+	if dc.Spec.ServerType == "dse" && dc.Spec.DseWorkloads != nil {
+		cassContainer.Env = append(
+			cassContainer.Env,
+			corev1.EnvVar{Name: "JVM_EXTRA_OPTS", Value: getJvmExtraOpts(dc)})
 	}
 
 	ports, err := dc.GetContainerPorts()
