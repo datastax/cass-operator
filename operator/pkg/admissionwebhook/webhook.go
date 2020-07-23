@@ -42,7 +42,7 @@ func EnsureWebhookCertificate(cfg *rest.Config) (certDir string, err error) {
 	var client crclient.Client
 	namespace, err := k8sutil.GetOperatorNamespace()
 	if err != nil {
-		return err
+		return "", err
 	}
 	var certpool *x509.CertPool
 	if contents, err = ioutil.ReadFile(serverCertFile); err == nil && len(contents) > 0 {
