@@ -136,7 +136,7 @@ func (rc *ReconciliationContext) retrieveSuperuserSecretOrCreateDefault() (*core
 	return secret, nil
 }
 
-func (rc *ReconciliationContext) createIntranodeCACredential() (*corev1.Secret, error) {
+func (rc *ReconciliationContext) createInternodeCACredential() (*corev1.Secret, error) {
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Secret",
@@ -191,11 +191,11 @@ func (rc *ReconciliationContext) keystoreCASecret() types.NamespacedName {
 	return types.NamespacedName{Name: fmt.Sprintf("%s-ca-keystore", rc.Datacenter.Name), Namespace: rc.Datacenter.Namespace}
 }
 
-func (rc *ReconciliationContext) retrieveIntranodeCredentialSecretOrCreateDefault() (*corev1.Secret, error) {
+func (rc *ReconciliationContext) retrieveInternodeCredentialSecretOrCreateDefault() (*corev1.Secret, error) {
 	secret, retrieveErr := rc.retrieveSecret(rc.keystoreCASecret())
 	if retrieveErr != nil {
 		if errors.IsNotFound(retrieveErr) {
-			secret, err := rc.createIntranodeCACredential()
+			secret, err := rc.createInternodeCACredential()
 
 			if err == nil && secret == nil {
 				return nil, retrieveErr

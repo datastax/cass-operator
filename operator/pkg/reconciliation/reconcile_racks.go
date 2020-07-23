@@ -111,12 +111,12 @@ func (rc *ReconciliationContext) CheckSuperuserSecretCreation() result.Reconcile
 	return result.Continue()
 }
 
-func (rc *ReconciliationContext) CheckIntranodeCredentialCreation() result.ReconcileResult {
-	rc.ReqLogger.Info("reconcile_racks::CheckIntranodeCredentialCreation")
+func (rc *ReconciliationContext) CheckInternodeCredentialCreation() result.ReconcileResult {
+	rc.ReqLogger.Info("reconcile_racks::CheckInternodeCredentialCreation")
 
-	_, err := rc.retrieveIntranodeCredentialSecretOrCreateDefault()
+	_, err := rc.retrieveInternodeCredentialSecretOrCreateDefault()
 	if err != nil {
-		rc.ReqLogger.Error(err, "error retrieving IntranodeCredential for CassandraDatacenter.")
+		rc.ReqLogger.Error(err, "error retrieving InternodeCredential for CassandraDatacenter.")
 		return result.Error(err)
 	}
 
@@ -1583,12 +1583,12 @@ func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMeta
 	}
 
 	var err error
-	var intranodeCA *corev1.Secret
+	var internodeCA *corev1.Secret
 
-	if intranodeCA, err = rc.retrieveIntranodeCredentialSecretOrCreateDefault(); err != nil {
+	if internodeCA, err = rc.retrieveInternodeCredentialSecretOrCreateDefault(); err != nil {
 		return err
 	}
-	jksBlob, err := utils.GenerateJKS(intranodeCA, pod.ObjectMeta.Name, dc.Name)
+	jksBlob, err := utils.GenerateJKS(internodeCA, pod.ObjectMeta.Name, dc.Name)
 	if err = rc.copyPodCredentials(pod, jksBlob); err != nil {
 		return err
 	}
@@ -2010,7 +2010,7 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
-	if recResult := rc.CheckIntranodeCredentialCreation(); recResult.Completed() {
+	if recResult := rc.CheckInternodeCredentialCreation(); recResult.Completed() {
 		return recResult.Output()
 	}
 
