@@ -75,23 +75,51 @@ func newSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.S
 }
 
 // newAdditionalSeedServiceForCassandraDatacenter creates a headless service owned by the CassandraDatacenter,
-// which covers one additional seed server pod in the datacenter, whether it is ready or not
-func newAdditionalSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter, seedIdx int, seedName string) *corev1.Service {
+// whether the additional seed pods are ready or not
+func newAdditionalSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Service {
 	labels := dc.GetDatacenterLabels()
 	oplabels.AddManagedByLabel(labels)
-	selector := dc.GetDatacenterLabels()
 	var service corev1.Service
-	service.ObjectMeta.Name = dc.GetAdditionalSeedServiceName(seedIdx)
+	service.ObjectMeta.Name = dc.GetAdditionalSeedsServiceName()
 	service.ObjectMeta.Namespace = dc.Namespace
 	service.ObjectMeta.Labels = labels
-	service.Spec.Selector = selector
-	service.Spec.Type = "ExternalName"
-	service.Spec.ExternalName = seedName
+	// We omit the label selector because we will create the endpoints manually
+	service.Spec.Type = "ClusterIP"
+	service.Spec.ClusterIP = "None"
 	service.Spec.PublishNotReadyAddresses = true
 
 	addHashAnnotation(&service)
 
 	return &service
+}
+
+func newEndpointsForAdditionalSeeds(dc *api.CassandraDatacenter) *corev1.Endpoints {
+	labels := dc.GetDatacenterLabels()
+	oplabels.AddManagedByLabel(labels)
+	var endpoints corev1.Endpoints
+	endpoints.ObjectMeta.Name = dc.GetAdditionalSeedsEndpointsName()
+	endpoints.ObjectMeta.Namespace = dc.Namespace
+	endpoints.ObjectMeta.Labels = labels
+
+	var addresses []corev1.EndpointAddress
+
+	for seedIdx := range dc.Spec.AdditionalSeeds {
+		additionalSeed := dc.Spec.AdditionalSeeds[seedIdx]
+		addresses = append(addresses, corev1.EndpointAddress{
+			IP: additionalSeed,
+		})
+	}
+
+	// See: https://godoc.org/k8s.io/api/core/v1#Endpoints
+	endpoints.Subsets = []corev1.EndpointSubset{
+		{
+			Addresses: addresses,
+		},
+	}
+
+	addHashAnnotation(&endpoints)
+
+	return &endpoints
 }
 
 // newAllPodsServiceForCassandraDatacenter creates a headless service owned by the CassandraDatacenter,

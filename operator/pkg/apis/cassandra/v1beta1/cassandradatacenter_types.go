@@ -479,8 +479,12 @@ func (dc *CassandraDatacenter) GetSeedServiceName() string {
 	return dc.Spec.ClusterName + "-seed-service"
 }
 
-func (dc *CassandraDatacenter) GetAdditionalSeedServiceName(seedIdx int) string {
-	return dc.Spec.ClusterName + "-" + dc.Name + fmt.Sprintf("-additional-seed-service-%d", seedIdx)
+func (dc *CassandraDatacenter) GetAdditionalSeedsServiceName() string {
+	return dc.Spec.ClusterName + "-" + dc.Name + fmt.Sprintf("-additional-seed-service")
+}
+
+func (dc *CassandraDatacenter) GetAdditionalSeedsEndpointsName() string {
+	return dc.Spec.ClusterName + "-" + dc.Name + fmt.Sprintf("-additional-seed-endpoints")
 }
 
 func (dc *CassandraDatacenter) GetAllPodsServiceName() string {
