@@ -36,8 +36,6 @@ func (rc *ReconciliationContext) CreateEndpointsForAdditionalSeedService() resul
 
 	rc.Recorder.Eventf(rc.Datacenter, "Normal", "CreatedResource", "Created endpoints %s", endpoints.Name)
 
-	// at this point we had previously been saying this reconcile call was over, we're done
-	// but that seems wrong, we should just continue on to the next resources
 	return result.Continue()
 }
 
