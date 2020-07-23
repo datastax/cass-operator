@@ -20,14 +20,16 @@ import (
 )
 
 var (
-	testName     = "Seed Selection"
-	namespace    = "test-additional-seeds"
-	dcName       = "dc1"
-	dcYaml       = "../testdata/additional-seeds-two-rack-four-node-dc.yaml"
-	operatorYaml = "../testdata/operator.yaml"
-	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
-	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
-	ns           = ginkgo_util.NewWrapper(testName, namespace)
+	testName                       = "Seed Selection"
+	namespace                      = "test-additional-seeds"
+	dcName                         = "dc1"
+	dcYaml                         = "../testdata/additional-seeds-two-rack-four-node-dc.yaml"
+	operatorYaml                   = "../testdata/operator.yaml"
+	dcResource                     = fmt.Sprintf("CassandraDatacenter/%s", dcName)
+	dcLabel                        = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
+	additionalSeedServiceResource  = "services/cluster1-dc1-additional-seed-service"
+	additionalSeedEndpointResource = "endpoints/cluster1-dc1-additional-seed-service"
+	ns                             = ginkgo_util.NewWrapper(testName, namespace)
 )
 
 func TestLifecycle(t *testing.T) {
@@ -223,37 +225,37 @@ func checkSeedConstraints() {
 	// checkCassandraSeedListsAlignWithSeedLabels(info)
 }
 
-func disableGossipWaitNotReady(podName string) {
-	disableGossip(podName)
-	ns.WaitForPodNotStarted(podName)
-}
+func checkAdditionalSeedService() {
+	// Check the service
 
-func enableGossipWaitReady(podName string) {
-	enableGossip(podName)
-	ns.WaitForPodStarted(podName)
-}
+	k := kubectl.Get(additionalSeedServiceResource).FormatOutput("json")
+	output := ns.OutputPanic(k)
+	data := map[string]interface{}{}
+	err := json.Unmarshal([]byte(output), &data)
+	Expect(err).ToNot(HaveOccurred())
 
-func disableGossip(podName string) {
-	execArgs := []string{"-c", "cassandra",
-		"--", "bash", "-c",
-		"nodetool disablegossip",
-	}
-	k := kubectl.ExecOnPod(podName, execArgs...)
-	ns.ExecVPanic(k)
-}
+	err = json.Unmarshal([]byte(output), &data)
 
-func enableGossip(podName string) {
-	execArgs := []string{"-c", "cassandra",
-		"--", "bash", "-c",
-		"nodetool enablegossip",
-	}
-	k := kubectl.ExecOnPod(podName, execArgs...)
-	ns.ExecVPanic(k)
+	spec := data["spec"].(map[string]interface{})
+	actualType := spec["type"].(string)
+	Expect(actualType).To(Equal("ClusterIP"), "Expected additional seed service type %s to be ClusterIP", actualType)
+
+	// Check the endpoint
+
+	jsonpath := "jsonpath=\"{.subsets[0].addresses[0].ip}\""
+	k = kubectl.Get(additionalSeedEndpointResource).FormatOutput(jsonpath)
+	output = ns.OutputPanic(k)
+	actualIp := ""
+	err = json.Unmarshal([]byte(output), &actualIp)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = json.Unmarshal([]byte(output), &actualIp)
+	Expect(actualIp).To(Equal("192.168.1.1"), "Expected additional seed endpoints IP %s to be 192.168.1.1", actualIp)
 }
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator properly updates seed nodes", func() {
+		Specify("the operator can properly create an additional seed service", func() {
 			var step string
 			var k kubectl.KCmd
 
@@ -274,16 +276,7 @@ var _ = Describe(testName, func() {
 
 			checkSeedConstraints()
 
-			//checkAdditionalSeedService("")
-
-			rack1Seed := retrieveNameSeedNodeForRack("r1")
-			ns.DisableGossipWaitNotReady(rack1Seed)
-
-			checkSeedConstraints()
-
-			ns.EnableGossipWaitReady(rack1Seed)
-
-			checkSeedConstraints()
+			checkAdditionalSeedService()
 		})
 	})
 })

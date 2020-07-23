@@ -97,7 +97,7 @@ func newEndpointsForAdditionalSeeds(dc *api.CassandraDatacenter) *corev1.Endpoin
 	labels := dc.GetDatacenterLabels()
 	oplabels.AddManagedByLabel(labels)
 	var endpoints corev1.Endpoints
-	endpoints.ObjectMeta.Name = dc.GetAdditionalSeedsEndpointsName()
+	endpoints.ObjectMeta.Name = dc.GetAdditionalSeedsServiceName()
 	endpoints.ObjectMeta.Namespace = dc.Namespace
 	endpoints.ObjectMeta.Labels = labels
 
