@@ -509,6 +509,10 @@ func (dc *CassandraDatacenter) GetDatacenterServiceName() string {
 	return dc.Spec.ClusterName + "-" + dc.Name + "-service"
 }
 
+func (dc *CassandraDatacenter) GetNodePortServiceName() string {
+	return dc.Spec.ClusterName + "-" + dc.Name + "-node-port-service"
+}
+
 func (dc *CassandraDatacenter) ShouldGenerateSuperuserSecret() bool {
 	return len(dc.Spec.SuperuserSecretName) == 0
 }

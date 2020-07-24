@@ -66,6 +66,11 @@ func (rc *ReconciliationContext) CheckHeadlessServices() result.ReconcileResult 
 		services = append(services, additionalSeedService)
 	}
 
+	if len(dc.IsNodePortEnabled()) {
+		nodePortService := newNodePortServiceForCassandraDatacenter(dc)
+		services = append(services, nodePortService)
+	}
+
 	createNeeded := []*corev1.Service{}
 
 	for idx := range services {

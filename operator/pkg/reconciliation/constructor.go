@@ -122,6 +122,45 @@ func newEndpointsForAdditionalSeeds(dc *api.CassandraDatacenter) *corev1.Endpoin
 	return &endpoints
 }
 
+// newNodePortServiceForCassandraDatacenter creates a headless service owned by the CassandraDatacenter,
+// that preserves the client source IPs
+func newNodePortServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Service {
+	service := makeGenericHeadlessService(dc)
+	service.ObjectMeta.Name = dc.GetSeedServiceName()
+
+	service.Spec.Type = "NodePort"
+	// Note: ClusterIp = "None" is not valid for NodePort
+	service.Spec.ClusterIP = ""
+	service.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeLocal
+
+	cqlPort := dc.GetNodePortCqlPort()
+	broadcastPort := dc.GetNodePortBroadcastPort()
+
+	service.Spec.Ports = []corev1.ServicePort{
+		// Note: Port Names cannot be more than 15 characters
+		{
+			Name:       "broadcast",
+			Port:       int32(broadcastPort),
+			NodePort:   int32(broadcastPort),
+			TargetPort: intstr.FromInt(broadcastPort),
+		},
+		{
+			Name:       "native",
+			Port:       int32(cqlPort),
+			NodePort:   int32(cqlPort),
+			TargetPort: intstr.FromInt(cqlPort),
+		},
+		{
+			Name:       "mgmt-api",
+			Port:       8080,
+			NodePort:   int32(8080),
+			TargetPort: intstr.FromInt(8080),
+		},
+	}
+
+	return service
+}
+
 // newAllPodsServiceForCassandraDatacenter creates a headless service owned by the CassandraDatacenter,
 // which covers all server pods in the datacenter, whether they are ready or not
 func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Service {
