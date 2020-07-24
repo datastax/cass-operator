@@ -39,6 +39,7 @@ type ReconciliationContext struct {
 	Ctx context.Context
 
 	Services               []*corev1.Service
+	Endpoints              *corev1.Endpoints
 	desiredRackInformation []*RackInformation
 	statefulSets           []*appsv1.StatefulSet
 	dcPods                 []*corev1.Pod

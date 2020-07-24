@@ -20,8 +20,8 @@ import (
 
 	"github.com/datastax/cass-operator/operator/internal/result"
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
-	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/dynamicwatch"
+	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 )
 
 // Use a var so we can mock this function
@@ -48,6 +48,10 @@ func (rc *ReconciliationContext) calculateReconciliationActions() (reconcile.Res
 		return result.Output()
 	}
 
+	if result := rc.CheckAdditionalSeedEndpoints(); result.Completed() {
+		return result.Output()
+	}
+
 	if err := rc.CalculateRackInformation(); err != nil {
 		return result.Error(err).Output()
 	}
@@ -69,12 +73,12 @@ var log = logf.Log.WithName("reconciliation_handler")
 type ReconcileCassandraDatacenter struct {
 	// This client, initialized using mgr.client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
-	client        client.Client
-	scheme        *runtime.Scheme
-	recorder      record.EventRecorder
+	client   client.Client
+	scheme   *runtime.Scheme
+	recorder record.EventRecorder
 
 	// SecretWatches is used in the controller when setting up the watches and
-	// during reconciliation where we update the mappings for the watches. 
+	// during reconciliation where we update the mappings for the watches.
 	// Putting it here allows us to get it to both places.
 	SecretWatches dynamicwatch.DynamicWatches
 }
