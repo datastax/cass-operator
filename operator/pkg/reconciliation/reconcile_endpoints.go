@@ -47,6 +47,10 @@ func (rc *ReconciliationContext) CheckAdditionalSeedEndpoints() result.Reconcile
 
 	logger.Info("reconcile_endpoints::CheckAdditionalSeedEndpoints")
 
+	if len(dc.Spec.AdditionalSeeds) == 0 {
+		return result.Continue()
+	}
+
 	desiredEndpoints := newEndpointsForAdditionalSeeds(dc)
 
 	createNeeded := false
