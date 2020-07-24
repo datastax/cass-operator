@@ -4,16 +4,13 @@
 package nodeport_service
 
 import (
-	"encoding/json"
 	"fmt"
-	"regexp"
-	"sort"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	corev1 "k8s.io/api/core/v1"
+	// corev1 "k8s.io/api/core/v1"
 
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
 	"github.com/datastax/cass-operator/mage/kubectl"
@@ -25,8 +22,8 @@ var (
 	dcName       = "dc1"
 	dcYaml       = "../testdata/nodeport-service-dc.yaml"
 	operatorYaml = "../testdata/operator.yaml"
-	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
-	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
+	// dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
+	// dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
 	//	additionalSeedServiceResource  = "services/cluster1-dc1-additional-seed-service"
 	//additionalSeedEndpointResource = "endpoints/cluster1-dc1-additional-seed-service"
 	ns = ginkgo_util.NewWrapper(testName, namespace)

@@ -126,7 +126,7 @@ func newEndpointsForAdditionalSeeds(dc *api.CassandraDatacenter) *corev1.Endpoin
 // that preserves the client source IPs
 func newNodePortServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Service {
 	service := makeGenericHeadlessService(dc)
-	service.ObjectMeta.Name = dc.GetSeedServiceName()
+	service.ObjectMeta.Name = dc.GetNodePortServiceName()
 
 	service.Spec.Type = "NodePort"
 	// Note: ClusterIp = "None" is not valid for NodePort
