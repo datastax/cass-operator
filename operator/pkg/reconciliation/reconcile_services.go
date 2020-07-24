@@ -66,7 +66,7 @@ func (rc *ReconciliationContext) CheckHeadlessServices() result.ReconcileResult 
 		services = append(services, additionalSeedService)
 	}
 
-	if len(dc.IsNodePortEnabled()) {
+	if dc.IsNodePortEnabled() {
 		nodePortService := newNodePortServiceForCassandraDatacenter(dc)
 		services = append(services, nodePortService)
 	}
