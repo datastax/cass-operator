@@ -504,6 +504,12 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1
 	}
 	serverCfg.VolumeMounts = []corev1.VolumeMount{serverCfgMount}
 
+	// Convert the bool to a string for the env var setting
+	useHostIpForBroadcast := "false"
+	if dc.IsNodePortEnabled() {
+		useHostIpForBroadcast = "true"
+	}
+
 	configData, err := dc.GetConfigAsJSON()
 	if err != nil {
 		return nil, err
@@ -512,6 +518,8 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1
 	serverCfg.Env = []corev1.EnvVar{
 		{Name: "CONFIG_FILE_DATA", Value: configData},
 		{Name: "POD_IP", ValueFrom: selectorFromFieldPath("status.podIP")},
+		{Name: "HOST_IP", ValueFrom: selectorFromFieldPath("status.hostIP")},
+		{Name: "USE_HOST_IP_FOR_BROADCAST", Value: useHostIpForBroadcast},
 		{Name: "RACK_NAME", Value: rackName},
 		{Name: "PRODUCT_VERSION", Value: serverVersion},
 		{Name: "PRODUCT_NAME", Value: dc.Spec.ServerType},
