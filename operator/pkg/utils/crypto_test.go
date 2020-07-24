@@ -13,7 +13,7 @@ import (
 
 func Test_newCA(t *testing.T) {
 	var verify_key *rsa.PrivateKey
-	pem_key, cert, err := GetNewCAandKey("somenamespace")
+	pem_key, cert, err := GetNewCAandKey("cassandradatacenter-webhook-service","somenamespace")
 	certpool := x509.NewCertPool()
 	key, _ := pem.Decode([]byte(pem_key))
 	if block, _ := pem.Decode([]byte(cert)); block != nil {
@@ -55,7 +55,7 @@ func Test_newCA(t *testing.T) {
 }
 
 func Test_GetJKS(t *testing.T) {
-	pem_key, cert, err := GetNewCAandKey("somenamespace")
+	pem_key, cert, err := GetNewCAandKey("someclusterca", "somenamespace")
 	if err != nil {
 		t.Errorf("Got an error:: %e", err)
 	}

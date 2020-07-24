@@ -6,16 +6,15 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/asn1"
 	"encoding/pem"
 	"fmt"
-	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"github.com/pavel-v-chernykh/keystore-go"
 	corev1 "k8s.io/api/core/v1"
 	"math/big"
 	"time"
 )
 
-var log = logf.Log.WithName("keytool")
 
 func setupKey() (*big.Int, time.Time, *rsa.PrivateKey, string, time.Time, error) {
 	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
@@ -40,14 +39,14 @@ func setupKey() (*big.Int, time.Time, *rsa.PrivateKey, string, time.Time, error)
 	return nil, time.Time{}, nil, "", time.Time{}, err
 }
 
-func GetNewCAandKey(namespace string) (keypem, certpem string, err error) {
+func GetNewCAandKey(leafdomain, namespace string) (keypem, certpem string, err error) {
 	serialNumber, notBefore, priv, privPem, notAfter, err := setupKey()
 	if err == nil {
 		buffer := bytes.NewBufferString("")
 		template := x509.Certificate{
 			SerialNumber: serialNumber,
 			Subject: pkix.Name{
-				CommonName: fmt.Sprintf("cassandradatacenter-webhook-service.%s.svc", namespace),
+				CommonName:   fmt.Sprintf("%s.%s.svc", leafdomain, namespace),
 				Organization: []string{"Cassandra Kubernetes Operator By Datastax"},
 			},
 			NotBefore: notBefore,
@@ -70,12 +69,29 @@ func GetNewCAandKey(namespace string) (keypem, certpem string, err error) {
 	return "", "", err
 }
 
+func prepare_ca(ca *corev1.Secret) (ca_cert_bytes []byte, ca_certificate *x509.Certificate, ca_key *rsa.PrivateKey, err error) {
+	ca_certificate_pem, _ := pem.Decode(ca.Data["cert"])
+	ca_cert_bytes = ca_certificate_pem.Bytes
+	ca_key_block, _ := pem.Decode(ca.Data["key"])
+	if untyped_ca_key, ca_key_err := x509.ParsePKCS8PrivateKey(ca_key_block.Bytes); ca_key_err != nil {
+		err = ca_key_err
+		return
+	} else {
+		ca_key, _ = untyped_ca_key.(*rsa.PrivateKey)
+	}
+	ca_certificate, err = x509.ParseCertificate(ca_cert_bytes)
+	return
+}
+
 func GenerateJKS(ca *corev1.Secret, podname, dcname string) (jksblob []byte, err error) {
 	serialNumber, notBefore, priv, _, notAfter, err := setupKey()
+	if err != nil {
+		return nil, err
+	}
 	newCert := x509.Certificate{
 		SerialNumber: serialNumber,
 		Subject: pkix.Name{
-			CommonName: fmt.Sprintf("%s.%s.cassdc", podname, ca.ObjectMeta.Namespace),
+			CommonName:   fmt.Sprintf("%s.%s.cassdc", podname, ca.ObjectMeta.Namespace),
 			Organization: []string{"Cassandra Kubernetes Operator By Datastax"},
 		},
 		NotBefore: notBefore,
@@ -88,20 +104,10 @@ func GenerateJKS(ca *corev1.Secret, podname, dcname string) (jksblob []byte, err
 		DNSNames:              []string{fmt.Sprintf("%s.%s.cassdc", podname, ca.ObjectMeta.Namespace)},
 	}
 	var derBytes []byte
-	fmt.Printf("Decoding Cert to embed in JKS")
-	ca_certificate_pem, _ := pem.Decode(ca.Data["cert"])
-	ca_key_block, _ := pem.Decode(ca.Data["key"])
-	var ca_key *rsa.PrivateKey
-	if untyped_ca_key, ca_key_err := x509.ParsePKCS8PrivateKey(ca_key_block.Bytes); ca_key_err != nil {
-		return nil, ca_key_err
-	} else {
-		ca_key, _ = untyped_ca_key.(*rsa.PrivateKey)
-	}
-	var ca_certificate *x509.Certificate
-	ca_certificate, err = x509.ParseCertificate(ca_certificate_pem.Bytes)
-	buffer := bytes.NewBufferString("")
-	asn1_bytes, err := rsa2pkcs8(ca_key)
+	ca_cert_bytes, ca_certificate, ca_key, err := prepare_ca(ca)
 	if derBytes, err = x509.CreateCertificate(rand.Reader, &newCert, ca_certificate, &priv.PublicKey, ca_key); err == nil {
+		asn1_bytes, err := rsa2pkcs8(priv)
+		buffer := bytes.NewBufferString("")
 		fmt.Printf("Creating keystore")
 		store := keystore.KeyStore{
 			fmt.Sprintf("%s.%s.cassdc", podname, ca.ObjectMeta.Namespace): &keystore.PrivateKeyEntry{
@@ -110,24 +116,37 @@ func GenerateJKS(ca *corev1.Secret, podname, dcname string) (jksblob []byte, err
 				CertChain: []keystore.Certificate{keystore.Certificate{
 					Type:    "X509",
 					Content: derBytes,
-				},keystore.Certificate{
+				}, keystore.Certificate{
 					Type:    "X509",
-					Content: ca_certificate_pem.Bytes,
+					Content: ca_cert_bytes,
 				}},
 			},
 			"ca": &keystore.TrustedCertificateEntry{
 				Entry: keystore.Entry{CreationDate: time.Now()},
 				Certificate: keystore.Certificate{
 					Type:    "X509",
-					Content: ca_certificate_pem.Bytes,
+					Content: ca_cert_bytes,
 				},
 			}}
 		err = keystore.Encode(buffer, store, []byte(dcname))
+		return buffer.Bytes(), err
 	}
-	return buffer.Bytes(), err
+	return nil, err
 
 }
 
-func GetSignedCertAndKey(cakeypem, cacertpem string, sans ...string) (signedcertpem, keypem string, err error) {
-	return "", "", nil
+type pkcs8Key struct {
+	Version             int
+	PrivateKeyAlgorithm []asn1.ObjectIdentifier
+	PrivateKey          []byte
+}
+
+func rsa2pkcs8(key *rsa.PrivateKey) ([]byte, error) {
+	var pkey pkcs8Key
+	pkey.Version = 0
+	pkey.PrivateKeyAlgorithm = make([]asn1.ObjectIdentifier, 1)
+	pkey.PrivateKeyAlgorithm[0] = asn1.ObjectIdentifier{1, 2, 840, 113549, 1, 1, 1} //RSA
+	pkey.PrivateKey = x509.MarshalPKCS1PrivateKey(key)
+
+	return asn1.Marshal(pkey)
 }

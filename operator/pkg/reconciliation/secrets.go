@@ -147,8 +147,7 @@ func (rc *ReconciliationContext) createInternodeCACredential() (*corev1.Secret, 
 			Namespace: rc.keystoreCASecret().Namespace,
 		},
 	}
-	if keypem, certpem, err := utils.GetNewCAandKey(fmt.Sprintf("%s-ca-keystore.%s", rc.Datacenter.Name, rc.Datacenter.Namespace)); err == nil {
-
+	if keypem, certpem, err := utils.GetNewCAandKey(fmt.Sprintf("%s-ca-keystore", rc.Datacenter.Name), rc.Datacenter.Namespace); err == nil {
 		secret.Data = map[string][]byte{
 			"key": []byte(keypem),
 			"cert": []byte(certpem),

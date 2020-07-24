@@ -81,7 +81,7 @@ func EnsureWebhookCertificate(cfg *rest.Config) (certDir string, err error) {
 func updateSecretAndWebhook(cfg *rest.Config, namespace string) (certDir string, err error) {
 	var key, cert string
 	var client crclient.Client
-	if key, cert, err = utils.GetNewCAandKey(namespace); err == nil {
+	if key, cert, err = utils.GetNewCAandKey("cass-operator-webhook-config", namespace); err == nil {
 		if client, err = crclient.New(cfg, crclient.Options{}); err == nil {
 			secret := &v1.Secret{}
 			err = client.Get(context.Background(), crclient.ObjectKey{
