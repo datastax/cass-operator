@@ -221,9 +221,27 @@ type CassandraDatacenterSpec struct {
 	// Cassandra users to bootstrap
 	Users []CassandraUser `json:"users,omitempty"`
 
+	Networking *NetworkingConfig `json:"networking,omitempty"`
+
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 
 	Reaper *ReaperConfig `json:"reaper,omitempty"`
+}
+
+type NetworkingConfig struct {
+	NodePort *NodePortConfig `json:"nodePort,omitempty"`
+}
+
+type NodePortConfig struct {
+	Cql          int `json:"cql,omitempty"`
+	CqlSsl       int `json:"cqlSsl,omitempty"`
+	Broadcast    int `json:"broadcast,omitempty"`
+	BroadcastSsl int `json:"broadcastSsl,omitempty"`
+}
+
+// Is the NodePort service enabled?
+func (dc *CassandraDatacenter) IsNodePortEnabled() bool {
+	return dc.Spec.Networking != nil && dc.Spec.Networking.NodePort != nil
 }
 
 type DseWorkloads struct {
@@ -479,10 +497,6 @@ func (dc *CassandraDatacenter) GetSeedServiceName() string {
 	return dc.Spec.ClusterName + "-seed-service"
 }
 
-func (dc *CassandraDatacenter) GetAdditionalSeedsServiceName() string {
-	return dc.Spec.ClusterName + "-" + dc.Name + fmt.Sprintf("-additional-seed-service")
-}
-
 func (dc *CassandraDatacenter) GetAllPodsServiceName() string {
 	return dc.Spec.ClusterName + "-" + dc.Name + "-all-pods-service"
 }
@@ -533,13 +547,28 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 		}
 	}
 
+	cql := 0
+	cqlSsl := 0
+	broadcast := 0
+	broadcastSsl := 0
+	if dc.IsNodePortEnabled() {
+		cql = dc.Spec.Networking.NodePort.Cql
+		cqlSsl = dc.Spec.Networking.NodePort.CqlSsl
+		broadcast = dc.Spec.Networking.NodePort.Broadcast
+		broadcastSsl = dc.Spec.Networking.NodePort.BroadcastSsl
+	}
+
 	modelValues := serverconfig.GetModelValues(
 		seeds,
 		dc.Spec.ClusterName,
 		dc.Name,
 		graphEnabled,
 		solrEnabled,
-		sparkEnabled)
+		sparkEnabled,
+		cql,
+		cqlSsl,
+		broadcast,
+		broadcastSsl)
 
 	var modelBytes []byte
 
@@ -569,13 +598,53 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 	return modelParsed.String(), nil
 }
 
+// Gets the defined CQL port for NodePort.
+// 0 will be returned if NodePort is not configured.
+// The SSL port will be returned if it is defined,
+// otherwise the normal CQL port will be used.
+func (dc *CassandraDatacenter) GetNodePortCqlPort() int {
+	if !dc.IsNodePortEnabled() {
+		return 0
+	}
+
+	if dc.Spec.Networking.NodePort.CqlSsl != 0 {
+		return dc.Spec.Networking.NodePort.CqlSsl
+	} else if dc.Spec.Networking.NodePort.Cql != 0 {
+		return dc.Spec.Networking.NodePort.Cql
+	} else {
+		return 9042
+	}
+}
+
+// Gets the defined broadcast/intranode port for NodePort.
+// 0 will be returned if NodePort is not configured.
+// The SSL port will be returned if it is defined,
+// otherwise the normal broadcast port will be used.
+func (dc *CassandraDatacenter) GetNodePortBroadcastPort() int {
+	if !dc.IsNodePortEnabled() {
+		return 0
+	}
+
+	if dc.Spec.Networking.NodePort.BroadcastSsl != 0 {
+		return dc.Spec.Networking.NodePort.BroadcastSsl
+	} else if dc.Spec.Networking.NodePort.Broadcast != 0 {
+		return dc.Spec.Networking.NodePort.Broadcast
+	} else {
+		return 7000
+	}
+}
+
 // GetContainerPorts will return the container ports for the pods in a statefulset based on the provided config
 func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, error) {
+
+	cqlPort := 9042
+	broadcastPort := 7000
+
 	ports := []corev1.ContainerPort{
 		{
 			// Note: Port Names cannot be more than 15 characters
 			Name:          "native",
-			ContainerPort: 9042,
+			ContainerPort: int32(cqlPort),
 		},
 		{
 			Name:          "inter-node-msg",
@@ -583,7 +652,7 @@ func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, erro
 		},
 		{
 			Name:          "intra-node",
-			ContainerPort: 7000,
+			ContainerPort: int32(broadcastPort),
 		},
 		{
 			Name:          "tls-intra-node",

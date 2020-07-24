@@ -92,6 +92,20 @@ spec:
                   - serverSecretName
                   type: object
               type: object
+            networking:
+              properties:
+                nodePort:
+                  properties:
+                    broadcast:
+                      type: integer
+                    broadcastSsl:
+                      type: integer
+                    cql:
+                      type: integer
+                    cqlSsl:
+                      type: integer
+                  type: object
+              type: object
             nodeSelector:
               additionalProperties:
                 type: string
