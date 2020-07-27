@@ -150,12 +150,6 @@ func newNodePortServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *core
 			NodePort:   int32(cqlPort),
 			TargetPort: intstr.FromInt(cqlPort),
 		},
-		{
-			Name:       "mgmt-api",
-			Port:       8080,
-			NodePort:   int32(8080),
-			TargetPort: intstr.FromInt(8080),
-		},
 	}
 
 	return service

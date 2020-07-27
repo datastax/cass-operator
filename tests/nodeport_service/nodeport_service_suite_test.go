@@ -4,6 +4,7 @@
 package nodeport_service
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -17,16 +18,13 @@ import (
 )
 
 var (
-	testName     = "NodePort Service"
-	namespace    = "test-node-port-service"
-	dcName       = "dc1"
-	dcYaml       = "../testdata/nodeport-service-dc.yaml"
-	operatorYaml = "../testdata/operator.yaml"
-	// dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
-	// dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
-	//	additionalSeedServiceResource  = "services/cluster1-dc1-additional-seed-service"
-	//additionalSeedEndpointResource = "endpoints/cluster1-dc1-additional-seed-service"
-	ns = ginkgo_util.NewWrapper(testName, namespace)
+	testName                = "NodePort Service"
+	namespace               = "test-node-port-service"
+	dcName                  = "dc1"
+	dcYaml                  = "../testdata/nodeport-service-dc.yaml"
+	operatorYaml            = "../testdata/operator.yaml"
+	nodePortServiceResource = "services/cluster1-dc1-node-port-service"
+	ns                      = ginkgo_util.NewWrapper(testName, namespace)
 )
 
 func TestLifecycle(t *testing.T) {
@@ -40,6 +38,40 @@ func TestLifecycle(t *testing.T) {
 
 	RegisterFailHandler(Fail)
 	RunSpecs(t, testName)
+}
+
+func checkNodePortService() {
+	// Check the service
+
+	k := kubectl.Get(nodePortServiceResource).FormatOutput("json")
+	output := ns.OutputPanic(k)
+	data := map[string]interface{}{}
+	err := json.Unmarshal([]byte(output), &data)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = json.Unmarshal([]byte(output), &data)
+
+	spec := data["spec"].(map[string]interface{})
+	policy := spec["externalTrafficPolicy"].(string)
+	Expect(policy).To(Equal("Local"), "Expected externalTrafficPolicy %s to be Local", policy)
+
+	portData := spec["ports"].([]interface{})
+	port0 := portData[0].(map[string]interface{})
+	port1 := portData[1].(map[string]interface{})
+
+	ns.ExpectKeyValues(port0, map[string]string{
+		"name":       "broadcast",
+		"nodePort":   "30002",
+		"port":       "30002",
+		"targetPort": "30002",
+	})
+
+	ns.ExpectKeyValues(port1, map[string]string{
+		"name":       "native",
+		"nodePort":   "30001",
+		"port":       "30001",
+		"targetPort": "30001",
+	})
 }
 
 var _ = Describe(testName, func() {
@@ -62,6 +94,8 @@ var _ = Describe(testName, func() {
 			ns.ExecAndLog(step, k)
 
 			ns.WaitForDatacenterReady(dcName)
+
+			checkNodePortService()
 		})
 	})
 })
