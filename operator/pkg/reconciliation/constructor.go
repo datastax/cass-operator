@@ -33,13 +33,18 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 	service := makeGenericHeadlessService(dc)
 	service.ObjectMeta.Name = svcName
 	service.Spec.Ports = []corev1.ServicePort{
-		// Note: Port Names cannot be more than 15 characters
-		{
-			Name: "native", Port: 9042, TargetPort: intstr.FromInt(9042),
-		},
 		{
 			Name: "mgmt-api", Port: 8080, TargetPort: intstr.FromInt(8080),
 		},
+	}
+
+	// If NodePort is enabled, it will take control of the native port
+	if !dc.IsNodePortEnabled() {
+		service.Spec.Ports = append(service.Spec.Ports,
+			corev1.ServicePort{
+				Name: "native", Port: 9042, TargetPort: intstr.FromInt(9042),
+			},
+		)
 	}
 
 	addHashAnnotation(service)
