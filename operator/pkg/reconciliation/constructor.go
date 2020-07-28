@@ -42,7 +42,7 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 	if !dc.IsNodePortEnabled() {
 		service.Spec.Ports = append(service.Spec.Ports,
 			corev1.ServicePort{
-				Name: "native", Port: 9042, TargetPort: intstr.FromInt(9042),
+				Name: "native", Port: api.DefaultCqlPort, TargetPort: intstr.FromInt(api.DefaultCqlPort),
 			},
 		)
 	}

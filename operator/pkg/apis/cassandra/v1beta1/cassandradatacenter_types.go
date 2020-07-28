@@ -40,6 +40,10 @@ const (
 	// Progress states for status
 	ProgressUpdating ProgressState = "Updating"
 	ProgressReady    ProgressState = "Ready"
+
+	// Default port numbers
+	DefaultCqlPort       = 9042
+	DefaultBroadcastPort = 7000
 )
 
 // This type exists so there's no chance of pushing random strings to our progress status
@@ -620,7 +624,7 @@ func (dc *CassandraDatacenter) GetNodePortCqlPort() int {
 	} else if dc.Spec.Networking.NodePort.Cql != 0 {
 		return dc.Spec.Networking.NodePort.Cql
 	} else {
-		return 9042
+		return DefaultCqlPort
 	}
 }
 
@@ -638,15 +642,15 @@ func (dc *CassandraDatacenter) GetNodePortBroadcastPort() int {
 	} else if dc.Spec.Networking.NodePort.Broadcast != 0 {
 		return dc.Spec.Networking.NodePort.Broadcast
 	} else {
-		return 7000
+		return DefaultBroadcastPort
 	}
 }
 
 // GetContainerPorts will return the container ports for the pods in a statefulset based on the provided config
 func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, error) {
 
-	cqlPort := 9042
-	broadcastPort := 7000
+	cqlPort := DefaultCqlPort
+	broadcastPort := DefaultBroadcastPort
 
 	ports := []corev1.ContainerPort{
 		{
