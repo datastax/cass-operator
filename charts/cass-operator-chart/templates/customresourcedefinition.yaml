@@ -98,11 +98,11 @@ spec:
                   properties:
                     broadcast:
                       type: integer
-                    broadcastSsl:
+                    broadcastSSL:
                       type: integer
                     cql:
                       type: integer
-                    cqlSsl:
+                    cqlSSL:
                       type: integer
                   type: object
               type: object

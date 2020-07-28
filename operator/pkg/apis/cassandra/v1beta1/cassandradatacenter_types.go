@@ -234,9 +234,9 @@ type NetworkingConfig struct {
 
 type NodePortConfig struct {
 	Cql          int `json:"cql,omitempty"`
-	CqlSsl       int `json:"cqlSsl,omitempty"`
+	CqlSSL       int `json:"cqlSSL,omitempty"`
 	Broadcast    int `json:"broadcast,omitempty"`
-	BroadcastSsl int `json:"broadcastSsl,omitempty"`
+	BroadcastSSL int `json:"broadcastSSL,omitempty"`
 }
 
 // Is the NodePort service enabled?
@@ -556,14 +556,14 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 	}
 
 	cql := 0
-	cqlSsl := 0
+	cqlSSL := 0
 	broadcast := 0
-	broadcastSsl := 0
+	broadcastSSL := 0
 	if dc.IsNodePortEnabled() {
 		cql = dc.Spec.Networking.NodePort.Cql
-		cqlSsl = dc.Spec.Networking.NodePort.CqlSsl
+		cqlSSL = dc.Spec.Networking.NodePort.CqlSSL
 		broadcast = dc.Spec.Networking.NodePort.Broadcast
-		broadcastSsl = dc.Spec.Networking.NodePort.BroadcastSsl
+		broadcastSSL = dc.Spec.Networking.NodePort.BroadcastSSL
 	}
 
 	modelValues := serverconfig.GetModelValues(
@@ -574,9 +574,9 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 		solrEnabled,
 		sparkEnabled,
 		cql,
-		cqlSsl,
+		cqlSSL,
 		broadcast,
-		broadcastSsl)
+		broadcastSSL)
 
 	var modelBytes []byte
 
@@ -615,8 +615,8 @@ func (dc *CassandraDatacenter) GetNodePortCqlPort() int {
 		return 0
 	}
 
-	if dc.Spec.Networking.NodePort.CqlSsl != 0 {
-		return dc.Spec.Networking.NodePort.CqlSsl
+	if dc.Spec.Networking.NodePort.CqlSSL != 0 {
+		return dc.Spec.Networking.NodePort.CqlSSL
 	} else if dc.Spec.Networking.NodePort.Cql != 0 {
 		return dc.Spec.Networking.NodePort.Cql
 	} else {
@@ -633,8 +633,8 @@ func (dc *CassandraDatacenter) GetNodePortBroadcastPort() int {
 		return 0
 	}
 
-	if dc.Spec.Networking.NodePort.BroadcastSsl != 0 {
-		return dc.Spec.Networking.NodePort.BroadcastSsl
+	if dc.Spec.Networking.NodePort.BroadcastSSL != 0 {
+		return dc.Spec.Networking.NodePort.BroadcastSSL
 	} else if dc.Spec.Networking.NodePort.Broadcast != 0 {
 		return dc.Spec.Networking.NodePort.Broadcast
 	} else {

@@ -17,9 +17,9 @@ func TestGetModelValues(t *testing.T) {
 		solrEnabled      int
 		sparkEnabled     int
 		cqlPort          int
-		cqlSslPort       int
+		cqlSSLPort       int
 		broadcastPort    int
-		broadcastSslPort int
+		broadcastSSLPort int
 	}
 	tests := []struct {
 		name string
@@ -36,9 +36,9 @@ func TestGetModelValues(t *testing.T) {
 				solrEnabled:      0,
 				sparkEnabled:     0,
 				cqlPort:          9042,
-				cqlSslPort:       0,
+				cqlSSLPort:       0,
 				broadcastPort:    7000,
-				broadcastSslPort: 7000,
+				broadcastSSLPort: 7000,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -67,9 +67,9 @@ func TestGetModelValues(t *testing.T) {
 				solrEnabled:      1,
 				sparkEnabled:     0,
 				cqlPort:          9042,
-				cqlSslPort:       9142,
+				cqlSSLPort:       9142,
 				broadcastPort:    7000,
-				broadcastSslPort: 0,
+				broadcastSSLPort: 0,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -98,9 +98,9 @@ func TestGetModelValues(t *testing.T) {
 				solrEnabled:      1,
 				sparkEnabled:     1,
 				cqlPort:          9042,
-				cqlSslPort:       0,
+				cqlSSLPort:       0,
 				broadcastPort:    7200,
-				broadcastSslPort: 7300,
+				broadcastSSLPort: 7300,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -129,9 +129,9 @@ func TestGetModelValues(t *testing.T) {
 				solrEnabled:      0,
 				sparkEnabled:     1,
 				cqlPort:          9142,
-				cqlSslPort:       0,
+				cqlSSLPort:       0,
 				broadcastPort:    7000,
-				broadcastSslPort: 0,
+				broadcastSSLPort: 0,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -160,9 +160,9 @@ func TestGetModelValues(t *testing.T) {
 				solrEnabled:      0,
 				sparkEnabled:     0,
 				cqlPort:          0,
-				cqlSslPort:       0,
+				cqlSSLPort:       0,
 				broadcastPort:    0,
-				broadcastSslPort: 0,
+				broadcastSSLPort: 0,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -189,9 +189,9 @@ func TestGetModelValues(t *testing.T) {
 				tt.args.solrEnabled,
 				tt.args.sparkEnabled,
 				tt.args.cqlPort,
-				tt.args.cqlSslPort,
+				tt.args.cqlSSLPort,
 				tt.args.broadcastPort,
-				tt.args.broadcastSslPort); !reflect.DeepEqual(got, tt.want) {
+				tt.args.broadcastSSLPort); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetModelValues() = %v, want %v", got, tt.want)
 			}
 		})

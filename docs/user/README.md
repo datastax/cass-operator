@@ -376,8 +376,8 @@ The SSL versions of the ports may be requested:
 
   networking:
     nodePort:
-      cqlSql: 30010
-      broadcastSql: 30020
+      cqlSSL: 30010
+      broadcastSSL: 30020
       
 If any of the nodePort fields have been configured then a NodePort service will be created that routes from the specified external port to the identically numbered internal port.  Cassandra will be configured to listen on the specified ports.  Additionally, the standard service will no longer define a "native" port.
 
