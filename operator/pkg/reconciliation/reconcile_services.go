@@ -66,6 +66,11 @@ func (rc *ReconciliationContext) CheckHeadlessServices() result.ReconcileResult 
 		services = append(services, additionalSeedService)
 	}
 
+	if dc.IsNodePortEnabled() {
+		nodePortService := newNodePortServiceForCassandraDatacenter(dc)
+		services = append(services, nodePortService)
+	}
+
 	createNeeded := []*corev1.Service{}
 
 	for idx := range services {
@@ -101,6 +106,11 @@ func (rc *ReconciliationContext) CheckHeadlessServices() result.ReconcileResult 
 				// preserve any labels and annotations that were added to the service post-creation
 				desiredSvc.Labels = utils.MergeMap(map[string]string{}, currentService.Labels, desiredSvc.Labels)
 				desiredSvc.Annotations = utils.MergeMap(map[string]string{}, currentService.Annotations, desiredSvc.Annotations)
+
+				// ClusterIP may have been updated for the NodePort service
+				// so we need to preserve it.  Copying should not break any of
+				// the other services either.
+				desiredSvc.Spec.ClusterIP = currentService.Spec.ClusterIP
 
 				logger.Info("Updating service",
 					"service", currentService,

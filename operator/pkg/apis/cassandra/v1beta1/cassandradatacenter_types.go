@@ -40,6 +40,10 @@ const (
 	// Progress states for status
 	ProgressUpdating ProgressState = "Updating"
 	ProgressReady    ProgressState = "Ready"
+
+	// Default port numbers
+	DefaultCqlPort       = 9042
+	DefaultBroadcastPort = 7000
 )
 
 // This type exists so there's no chance of pushing random strings to our progress status
@@ -221,9 +225,27 @@ type CassandraDatacenterSpec struct {
 	// Cassandra users to bootstrap
 	Users []CassandraUser `json:"users,omitempty"`
 
+	Networking *NetworkingConfig `json:"networking,omitempty"`
+
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 
 	Reaper *ReaperConfig `json:"reaper,omitempty"`
+}
+
+type NetworkingConfig struct {
+	NodePort *NodePortConfig `json:"nodePort,omitempty"`
+}
+
+type NodePortConfig struct {
+	Cql          int `json:"cql,omitempty"`
+	CqlSSL       int `json:"cqlSSL,omitempty"`
+	Broadcast    int `json:"broadcast,omitempty"`
+	BroadcastSSL int `json:"broadcastSSL,omitempty"`
+}
+
+// Is the NodePort service enabled?
+func (dc *CassandraDatacenter) IsNodePortEnabled() bool {
+	return dc.Spec.Networking != nil && dc.Spec.Networking.NodePort != nil
 }
 
 type DseWorkloads struct {
@@ -491,6 +513,10 @@ func (dc *CassandraDatacenter) GetDatacenterServiceName() string {
 	return dc.Spec.ClusterName + "-" + dc.Name + "-service"
 }
 
+func (dc *CassandraDatacenter) GetNodePortServiceName() string {
+	return dc.Spec.ClusterName + "-" + dc.Name + "-node-port-service"
+}
+
 func (dc *CassandraDatacenter) ShouldGenerateSuperuserSecret() bool {
 	return len(dc.Spec.SuperuserSecretName) == 0
 }
@@ -533,13 +559,28 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 		}
 	}
 
+	cql := 0
+	cqlSSL := 0
+	broadcast := 0
+	broadcastSSL := 0
+	if dc.IsNodePortEnabled() {
+		cql = dc.Spec.Networking.NodePort.Cql
+		cqlSSL = dc.Spec.Networking.NodePort.CqlSSL
+		broadcast = dc.Spec.Networking.NodePort.Broadcast
+		broadcastSSL = dc.Spec.Networking.NodePort.BroadcastSSL
+	}
+
 	modelValues := serverconfig.GetModelValues(
 		seeds,
 		dc.Spec.ClusterName,
 		dc.Name,
 		graphEnabled,
 		solrEnabled,
-		sparkEnabled)
+		sparkEnabled,
+		cql,
+		cqlSSL,
+		broadcast,
+		broadcastSSL)
 
 	var modelBytes []byte
 
@@ -569,13 +610,53 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 	return modelParsed.String(), nil
 }
 
+// Gets the defined CQL port for NodePort.
+// 0 will be returned if NodePort is not configured.
+// The SSL port will be returned if it is defined,
+// otherwise the normal CQL port will be used.
+func (dc *CassandraDatacenter) GetNodePortCqlPort() int {
+	if !dc.IsNodePortEnabled() {
+		return 0
+	}
+
+	if dc.Spec.Networking.NodePort.CqlSSL != 0 {
+		return dc.Spec.Networking.NodePort.CqlSSL
+	} else if dc.Spec.Networking.NodePort.Cql != 0 {
+		return dc.Spec.Networking.NodePort.Cql
+	} else {
+		return DefaultCqlPort
+	}
+}
+
+// Gets the defined broadcast/intranode port for NodePort.
+// 0 will be returned if NodePort is not configured.
+// The SSL port will be returned if it is defined,
+// otherwise the normal broadcast port will be used.
+func (dc *CassandraDatacenter) GetNodePortBroadcastPort() int {
+	if !dc.IsNodePortEnabled() {
+		return 0
+	}
+
+	if dc.Spec.Networking.NodePort.BroadcastSSL != 0 {
+		return dc.Spec.Networking.NodePort.BroadcastSSL
+	} else if dc.Spec.Networking.NodePort.Broadcast != 0 {
+		return dc.Spec.Networking.NodePort.Broadcast
+	} else {
+		return DefaultBroadcastPort
+	}
+}
+
 // GetContainerPorts will return the container ports for the pods in a statefulset based on the provided config
 func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, error) {
+
+	cqlPort := DefaultCqlPort
+	broadcastPort := DefaultBroadcastPort
+
 	ports := []corev1.ContainerPort{
 		{
 			// Note: Port Names cannot be more than 15 characters
 			Name:          "native",
-			ContainerPort: 9042,
+			ContainerPort: int32(cqlPort),
 		},
 		{
 			Name:          "inter-node-msg",
@@ -583,7 +664,7 @@ func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, erro
 		},
 		{
 			Name:          "intra-node",
-			ContainerPort: 7000,
+			ContainerPort: int32(broadcastPort),
 		},
 		{
 			Name:          "tls-intra-node",
