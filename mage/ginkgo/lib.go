@@ -368,8 +368,21 @@ func (ns NsWrapper) HelmInstall(chartPath string) {
 	mageutil.PanicOnError(err)
 }
 
+// Note that the actual value will be cast to a string before the comparison with the expectedValue
 func (ns NsWrapper) ExpectKeyValue(m map[string]interface{}, key string, expectedValue string) {
-	Expect(m[key]).To(Equal(expectedValue), "Expected %s %s to be %s", key, m[key], expectedValue)
+	actualValue, ok := m[key].(string)
+	if !ok {
+		// Note: floats will end up as strings with six decimal points
+		// example: "12.000000"
+		tryFloat64, ok := m[key].(float64)
+		if !ok {
+			msg := fmt.Sprintf("Actual value for key %s is not expected type", key)
+			err := fmt.Errorf(msg)
+			Expect(err).ToNot(HaveOccurred())
+		}
+		actualValue = fmt.Sprintf("%f", tryFloat64)
+	}
+	Expect(actualValue).To(Equal(expectedValue), "Expected %s %s to be %s", key, m[key], expectedValue)
 }
 
 // Compare all key/values from an expected map to an actual map
