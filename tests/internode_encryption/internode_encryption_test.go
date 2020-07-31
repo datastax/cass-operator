@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	testName     = "Add racks"
-	namespace    = "test-add-racks"
+	testName     = "Test internode encryption"
+	namespace    = "test-internode-encryption"
 	dcName       = "dc2"
 	dcYaml       = "../testdata/default-single-rack-single-node-dc.yaml"
 	operatorYaml = "../testdata/operator.yaml"
@@ -38,8 +38,8 @@ func TestLifecycle(t *testing.T) {
 }
 
 var _ = Describe(testName, func() {
-	Context("when in a new cluster", func() {
-		Specify("racks can be added if the size is increased accordingly", func() {
+	Context("when creating a cluster", func() {
+		Specify("Internode encryption can be configured based on secrets", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
