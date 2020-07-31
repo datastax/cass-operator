@@ -1,4 +1,5 @@
 # Default values
+clusterWideInstall: false
 serviceAccountName: cass-operator
 clusterRoleName: cass-operator-cluster-role
 clusterRoleBindingName: cass-operator
