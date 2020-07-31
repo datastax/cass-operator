@@ -1,0 +1,81 @@
+diff --git a/operator/pkg/apis/cassandra/v1beta1/cassandradatacenter_types.go b/operator/pkg/apis/cassandra/v1beta1/cassandradatacenter_types.go
+index 09f94e1..addb9c2 100644
+--- a/operator/pkg/apis/cassandra/v1beta1/cassandradatacenter_types.go
++++ b/operator/pkg/apis/cassandra/v1beta1/cassandradatacenter_types.go
+@@ -578,11 +578,11 @@ func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, erro
+ 			ContainerPort: 8609,
+ 		},
+ 		{
+-			Name:          "inter-node",
++			Name:          "inter-node",
+ 			ContainerPort: 7000,
+ 		},
+ 		{
+-			Name:          "tls-inter-node",
++			Name:          "tls-inter-node",
+ 			ContainerPort: 7001,
+ 		},
+ 		// jmx-port 7199 was here, seems like we no longer need to expose it
+diff --git a/operator/pkg/apis/cassandra/v1beta1/cassandradatacenter_types_test.go b/operator/pkg/apis/cassandra/v1beta1/cassandradatacenter_types_test.go
+index feb4314..cc33484 100644
+--- a/operator/pkg/apis/cassandra/v1beta1/cassandradatacenter_types_test.go
++++ b/operator/pkg/apis/cassandra/v1beta1/cassandradatacenter_types_test.go
+@@ -241,10 +241,10 @@ func TestCassandraDatacenter_GetContainerPorts(t *testing.T) {
+ 					Name:          "inter-node-msg",
+ 					ContainerPort: 8609,
+ 				}, {
+-					Name:          "inter-node",
++					Name:          "inter-node",
+ 					ContainerPort: 7000,
+ 				}, {
+-					Name:          "tls-inter-node",
++					Name:          "tls-inter-node",
+ 					ContainerPort: 7001,
+ 				}, {
+ 					Name:          "mgmt-api-http",
+@@ -268,10 +268,10 @@ func TestCassandraDatacenter_GetContainerPorts(t *testing.T) {
+ 					Name:          "inter-node-msg",
+ 					ContainerPort: 8609,
+ 				}, {
+-					Name:          "inter-node",
++					Name:          "inter-node",
+ 					ContainerPort: 7000,
+ 				}, {
+-					Name:          "tls-inter-node",
++					Name:          "tls-inter-node",
+ 					ContainerPort: 7001,
+ 				}, {
+ 					Name:          "mgmt-api-http",
+@@ -297,10 +297,10 @@ func TestCassandraDatacenter_GetContainerPorts(t *testing.T) {
+ 					Name:          "inter-node-msg",
+ 					ContainerPort: 8609,
+ 				}, {
+-					Name:          "inter-node",
++					Name:          "inter-node",
+ 					ContainerPort: 7000,
+ 				}, {
+-					Name:          "tls-inter-node",
++					Name:          "tls-inter-node",
+ 					ContainerPort: 7001,
+ 				}, {
+ 					Name:          "mgmt-api-http",
+diff --git a/operator/pkg/reconciliation/reconcile_racks.go b/operator/pkg/reconciliation/reconcile_racks.go
+index 53c7abe..521be34 100644
+--- a/operator/pkg/reconciliation/reconcile_racks.go
++++ b/operator/pkg/reconciliation/reconcile_racks.go
+@@ -1583,12 +1583,12 @@ func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMeta
+ 	}
+ 
+ 	var err error
+-	var internodeCA *corev1.Secret
++	var internodeCA *corev1.Secret
+ 
+-	if internodeCA, err = rc.retrieveInternodeCredentialSecretOrCreateDefault(); err != nil {
++	if internodeCA, err = rc.retrieveInternodeCredentialSecretOrCreateDefault(); err != nil {
+ 		return err
+ 	}
+-	jksBlob, err := utils.GenerateJKS(internodeCA, pod.ObjectMeta.Name, dc.Name)
++	jksBlob, err := utils.GenerateJKS(internodeCA, pod.ObjectMeta.Name, dc.Name)
+ 	if err = rc.copyPodCredentials(pod, jksBlob); err != nil {
+ 		return err
+ 	}

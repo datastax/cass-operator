@@ -363,6 +363,24 @@ spec:
   serverImage: private-docker-registry.example.com/dse-img/dse:5f6e7d8c
 ```
 
+## Configuring a NodePort service
+
+A NodePort service may be requested by setting the following fields:
+
+  networking:
+    nodePort:
+      cql: 30001
+      broadcast: 30002
+ 
+The SSL versions of the ports may be requested:
+
+  networking:
+    nodePort:
+      cqlSSL: 30010
+      broadcastSSL: 30020
+      
+If any of the nodePort fields have been configured then a NodePort service will be created that routes from the specified external port to the identically numbered internal port.  Cassandra will be configured to listen on the specified ports.
+
 # Using Your Cluster
 
 ## Connecting from inside the Kubernetes cluster

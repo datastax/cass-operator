@@ -17,7 +17,11 @@ func GetModelValues(
 	dcName string,
 	graphEnabled int,
 	solrEnabled int,
-	sparkEnabled int) NodeConfig {
+	sparkEnabled int,
+	cqlPort int,
+	cqlSSLPort int,
+	broadcastPort int,
+	broadcastSSLPort int) NodeConfig {
 
 	seedsString := strings.Join(seeds, ",")
 
@@ -32,7 +36,21 @@ func GetModelValues(
 			"graph-enabled": graphEnabled,
 			"solr-enabled":  solrEnabled,
 			"spark-enabled": sparkEnabled,
-		}}
+		},
+		"cassandra-yaml": NodeConfig{},
+	}
+
+	if cqlSSLPort != 0 {
+		modelValues["cassandra-yaml"].(NodeConfig)["native_transport_port_ssl"] = cqlSSLPort
+	} else if cqlPort != 0 {
+		modelValues["cassandra-yaml"].(NodeConfig)["native_transport_port"] = cqlPort
+	}
+
+	if broadcastSSLPort != 0 {
+		modelValues["cassandra-yaml"].(NodeConfig)["ssl_storage_port"] = broadcastSSLPort
+	} else if broadcastPort != 0 {
+		modelValues["cassandra-yaml"].(NodeConfig)["storage_port"] = broadcastPort
+	}
 
 	return modelValues
 }
