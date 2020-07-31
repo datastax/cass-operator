@@ -166,10 +166,10 @@ The following Helm default values may be overridden:
 ```yaml
 clusterWideInstall: false
 serviceAccountName: cass-operator
+serviceAccountRoleName: cass-operator-service-account
+serviceAccountRoleBindingName: cass-operator-service-account
 clusterRoleName: cass-operator-cluster-role
 clusterRoleBindingName: cass-operator
-serviceAccountRoleName: cass-operator
-serviceAccountRoleBindingName: cass-operator
 deploymentName: cass-operator
 deploymentReplicas: 1
 image: "datastax/cass-operator:1.3.0"
@@ -178,7 +178,14 @@ imagePullPolicy: IfNotPresent
 
 NOTE: Helm does not install a storage-class for the cassandra pods.
 
-If clusterWideInstall is set to true, then the operator will be able to administer cassandraDatacenters in all namespaces of the kubernetes cluster.
+If clusterWideInstall is set to true, then the operator will be able to administer cassandraDatacenters in all namespaces of the kubernetes cluster.  A namespace still must provided because some of the kubernetes resources for the operator require one.
+
+Example:
+
+```console
+kubectl create namespace my-custom-namespace
+helm install --set clusterWideInstall=true --namespace=my-custom-namespace cass-operator ./charts/cass-operator-chart
+```
 
 ## Features
 

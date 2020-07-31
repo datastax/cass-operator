@@ -1,9 +1,9 @@
 # Default values
 clusterWideInstall: false
 serviceAccountName: cass-operator
-serviceAccountRoleName: cass-operator
-serviceAccountRoleBindingName: cass-operator
-clusterRoleName: cass-operator-cluster-role
+serviceAccountRoleName: cass-operator-service-account
+serviceAccountRoleBindingName: cass-operator-service-account
+clusterRoleName: cass-operator
 clusterRoleBindingName: cass-operator
 deploymentName: cass-operator
 deploymentReplicas: 1
