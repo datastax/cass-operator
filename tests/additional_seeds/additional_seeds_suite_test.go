@@ -268,8 +268,20 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForOperatorReady()
 
-			step = "creating a datacenter resource with 2 racks/4 nodes and 2 additional seeds"
+			step = "creating a datacenter resource with 2 racks/4 nodes"
 			k = kubectl.ApplyFiles(dcYaml)
+			ns.ExecAndLog(step, k)
+
+			ns.WaitForDatacenterReady(dcName)
+
+			step = "add additionalSeeds"
+			json := `
+			{
+				"spec": {
+					"additionalSeeds": ["192.168.1.1"]
+				}
+			}`
+			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
 			ns.WaitForDatacenterReady(dcName)
@@ -277,6 +289,9 @@ var _ = Describe(testName, func() {
 			checkSeedConstraints()
 
 			checkAdditionalSeedService()
+
+			// TODO provision a DC in another namespace and connect it to the first one
+			// with additional seeds, and test that's working
 		})
 	})
 })
