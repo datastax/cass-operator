@@ -9,7 +9,6 @@ spec:
   managementApiAuth:
     insecure: {}
   size: 4
-  additionalSeeds: ["192.168.1.1"]
   storageConfig:
       cassandraDataVolumeClaimSpec:
         storageClassName: server-storage
