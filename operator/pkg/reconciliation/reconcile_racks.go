@@ -185,7 +185,7 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 		statefulSet := rc.statefulSets[idx]
 
 		desiredSts, err := rc.desiredStatefulSetForExistingStatefulSet(statefulSet, rackName)
-		
+
 		if err != nil {
 			logger.Error(err, "error calling desiredStatefulSetForExistingStatefulSet")
 			return result.Error(err)
@@ -729,7 +729,7 @@ func (rc *ReconciliationContext) GetUsers() []api.CassandraUser {
 	// add the standard superuser to our list of users
 	users := dc.Spec.Users
 	users = append(users, api.CassandraUser{
-		Superuser: true, 
+		Superuser:  true,
 		SecretName: dc.GetSuperuserSecretNamespacedName().Name,
 	})
 
@@ -744,7 +744,7 @@ func (rc *ReconciliationContext) UpdateSecretWatches() error {
 		name := types.NamespacedName{Name: user.SecretName, Namespace: dc.Namespace}
 		names = append(names, name)
 	}
-	dcNamespacedName := types.NamespacedName{Name: dc.Name, Namespace: dc.Namespace,}
+	dcNamespacedName := types.NamespacedName{Name: dc.Name, Namespace: dc.Namespace}
 	err := rc.SecretWatches.UpdateWatch(dcNamespacedName, names)
 
 	return err
@@ -787,10 +787,10 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 
 	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
 	rc.Datacenter.Status.UsersUpserted = metav1.Now()
-	
+
 	// For backwards compatibility
 	rc.Datacenter.Status.SuperUserUpserted = metav1.Now()
-	
+
 	if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
 		rc.ReqLogger.Error(err, "error updating the users upsert timestamp")
 		return result.Error(err)
@@ -1583,7 +1583,8 @@ func (rc *ReconciliationContext) startOneNodePerRack(endpointData httphelper.Cas
 	}
 
 	// if the DC has no ready seeds, label a pod as a seed before we start Cassandra on it
-	labelSeedBeforeStart := readySeeds == 0
+	// and also consider additional seeds
+	labelSeedBeforeStart := readySeeds == 0 && len(rc.Datacenter.Spec.AdditionalSeeds) == 0
 
 	rackThatNeedsNode := ""
 	for rackName, readyCount := range rackReadyCount {
