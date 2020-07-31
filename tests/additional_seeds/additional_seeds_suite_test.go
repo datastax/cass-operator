@@ -274,6 +274,8 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForDatacenterReady(dcName)
 
+			checkSeedConstraints()
+
 			step = "add additionalSeeds"
 			json := `
 			{
