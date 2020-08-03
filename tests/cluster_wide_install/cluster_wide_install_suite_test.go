@@ -31,6 +31,8 @@ var (
 	dc1Resource  = fmt.Sprintf("CassandraDatacenter/%s", dc1Name)
 	dc1Label     = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dc1Name)
 	ns           = ginkgo_util.NewWrapper(testName, opNamespace)
+	ns1          = ginkgo_util.NewWrapper(testName, dcNamespace1)
+	ns2          = ginkgo_util.NewWrapper(testName, dcNamespace2)
 )
 
 func TestLifecycle(t *testing.T) {
@@ -74,6 +76,17 @@ var _ = Describe(testName, func() {
 			By("creating a namespace for the second dc")
 			err = kubectl.CreateNamespace(dcNamespace2).ExecV()
 			Expect(err).ToNot(HaveOccurred())
+
+			step := "creating first datacenter resource"
+			k := kubectl.ApplyFiles(dc1Yaml)
+			ns1.ExecAndLog(step, k)
+
+			step = "creating second datacenter resource"
+			k = kubectl.ApplyFiles(dc2Yaml)
+			ns2.ExecAndLog(step, k)
+
+			ns1.WaitForDatacenterReady(dc1Name)
+			ns2.WaitForDatacenterReady(dc2Name)
 
 			By("deleting a namespace for the first dc")
 			err = kubectl.DeleteNamespace(dcNamespace1).ExecV()
