@@ -157,8 +157,8 @@ cluster1-superuser@cqlsh> select * from system.peers;
 Helm may be used to load the operator.  The destination namespace must be created first.
 
 ```console
-kubectl create namespace my-custom-namespace
-helm install --namespace=my-custom-namespace cass-operator ./charts/cass-operator-chart
+kubectl create namespace cass-operator-system
+helm install --namespace=cass-operator-system cass-operator ./charts/cass-operator-chart
 ```
 
 The following Helm default values may be overridden:
@@ -183,8 +183,8 @@ If clusterWideInstall is set to true, then the operator will be able to administ
 Example:
 
 ```console
-kubectl create namespace my-custom-namespace
-helm install --set clusterWideInstall=true --namespace=my-custom-namespace cass-operator ./charts/cass-operator-chart
+kubectl create namespace cass-operator-system
+helm install --set clusterWideInstall=true --namespace=cass-operator-system cass-operator ./charts/cass-operator-chart
 ```
 
 ## Features
