@@ -663,11 +663,11 @@ func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, erro
 			ContainerPort: 8609,
 		},
 		{
-			Name:          "intra-node",
+			Name:          "inter-node",
 			ContainerPort: int32(broadcastPort),
 		},
 		{
-			Name:          "tls-intra-node",
+			Name:          "tls-inter-node",
 			ContainerPort: 7001,
 		},
 		// jmx-port 7199 was here, seems like we no longer need to expose it

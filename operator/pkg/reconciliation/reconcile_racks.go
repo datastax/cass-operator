@@ -111,6 +111,18 @@ func (rc *ReconciliationContext) CheckSuperuserSecretCreation() result.Reconcile
 	return result.Continue()
 }
 
+func (rc *ReconciliationContext) CheckInternodeCredentialCreation() result.ReconcileResult {
+	rc.ReqLogger.Info("reconcile_racks::CheckInternodeCredentialCreation")
+
+	_, err := rc.retrieveInternodeCredentialSecretOrCreateDefault()
+	if err != nil {
+		rc.ReqLogger.Error(err, "error retrieving InternodeCredential for CassandraDatacenter.")
+		return result.Error(err)
+	}
+
+	return result.Continue()
+}
+
 func (rc *ReconciliationContext) CheckRackCreation() result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_racks::CheckRackCreation")
 	for idx := range rc.desiredRackInformation {
@@ -1515,6 +1527,34 @@ func (rc *ReconciliationContext) findStartedNotReadyNodes() (bool, error) {
 	return false, nil
 }
 
+func (rc *ReconciliationContext) copyPodCredentials(pod *corev1.Pod, jksBlob []byte) error {
+	_, err := rc.retrieveSecret(types.NamespacedName{
+			Name:      fmt.Sprintf("%s-keystore", rc.Datacenter.Name),
+			Namespace: rc.Datacenter.Namespace,
+		})
+
+	if err == nil { // This secret already exists, nothing to do
+		return nil
+	}
+
+	secret := &corev1.Secret{
+
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-keystore", rc.Datacenter.Name),
+			Namespace: rc.Datacenter.Namespace,
+		},
+	}
+	secret.Data = map[string][]byte{
+		"node-keystore.jks": jksBlob,
+	}
+
+	return rc.Client.Create(rc.Ctx, secret)
+}
+
 func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMetadataEndpoints, pod *corev1.Pod) error {
 	dc := rc.Datacenter
 	mgmtClient := rc.NodeMgmtClient
@@ -1543,6 +1583,16 @@ func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMeta
 	}
 
 	var err error
+	var internodeCA *corev1.Secret
+
+	if internodeCA, err = rc.retrieveInternodeCredentialSecretOrCreateDefault(); err != nil {
+		return err
+	}
+	jksBlob, err := utils.GenerateJKS(internodeCA, pod.ObjectMeta.Name, dc.Name)
+	if err = rc.copyPodCredentials(pod, jksBlob); err != nil {
+		return err
+	}
+
 	if shouldReplacePod && replaceAddress != "" {
 		// If we have a replace address that means the cassandra node did
 		// join the ring previously and is marked for replacement, so we
@@ -1561,7 +1611,6 @@ func (rc *ReconciliationContext) startCassandra(endpointData httphelper.CassMeta
 	if err != nil {
 		return err
 	}
-
 	return rc.labelServerPodStarting(pod)
 }
 
@@ -1959,6 +2008,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	}
 
 	if recResult := rc.CheckSuperuserSecretCreation(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckInternodeCredentialCreation(); recResult.Completed() {
 		return recResult.Output()
 	}
 

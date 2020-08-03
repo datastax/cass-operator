@@ -241,10 +241,10 @@ func TestCassandraDatacenter_GetContainerPorts(t *testing.T) {
 					Name:          "inter-node-msg",
 					ContainerPort: 8609,
 				}, {
-					Name:          "intra-node",
+					Name:          "inter-node",
 					ContainerPort: DefaultBroadcastPort,
 				}, {
-					Name:          "tls-intra-node",
+					Name:          "tls-inter-node",
 					ContainerPort: 7001,
 				}, {
 					Name:          "mgmt-api-http",
@@ -268,10 +268,10 @@ func TestCassandraDatacenter_GetContainerPorts(t *testing.T) {
 					Name:          "inter-node-msg",
 					ContainerPort: 8609,
 				}, {
-					Name:          "intra-node",
+					Name:          "inter-node",
 					ContainerPort: DefaultBroadcastPort,
 				}, {
-					Name:          "tls-intra-node",
+					Name:          "tls-inter-node",
 					ContainerPort: 7001,
 				}, {
 					Name:          "mgmt-api-http",
@@ -297,10 +297,10 @@ func TestCassandraDatacenter_GetContainerPorts(t *testing.T) {
 					Name:          "inter-node-msg",
 					ContainerPort: 8609,
 				}, {
-					Name:          "intra-node",
+					Name:          "inter-node",
 					ContainerPort: DefaultBroadcastPort,
 				}, {
-					Name:          "tls-intra-node",
+					Name:          "tls-inter-node",
 					ContainerPort: 7001,
 				}, {
 					Name:          "mgmt-api-http",
