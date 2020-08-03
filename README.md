@@ -168,8 +168,8 @@ clusterWideInstall: false
 serviceAccountName: cass-operator
 serviceAccountRoleName: cass-operator-service-account
 serviceAccountRoleBindingName: cass-operator-service-account
-clusterRoleName: cass-operator-cluster-role
-clusterRoleBindingName: cass-operator
+webhookClusterRoleName: cass-operator-webhook
+webhookClusterRoleBindingName: cass-operator-webhook
 deploymentName: cass-operator
 deploymentReplicas: 1
 image: "datastax/cass-operator:1.3.0"
