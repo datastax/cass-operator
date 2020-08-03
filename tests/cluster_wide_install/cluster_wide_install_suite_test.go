@@ -29,7 +29,7 @@ var (
 	dc2Name      = "dc2"
 	dc2Yaml      = "../testdata/cluster-wide-install-dc2.yaml"
 	dc1Resource  = fmt.Sprintf("CassandraDatacenter/%s", dc1Name)
-	dc1Label     = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dc1Name)
+	dc2Resource  = fmt.Sprintf("CassandraDatacenter/%s", dc2Name)
 	ns           = ginkgo_util.NewWrapper(testName, opNamespace)
 	ns1          = ginkgo_util.NewWrapper(testName, dcNamespace1)
 	ns2          = ginkgo_util.NewWrapper(testName, dcNamespace2)
@@ -88,6 +88,22 @@ var _ = Describe(testName, func() {
 			ns1.WaitForDatacenterReady(dc1Name)
 			ns2.WaitForDatacenterReady(dc2Name)
 
+			step = "scale first dc up to 2 nodes"
+			json := `{"spec": {"size": 2}}`
+			k = kubectl.PatchMerge(dc1Resource, json)
+			ns1.ExecAndLog(step, k)
+
+			ns1.WaitForDatacenterOperatorProgress(dc1Name, "Updating", 30)
+			ns1.WaitForDatacenterReady(dc1Name)
+
+			step = "scale second dc up to 2 nodes"
+			json = `{"spec": {"size": 2}}`
+			k = kubectl.PatchMerge(dc2Resource, json)
+			ns2.ExecAndLog(step, k)
+
+			ns2.WaitForDatacenterOperatorProgress(dc2Name, "Updating", 30)
+			ns2.WaitForDatacenterReady(dc2Name)
+
 			By("deleting a namespace for the first dc")
 			err = kubectl.DeleteNamespace(dcNamespace1).ExecV()
 			Expect(err).ToNot(HaveOccurred())
@@ -95,39 +111,6 @@ var _ = Describe(testName, func() {
 			By("deleting a namespace for the second dc")
 			err = kubectl.DeleteNamespace(dcNamespace2).ExecV()
 			Expect(err).ToNot(HaveOccurred())
-
-			/*
-				step = "creating a datacenter resource with 3 racks/3 nodes"
-				k := kubectl.ApplyFiles(dcYaml)
-				ns.ExecAndLog(step, k)
-
-				ns.WaitForDatacenterReady(dcName)
-
-				step = "scale up to 6 nodes"
-				json := `{"spec": {"size": 6}}`
-				k = kubectl.PatchMerge(dcResource, json)
-				ns.ExecAndLog(step, k)
-
-				ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
-				ns.WaitForDatacenterReady(dcName)
-
-				step = "deleting the dc"
-				k = kubectl.DeleteFromFiles(dcYaml)
-				ns.ExecAndLog(step, k)
-
-				step = "checking that the cassdc no longer exists"
-				json = "jsonpath={.items}"
-				k = kubectl.Get("CassandraDatacenter").
-					FormatOutput(json)
-				ns.WaitForOutputAndLog(step, k, "[]", 60)
-
-				step = "checking that the statefulsets no longer exists"
-				json = "jsonpath={.items}"
-				k = kubectl.Get("StatefulSet").
-					WithLabel(dcLabel).
-					FormatOutput(json)
-				ns.WaitForOutputAndLog(step, k, "[]", 60)
-			*/
 		})
 	})
 })
