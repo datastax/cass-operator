@@ -94,6 +94,8 @@ spec:
               type: object
             networking:
               properties:
+                hostNetwork:
+                  type: boolean
                 nodePort:
                   properties:
                     broadcast:
