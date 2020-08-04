@@ -176,6 +176,8 @@ image: "datastax/cass-operator:1.3.0"
 imagePullPolicy: IfNotPresent
 ```
 
+NOTE: roleName and roleBindingName will be used for a clusterRole and clusterRoleBinding if clusterWideInstall is set to true.
+
 NOTE: Helm does not install a storage-class for the cassandra pods.
 
 If clusterWideInstall is set to true, then the operator will be able to administer `CassandraDatacenter`s in all namespaces of the kubernetes cluster.  A namespace must still be provided because some of the kubernetes resources for the operator require one.
