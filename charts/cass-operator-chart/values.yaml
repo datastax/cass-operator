@@ -1,9 +1,10 @@
 # Default values
+clusterWideInstall: false
 serviceAccountName: cass-operator
-clusterRoleName: cass-operator-cluster-role
-clusterRoleBindingName: cass-operator
 roleName: cass-operator
 roleBindingName: cass-operator
+webhookClusterRoleName: cass-operator-webhook
+webhookClusterRoleBindingName: cass-operator-webhook
 deploymentName: cass-operator
 deploymentReplicas: 1
 image: "datastax/cass-operator:1.3.0"

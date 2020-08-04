@@ -123,6 +123,11 @@ func CreateNamespace(namespace string) KCmd {
 	return KCmd{Command: "create", Args: args}
 }
 
+func DeleteNamespace(namespace string) KCmd {
+	args := []string{"namespace", namespace}
+	return KCmd{Command: "delete", Args: args}
+}
+
 func CreateSecretLiteral(name string, user string, pw string) KCmd {
 	args := []string{"secret", "generic", name}
 	flags := map[string]string{
