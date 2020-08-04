@@ -178,7 +178,7 @@ imagePullPolicy: IfNotPresent
 
 NOTE: Helm does not install a storage-class for the cassandra pods.
 
-If clusterWideInstall is set to true, then the operator will be able to administer cassandraDatacenters in all namespaces of the kubernetes cluster.  A namespace still must provided because some of the kubernetes resources for the operator require one.
+If clusterWideInstall is set to true, then the operator will be able to administer `CassandraDatacenter`s in all namespaces of the kubernetes cluster.  A namespace must still be provided because some of the kubernetes resources for the operator require one.
 
 Example:
 
