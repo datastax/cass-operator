@@ -58,6 +58,10 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForDatacenterReady(dcName)
 
+			step = "ensure pod has host networking enabled"
+			json := `jsonpath={.spec.hostNetwork}`
+			k = kubectl.Get("pod", fmt.Sprintf("cluster1-%s-r1-sts-0", dcName)).FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "true", 60)
 		})
 	})
 })
