@@ -5,6 +5,7 @@ package cfgutil
 
 import (
 	"fmt"
+	"os"
 	"io/ioutil"
 	"regexp"
 
@@ -13,8 +14,18 @@ import (
 )
 
 const (
-	buildSettings = "buildsettings.yaml"
+	buildSettings        = "buildsettings.yaml"
+	defaultOperatorImage = "datastax/cass-operator:latest"
+	envOperatorImage     = "M_OPERATOR_IMAGE"
 )
+
+func GetOperatorImage() string {
+	image := os.Getenv(envOperatorImage)
+	if "" == image {
+		return defaultOperatorImage
+	}
+	return image
+}
 
 type Version struct {
 	Major      int    `yaml:"major"`

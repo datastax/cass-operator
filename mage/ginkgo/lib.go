@@ -18,11 +18,11 @@ import (
 	helm_util "github.com/datastax/cass-operator/mage/helm"
 	"github.com/datastax/cass-operator/mage/kubectl"
 	mageutil "github.com/datastax/cass-operator/mage/util"
+	"github.com/datastax/cass-operator/mage/config"
 )
 
 const (
 	EnvNoCleanup  = "M_NO_CLEANUP"
-	OperatorImage = "datastax/cass-operator:latest"
 )
 
 func duplicate(value string, count int) string {
@@ -363,7 +363,7 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 }
 
 func (ns NsWrapper) HelmInstall(chartPath string) {
-	var overrides = map[string]string{"image": OperatorImage}
+	var overrides = map[string]string{"image": cfgutil.GetOperatorImage()}
 	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
 	mageutil.PanicOnError(err)
 }
