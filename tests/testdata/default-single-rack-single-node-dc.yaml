@@ -17,11 +17,6 @@ spec:
         resources:
           requests:
             storage: 1Gi
-  podTemplateSpec:
-    spec:
-      hostNetwork: true
-      dnsPolicy: ClusterFirstWithHostNet
-      containers: []
   racks:
     - name: r1
   config:
