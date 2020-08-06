@@ -50,8 +50,8 @@ const (
 type ProgressState string
 
 const (
-	defaultConfigBuilderImage     = "datastax/cass-config-builder:1.0.1"
-	ubi_defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.1-ubi7"
+	defaultConfigBuilderImage     = "datastax/cass-config-builder:1.0.2"
+	ubi_defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.2-ubi7"
 
 	cassandra_3_11_6     = "datastax/cassandra-mgmtapi-3_11_6:v0.1.5"
 	cassandra_4_0_0      = "datastax/cassandra-mgmtapi-4_0_0:v0.1.5"
@@ -233,7 +233,8 @@ type CassandraDatacenterSpec struct {
 }
 
 type NetworkingConfig struct {
-	NodePort *NodePortConfig `json:"nodePort,omitempty"`
+	NodePort    *NodePortConfig `json:"nodePort,omitempty"`
+	HostNetwork bool            `json:"hostNetwork,omitempty"`
 }
 
 type NodePortConfig struct {
@@ -246,6 +247,11 @@ type NodePortConfig struct {
 // Is the NodePort service enabled?
 func (dc *CassandraDatacenter) IsNodePortEnabled() bool {
 	return dc.Spec.Networking != nil && dc.Spec.Networking.NodePort != nil
+}
+
+func (dc *CassandraDatacenter) IsHostNetworkEnabled() bool {
+	networking := dc.Spec.Networking
+	return networking != nil && networking.HostNetwork
 }
 
 type DseWorkloads struct {

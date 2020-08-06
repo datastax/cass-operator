@@ -622,6 +622,12 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 
 	baseTemplate.Spec.Containers = append(containers, baseTemplate.Spec.Containers...)
 
+	// host networking
+	if dc.IsHostNetworkEnabled() {
+		baseTemplate.Spec.HostNetwork = true
+		baseTemplate.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet
+	}
+
 	return baseTemplate, nil
 }
 
