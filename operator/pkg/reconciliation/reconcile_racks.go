@@ -264,9 +264,15 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 				return result.Error(err)
 			}
 
+			if err := rc.enableQuietPeriod(20); err != nil {
+				logger.Error(
+					err,
+					"Error when enabling quiet period")
+				return result.Error(err)
+			}
+
 			// we just updated k8s and pods will be knocked out of ready state, so let k8s
 			// call us back when these changes are done and the new pods are back to ready
-			// TODO should we requeue for some amount of time in the future instead?
 			return result.Done()
 		} else {
 
@@ -2090,6 +2096,13 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	}
 
 	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
+		return result.Error(err).Output()
+	}
+
+	if err := rc.enableQuietPeriod(5); err != nil {
+		logger.Error(
+			err,
+			"Error when enabling quiet period")
 		return result.Error(err).Output()
 	}
 
