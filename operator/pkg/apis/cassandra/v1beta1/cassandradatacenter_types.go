@@ -547,7 +547,9 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 	// resolve to the seed nodes. This obviates the need to update the
 	// cassandra.yaml whenever the seed nodes change.
 	seeds := []string{dc.GetSeedServiceName()}
-	seeds = append(seeds, dc.Spec.AdditionalSeeds...)
+	if len(dc.Spec.AdditionalSeeds) > 0 {
+		seeds = append(seeds, dc.GetAdditionalSeedsServiceName())
+	}
 
 	graphEnabled := 0
 	solrEnabled := 0
