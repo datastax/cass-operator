@@ -281,7 +281,8 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 			// because there's an upgrade in progress
 
 			status := statefulSet.Status
-			if status.Replicas != status.ReadyReplicas ||
+			if statefulSet.Generation != status.ObservedGeneration ||
+				status.Replicas != status.ReadyReplicas ||
 				status.Replicas != status.CurrentReplicas ||
 				status.Replicas != status.UpdatedReplicas {
 
