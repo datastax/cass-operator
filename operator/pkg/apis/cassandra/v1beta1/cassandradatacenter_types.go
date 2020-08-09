@@ -351,7 +351,8 @@ type CassandraDatacenterStatus struct {
 	// +optional
 	NodeReplacements []string `json:"nodeReplacements"`
 
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
+	// +optional
+	QuietPeriod metav1.Time `json:"quietPeriod,omitempty"`
 }
 
 // +genclient

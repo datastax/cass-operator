@@ -1456,6 +1456,16 @@ func (rc *ReconciliationContext) labelServerPodStarting(pod *corev1.Pod) error {
 	return err
 }
 
+func (rc *ReconciliationContext) enableQuietPeriod(seconds int) error {
+	dc := rc.Datacenter
+
+	dur := time.Second * time.Duration(seconds)
+	statusPatch := client.MergeFrom(dc.DeepCopy())
+	dc.Status.QuietPeriod = metav1.NewTime(time.Now().Add(dur))
+	err := rc.Client.Status().Patch(rc.Ctx, dc, statusPatch)
+	return err
+}
+
 func (rc *ReconciliationContext) labelServerPodStarted(pod *corev1.Pod) error {
 	patch := client.MergeFrom(pod.DeepCopy())
 	pod.Labels[api.CassNodeState] = stateStarted
