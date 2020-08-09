@@ -131,6 +131,7 @@ func (r *ReconcileCassandraDatacenter) Reconcile(request reconcile.Request) (rec
 		return result.Error(err).Output()
 	}
 
+	// TODO fold this into the quiet period
 	twentySecs := time.Second * 20
 	lastNodeStart := rc.Datacenter.Status.LastServerNodeStarted
 	cooldownTime := time.Until(lastNodeStart.Add(twentySecs))
