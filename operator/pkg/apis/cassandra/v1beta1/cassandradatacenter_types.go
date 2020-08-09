@@ -353,6 +353,9 @@ type CassandraDatacenterStatus struct {
 
 	// +optional
 	QuietPeriod metav1.Time `json:"quietPeriod,omitempty"`
+
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +genclient

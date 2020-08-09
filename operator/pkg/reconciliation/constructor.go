@@ -367,6 +367,9 @@ func setOperatorProgressStatus(rc *ReconciliationContext, newState api.ProgressS
 
 	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
 	rc.Datacenter.Status.CassandraOperatorProgress = newState
+	if newState == api.ProgressReady {
+		rc.Datacenter.Status.ObservedGeneration = rc.Datacenter.Generation
+	}
 	if err := rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
 		rc.ReqLogger.Error(err, "error updating the Cassandra Operator Progress state")
 		return err
