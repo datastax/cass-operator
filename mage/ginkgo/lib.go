@@ -15,14 +15,14 @@ import (
 	ginkgo "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	cfgutil "github.com/datastax/cass-operator/mage/config"
 	helm_util "github.com/datastax/cass-operator/mage/helm"
 	"github.com/datastax/cass-operator/mage/kubectl"
 	mageutil "github.com/datastax/cass-operator/mage/util"
-	"github.com/datastax/cass-operator/mage/config"
 )
 
 const (
-	EnvNoCleanup  = "M_NO_CLEANUP"
+	EnvNoCleanup = "M_NO_CLEANUP"
 )
 
 func duplicate(value string, count int) string {
