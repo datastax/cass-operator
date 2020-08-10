@@ -820,20 +820,20 @@ func findHostIdForIpFromEndpointsData(endpointsData []httphelper.EndpointState, 
 	return ""
 }
 
-func (rc *ReconciliationContext) rpcAddressIsHostIP() bool {
-	nc := rc.Datacenter.Spec.Networking
+func getRpcAddress(dc *api.CassandraDatacenter, pod *corev1.Pod) string {
+	nc := dc.Spec.Networking
 	if nc != nil {
 		if nc.HostNetwork {
-			return true
+			return pod.Status.HostIP
 		}
 		if nc.NodePort != nil {
 			if nc.NodePort.Broadcast > 0 ||
 				nc.NodePort.BroadcastSSL > 0 {
-				return true
+				return pod.Status.HostIP
 			}
 		}
 	}
-	return false
+	return pod.Status.PodIP
 }
 
 func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
@@ -857,11 +857,7 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 			if nodeStatus.HostID == "" {
 				endpointsResponse, err := rc.NodeMgmtClient.CallMetadataEndpointsEndpoint(pod)
 				if err == nil {
-					useHostIP := rc.rpcAddressIsHostIP()
-					ip := pod.Status.PodIP
-					if useHostIP {
-						ip = pod.Status.HostIP
-					}
+					ip := getRpcAddress(dc, pod)
 					nodeStatus.HostID = findHostIdForIpFromEndpointsData(
 						endpointsResponse.Entity, ip)
 					if nodeStatus.HostID == "" {
