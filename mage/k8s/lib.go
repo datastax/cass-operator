@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	. "github.com/datastax/cass-operator/mage/config"
+	cfgutil "github.com/datastax/cass-operator/mage/config"
 	gcp "github.com/datastax/cass-operator/mage/gcloud"
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
 	helm_util "github.com/datastax/cass-operator/mage/helm"
@@ -30,10 +30,10 @@ const (
 	envK8sFlavor     = "M_K8S_FLAVOR"
 )
 
-var clusterActions *ClusterActions
+var clusterActions *cfgutil.ClusterActions
 var clusterType string
 
-var supportedFlavors = map[string]ClusterActions{
+var supportedFlavors = map[string]cfgutil.ClusterActions{
 	"kind": kind.ClusterActions,
 	"k3d":  k3d.ClusterActions,
 	"gke":  gcp.ClusterActions,
@@ -49,7 +49,7 @@ func getOperatorImage() string {
 	return img
 }
 
-func loadImagesFromBuildSettings(cfg ClusterActions, settings BuildSettings) {
+func loadImagesFromBuildSettings(cfg cfgutil.ClusterActions, settings cfgutil.BuildSettings) {
 	for _, image := range settings.Dev.Images {
 		// we likely don't always care if we fail to pull
 		// because we could be testing local images
@@ -58,11 +58,11 @@ func loadImagesFromBuildSettings(cfg ClusterActions, settings BuildSettings) {
 	}
 }
 
-func loadSettings(cfg ClusterActions) {
+func loadSettings(cfg cfgutil.ClusterActions) {
 	loadDevImages := os.Getenv(envLoadDevImages)
 	if strings.ToLower(loadDevImages) == "true" {
 		fmt.Println("Pulling and loading images from buildsettings.yaml")
-		settings := ReadBuildSettings()
+		settings := cfgutil.ReadBuildSettings()
 		loadImagesFromBuildSettings(cfg, settings)
 	}
 }

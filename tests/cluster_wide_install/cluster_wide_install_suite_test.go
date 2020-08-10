@@ -10,6 +10,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	cfgutil "github.com/datastax/cass-operator/mage/config"
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
 	helm_util "github.com/datastax/cass-operator/mage/helm"
 	"github.com/datastax/cass-operator/mage/kubectl"
@@ -60,7 +61,7 @@ var _ = Describe(testName, func() {
 			//step := "setting up cass-operator resources via helm chart"
 
 			var overrides = map[string]string{
-				"image":              ginkgo_util.OperatorImage,
+				"image":              cfgutil.GetOperatorImage(),
 				"clusterWideInstall": "true",
 			}
 			chartPath := "../../charts/cass-operator-chart"

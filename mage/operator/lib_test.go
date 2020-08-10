@@ -6,7 +6,7 @@ package operator
 import (
 	"testing"
 
-	"github.com/datastax/cass-operator/mage/config"
+	cfgutil "github.com/datastax/cass-operator/mage/config"
 	"github.com/stretchr/testify/assert"
 )
 

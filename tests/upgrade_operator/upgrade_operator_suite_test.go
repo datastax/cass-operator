@@ -11,9 +11,10 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
+	cfgutil "github.com/datastax/cass-operator/mage/config"
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
-	"github.com/datastax/cass-operator/mage/kubectl"
 	helm_util "github.com/datastax/cass-operator/mage/helm"
+	"github.com/datastax/cass-operator/mage/kubectl"
 	mageutil "github.com/datastax/cass-operator/mage/util"
 )
 
@@ -52,7 +53,7 @@ func InstallOldOperator() {
 func UpgradeOperator() {
 	step := "upgrade Cass Operator"
 	By(step)
-	var overrides = map[string]string{"image": ginkgo_util.OperatorImage}
+	var overrides = map[string]string{"image": cfgutil.GetOperatorImage()}
 	err := helm_util.Upgrade("../../charts/cass-operator-chart", "cass-operator", ns.Namespace, overrides)
 	mageutil.PanicOnError(err)
 }

@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
+	cfgutil "github.com/datastax/cass-operator/mage/config"
+	shutil "github.com/datastax/cass-operator/mage/sh"
+	mageutil "github.com/datastax/cass-operator/mage/util"
 	"github.com/magefile/mage/mg"
-	"github.com/datastax/cass-operator/mage/sh"
-	"github.com/datastax/cass-operator/mage/util"
-	"github.com/datastax/cass-operator/mage/config"
 	"gopkg.in/yaml.v2"
 )
 
