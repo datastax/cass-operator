@@ -865,7 +865,7 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 					nodeStatus.HostID = findHostIdForIpFromEndpointsData(
 						endpointsResponse.Entity, ip)
 					if nodeStatus.HostID == "" {
-						logger.Info("Failed to find host ID", pod, pod.Name)
+						logger.Info("Failed to find host ID", "pod", pod.Name)
 					}
 				} else {
 					rc.ReqLogger.Error(err, "Could not get endpoints data")
