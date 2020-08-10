@@ -130,7 +130,7 @@ Each of the three reference implementations has a corresponding configuration in
 
 ## Sample `CassandraDatacenter` Reference
 
-See [`sample-cluster-sample-dc.cassdc.yaml`](sample-cluster-sample-dc.cassdc.yaml)
+See [`sample-cluster-sample-dc.yaml`](sample-cluster-sample-dc.yaml)
 
 ## SSL Certificate Generation
 

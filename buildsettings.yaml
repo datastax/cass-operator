@@ -18,5 +18,5 @@ jenkins:
 dev:
   images:
     - datastax/dse-server:6.8.1
-    - datastax/cass-config-builder:1.0.1
+    - datastax/cass-config-builder:1.0.2
     - datastax/cassandra-mgmtapi-3_11_6:v0.1.5
