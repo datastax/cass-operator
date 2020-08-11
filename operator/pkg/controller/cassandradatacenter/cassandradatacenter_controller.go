@@ -4,7 +4,7 @@
 package cassandradatacenter
 
 import (
-	"context"
+	//	"context"
 	"fmt"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
@@ -19,11 +19,13 @@ import (
 
 	"github.com/datastax/cass-operator/operator/pkg/reconciliation"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/labels"
-	types "k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	/*
+		metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+		"k8s.io/apimachinery/pkg/fields"
+		"k8s.io/apimachinery/pkg/labels"
+		types "k8s.io/apimachinery/pkg/types"
+		"sigs.k8s.io/controller-runtime/pkg/client"
+	*/
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -122,63 +124,66 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	mapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
-			nodeName := a.Object.(*corev1.Node).Name
-
-			c := mgr.GetClient()
-
 			requests := []reconcile.Request{}
 
-			// Get pods for the node that changed
-			// then derive related cassandraDatacenters
+			/*
+				nodeName := a.Object.(*corev1.Node).Name
 
-			// We will list all pods in all namespaces managed by cass-operator
+				c := mgr.GetClient()
 
-			labelSelector := labels.SelectorFromSet(
-				labels.Set{
-					oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
-				})
 
-			fieldSelector := fields.SelectorFromSet(
-				fields.Set{
-					nodeName: nodeName,
-				})
+				// Get pods for the node that changed
+				// then derive related cassandraDatacenters
 
-			listOptions := &client.ListOptions{
-				Namespace:     "",
-				LabelSelector: labelSelector,
-				FieldSelector: fieldSelector,
-			}
+				// We will list all pods in all namespaces managed by cass-operator
 
-			podList := &corev1.PodList{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Pod",
-					APIVersion: "v1",
-				},
-			}
+				labelSelector := labels.SelectorFromSet(
+					labels.Set{
+						oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
+					})
 
-			err := c.List(context.Background(), podList, listOptions)
-			if err != nil {
-				return requests
-			}
+				fieldSelector := fields.SelectorFromSet(
+					fields.Set{
+						nodeName: nodeName,
+					})
 
-			// Get the dc names for the pods
+				listOptions := &client.ListOptions{
+					Namespace:     "",
+					LabelSelector: labelSelector,
+					FieldSelector: fieldSelector,
+				}
 
-			for _, pod := range podList.Items {
-				podLabels := pod.GetLabels()
+				podList := &corev1.PodList{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Pod",
+						APIVersion: "v1",
+					},
+				}
 
-				// TODO skip this iteration if the cass-operator is not the current one
+				err := c.List(context.Background(), podList, listOptions)
+				if err != nil {
+					return requests
+				}
 
-				// Create reconcilerequests for the related cassandraDatacenters
-				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      podLabels[api.DatacenterLabel],
-						Namespace: pod.ObjectMeta.GetNamespace(),
-					}},
-				)
-			}
+				// Get the dc names for the pods
 
-			// TODO: de-duplicate requests
+				for _, pod := range podList.Items {
+					podLabels := pod.GetLabels()
 
+					// TODO skip this iteration if the cass-operator is not the current one
+
+					// Create reconcilerequests for the related cassandraDatacenters
+					requests = append(requests, reconcile.Request{
+						NamespacedName: types.NamespacedName{
+							Name:      podLabels[api.DatacenterLabel],
+							Namespace: pod.ObjectMeta.GetNamespace(),
+						}},
+					)
+				}
+
+				// TODO: de-duplicate requests
+
+			*/
 			return requests
 		})
 
