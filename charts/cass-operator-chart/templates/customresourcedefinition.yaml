@@ -6191,6 +6191,12 @@ spec:
                     type: string
                 type: object
               type: object
+            observedGeneration:
+              format: int64
+              type: integer
+            quietPeriod:
+              format: date-time
+              type: string
             superUserUpserted:
               description: Deprecated. Use usersUpserted instead. The timestamp at
                 which CQL superuser credentials were last upserted to the management
