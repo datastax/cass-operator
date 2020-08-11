@@ -166,6 +166,8 @@ The following Helm default values may be overridden:
 ```yaml
 clusterWideInstall: false
 serviceAccountName: cass-operator
+clusterRoleName: cass-operator-cr
+clusterRoleBindingName: cass-operator-crb
 roleName: cass-operator
 roleBindingName: cass-operator
 webhookClusterRoleName: cass-operator-webhook
