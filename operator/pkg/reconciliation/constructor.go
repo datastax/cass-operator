@@ -368,6 +368,7 @@ func setOperatorProgressStatus(rc *ReconciliationContext, newState api.ProgressS
 
 	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
 	rc.Datacenter.Status.CassandraOperatorProgress = newState
+	// TODO there may be a better place to push status.observedGeneration in the reconcile loop
 	if newState == api.ProgressReady {
 		rc.Datacenter.Status.ObservedGeneration = rc.Datacenter.Generation
 	}
