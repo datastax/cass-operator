@@ -16,11 +16,10 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/datastax/cass-operator/operator/pkg/reconciliation"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	types "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -30,6 +29,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
+
+var log = logf.Log.WithName("cassandradatacenter_controller")
 
 // Add creates a new CassandraDatacenter Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -122,6 +123,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	mapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
+			log.Info("Node Watch called")
 			requests := []reconcile.Request{}
 
 			nodeName := a.Object.(*corev1.Node).Name
@@ -138,35 +140,33 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 					oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
 				})
 
-			fieldSelector := fields.SelectorFromSet(
-				fields.Set{
-					nodeName: nodeName,
-				})
-
 			listOptions := &client.ListOptions{
 				Namespace:     "",
 				LabelSelector: labelSelector,
-				FieldSelector: fieldSelector,
 			}
 
-			podList := &corev1.PodList{
-				TypeMeta: metav1.TypeMeta{
-					Kind:       "Pod",
-					APIVersion: "v1",
-				},
-			}
+			podList := &corev1.PodList{}
 
 			err := c.List(context.Background(), podList, listOptions)
 			if err != nil {
+				log.Info("Node Watch - error")
+				log.Info(err.Error())
 				return requests
 			}
 
 			// Get the dc names for the pods
 
-			for _, pod := range podList.Items {
-				podLabels := pod.GetLabels()
+			log.Info("Node Watch - checking pods")
 
-				// TODO skip this iteration if the cass-operator is not the current one
+			for _, pod := range podList.Items {
+				log.Info("Node Watch - Adding Request for pod")
+				log.Info("%s  :  %s", pod.Spec.NodeName, nodeName)
+				if pod.Spec.NodeName != nodeName {
+					continue
+				}
+				log.Info("Node Watch - match")
+
+				podLabels := pod.GetLabels()
 
 				// Create reconcilerequests for the related cassandraDatacenters
 				requests = append(requests, reconcile.Request{
@@ -177,7 +177,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 				)
 			}
 
-			// TODO: de-duplicate requests
+			log.Info("Node Watch - done checking pods")
 
 			return requests
 		})

@@ -77,7 +77,7 @@ var _ = Describe(testName, func() {
 				"NoSchedule")
 			ns.ExecAndLog(step, k)
 
-			time.Sleep(5 * time.Minute)
+			time.Sleep(1 * time.Minute)
 
 			json := `
 				{
