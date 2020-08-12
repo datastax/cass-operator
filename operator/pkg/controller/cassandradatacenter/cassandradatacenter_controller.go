@@ -159,12 +159,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			log.Info("Node Watch - checking pods")
 
 			for _, pod := range podList.Items {
-				log.Info("Node Watch - Adding Request for pod")
-				log.Info("%s  :  %s", pod.Spec.NodeName, nodeName)
 				if pod.Spec.NodeName != nodeName {
 					continue
 				}
-				log.Info("Node Watch - match")
+
+				log.Info(fmt.Sprintf("Node Watch - adding request for pod %s", pod.ObjectMeta.Name))
 
 				podLabels := pod.GetLabels()
 
@@ -176,9 +175,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 					}},
 				)
 			}
-
-			log.Info("Node Watch - done checking pods")
-
 			return requests
 		})
 
