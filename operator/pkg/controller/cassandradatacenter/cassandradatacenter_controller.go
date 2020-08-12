@@ -130,9 +130,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 			c := mgr.GetClient()
 
-			// Get pods for the node that changed
-			// then derive related cassandraDatacenters
-
 			// We will list all pods in all namespaces managed by cass-operator
 
 			labelSelector := labels.SelectorFromSet(
