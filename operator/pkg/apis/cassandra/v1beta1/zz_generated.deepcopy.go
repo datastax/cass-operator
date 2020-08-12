@@ -174,6 +174,7 @@ func (in *CassandraDatacenterStatus) DeepCopyInto(out *CassandraDatacenterStatus
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	in.QuietPeriod.DeepCopyInto(&out.QuietPeriod)
 	return
 }
 
