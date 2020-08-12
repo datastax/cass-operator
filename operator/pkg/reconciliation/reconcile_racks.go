@@ -264,9 +264,15 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 				return result.Error(err)
 			}
 
+			if err := rc.enableQuietPeriod(20); err != nil {
+				logger.Error(
+					err,
+					"Error when enabling quiet period")
+				return result.Error(err)
+			}
+
 			// we just updated k8s and pods will be knocked out of ready state, so let k8s
 			// call us back when these changes are done and the new pods are back to ready
-			// TODO should we requeue for some amount of time in the future instead?
 			return result.Done()
 		} else {
 
@@ -275,7 +281,8 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 			// because there's an upgrade in progress
 
 			status := statefulSet.Status
-			if status.Replicas != status.ReadyReplicas ||
+			if statefulSet.Generation != status.ObservedGeneration ||
+				status.Replicas != status.ReadyReplicas ||
 				status.Replicas != status.CurrentReplicas ||
 				status.Replicas != status.UpdatedReplicas {
 
@@ -1473,6 +1480,16 @@ func (rc *ReconciliationContext) labelServerPodStarting(pod *corev1.Pod) error {
 	return err
 }
 
+func (rc *ReconciliationContext) enableQuietPeriod(seconds int) error {
+	dc := rc.Datacenter
+
+	dur := time.Second * time.Duration(seconds)
+	statusPatch := client.MergeFrom(dc.DeepCopy())
+	dc.Status.QuietPeriod = metav1.NewTime(time.Now().Add(dur))
+	err := rc.Client.Status().Patch(rc.Ctx, dc, statusPatch)
+	return err
+}
+
 func (rc *ReconciliationContext) labelServerPodStarted(pod *corev1.Pod) error {
 	patch := client.MergeFrom(pod.DeepCopy())
 	pod.Labels[api.CassNodeState] = stateStarted
@@ -1546,9 +1563,9 @@ func (rc *ReconciliationContext) findStartedNotReadyNodes() (bool, error) {
 
 func (rc *ReconciliationContext) copyPodCredentials(pod *corev1.Pod, jksBlob []byte) error {
 	_, err := rc.retrieveSecret(types.NamespacedName{
-			Name:      fmt.Sprintf("%s-keystore", rc.Datacenter.Name),
-			Namespace: rc.Datacenter.Namespace,
-		})
+		Name:      fmt.Sprintf("%s-keystore", rc.Datacenter.Name),
+		Namespace: rc.Datacenter.Namespace,
+	})
 
 	if err == nil { // This secret already exists, nothing to do
 		return nil
@@ -2097,6 +2114,13 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	}
 
 	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
+		return result.Error(err).Output()
+	}
+
+	if err := rc.enableQuietPeriod(5); err != nil {
+		logger.Error(
+			err,
+			"Error when enabling quiet period")
 		return result.Error(err).Output()
 	}
 
