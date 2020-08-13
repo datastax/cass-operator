@@ -651,6 +651,8 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 					api.NewDatacenterCondition(
 						api.DatacenterResuming, corev1.ConditionTrue)) || updated
 			} else {
+				// We weren't resuming from a stopped state, so we must be growing the
+				// size of the rack
 				updated = rc.setCondition(
 					api.NewDatacenterCondition(
 						api.DatacenterScalingUp, corev1.ConditionTrue)) || updated
