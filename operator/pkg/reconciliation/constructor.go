@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const pvcName = "server-data"
+const PvcName = "server-data"
 
 // Creates a headless service object for the Datacenter, for clients wanting to
 // reach out to a ready Server node for either CQL or mgmt API
@@ -277,7 +277,7 @@ func newStatefulSetForCassandraDatacenterHelper(
 	volumeClaimTemplates = []corev1.PersistentVolumeClaim{{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: pvcLabels,
-			Name:   pvcName,
+			Name:   PvcName,
 		},
 		Spec: *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec,
 	}}
@@ -505,7 +505,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 	}
 	serverVolumeMounts = append(serverVolumeMounts, cassServerLogsMount)
 	serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
-		Name:      pvcName,
+		Name:      PvcName,
 		MountPath: "/var/lib/cassandra",
 	})
 	serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
@@ -673,7 +673,7 @@ func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1.Job {
 	}
 }
 
-func addVolumes(dc *api.CassandraDatacenter,baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
+func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
 	vServerConfig := corev1.Volume{}
 	vServerConfig.Name = "server-config"
 	vServerConfig.VolumeSource = corev1.VolumeSource{
@@ -690,9 +690,8 @@ func addVolumes(dc *api.CassandraDatacenter,baseTemplate *corev1.PodTemplateSpec
 	vServerEncryption.Name = "encryption-cred-storage"
 	vServerEncryption.VolumeSource = corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
-			SecretName:fmt.Sprintf("%s-keystore", dc.Name)},
+			SecretName: fmt.Sprintf("%s-keystore", dc.Name)},
 	}
-
 
 	volumes := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
 	baseTemplate.Spec.Volumes = append(baseTemplate.Spec.Volumes, volumes...)

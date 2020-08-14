@@ -56,7 +56,6 @@ func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
 	k8sMockClientGet(mockClient, fmt.Errorf(""))
 	k8sMockClientUpdate(mockClient, nil).Times(1)
 	// k8sMockClientCreate(mockClient, nil)
-	k8sMockClientList(mockClient, nil).Times(1)
 
 	_, err := rc.calculateReconciliationActions()
 	assert.Errorf(t, err, "Should have returned an error while calculating reconciliation actions")
@@ -71,7 +70,6 @@ func TestCalculateReconciliationActions_FailedUpdate(t *testing.T) {
 	mockClient := &mocks.Client{}
 	rc.Client = mockClient
 
-	k8sMockClientList(mockClient, nil).Times(1)
 	k8sMockClientUpdate(mockClient, fmt.Errorf("failed to update CassandraDatacenter with removed finalizers"))
 
 	_, err := rc.calculateReconciliationActions()
@@ -88,7 +86,6 @@ func TestProcessDeletion_FailedDelete(t *testing.T) {
 	mockClient := &mocks.Client{}
 	rc.Client = mockClient
 
-	k8sMockClientList(mockClient, nil).Times(1)
 	k8sMockClientList(mockClient, nil).
 		Run(func(args mock.Arguments) {
 			arg := args.Get(1).(*v1.PersistentVolumeClaimList)

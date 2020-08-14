@@ -1546,9 +1546,9 @@ func (rc *ReconciliationContext) findStartedNotReadyNodes() (bool, error) {
 
 func (rc *ReconciliationContext) copyPodCredentials(pod *corev1.Pod, jksBlob []byte) error {
 	_, err := rc.retrieveSecret(types.NamespacedName{
-			Name:      fmt.Sprintf("%s-keystore", rc.Datacenter.Name),
-			Namespace: rc.Datacenter.Namespace,
-		})
+		Name:      fmt.Sprintf("%s-keystore", rc.Datacenter.Name),
+		Namespace: rc.Datacenter.Namespace,
+	})
 
 	if err == nil { // This secret already exists, nothing to do
 		return nil
@@ -2099,6 +2099,17 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
 		return result.Error(err).Output()
 	}
+
+	// At this point, the cluster should be "healthy" if api.ProgressReady is "ready" or something...
+	// TODO: what are the implications for tainting a node with local storage that is parked
+
+	// We do the node taint check here, with the assumption that the cluster is "healthy"
+
+	/*
+		if err := rc.checkNodeTaints(); err != nil {
+			return result.Error(err).Output()
+		}
+	*/
 
 	rc.ReqLogger.Info("All StatefulSets should now be reconciled.")
 
