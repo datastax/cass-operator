@@ -61,7 +61,7 @@ func checkNodePortService() {
 
 	// for some reason, k8s is giving the port numbers back as floats
 	ns.ExpectKeyValues(port0, map[string]string{
-		"name":       "broadcast",
+		"name":       "internode",
 		"nodePort":   "30002.000000",
 		"port":       "30002.000000",
 		"targetPort": "30002.000000",

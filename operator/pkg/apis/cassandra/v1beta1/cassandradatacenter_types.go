@@ -571,15 +571,15 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 		}
 	}
 
-	cql := 0
-	cqlSSL := 0
-	broadcast := 0
-	broadcastSSL := 0
+	native := 0
+	nativeSSL := 0
+	internode := 0
+	internodeSSL := 0
 	if dc.IsNodePortEnabled() {
-		cql = dc.Spec.Networking.NodePort.Native
-		cqlSSL = dc.Spec.Networking.NodePort.NativeSSL
-		broadcast = dc.Spec.Networking.NodePort.Internode
-		broadcastSSL = dc.Spec.Networking.NodePort.InternodeSSL
+		native = dc.Spec.Networking.NodePort.Native
+		nativeSSL = dc.Spec.Networking.NodePort.NativeSSL
+		internode = dc.Spec.Networking.NodePort.Internode
+		internodeSSL = dc.Spec.Networking.NodePort.InternodeSSL
 	}
 
 	modelValues := serverconfig.GetModelValues(
@@ -589,10 +589,10 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 		graphEnabled,
 		solrEnabled,
 		sparkEnabled,
-		cql,
-		cqlSSL,
-		broadcast,
-		broadcastSSL)
+		native,
+		nativeSSL,
+		internode,
+		internodeSSL)
 
 	var modelBytes []byte
 
@@ -640,10 +640,10 @@ func (dc *CassandraDatacenter) GetNodePortNativePort() int {
 	}
 }
 
-// Gets the defined broadcast/internode port for NodePort.
+// Gets the defined internode/broadcast port for NodePort.
 // 0 will be returned if NodePort is not configured.
 // The SSL port will be returned if it is defined,
-// otherwise the normal broadcast port will be used.
+// otherwise the normal internode port will be used.
 func (dc *CassandraDatacenter) GetNodePortInternodePort() int {
 	if !dc.IsNodePortEnabled() {
 		return 0
@@ -666,14 +666,14 @@ func namedPort(name string, port int) corev1.ContainerPort {
 func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, error) {
 
 	nativePort := DefaultNativePort
-	broadcastPort := DefaultInternodePort
+	internodePort := DefaultInternodePort
 
 	// Note: Port Names cannot be more than 15 characters
 
 	ports := []corev1.ContainerPort{
 		namedPort("native", nativePort),
 		namedPort("tls-native", 9142),
-		namedPort("internode", broadcastPort),
+		namedPort("internode", internodePort),
 		namedPort("tls-internode", 7001),
 		namedPort("jmx", 7199),
 		namedPort("mgmt-api-http", 8080),
