@@ -98,13 +98,13 @@ spec:
                   type: boolean
                 nodePort:
                   properties:
-                    broadcast:
+                    internode:
                       type: integer
-                    broadcastSSL:
+                    internodeSSL:
                       type: integer
-                    cql:
+                    native:
                       type: integer
-                    cqlSSL:
+                    nativeSSL:
                       type: integer
                   type: object
               type: object
