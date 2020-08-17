@@ -234,14 +234,10 @@ func newStatefulSetForCassandraDatacenter(
 	return newStatefulSetForCassandraDatacenterHelper(rackName, dc, replicaCount, false)
 }
 
-// Create a statefulset object for the Datacenter.
-func newStatefulSetForCassandraDatacenterHelper(
+func NewPersistentVolumeClaim(
 	rackName string,
 	dc *api.CassandraDatacenter,
-	replicaCount int,
-	useDefunctManagedByForPvc bool) (*appsv1.StatefulSet, error) {
-
-	replicaCountInt32 := int32(replicaCount)
+	useDefunctManagedByForPvc bool) *corev1.PersistentVolumeClaim {
 
 	// see https://github.com/kubernetes/kubernetes/pull/74941
 	// pvc labels are ignored before k8s 1.15.0
@@ -252,12 +248,28 @@ func newStatefulSetForCassandraDatacenterHelper(
 		oplabels.AddManagedByLabel(pvcLabels)
 	}
 
+	return &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: pvcLabels,
+			Name:   PvcName,
+		},
+		Spec: *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec,
+	}
+}
+
+// Create a statefulset object for the Datacenter.
+func newStatefulSetForCassandraDatacenterHelper(
+	rackName string,
+	dc *api.CassandraDatacenter,
+	replicaCount int,
+	useDefunctManagedByForPvc bool) (*appsv1.StatefulSet, error) {
+
+	replicaCountInt32 := int32(replicaCount)
+
 	statefulSetLabels := dc.GetRackLabels(rackName)
 	oplabels.AddManagedByLabel(statefulSetLabels)
 
 	statefulSetSelectorLabels := dc.GetRackLabels(rackName)
-
-	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 
 	racks := dc.GetRacks()
 	var zone string
@@ -274,13 +286,10 @@ func newStatefulSetForCassandraDatacenterHelper(
 		return nil, err
 	}
 
-	volumeClaimTemplates = []corev1.PersistentVolumeClaim{{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: pvcLabels,
-			Name:   PvcName,
-		},
-		Spec: *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec,
-	}}
+	volumeClaimTemplate := NewPersistentVolumeClaim(rackName, dc, useDefunctManagedByForPvc)
+
+	var volumeClaimTemplates []corev1.PersistentVolumeClaim
+	volumeClaimTemplates = []corev1.PersistentVolumeClaim{*volumeClaimTemplate}
 
 	nsName := newNamespacedNameForStatefulSet(dc, rackName)
 

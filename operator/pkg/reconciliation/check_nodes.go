@@ -8,38 +8,57 @@ import (
 	"sync"
 	"time"
 
-	// "github.com/datastax/cass-operator/operator/reconciliation"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (rc *ReconciliationContext) DeletePvcIgnoreFinalizers(podNamespace string, podName string) error {
+func (rc *ReconciliationContext) DeletePvcIgnoreFinalizers(podNamespace string, podName string) (*corev1.PersistentVolumeClaim, error) {
 	var wg sync.WaitGroup
 
 	wg.Add(1)
 
-	result := nil
+	var goRoutineError *error = nil
 
-	pvcName := fmt.Sprintf("%s-%s", PvcName, podName)
+	pvcFullName := fmt.Sprintf("%s-%s", PvcName, podName)
+
+	rc.ReqLogger.Info(fmt.Sprintf("retrieving PersistentVolumeClaim %s for deletion", pvcFullName))
 
 	pvc := &corev1.PersistentVolumeClaim{}
-	err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: podNamespace, Name: pvcName}, pvc)
+	err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: podNamespace, Name: pvcFullName}, pvc)
 	if err != nil {
 		rc.ReqLogger.Error(err, "error retrieving PersistentVolumeClaim for deletion")
-		return err
+		return nil, err
 	}
 
 	// Delete might hang due to a finalizer such as kubernetes.io/pvc-protection
 	// so we run it asynchronously and then remove any finalizers to unblock it.
 	go func() {
 		defer wg.Done()
+		rc.ReqLogger.Info("goroutine to delete pvc started")
 
-		err = rc.Client.Delete(rc.Ctx, pvc)
+		// If we don't grab a new copy of the pvc, the deletion could fail because the update has
+		// changed the pvc and the delete fails because there is a newer version
+
+		pvcToDelete := &corev1.PersistentVolumeClaim{}
+		err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: podNamespace, Name: pvcFullName}, pvcToDelete)
 		if err != nil {
-			rc.ReqLogger.Error(err, "error removing PersistentVolumeClaim",
-				"name", pvcName)
-			result = err
+			rc.ReqLogger.Info("goroutine to delete pvc: error found in get")
+			rc.ReqLogger.Error(err, "error retrieving PersistentVolumeClaim for deletion")
+			goRoutineError = &err
 		}
+
+		rc.ReqLogger.Info("goroutine to delete pvc: no error found in get")
+
+		err = rc.Client.Delete(rc.Ctx, pvcToDelete)
+		if err != nil {
+			rc.ReqLogger.Info("goroutine to delete pvc: error found in delete")
+			rc.ReqLogger.Error(err, "error removing PersistentVolumeClaim",
+				"name", pvcFullName)
+			goRoutineError = &err
+		}
+		rc.ReqLogger.Info("goroutine to delete pvc: no error found in delete")
+		rc.ReqLogger.Info("goroutine to delete pvc: end of goroutine")
 	}()
 
 	// Give the resource a second to get to a terminating state. Note that this
@@ -53,15 +72,37 @@ func (rc *ReconciliationContext) DeletePvcIgnoreFinalizers(podNamespace string, 
 
 	pvc.ObjectMeta.Finalizers = []string{}
 
-	// Ignore errors as this may fail due to the resource already having been
-	// deleted (which is what we want).
-	_ = rc.Client.Update(rc.Ctx, pvc)
+	err = rc.Client.Update(rc.Ctx, pvc)
+	if err != nil {
+		rc.ReqLogger.Info("ignoring error removing finalizer from PersistentVolumeClaim",
+			"name", pvcFullName,
+			"err", err.Error())
+
+		// Ignore some errors as this may fail due to the resource already having been
+		// deleted (which is what we want).
+	}
+
+	rc.ReqLogger.Info("before wg.Wait()")
 
 	// Wait for the delete to finish, which should have been unblocked by
 	// removing the finalizers.
 	wg.Wait()
+	rc.ReqLogger.Info("after wg.Wait()")
 
-	return result
+	// We can't dereference a nil, so check if we have one
+	if goRoutineError == nil {
+		return pvc, nil
+	}
+	return nil, *goRoutineError
+}
+
+func getRackNameFromPvcLabel(pvc *corev1.PersistentVolumeClaim) string {
+	for key, value := range pvc.ObjectMeta.Labels {
+		if key == api.RackLabel {
+			return value
+		}
+	}
+	return ""
 }
 
 // Check nodes for vmware draining taints
@@ -115,19 +156,79 @@ func (rc *ReconciliationContext) checkNodeTaints() error {
 
 					// Remove the pvc
 
-					rc.DeletePvcIgnoreFinalizers(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
+					rc.ReqLogger.Info("before DeletePvcIgnoreFinalizers")
+					pvc, err := rc.DeletePvcIgnoreFinalizers(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
+					if err != nil {
+						rc.ReqLogger.Info("DeletePvcIgnoreFinalizers - err")
+						rc.ReqLogger.Error(err, "error during PersistentVolume delete for vmware drain",
+							"pod", pod.ObjectMeta.Name)
+						return err
+					}
+					rc.ReqLogger.Info("after DeletePvcIgnoreFinalizers")
 
 					// Remove the pod
+					// the new/old? pod is getting stuck in pending
 
+					rc.ReqLogger.Info("before pod delete")
 					err = rc.Client.Delete(rc.Ctx, &pod)
 					if err != nil {
+						rc.ReqLogger.Info("pod delete - err")
 						rc.ReqLogger.Error(err, "error during cassandra node delete for vmware drain",
 							"pod", pod.ObjectMeta.Name)
 						return err
 					}
+					rc.ReqLogger.Info("after pod delete")
+
+					rc.ReqLogger.Info("before pvc recreation")
+
+					err = RecreatePvc(rc, pvc)
+					if err != nil {
+						rc.ReqLogger.Info("pvc recreation - err")
+						rc.ReqLogger.Error(err, "error during PersistentVolumeClaim recreation for vmware drain",
+							"pvc", pvc.ObjectMeta.Name)
+						return err
+					}
+
+					rc.ReqLogger.Info("after pvc recreation")
 				}
 			}
 		}
+	}
+
+	return nil
+}
+
+func RecreatePvc(rc *ReconciliationContext, oldPvc *corev1.PersistentVolumeClaim) error {
+
+	// Recreate the pvc
+	// See: https://github.com/kubernetes/kubernetes/issues/89910
+
+	usesDefunct := false
+	rackName := getRackNameFromPvcLabel(oldPvc)
+
+	for idx := range rc.desiredRackInformation {
+		if rackName == rc.desiredRackInformation[idx].RackName {
+			sts := rc.statefulSets[idx]
+			usesDefunct = usesDefunctPvcManagedByLabel(sts)
+			break
+		}
+	}
+
+	newPvc := NewPersistentVolumeClaim(rackName, rc.Datacenter, usesDefunct)
+
+	// Copy some things from the oldPvc
+
+	newPvc.ObjectMeta.Name = oldPvc.ObjectMeta.Name
+	newPvc.ObjectMeta.Namespace = oldPvc.ObjectMeta.Namespace
+	for key, value := range oldPvc.ObjectMeta.Labels {
+		newPvc.ObjectMeta.Labels[key] = value
+	}
+
+	newPvc.Spec.VolumeMode = oldPvc.Spec.VolumeMode
+
+	err := rc.Client.Create(rc.Ctx, newPvc)
+	if err != nil {
+		return err
 	}
 
 	return nil

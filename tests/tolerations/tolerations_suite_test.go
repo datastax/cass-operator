@@ -6,7 +6,7 @@ package tolerations
 import (
 	"fmt"
 	"testing"
-	"time"
+	//	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -61,35 +61,48 @@ var _ = Describe(testName, func() {
 			ns.WaitForDatacenterReady(dc1Name)
 
 			// Add a taint to the node
-			k = kubectl.GetNodeNameForPod(pod1Name)
-			node1Name, _, err := ns.ExecVCapture(k)
-			if err != nil {
-				panic(err)
-			}
-			node1Resource := fmt.Sprintf("node/%s", node1Name)
+			/*
+				k = kubectl.GetNodeNameForPod(pod1Name)
+				node1Name, _, err := ns.ExecVCapture(k)
+				if err != nil {
+					panic(err)
+				}
 
-			// node.vmware.com/drain=planned-downtime:NoSchedule
-			step = fmt.Sprintf("tainting node: %s", node1Name)
-			k = kubectl.Taint(
-				node1Name,
-				"node.vmware.com/drain",
-				"planned-downtime",
-				"NoSchedule")
-			ns.ExecAndLog(step, k)
+				node1Resource := fmt.Sprintf("node/%s", node1Name)
+					// node.vmware.com/drain=planned-downtime:NoSchedule
+					step = fmt.Sprintf("tainting node: %s", node1Name)
+					k = kubectl.Taint(
+						node1Name,
+						"node.vmware.com/drain",
+						"planned-downtime",
+						"NoSchedule")
+					ns.ExecAndLog(step, k)
 
-			time.Sleep(1 * time.Minute)
+					i := 1
+					for i < 300 {
+						time.Sleep(1 * time.Second)
+						i += 1
 
-			json := `
-				{
-					"spec": {
-						"taints": null
+						names := ns.GetDatacenterReadyPodNames(dc1Name)
+						if len(names) < 2 {
+							break
+						}
 					}
-				}`
-			k = kubectl.PatchMerge(node1Resource, json)
-			err = k.ExecV()
-			if err != nil {
-				panic(err)
-			}
+
+					time.Sleep(5 * time.Minute)
+
+					json := `
+						{
+							"spec": {
+								"taints": null
+							}
+						}`
+					k = kubectl.PatchMerge(node1Resource, json)
+					err = k.ExecV()
+					if err != nil {
+						panic(err)
+					}
+			*/
 		})
 	})
 })

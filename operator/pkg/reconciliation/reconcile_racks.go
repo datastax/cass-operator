@@ -2007,6 +2007,7 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	logger := rc.ReqLogger
 	logger.Info("reconcile_racks::Apply")
+	logger.Info("reconcile_racks::Apply2")
 
 	podList, err := rc.listPods(rc.Datacenter.GetClusterLabels())
 	if err != nil {
@@ -2091,25 +2092,26 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	if recResult := rc.CheckClearActionConditions(); recResult.Completed() {
 		return recResult.Output()
 	}
+	logger.Info("reconcile_racks::Apply3")
 
 	if recResult := rc.CheckConditionInitializedAndReady(); recResult.Completed() {
 		return recResult.Output()
 	}
+	logger.Info("reconcile_racks::Apply4")
 
 	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
 		return result.Error(err).Output()
 	}
 
-	// At this point, the cluster should be "healthy" if api.ProgressReady is "ready" or something...
 	// TODO: what are the implications for tainting a node with local storage that is parked
 
 	// We do the node taint check here, with the assumption that the cluster is "healthy"
 
-	/*
-		if err := rc.checkNodeTaints(); err != nil {
-			return result.Error(err).Output()
-		}
-	*/
+	logger.Info("reconcile_racks::Apply5")
+	if err := rc.checkNodeTaints(); err != nil {
+		return result.Error(err).Output()
+	}
+	logger.Info("reconcile_racks::Apply6")
 
 	rc.ReqLogger.Info("All StatefulSets should now be reconciled.")
 
