@@ -42,8 +42,8 @@ const (
 	ProgressReady    ProgressState = "Ready"
 
 	// Default port numbers
-	DefaultCqlPort       = 9042
-	DefaultBroadcastPort = 7000
+	DefaultNativePort    = 9042
+	DefaultInternodePort = 7000
 )
 
 // This type exists so there's no chance of pushing random strings to our progress status
@@ -238,10 +238,10 @@ type NetworkingConfig struct {
 }
 
 type NodePortConfig struct {
-	Cql          int `json:"cql,omitempty"`
-	CqlSSL       int `json:"cqlSSL,omitempty"`
-	Broadcast    int `json:"broadcast,omitempty"`
-	BroadcastSSL int `json:"broadcastSSL,omitempty"`
+	Native       int `json:"native,omitempty"`
+	NativeSSL    int `json:"nativeSSL,omitempty"`
+	Internode    int `json:"internode,omitempty"`
+	InternodeSSL int `json:"internodeSSL,omitempty"`
 }
 
 // Is the NodePort service enabled?
@@ -576,10 +576,10 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 	broadcast := 0
 	broadcastSSL := 0
 	if dc.IsNodePortEnabled() {
-		cql = dc.Spec.Networking.NodePort.Cql
-		cqlSSL = dc.Spec.Networking.NodePort.CqlSSL
-		broadcast = dc.Spec.Networking.NodePort.Broadcast
-		broadcastSSL = dc.Spec.Networking.NodePort.BroadcastSSL
+		cql = dc.Spec.Networking.NodePort.Native
+		cqlSSL = dc.Spec.Networking.NodePort.NativeSSL
+		broadcast = dc.Spec.Networking.NodePort.Internode
+		broadcastSSL = dc.Spec.Networking.NodePort.InternodeSSL
 	}
 
 	modelValues := serverconfig.GetModelValues(
@@ -626,43 +626,43 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 // 0 will be returned if NodePort is not configured.
 // The SSL port will be returned if it is defined,
 // otherwise the normal CQL port will be used.
-func (dc *CassandraDatacenter) GetNodePortCqlPort() int {
+func (dc *CassandraDatacenter) GetNodePortNativePort() int {
 	if !dc.IsNodePortEnabled() {
 		return 0
 	}
 
-	if dc.Spec.Networking.NodePort.CqlSSL != 0 {
-		return dc.Spec.Networking.NodePort.CqlSSL
-	} else if dc.Spec.Networking.NodePort.Cql != 0 {
-		return dc.Spec.Networking.NodePort.Cql
+	if dc.Spec.Networking.NodePort.NativeSSL != 0 {
+		return dc.Spec.Networking.NodePort.NativeSSL
+	} else if dc.Spec.Networking.NodePort.Native != 0 {
+		return dc.Spec.Networking.NodePort.Native
 	} else {
-		return DefaultCqlPort
+		return DefaultNativePort
 	}
 }
 
-// Gets the defined broadcast/intranode port for NodePort.
+// Gets the defined broadcast/internode port for NodePort.
 // 0 will be returned if NodePort is not configured.
 // The SSL port will be returned if it is defined,
 // otherwise the normal broadcast port will be used.
-func (dc *CassandraDatacenter) GetNodePortBroadcastPort() int {
+func (dc *CassandraDatacenter) GetNodePortInternodePort() int {
 	if !dc.IsNodePortEnabled() {
 		return 0
 	}
 
-	if dc.Spec.Networking.NodePort.BroadcastSSL != 0 {
-		return dc.Spec.Networking.NodePort.BroadcastSSL
-	} else if dc.Spec.Networking.NodePort.Broadcast != 0 {
-		return dc.Spec.Networking.NodePort.Broadcast
+	if dc.Spec.Networking.NodePort.InternodeSSL != 0 {
+		return dc.Spec.Networking.NodePort.InternodeSSL
+	} else if dc.Spec.Networking.NodePort.Internode != 0 {
+		return dc.Spec.Networking.NodePort.Internode
 	} else {
-		return DefaultBroadcastPort
+		return DefaultInternodePort
 	}
 }
 
 // GetContainerPorts will return the container ports for the pods in a statefulset based on the provided config
 func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, error) {
 
-	cqlPort := DefaultCqlPort
-	broadcastPort := DefaultBroadcastPort
+	nativePort := DefaultNativePort
+	broadcastPort := DefaultInternodePort
 
 	ports := []corev1.ContainerPort{
 		{
