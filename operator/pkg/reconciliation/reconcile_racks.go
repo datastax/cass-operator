@@ -1063,6 +1063,18 @@ func (rc *ReconciliationContext) getCassMetadataEndpoints() httphelper.CassMetad
 	return metadata
 }
 
+func (rc *ReconciliationContext) isNodeStuckWithoutPVC(pod *corev1.Pod) bool {
+	_, err := rc.GetPVCForPod(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
+	if err != nil {
+		rc.ReqLogger.Info(
+			"Unable to get PersistentVolumeClaim",
+			"error", err.Error())
+		return true
+	}
+
+	return false
+}
+
 func (rc *ReconciliationContext) deleteStuckNodes() (bool, error) {
 	rc.ReqLogger.Info("reconcile_racks::deleteStuckNodes")
 	for _, pod := range rc.dcPods {
@@ -1073,6 +1085,9 @@ func (rc *ReconciliationContext) deleteStuckNodes() (bool, error) {
 			shouldDelete = true
 		} else if isNodeStuckAfterLosingReadiness(pod) {
 			reason = "Pod got stuck after losing readiness"
+			shouldDelete = true
+		} else if rc.isNodeStuckWithoutPVC(pod) {
+			reason = "Pod got stuck waiting for PersistentValueClaim"
 			shouldDelete = true
 		}
 

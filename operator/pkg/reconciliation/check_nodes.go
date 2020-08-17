@@ -13,6 +13,19 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+func (rc *ReconciliationContext) GetPVCForPod(podNamespace string, podName string) (*corev1.PersistentVolumeClaim, error) {
+	pvcFullName := fmt.Sprintf("%s-%s", PvcName, podName)
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: podNamespace, Name: pvcFullName}, pvc)
+	if err != nil {
+		rc.ReqLogger.Error(err, "error retrieving PersistentVolumeClaim")
+		return nil, err
+	}
+
+	return pvc, nil
+}
+
 func (rc *ReconciliationContext) DeletePvcIgnoreFinalizers(podNamespace string, podName string) (*corev1.PersistentVolumeClaim, error) {
 	var wg sync.WaitGroup
 
@@ -22,12 +35,8 @@ func (rc *ReconciliationContext) DeletePvcIgnoreFinalizers(podNamespace string, 
 
 	pvcFullName := fmt.Sprintf("%s-%s", PvcName, podName)
 
-	rc.ReqLogger.Info(fmt.Sprintf("retrieving PersistentVolumeClaim %s for deletion", pvcFullName))
-
-	pvc := &corev1.PersistentVolumeClaim{}
-	err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: podNamespace, Name: pvcFullName}, pvc)
+	pvc, err := rc.GetPVCForPod(podNamespace, podName)
 	if err != nil {
-		rc.ReqLogger.Error(err, "error retrieving PersistentVolumeClaim for deletion")
 		return nil, err
 	}
 
@@ -157,7 +166,7 @@ func (rc *ReconciliationContext) checkNodeTaints() error {
 					// Remove the pvc
 
 					rc.ReqLogger.Info("before DeletePvcIgnoreFinalizers")
-					pvc, err := rc.DeletePvcIgnoreFinalizers(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
+					_, err := rc.DeletePvcIgnoreFinalizers(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
 					if err != nil {
 						rc.ReqLogger.Info("DeletePvcIgnoreFinalizers - err")
 						rc.ReqLogger.Error(err, "error during PersistentVolume delete for vmware drain",
@@ -179,17 +188,19 @@ func (rc *ReconciliationContext) checkNodeTaints() error {
 					}
 					rc.ReqLogger.Info("after pod delete")
 
-					rc.ReqLogger.Info("before pvc recreation")
+					/*
+						rc.ReqLogger.Info("before pvc recreation")
 
-					err = RecreatePvc(rc, pvc)
-					if err != nil {
-						rc.ReqLogger.Info("pvc recreation - err")
-						rc.ReqLogger.Error(err, "error during PersistentVolumeClaim recreation for vmware drain",
-							"pvc", pvc.ObjectMeta.Name)
-						return err
-					}
+						err = RecreatePvc(rc, pvc)
+						if err != nil {
+							rc.ReqLogger.Info("pvc recreation - err")
+							rc.ReqLogger.Error(err, "error during PersistentVolumeClaim recreation for vmware drain",
+								"pvc", pvc.ObjectMeta.Name)
+							return err
+						}
 
-					rc.ReqLogger.Info("after pvc recreation")
+						rc.ReqLogger.Info("after pvc recreation")
+					*/
 				}
 			}
 		}
