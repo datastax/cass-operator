@@ -5975,8 +5975,6 @@ spec:
                         to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                       type: object
                   type: object
-              required:
-              - resources
               type: object
             replaceNodes:
               description: A list of pod names that need to be replaced.
@@ -6219,12 +6217,10 @@ spec:
               type: array
           required:
           - clusterName
-          - configBuilderResources
           - serverType
           - serverVersion
           - size
           - storageConfig
-          - systemLoggerResources
           type: object
         status:
           description: CassandraDatacenterStatus defines the observed state of CassandraDatacenter
