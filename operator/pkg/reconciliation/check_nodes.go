@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
@@ -105,15 +104,6 @@ func (rc *ReconciliationContext) DeletePvcIgnoreFinalizers(podNamespace string, 
 	return nil, *goRoutineError
 }
 
-func getRackNameFromPvcLabel(pvc *corev1.PersistentVolumeClaim) string {
-	for key, value := range pvc.ObjectMeta.Labels {
-		if key == api.RackLabel {
-			return value
-		}
-	}
-	return ""
-}
-
 // Check nodes for vmware draining taints
 func (rc *ReconciliationContext) checkNodeTaints() error {
 	logger := rc.ReqLogger
@@ -142,8 +132,11 @@ func (rc *ReconciliationContext) checkNodeTaints() error {
 		for _, taint := range node.Spec.Taints {
 			if taint.Key == "node.vmware.com/drain" && taint.Effect == "NoSchedule" {
 				if taint.Value == "planned-downtime" || taint.Value == "drain" {
+
 					// Drain the cassandra node
-					rc.ReqLogger.Info("reconciler::checkNodesTaints vmware taint found.  draining and deleting pod")
+
+					rc.ReqLogger.Info("reconciler::checkNodesTaints vmware taint found.  draining and deleting pod",
+						"pod", pod.Name)
 
 					if isMgmtApiRunning(&pod) {
 						err = rc.NodeMgmtClient.CallDrainEndpoint(&pod)
@@ -165,20 +158,15 @@ func (rc *ReconciliationContext) checkNodeTaints() error {
 
 					// Remove the pvc
 
-					rc.ReqLogger.Info("before DeletePvcIgnoreFinalizers")
 					_, err := rc.DeletePvcIgnoreFinalizers(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
 					if err != nil {
-						rc.ReqLogger.Info("DeletePvcIgnoreFinalizers - err")
 						rc.ReqLogger.Error(err, "error during PersistentVolume delete for vmware drain",
 							"pod", pod.ObjectMeta.Name)
 						return err
 					}
-					rc.ReqLogger.Info("after DeletePvcIgnoreFinalizers")
 
 					// Remove the pod
-					// the new/old? pod is getting stuck in pending
 
-					rc.ReqLogger.Info("before pod delete")
 					err = rc.Client.Delete(rc.Ctx, &pod)
 					if err != nil {
 						rc.ReqLogger.Info("pod delete - err")
@@ -186,60 +174,9 @@ func (rc *ReconciliationContext) checkNodeTaints() error {
 							"pod", pod.ObjectMeta.Name)
 						return err
 					}
-					rc.ReqLogger.Info("after pod delete")
-
-					/*
-						rc.ReqLogger.Info("before pvc recreation")
-
-						err = RecreatePvc(rc, pvc)
-						if err != nil {
-							rc.ReqLogger.Info("pvc recreation - err")
-							rc.ReqLogger.Error(err, "error during PersistentVolumeClaim recreation for vmware drain",
-								"pvc", pvc.ObjectMeta.Name)
-							return err
-						}
-
-						rc.ReqLogger.Info("after pvc recreation")
-					*/
 				}
 			}
 		}
-	}
-
-	return nil
-}
-
-func RecreatePvc(rc *ReconciliationContext, oldPvc *corev1.PersistentVolumeClaim) error {
-
-	// Recreate the pvc
-	// See: https://github.com/kubernetes/kubernetes/issues/89910
-
-	usesDefunct := false
-	rackName := getRackNameFromPvcLabel(oldPvc)
-
-	for idx := range rc.desiredRackInformation {
-		if rackName == rc.desiredRackInformation[idx].RackName {
-			sts := rc.statefulSets[idx]
-			usesDefunct = usesDefunctPvcManagedByLabel(sts)
-			break
-		}
-	}
-
-	newPvc := NewPersistentVolumeClaim(rackName, rc.Datacenter, usesDefunct)
-
-	// Copy some things from the oldPvc
-
-	newPvc.ObjectMeta.Name = oldPvc.ObjectMeta.Name
-	newPvc.ObjectMeta.Namespace = oldPvc.ObjectMeta.Namespace
-	for key, value := range oldPvc.ObjectMeta.Labels {
-		newPvc.ObjectMeta.Labels[key] = value
-	}
-
-	newPvc.Spec.VolumeMode = oldPvc.Spec.VolumeMode
-
-	err := rc.Client.Create(rc.Ctx, newPvc)
-	if err != nil {
-		return err
 	}
 
 	return nil
