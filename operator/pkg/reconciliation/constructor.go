@@ -234,10 +234,14 @@ func newStatefulSetForCassandraDatacenter(
 	return newStatefulSetForCassandraDatacenterHelper(rackName, dc, replicaCount, false)
 }
 
-func NewPersistentVolumeClaim(
+// Create a statefulset object for the Datacenter.
+func newStatefulSetForCassandraDatacenterHelper(
 	rackName string,
 	dc *api.CassandraDatacenter,
-	useDefunctManagedByForPvc bool) *corev1.PersistentVolumeClaim {
+	replicaCount int,
+	useDefunctManagedByForPvc bool) (*appsv1.StatefulSet, error) {
+
+	replicaCountInt32 := int32(replicaCount)
 
 	// see https://github.com/kubernetes/kubernetes/pull/74941
 	// pvc labels are ignored before k8s 1.15.0
@@ -248,28 +252,12 @@ func NewPersistentVolumeClaim(
 		oplabels.AddManagedByLabel(pvcLabels)
 	}
 
-	return &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels: pvcLabels,
-			Name:   PvcName,
-		},
-		Spec: *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec,
-	}
-}
-
-// Create a statefulset object for the Datacenter.
-func newStatefulSetForCassandraDatacenterHelper(
-	rackName string,
-	dc *api.CassandraDatacenter,
-	replicaCount int,
-	useDefunctManagedByForPvc bool) (*appsv1.StatefulSet, error) {
-
-	replicaCountInt32 := int32(replicaCount)
-
 	statefulSetLabels := dc.GetRackLabels(rackName)
 	oplabels.AddManagedByLabel(statefulSetLabels)
 
 	statefulSetSelectorLabels := dc.GetRackLabels(rackName)
+
+	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 
 	racks := dc.GetRacks()
 	var zone string
@@ -286,10 +274,13 @@ func newStatefulSetForCassandraDatacenterHelper(
 		return nil, err
 	}
 
-	volumeClaimTemplate := NewPersistentVolumeClaim(rackName, dc, useDefunctManagedByForPvc)
-
-	var volumeClaimTemplates []corev1.PersistentVolumeClaim
-	volumeClaimTemplates = []corev1.PersistentVolumeClaim{*volumeClaimTemplate}
+	volumeClaimTemplates = []corev1.PersistentVolumeClaim{{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: pvcLabels,
+			Name:   PvcName,
+		},
+		Spec: *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec,
+	}}
 
 	nsName := newNamespacedNameForStatefulSet(dc, rackName)
 
@@ -682,7 +673,7 @@ func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1.Job {
 	}
 }
 
-func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
+func addVolumes(dc *api.CassandraDatacenter,baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
 	vServerConfig := corev1.Volume{}
 	vServerConfig.Name = "server-config"
 	vServerConfig.VolumeSource = corev1.VolumeSource{
@@ -699,8 +690,9 @@ func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpe
 	vServerEncryption.Name = "encryption-cred-storage"
 	vServerEncryption.VolumeSource = corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
-			SecretName: fmt.Sprintf("%s-keystore", dc.Name)},
+			SecretName:fmt.Sprintf("%s-keystore", dc.Name)},
 	}
+
 
 	volumes := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
 	baseTemplate.Spec.Volumes = append(baseTemplate.Spec.Volumes, volumes...)
