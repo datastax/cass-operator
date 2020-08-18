@@ -16,12 +16,13 @@ import (
 )
 
 var (
-	testName     = "Tolerations"
-	opNamespace  = "test-tolerations"
-	dc1Name      = "dc2"
-	dc1Yaml      = "../testdata/default-single-rack-2-node-dc.yaml"
+	testName    = "Tolerations"
+	opNamespace = "test-tolerations"
+	dc1Name     = "dc1"
+	// This scenario requires RF greater than 2
+	dc1Yaml      = "../testdata/tolerations-dc.yaml"
 	dc1Resource  = fmt.Sprintf("CassandraDatacenter/%s", dc1Name)
-	pod1Name     = "cluster2-dc2-r1-sts-0"
+	pod1Name     = "cluster1-dc1-r1-sts-0"
 	pod1Resource = fmt.Sprintf("pod/%s", pod1Name)
 	ns           = ginkgo_util.NewWrapper(testName, opNamespace)
 )
@@ -60,7 +61,8 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForDatacenterReady(dc1Name)
 
-			// Add a taint to the node
+			// Add a taint to the node for the first pod
+
 			k = kubectl.GetNodeNameForPod(pod1Name)
 			node1Name, _, err := ns.ExecVCapture(k)
 			if err != nil {
@@ -68,6 +70,22 @@ var _ = Describe(testName, func() {
 			}
 
 			node1Resource := fmt.Sprintf("node/%s", node1Name)
+
+			// Cleanup: Remove the taint
+			defer func() {
+				json := `
+						{
+							"spec": {
+								"taints": null
+							}
+						}`
+				k = kubectl.PatchMerge(node1Resource, json)
+				err = k.ExecV()
+				if err != nil {
+					panic(err)
+				}
+			}()
+
 			// node.vmware.com/drain=planned-downtime:NoSchedule
 			step = fmt.Sprintf("tainting node: %s", node1Name)
 			k = kubectl.Taint(
@@ -76,6 +94,8 @@ var _ = Describe(testName, func() {
 				"planned-downtime",
 				"NoSchedule")
 			ns.ExecAndLog(step, k)
+
+			// Wait for a pod to no longer be ready
 
 			i := 1
 			for i < 300 {
@@ -88,19 +108,13 @@ var _ = Describe(testName, func() {
 				}
 			}
 
-			time.Sleep(5 * time.Minute)
+			// In my environment, I have to add a wait here
 
-			json := `
-						{
-							"spec": {
-								"taints": null
-							}
-						}`
-			k = kubectl.PatchMerge(node1Resource, json)
-			err = k.ExecV()
-			if err != nil {
-				panic(err)
-			}
+			time.Sleep(1 * time.Minute)
+
+			// Wait for the cluster to heal itself
+
+			ns.WaitForDatacenterReady(dc1Name)
 		})
 	})
 })
