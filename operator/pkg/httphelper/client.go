@@ -290,6 +290,27 @@ func (client *NodeMgmtClient) CallReloadSeedsEndpoint(pod *corev1.Pod) error {
 	return err
 }
 
+func (client *NodeMgmtClient) CallDecommissionNodeEndpoint(pod *corev1.Pod) error {
+	client.Log.Info(
+		"calling Management API decommission node - POST /api/v0/ops/node/decommission",
+		"pod", pod.Name,
+	)
+
+	podHost, err := BuildPodHostFromPod(pod)
+	if err != nil {
+		return err
+	}
+
+	request := nodeMgmtRequest{
+		endpoint: "/api/v0/ops/node/decommission",
+		host:     podHost,
+		method:   http.MethodPost,
+	}
+
+	_, err = callNodeMgmtEndpoint(client, request, "")
+	return err
+}
+
 func callNodeMgmtEndpoint(client *NodeMgmtClient, request nodeMgmtRequest, contentType string) ([]byte, error) {
 	client.Log.Info("client::callNodeMgmtEndpoint")
 

@@ -2113,6 +2113,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
+	if recResult := rc.DecommissionNodes(); recResult.Completed() {
+		return recResult.Output()
+	}
+
 	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
 		return result.Error(err).Output()
 	}
@@ -2127,4 +2131,104 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	rc.ReqLogger.Info("All StatefulSets should now be reconciled.")
 
 	return result.Done().Output()
+}
+
+// in progress
+func (rc *ReconciliationContext) DecommissionNodes() result.ReconcileResult {
+	logger := rc.ReqLogger
+	logger.Info("reconcile_racks::DecommissionNodes")
+	dc := rc.Datacenter
+
+	for idx := range rc.desiredRackInformation {
+		rackInfo := rc.desiredRackInformation[idx]
+		statefulSet := rc.statefulSets[idx]
+
+		// By the time we get here we know all the racks are ready for that particular size
+
+		desiredNodeCount := int32(rackInfo.NodeCount)
+		maxReplicas := *statefulSet.Spec.Replicas
+		lastPodSuffix := fmt.Sprintf("sts-%v", maxReplicas-1)
+
+		rc.ReqLogger.Info(
+			"--- Inside DecommissionNodes ----",
+			"Rack", rackInfo.RackName,
+			"maxReplicas", maxReplicas,
+			"desiredSize", desiredNodeCount,
+		)
+
+		if maxReplicas > desiredNodeCount {
+			dcPatch := client.MergeFrom(dc.DeepCopy())
+			updated := false
+
+			updated = rc.setCondition(
+				api.NewDatacenterCondition(
+					api.DatacenterScalingDown, corev1.ConditionTrue)) || updated
+
+			if updated {
+				err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
+				if err != nil {
+					logger.Error(err, "error patching datacenter status for scaling down rack started")
+					return result.Error(err)
+				}
+			}
+
+			// update it
+			rc.ReqLogger.Info(
+				"Need to update the rack's node count",
+				"Rack", rackInfo.RackName,
+				"maxReplicas", maxReplicas,
+				"desiredSize", desiredNodeCount,
+			)
+
+			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.ScalingDownRack,
+				"Scaling down rack %s", rackInfo.RackName)
+
+			decommissioned, err := rc.DecommissionNodeOnRack(rackInfo.RackName, lastPodSuffix)
+			if err != nil {
+				return result.Error(err)
+			}
+
+			if !decommissioned {
+				//TODO
+				rc.ReqLogger.Info("Did not decommission")
+			} else {
+				rc.ReqLogger.Info("Decommissioned node")
+			}
+
+			err = rc.UpdateRackNodeCount(statefulSet, maxReplicas-1)
+			if err != nil {
+				return result.Error(err)
+			}
+		}
+	}
+
+	return result.Continue()
+}
+
+// test
+func (rc *ReconciliationContext) DecommissionNodeOnRack(rackName string, lastPodSuffix string) (bool, error) {
+	for _, pod := range rc.dcPods {
+		mgmtApiUp := isMgmtApiRunning(pod)
+		if !mgmtApiUp {
+			continue
+		}
+		podRack := pod.Labels[api.RackLabel]
+		if podRack == rackName && strings.HasSuffix(pod.Name, lastPodSuffix) {
+			// decommission node
+			if err := rc.NodeMgmtClient.CallDecommissionNodeEndpoint(pod); err != nil {
+				return false, err
+			}
+
+			patch := client.MergeFrom(pod.DeepCopy())
+			pod.Labels[api.DecommissioningLabel] = "true"
+			if err := rc.Client.Patch(rc.Ctx, pod, patch); err != nil {
+				return false, err
+			}
+
+			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.LabeledPodAsDecommissioning,
+				"Labeled pod as decommissioning %s", pod.Name)
+			return true, nil
+		}
+	}
+	return false, nil
 }

@@ -28,6 +28,9 @@ const (
 	// SeedNodeLabel is the operator's label for the seed node state
 	SeedNodeLabel = "cassandra.datastax.com/seed-node"
 
+	// DecommisioningLabel
+	DecommissioningLabel = "cassandra.datastax.com/decommissioning"
+
 	// RackLabel is the operator's label for the rack name
 	RackLabel = "cassandra.datastax.com/rack"
 
@@ -298,6 +301,7 @@ const (
 	DatacenterInitialized    DatacenterConditionType = "Initialized"
 	DatacenterReplacingNodes DatacenterConditionType = "ReplacingNodes"
 	DatacenterScalingUp      DatacenterConditionType = "ScalingUp"
+	DatacenterScalingDown    DatacenterConditionType = "ScalingDown"
 	DatacenterUpdating       DatacenterConditionType = "Updating"
 	DatacenterStopped        DatacenterConditionType = "Stopped"
 	DatacenterResuming       DatacenterConditionType = "Resuming"
