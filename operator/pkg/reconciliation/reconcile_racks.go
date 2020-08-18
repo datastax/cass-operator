@@ -1063,6 +1063,14 @@ func (rc *ReconciliationContext) getCassMetadataEndpoints() httphelper.CassMetad
 	return metadata
 }
 
+// When a vmware taint occurs and we delete the pvc, pv, and
+// pod, then a new pod is created to replace the deleted pod.
+// However, there is a kubernetes bug that prevents a new pvc
+// from being created, and the new pod gets stuck in Pending.
+// see: https://github.com/kubernetes/kubernetes/issues/89910
+//
+// If we then delete this new pod, then the stateful will
+// properly recreate a pvc, pv, and pod.
 func (rc *ReconciliationContext) isNodeStuckWithoutPVC(pod *corev1.Pod) bool {
 	_, err := rc.GetPVCForPod(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
 	if err != nil {
@@ -2021,8 +2029,6 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 // ReconcileAllRacks determines if a rack needs to be reconciled.
 func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	logger := rc.ReqLogger
-	logger.Info("reconcile_racks::Apply")
-	logger.Info("reconcile_racks::Apply2")
 
 	podList, err := rc.listPods(rc.Datacenter.GetClusterLabels())
 	if err != nil {
@@ -2107,26 +2113,20 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	if recResult := rc.CheckClearActionConditions(); recResult.Completed() {
 		return recResult.Output()
 	}
-	logger.Info("reconcile_racks::Apply3")
 
 	if recResult := rc.CheckConditionInitializedAndReady(); recResult.Completed() {
 		return recResult.Output()
 	}
-	logger.Info("reconcile_racks::Apply4")
 
 	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
 		return result.Error(err).Output()
 	}
 
-	// TODO: what are the implications for tainting a node with local storage that is parked
-
 	// We do the node taint check here, with the assumption that the cluster is "healthy"
 
-	logger.Info("reconcile_racks::Apply5")
 	if err := rc.checkNodeTaints(); err != nil {
 		return result.Error(err).Output()
 	}
-	logger.Info("reconcile_racks::Apply6")
 
 	rc.ReqLogger.Info("All StatefulSets should now be reconciled.")
 
