@@ -20,6 +20,12 @@ type HealthStatusUpdater interface {
 	Update(dc api.CassandraDatacenter) error
 }
 
+type NoOpUpdater struct {}
+
+func (*NoOpUpdater) Update(dc api.CassandraDatacenter) error {
+	return nil
+}
+
 type Spec map[string]interface{}
 
 type HealthStatus string
