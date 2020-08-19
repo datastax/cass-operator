@@ -89,7 +89,8 @@ func (rc *ReconciliationContext) calculateReconciliationActions() (reconcile.Res
 	rc.ReqLogger.Info("handler::calculateReconciliationActions")
 
 	if err := rc.updateNodeToDcMap(); err != nil {
-		return result.Error(err).Output()
+		// We will not skip reconciliation if the map update failed
+		// return result.Error(err).Output()
 	}
 
 	// Check if the CassandraDatacenter was marked to be deleted
