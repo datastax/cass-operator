@@ -5,13 +5,16 @@ package reconciliation
 
 import (
 	"fmt"
-	"time"
-
+	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"time"
+
+	corev1 "k8s.io/api/core/v1"
 
 	"github.com/google/uuid"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -27,6 +30,56 @@ import (
 // Use a var so we can mock this function
 var setControllerReference = controllerutil.SetControllerReference
 
+// key: Node.Name, value: CassandraDatacenter.Name
+var nodeToDcName = make(map[string]string)
+
+// key: Node.Name, value: CassandraDatacenter.Namespace
+var nodeToDcNamespace = make(map[string]string)
+
+// Get the dcName and dcNamespace for a node
+func DatacenterForNode(nodeName string) (string, string) {
+	dcName, ok := nodeToDcName[nodeName]
+	if ok {
+		return dcName, nodeToDcNamespace[nodeName]
+	}
+	return "", ""
+}
+
+// We will only update the map for the current CassandraDatacenter
+// Every CassandraDatacenter with pods will have produced at least
+// one call to the reconcile loop.  Therefore this map will be
+// populated with the information for all current CassandraDatacenters.
+func (rc *ReconciliationContext) updateNodeToDcMap() error {
+	// List all pods in the current namespace managed by cass-operator
+
+	labelSelector := labels.SelectorFromSet(
+		labels.Set{
+			oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
+		})
+
+	listOptions := &client.ListOptions{
+		Namespace:     rc.Request.Namespace,
+		LabelSelector: labelSelector,
+	}
+
+	podList := &corev1.PodList{}
+
+	err := rc.Client.List(rc.Ctx, podList, listOptions)
+	if err != nil {
+		rc.ReqLogger.Error(err, "error listing managed pods for namespace",
+			"namespace", rc.Request.Namespace)
+		return err
+	}
+
+	for _, pod := range podList.Items {
+		podLabels := pod.GetLabels()
+		nodeToDcName[pod.Spec.NodeName] = podLabels[api.DatacenterLabel]
+		nodeToDcNamespace[pod.Spec.NodeName] = rc.Request.Namespace
+	}
+
+	return nil
+}
+
 // calculateReconciliationActions will iterate over an ordered list of reconcilers which will determine if any action needs to
 // be taken on the CassandraDatacenter. If a change is needed then the apply function will be called on that reconciler and the
 // request will be requeued for the next reconciler to handle in the subsequent reconcile loop, otherwise the next reconciler
@@ -34,6 +87,10 @@ var setControllerReference = controllerutil.SetControllerReference
 func (rc *ReconciliationContext) calculateReconciliationActions() (reconcile.Result, error) {
 
 	rc.ReqLogger.Info("handler::calculateReconciliationActions")
+
+	if err := rc.updateNodeToDcMap(); err != nil {
+		return result.Error(err).Output()
+	}
 
 	// Check if the CassandraDatacenter was marked to be deleted
 	if result := rc.ProcessDeletion(); result.Completed() {

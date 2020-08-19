@@ -4,7 +4,6 @@
 package cassandradatacenter
 
 import (
-	"context"
 	"fmt"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
@@ -20,9 +19,7 @@ import (
 
 	"github.com/datastax/cass-operator/operator/pkg/reconciliation"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	types "k8s.io/apimachinery/pkg/types"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -127,48 +124,18 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			requests := []reconcile.Request{}
 
 			nodeName := a.Object.(*corev1.Node).Name
+			dcName, dcNamespace := reconciliation.DatacenterForNode(nodeName)
 
-			c := mgr.GetClient()
+			if dcName != "" {
+				log.Info("node watch adding reconcilation request",
+					"cassandraDatacenter", dcName,
+					"namespace", dcNamespace)
 
-			// We will list all pods in all namespaces managed by cass-operator
-
-			labelSelector := labels.SelectorFromSet(
-				labels.Set{
-					oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
-				})
-
-			listOptions := &client.ListOptions{
-				Namespace:     "",
-				LabelSelector: labelSelector,
-			}
-
-			podList := &corev1.PodList{}
-
-			err := c.List(context.Background(), podList, listOptions)
-			if err != nil {
-				log.Info("Node Watch - error")
-				log.Info(err.Error())
-				return requests
-			}
-
-			// Get the dc names for the pods
-
-			log.Info("Node Watch - checking pods")
-
-			for _, pod := range podList.Items {
-				if pod.Spec.NodeName != nodeName {
-					continue
-				}
-
-				log.Info(fmt.Sprintf("Node Watch - adding request for pod %s", pod.ObjectMeta.Name))
-
-				podLabels := pod.GetLabels()
-
-				// Create reconcilerequests for the related cassandraDatacenters
+				// Create reconcilerequests for the related cassandraDatacenter
 				requests = append(requests, reconcile.Request{
 					NamespacedName: types.NamespacedName{
-						Name:      podLabels[api.DatacenterLabel],
-						Namespace: pod.ObjectMeta.GetNamespace(),
+						Name:      dcName,
+						Namespace: dcNamespace,
 					}},
 				)
 			}
