@@ -381,6 +381,28 @@ The SSL versions of the ports may be requested:
       
 If any of the nodePort fields have been configured then a NodePort service will be created that routes from the specified external port to the identically numbered internal port.  Cassandra will be configured to listen on the specified ports.
 
+## Encryption
+
+The operator automates the creation of key stores and trust stores
+   for client-to-node and internode encryption. For each datacenter created with the operator,
+   credentials are injected into the stateful set via secrets with the name `<datacenter-name>-keystore`.
+   In order to use client-to-node or internode encryption, it is only necessary to reference the injected
+   keystores from the cassandra parameters provided in the datacenter configuration. An example can be found
+   in the [datacenter encryption test yamls](../../tests/testdata/encrypted-single-rack-2-node-dc.yaml#L27).
+
+   Due to limitations of kubernetes stateful sets, the current strategy primarily focuses on internode encryption
+   with ca-only verification (peer name verification is not currently available). Peer verification can be achieved with init containers,
+   which may be able to leverage external certificate issuance architecture to enable per-node and per-client peer name verification.
+
+   By storing the certificate authority in kubernetes secrets, it is possible to create secrets ahead of time from user-provided or organizational
+   certificate authorities. It is also possible to leverage a single CA across multiple datacenters, by copying the secrets generated for one datacenter
+   to the secondary datacenter prior to launching the secondary datacenter.
+
+   It is possible to go from encrypted internode communications to unencrypted
+   internode communications and the reverse, but this change as a rolling
+   configuration is not currently supported, the entire cluster must be stopped
+   and started to update these features.
+
 # Using Your Cluster
 
 ## Connecting from inside the Kubernetes cluster
@@ -456,5 +478,4 @@ this time.
 1. There is no facility for multi-region clusters. The operator functions
    within the context of a single Kubernetes cluster, which typically also
    implies a single geographic region.
-2. The operator does not automate the creation of key stores and trust stores
-   for client-to-node and internode encryption.
+

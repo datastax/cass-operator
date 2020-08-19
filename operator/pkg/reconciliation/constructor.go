@@ -7,8 +7,9 @@ package reconciliation
 
 import (
 	"fmt"
-	"k8s.io/api/batch/v1"
 	"os"
+
+	v1 "k8s.io/api/batch/v1"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
@@ -367,6 +368,10 @@ func setOperatorProgressStatus(rc *ReconciliationContext, newState api.ProgressS
 
 	patch := client.MergeFrom(rc.Datacenter.DeepCopy())
 	rc.Datacenter.Status.CassandraOperatorProgress = newState
+	// TODO there may be a better place to push status.observedGeneration in the reconcile loop
+	if newState == api.ProgressReady {
+		rc.Datacenter.Status.ObservedGeneration = rc.Datacenter.Generation
+	}
 	if err := rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
 		rc.ReqLogger.Error(err, "error updating the Cassandra Operator Progress state")
 		return err
@@ -526,6 +531,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 		"/bin/sh", "-c", "tail -n+1 -F /var/log/cassandra/system.log",
 	}
 	loggerContainer.VolumeMounts = []corev1.VolumeMount{cassServerLogsMount}
+	loggerContainer.Resources = *getResourcesOrDefault(&dc.Spec.SystemLoggerResources, &DefaultsLoggerContainer)
 
 	containers := []corev1.Container{cassContainer, loggerContainer}
 	if dc.Spec.Reaper != nil && dc.Spec.Reaper.Enabled && dc.Spec.ServerType == "cassandra" {
@@ -545,6 +551,7 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1
 		MountPath: "/config",
 	}
 	serverCfg.VolumeMounts = []corev1.VolumeMount{serverCfgMount}
+	serverCfg.Resources = *getResourcesOrDefault(&dc.Spec.ConfigBuilderResources, &DefaultsConfigInitContainer)
 
 	// Convert the bool to a string for the env var setting
 	useHostIpForBroadcast := "false"
@@ -673,7 +680,7 @@ func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1.Job {
 	}
 }
 
-func addVolumes(dc *api.CassandraDatacenter,baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
+func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
 	vServerConfig := corev1.Volume{}
 	vServerConfig.Name = "server-config"
 	vServerConfig.VolumeSource = corev1.VolumeSource{
@@ -690,9 +697,8 @@ func addVolumes(dc *api.CassandraDatacenter,baseTemplate *corev1.PodTemplateSpec
 	vServerEncryption.Name = "encryption-cred-storage"
 	vServerEncryption.VolumeSource = corev1.VolumeSource{
 		Secret: &corev1.SecretVolumeSource{
-			SecretName:fmt.Sprintf("%s-keystore", dc.Name)},
+			SecretName: fmt.Sprintf("%s-keystore", dc.Name)},
 	}
-
 
 	volumes := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
 	baseTemplate.Spec.Volumes = append(baseTemplate.Spec.Volumes, volumes...)

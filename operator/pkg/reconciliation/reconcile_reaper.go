@@ -55,6 +55,7 @@ func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
 			{Name: "REAPER_JMX_AUTH_USERNAME", Value: ""},
 			{Name: "REAPER_JMX_AUTH_PASSWORD", Value: ""},
 		},
+		Resources: *getResourcesOrDefault(&dc.Spec.Reaper.Resources, &DefaultsReaperContainer),
 	}
 
 	return container
