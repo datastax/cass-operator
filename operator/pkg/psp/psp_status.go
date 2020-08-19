@@ -221,6 +221,7 @@ type HealthStatusUpdaterImpl struct {
 
 func NewDao(client runtimeClient.Client, namespace string) DAO {
 	return &DAOImpl{
+		client: client,
 		healthChecksNamespacedName: types.NamespacedName{
 			Name: "health-check-0",
 			Namespace: namespace,
