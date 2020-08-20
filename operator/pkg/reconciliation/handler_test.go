@@ -55,6 +55,7 @@ func TestCalculateReconciliationActions_GetServiceError(t *testing.T) {
 
 	k8sMockClientGet(mockClient, fmt.Errorf(""))
 	k8sMockClientUpdate(mockClient, nil).Times(1)
+	k8sMockClientList(mockClient, nil).Times(1)
 	// k8sMockClientCreate(mockClient, nil)
 
 	_, err := rc.calculateReconciliationActions()
@@ -71,6 +72,7 @@ func TestCalculateReconciliationActions_FailedUpdate(t *testing.T) {
 	rc.Client = mockClient
 
 	k8sMockClientUpdate(mockClient, fmt.Errorf("failed to update CassandraDatacenter with removed finalizers"))
+	k8sMockClientList(mockClient, nil).Times(1)
 
 	_, err := rc.calculateReconciliationActions()
 	assert.Errorf(t, err, "Should have returned an error while calculating reconciliation actions")

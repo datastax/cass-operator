@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const pvcName = "server-data"
+const PvcName = "server-data"
 
 // Creates a headless service object for the Datacenter, for clients wanting to
 // reach out to a ready Server node for either CQL or mgmt API
@@ -278,7 +278,7 @@ func newStatefulSetForCassandraDatacenterHelper(
 	volumeClaimTemplates = []corev1.PersistentVolumeClaim{{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: pvcLabels,
-			Name:   pvcName,
+			Name:   PvcName,
 		},
 		Spec: *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec,
 	}}
@@ -510,7 +510,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 	}
 	serverVolumeMounts = append(serverVolumeMounts, cassServerLogsMount)
 	serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
-		Name:      pvcName,
+		Name:      PvcName,
 		MountPath: "/var/lib/cassandra",
 	})
 	serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
