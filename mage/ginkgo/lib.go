@@ -368,6 +368,15 @@ func (ns NsWrapper) HelmInstall(chartPath string) {
 	mageutil.PanicOnError(err)
 }
 
+func (ns NsWrapper) HelmInstallWithPSPEnabled(chartPath string) {
+	var overrides = map[string]string{
+		"image": cfgutil.GetOperatorImage(),
+		"vmwarePSPEnabled": "true",
+	}
+	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
+	mageutil.PanicOnError(err)
+}
+
 // Note that the actual value will be cast to a string before the comparison with the expectedValue
 func (ns NsWrapper) ExpectKeyValue(m map[string]interface{}, key string, expectedValue string) {
 	actualValue, ok := m[key].(string)

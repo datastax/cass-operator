@@ -1103,7 +1103,7 @@ func (rc *ReconciliationContext) deleteStuckNodes() (bool, error) {
 		} else if isNodeStuckAfterLosingReadiness(pod) {
 			reason = "Pod got stuck after losing readiness"
 			shouldDelete = true
-		} else if rc.isNodeStuckWithoutPVC(pod) {
+		} else if utils.IsPSPEnabled() && rc.isNodeStuckWithoutPVC(pod) {
 			reason = "Pod got stuck waiting for PersistentValueClaim"
 			shouldDelete = true
 		}
@@ -2106,8 +2106,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 
 	// We do the node taint check here, with the assumption that the cluster is "healthy"
 
-	if err := rc.checkNodeTaints(); err != nil {
-		return result.Error(err).Output()
+	if utils.IsPSPEnabled() {
+		if err := rc.checkNodeTaints(); err != nil {
+			return result.Error(err).Output()
+		}
 	}
 
 	// TODO until we ignore status updates as it pertains to reconcile

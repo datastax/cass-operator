@@ -27,6 +27,7 @@ import (
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/dynamicwatch"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 )
 
 // Use a var so we can mock this function
@@ -124,10 +125,11 @@ func (rc *ReconciliationContext) updateNodeToDcMap() error {
 func (rc *ReconciliationContext) calculateReconciliationActions() (reconcile.Result, error) {
 
 	rc.ReqLogger.Info("handler::calculateReconciliationActions")
-
-	if err := rc.updateNodeToDcMap(); err != nil {
-		// We will not skip reconciliation if the map update failed
-		// return result.Error(err).Output()
+	if utils.IsPSPEnabled() {
+		if err := rc.updateNodeToDcMap(); err != nil {
+			// We will not skip reconciliation if the map update failed
+			// return result.Error(err).Output()
+		}
 	}
 
 	// Check if the CassandraDatacenter was marked to be deleted

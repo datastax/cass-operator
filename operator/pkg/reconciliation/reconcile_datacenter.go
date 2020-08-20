@@ -13,6 +13,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 )
 
 // ProcessDeletion ...
@@ -39,9 +40,11 @@ func (rc *ReconciliationContext) ProcessDeletion() result.ReconcileResult {
 		return result.Error(err)
 	}
 
-	rc.RemoveDcFromNodeToDcMap(types.NamespacedName{
-		Name:      rc.Datacenter.GetName(),
-		Namespace: rc.Datacenter.GetNamespace()})
+	if utils.IsPSPEnabled() {
+		rc.RemoveDcFromNodeToDcMap(types.NamespacedName{
+			Name:      rc.Datacenter.GetName(),
+			Namespace: rc.Datacenter.GetNamespace()})
+	}
 
 	// Update finalizer to allow delete of CassandraDatacenter
 	rc.Datacenter.SetFinalizers(nil)
