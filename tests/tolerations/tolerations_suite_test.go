@@ -51,7 +51,7 @@ var _ = Describe(testName, func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			step := "setting up cass-operator resources via helm chart"
-			ns.HelmInstall("../../charts/cass-operator-chart")
+			ns.HelmInstallWithPSPEnabled("../../charts/cass-operator-chart")
 
 			ns.WaitForOperatorReady()
 

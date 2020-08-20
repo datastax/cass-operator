@@ -9,6 +9,7 @@ import (
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -142,14 +143,16 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			return requests
 		})
 
-	err = c.Watch(
-		&source.Kind{Type: &corev1.Node{}},
-		&handler.EnqueueRequestsFromMapFunc{
-			ToRequests: mapFn,
-		},
-	)
-	if err != nil {
-		return err
+	if utils.IsPSPEnabled() {
+		err = c.Watch(
+			&source.Kind{Type: &corev1.Node{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: mapFn,
+			},
+		)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Setup watches for Secrets. These secrets are often not owned by or created by
