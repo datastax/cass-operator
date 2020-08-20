@@ -124,18 +124,18 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			requests := []reconcile.Request{}
 
 			nodeName := a.Object.(*corev1.Node).Name
-			dcName, dcNamespace := reconciliation.DatacenterForNode(nodeName)
+			dcs := reconciliation.DatacentersForNode(nodeName)
 
-			if dcName != "" {
+			for _, dc := range dcs {
 				log.Info("node watch adding reconcilation request",
-					"cassandraDatacenter", dcName,
-					"namespace", dcNamespace)
+					"cassandraDatacenter", dc.Name,
+					"namespace", dc.Namespace)
 
 				// Create reconcilerequests for the related cassandraDatacenter
 				requests = append(requests, reconcile.Request{
 					NamespacedName: types.NamespacedName{
-						Name:      dcName,
-						Namespace: dcNamespace,
+						Name:      dc.Name,
+						Namespace: dc.Namespace,
 					}},
 				)
 			}

@@ -8,6 +8,7 @@ import (
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"sync"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -16,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -31,18 +33,34 @@ import (
 var setControllerReference = controllerutil.SetControllerReference
 
 // key: Node.Name, value: CassandraDatacenter.Name
-var nodeToDcName = make(map[string]string)
+var nodeToDc = make(map[string][]types.NamespacedName)
+var nodeToDcLock = sync.RWMutex{}
 
-// key: Node.Name, value: CassandraDatacenter.Namespace
-var nodeToDcNamespace = make(map[string]string)
+// Get the dcNames and dcNamespaces for a node
+func DatacentersForNode(nodeName string) []types.NamespacedName {
+	nodeToDcLock.RLock()
+	defer nodeToDcLock.RUnlock()
 
-// Get the dcName and dcNamespace for a node
-func DatacenterForNode(nodeName string) (string, string) {
-	dcName, ok := nodeToDcName[nodeName]
+	dcs, ok := nodeToDc[nodeName]
 	if ok {
-		return dcName, nodeToDcNamespace[nodeName]
+		return dcs
 	}
-	return "", ""
+	return []types.NamespacedName{}
+}
+
+func (rc *ReconciliationContext) RemoveDcFromNodeToDcMap(dcToRemove types.NamespacedName) {
+	nodeToDcLock.Lock()
+	defer nodeToDcLock.Unlock()
+
+	for nodeName, dcs := range nodeToDc {
+		var newDcs = []types.NamespacedName{}
+		for _, dc := range dcs {
+			if dc != dcToRemove {
+				newDcs = append(newDcs, dc)
+			}
+		}
+		nodeToDc[nodeName] = newDcs
+	}
 }
 
 // We will only update the map for the current CassandraDatacenter
@@ -50,15 +68,18 @@ func DatacenterForNode(nodeName string) (string, string) {
 // one call to the reconcile loop.  Therefore this map will be
 // populated with the information for all current CassandraDatacenters.
 func (rc *ReconciliationContext) updateNodeToDcMap() error {
-	// List all pods in the current namespace managed by cass-operator
+
+	dcName := rc.Datacenter.ObjectMeta.Name
+
+	// List all pods managed by the cass-operator for this dc
 
 	labelSelector := labels.SelectorFromSet(
 		labels.Set{
 			oplabels.ManagedByLabel: oplabels.ManagedByLabelValue,
+			api.DatacenterLabel:     dcName,
 		})
 
 	listOptions := &client.ListOptions{
-		Namespace:     rc.Request.Namespace,
 		LabelSelector: labelSelector,
 	}
 
@@ -71,10 +92,26 @@ func (rc *ReconciliationContext) updateNodeToDcMap() error {
 		return err
 	}
 
+	nodeToDcLock.Lock()
+	defer nodeToDcLock.Unlock()
+
 	for _, pod := range podList.Items {
-		podLabels := pod.GetLabels()
-		nodeToDcName[pod.Spec.NodeName] = podLabels[api.DatacenterLabel]
-		nodeToDcNamespace[pod.Spec.NodeName] = rc.Request.Namespace
+		nodeName := pod.Spec.NodeName
+		needToAdd := true
+		dcToAdd := types.NamespacedName{
+			Namespace: pod.ObjectMeta.Namespace,
+			Name:      dcName,
+		}
+
+		for _, dc := range nodeToDc[nodeName] {
+			if dc == dcToAdd {
+				needToAdd = false
+			}
+		}
+
+		if needToAdd {
+			nodeToDc[nodeName] = append(nodeToDc[nodeName], dcToAdd)
+		}
 	}
 
 	return nil
