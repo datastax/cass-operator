@@ -1103,7 +1103,7 @@ func (rc *ReconciliationContext) deleteStuckNodes() (bool, error) {
 		} else if isNodeStuckAfterLosingReadiness(pod) {
 			reason = "Pod got stuck after losing readiness"
 			shouldDelete = true
-		} else if rc.isNodeStuckWithoutPVC(pod) {
+		} else if utils.IsPSPEnabled() && rc.isNodeStuckWithoutPVC(pod) {
 			reason = "Pod got stuck waiting for PersistentValueClaim"
 			shouldDelete = true
 		}
