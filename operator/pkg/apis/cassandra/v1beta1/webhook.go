@@ -58,6 +58,8 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 		switch dc.Spec.ServerVersion {
 		case "3.11.6":
 			err = nil
+		case "3.11.7":
+			err = nil
 		case "4.0.0":
 			err = nil
 		default:

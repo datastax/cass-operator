@@ -5,8 +5,7 @@ metadata:
 spec:
   clusterName: cluster1
   serverType: cassandra
-  serverVersion: "3.11.6"
-  serverImage: datastax/cassandra-mgmtapi-3_11_6:v0.1.5
+  serverVersion: "3.11.7"
   managementApiAuth:
     insecure: {}
   size: 6

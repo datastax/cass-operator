@@ -53,9 +53,12 @@ const (
 	defaultConfigBuilderImage     = "datastax/cass-config-builder:1.0.2"
 	ubi_defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.2-ubi7"
 
-	cassandra_3_11_6     = "datastax/cassandra-mgmtapi-3_11_6:v0.1.5"
-	cassandra_4_0_0      = "datastax/cassandra-mgmtapi-4_0_0:v0.1.5"
+	cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.5"
+	cassandra_3_11_7 = "datastax/cassandra-mgmtapi-3_11_7:v0.1.12"
+	cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.5"
+
 	ubi_cassandra_3_11_6 = "datastax/cassandra:3.11.6-ubi7"
+	ubi_cassandra_3_11_7 = "datastax/cassandra:3.11.7-ubi7"
 	ubi_cassandra_4_0_0  = "datastax/cassandra:4.0-ubi7"
 
 	dse_6_8_0 = "datastax/dse-server:6.8.0"
@@ -109,6 +112,8 @@ func getImageForDefaultBaseOs(sv string) (string, bool) {
 		return dse_6_8_2, true
 	case "cassandra-3.11.6":
 		return cassandra_3_11_6, true
+	case "cassandra-3.11.7":
+		return cassandra_3_11_7, true
 	case "cassandra-4.0.0":
 		return cassandra_4_0_0, true
 	}
@@ -125,6 +130,8 @@ func getImageForUniversalBaseOs(sv string) (string, bool) {
 		return ubi_dse_6_8_2, true
 	case "cassandra-3.11.6":
 		return ubi_cassandra_3_11_6, true
+	case "cassandra-3.11.7":
+		return ubi_cassandra_3_11_7, true
 	case "cassandra-4.0.0":
 		return ubi_cassandra_4_0_0, true
 	}
@@ -149,7 +156,7 @@ type CassandraDatacenterSpec struct {
 
 	// Version string for config builder,
 	// used to generate Cassandra server configuration
-	// +kubebuilder:validation:Enum="6.8.0";"6.8.1";"6.8.2";"3.11.6";"4.0.0"
+	// +kubebuilder:validation:Enum="6.8.0";"6.8.1";"6.8.2";"3.11.6";"3.11.7";"4.0.0"
 	ServerVersion string `json:"serverVersion"`
 
 	// Cassandra server image name.
