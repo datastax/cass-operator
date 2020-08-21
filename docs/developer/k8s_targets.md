@@ -78,7 +78,7 @@ operator/deploy/operator.yaml,
 operator/example-cassdc-yaml/dse-6.8.x/example-cassdc-minimal.yaml
 
 # if using cassandra
-operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
+operator/example-cassdc-yaml/cassandra-3.11.x/example-cassdc-minimal.yaml
 ```
 
 To check the cluster status:
