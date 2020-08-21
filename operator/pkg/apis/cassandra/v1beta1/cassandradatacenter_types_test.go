@@ -65,13 +65,13 @@ func Test_makeImage(t *testing.T) {
 			errString: "server 'dse' and version '6.7.0' do not work together",
 		},
 		{
-			name: "test 6.8.1",
+			name: "test 6.8.2",
 			args: args{
 				serverImage:   "",
 				serverType:    "dse",
-				serverVersion: "6.8.1",
+				serverVersion: "6.8.2",
 			},
-			want:      "datastax/dse-server:6.8.1",
+			want:      "datastax/dse-server:6.8.2",
 			errString: "",
 		},
 	}
