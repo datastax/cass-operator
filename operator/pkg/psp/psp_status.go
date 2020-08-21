@@ -197,6 +197,8 @@ func getConfigMap(client runtimeClient.Client, name types.NamespacedName) (*core
 	if err != nil && errors.IsNotFound(err) {
 		configMap.ObjectMeta.Name = name.Name
 		configMap.ObjectMeta.Namespace = name.Namespace
+		configMap.BinaryData = map[string][]byte{}
+		configMap.Data = map[string]string{}
 		return configMap, nil
 	} else {
 		return configMap, err
@@ -208,7 +210,11 @@ func (dao *DAOImpl) GetHealthCheckConfigMap() (*corev1.ConfigMap, error) {
 }
 
 func (dao *DAOImpl) UpsertHealthCheckConfigMap(configMap *corev1.ConfigMap) error {
-	return dao.client.Update(context.TODO(), configMap)
+	if configMap.ObjectMeta.ResourceVersion != "" {
+		return dao.client.Update(context.TODO(), configMap)
+	} else {
+		return dao.client.Create(context.TODO(), configMap)
+	}
 }
 
 func (dao *DAOImpl) UpsertCatalogConfigMap(configMap *corev1.ConfigMap) error {
