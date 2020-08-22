@@ -216,7 +216,7 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 
 		needsUpdate := false
 
-		if !resourcesHaveSameHash(statefulSet, desiredSts) {
+		if !utils.ResourcesHaveSameHash(statefulSet, desiredSts) {
 			logger.
 				WithValues("rackName", rackName).
 				Info("statefulset needs an update")
@@ -1263,7 +1263,7 @@ func (rc *ReconciliationContext) CheckDcPodDisruptionBudget() result.ReconcileRe
 
 	found := err == nil
 
-	if found && resourcesHaveSameHash(currentBudget, desiredBudget) {
+	if found && utils.ResourcesHaveSameHash(currentBudget, desiredBudget) {
 		return result.Continue()
 	}
 

@@ -48,7 +48,7 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 		},
 	}
 
-	addHashAnnotation(service)
+	utils.AddHashAnnotation(service)
 
 	return service
 }
@@ -75,7 +75,7 @@ func newSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.S
 	service.Spec.Selector = buildLabelSelectorForSeedService(dc)
 	service.Spec.PublishNotReadyAddresses = true
 
-	addHashAnnotation(service)
+	utils.AddHashAnnotation(service)
 
 	return service
 }
@@ -94,7 +94,7 @@ func newAdditionalSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter)
 	service.Spec.ClusterIP = "None"
 	service.Spec.PublishNotReadyAddresses = true
 
-	addHashAnnotation(&service)
+	utils.AddHashAnnotation(&service)
 
 	return &service
 }
@@ -123,7 +123,7 @@ func newEndpointsForAdditionalSeeds(dc *api.CassandraDatacenter) *corev1.Endpoin
 		},
 	}
 
-	addHashAnnotation(&endpoints)
+	utils.AddHashAnnotation(&endpoints)
 
 	return &endpoints
 }
@@ -168,7 +168,7 @@ func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev
 	service.ObjectMeta.Name = dc.GetAllPodsServiceName()
 	service.Spec.PublishNotReadyAddresses = true
 
-	addHashAnnotation(service)
+	utils.AddHashAnnotation(service)
 
 	return service
 }
@@ -327,7 +327,7 @@ func newStatefulSetForCassandraDatacenterHelper(
 	result.Annotations = map[string]string{}
 
 	// add a hash here to facilitate checking if updates are needed
-	addHashAnnotation(result)
+	utils.AddHashAnnotation(result)
 
 	return result, nil
 }
@@ -354,7 +354,7 @@ func newPodDisruptionBudgetForDatacenter(dc *api.CassandraDatacenter) *policyv1b
 	}
 
 	// add a hash here to facilitate checking if updates are needed
-	addHashAnnotation(pdb)
+	utils.AddHashAnnotation(pdb)
 
 	return pdb
 }

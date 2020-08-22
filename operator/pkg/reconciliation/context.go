@@ -77,7 +77,7 @@ func CreateReconciliationContext(
 	if err != nil {
 		return nil, err
 	}
-	rc.PSPHealthUpdater = psp.New(cli, operatorNs)
+	rc.PSPHealthUpdater = psp.NewHealthStatusUpdater(cli, operatorNs)
 
 	// Fetch the datacenter resource
 	dc := &api.CassandraDatacenter{}
