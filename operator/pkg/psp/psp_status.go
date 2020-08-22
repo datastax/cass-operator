@@ -92,7 +92,7 @@ func (dao *DAOImpl) GetHealthData() (*Health, error) {
 	}
 
 	if configMap == nil {
-		return nil, nil
+		return &Health{}, nil
 	}
 
 	return loadHealthFromConfigMap(configMap)
