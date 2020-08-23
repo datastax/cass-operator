@@ -104,8 +104,6 @@ var _ = Describe(testName, func() {
 			config, err := getPspInstanceHealth()
 			Expect(err).ToNot(HaveOccurred())
 
-			fmt.Println(config)
-
 			Expect(
 				getPath(config, "status", "instancehealth", 0, "instance"),
 				).To(Equal(dcName), "Expected instance name to be %s", dcName)
