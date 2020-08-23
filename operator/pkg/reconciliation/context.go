@@ -21,6 +21,7 @@ import (
 	"github.com/datastax/cass-operator/operator/pkg/events"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/psp"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 )
 
 // ReconciliationContext contains all of the input necessary to calculate a list of ReconciliationActions
@@ -71,13 +72,18 @@ func CreateReconciliationContext(
 
 	rc.ReqLogger.Info("handler::CreateReconciliationContext")
 
-	// Add PSP health status updater
-	// TODO: Feature gate this
-	operatorNs, err := k8sutil.GetOperatorNamespace()
-	if err != nil {
-		return nil, err
+	if utils.IsPSPEnabled() {
+		// Add PSP health status updater
+		// TODO: Feature gate this
+		operatorNs, err := k8sutil.GetOperatorNamespace()
+		if err != nil {
+			return nil, err
+		}
+		rc.PSPHealthUpdater = psp.NewHealthStatusUpdater(cli, operatorNs)
+	} else {
+		// Use no-op updater if PSP is disabled
+		rc.PSPHealthUpdater = &psp.NoOpUpdater{}
 	}
-	rc.PSPHealthUpdater = psp.NewHealthStatusUpdater(cli, operatorNs)
 
 	// Fetch the datacenter resource
 	dc := &api.CassandraDatacenter{}
