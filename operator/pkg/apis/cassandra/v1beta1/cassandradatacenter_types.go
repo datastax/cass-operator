@@ -162,6 +162,12 @@ type CassandraDatacenterSpec struct {
 	// Kubernetes resource requests and limits, per pod
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
+	// Kubernetes resource requests and limits per system logger container.
+	SystemLoggerResources corev1.ResourceRequirements `json:"systemLoggerResources,omitempty"`
+
+	// Kubernetes resource requests and limits per server config initialization container.
+	ConfigBuilderResources corev1.ResourceRequirements `json:"configBuilderResources,omitempty"`
+
 	// A list of the named racks in the datacenter, representing independent failure domains. The
 	// number of racks should match the replication factor in the keyspaces you plan to create, and
 	// the number of racks cannot easily be changed once a datacenter is deployed.
@@ -395,6 +401,9 @@ type ReaperConfig struct {
 	Image string `json:"image,omitempty"`
 
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
+
+	// Kubernetes resource requests and limits per reaper container.
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -671,15 +680,15 @@ func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, erro
 			ContainerPort: int32(cqlPort),
 		},
 		{
-			Name:          "inter-node-msg",
+			Name:          "internode-msg",
 			ContainerPort: 8609,
 		},
 		{
-			Name:          "inter-node",
+			Name:          "internode",
 			ContainerPort: int32(broadcastPort),
 		},
 		{
-			Name:          "tls-inter-node",
+			Name:          "tls-internode",
 			ContainerPort: 7001,
 		},
 		// jmx-port 7199 was here, seems like we no longer need to expose it

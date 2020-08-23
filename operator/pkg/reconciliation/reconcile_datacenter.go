@@ -9,10 +9,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 )
 
 // ProcessDeletion ...
@@ -28,7 +29,7 @@ func (rc *ReconciliationContext) ProcessDeletion() result.ReconcileResult {
 
 	// Clean up annotation litter on the user Secrets
 	err := rc.SecretWatches.RemoveWatcher(types.NamespacedName{
-		Name: rc.Datacenter.GetName(), Namespace: rc.Datacenter.GetNamespace(),})
+		Name: rc.Datacenter.GetName(), Namespace: rc.Datacenter.GetNamespace()})
 
 	if err != nil {
 		rc.ReqLogger.Error(err, "Failed to remove dynamic secret watches for CassandraDatacenter")
@@ -37,6 +38,12 @@ func (rc *ReconciliationContext) ProcessDeletion() result.ReconcileResult {
 	if err := rc.deletePVCs(); err != nil {
 		rc.ReqLogger.Error(err, "Failed to delete PVCs for CassandraDatacenter")
 		return result.Error(err)
+	}
+
+	if utils.IsPSPEnabled() {
+		rc.RemoveDcFromNodeToDcMap(types.NamespacedName{
+			Name:      rc.Datacenter.GetName(),
+			Namespace: rc.Datacenter.GetNamespace()})
 	}
 
 	// Update finalizer to allow delete of CassandraDatacenter
