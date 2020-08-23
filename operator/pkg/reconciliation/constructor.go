@@ -531,6 +531,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 		"/bin/sh", "-c", "tail -n+1 -F /var/log/cassandra/system.log",
 	}
 	loggerContainer.VolumeMounts = []corev1.VolumeMount{cassServerLogsMount}
+	loggerContainer.Resources = *getResourcesOrDefault(&dc.Spec.SystemLoggerResources, &DefaultsLoggerContainer)
 
 	containers := []corev1.Container{cassContainer, loggerContainer}
 	if dc.Spec.Reaper != nil && dc.Spec.Reaper.Enabled && dc.Spec.ServerType == "cassandra" {
@@ -550,6 +551,7 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1
 		MountPath: "/config",
 	}
 	serverCfg.VolumeMounts = []corev1.VolumeMount{serverCfgMount}
+	serverCfg.Resources = *getResourcesOrDefault(&dc.Spec.ConfigBuilderResources, &DefaultsConfigInitContainer)
 
 	// Convert the bool to a string for the env var setting
 	useHostIpForBroadcast := "false"

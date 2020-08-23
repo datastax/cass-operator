@@ -79,7 +79,7 @@ spec:
   serverType: "dse"
 
   # Which server version to use. Required.
-  serverVersion: "6.8.1"
+  serverVersion: "6.8.2"
 
   # Use the serverImage configuration to override Cass Operator's logic to map
   # the serverType plus serverVersion into a public container image on Docker

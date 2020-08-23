@@ -650,11 +650,13 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 				updated = rc.setCondition(
 					api.NewDatacenterCondition(
 						api.DatacenterResuming, corev1.ConditionTrue)) || updated
+			} else {
+				// We weren't resuming from a stopped state, so we must be growing the
+				// size of the rack
+				updated = rc.setCondition(
+					api.NewDatacenterCondition(
+						api.DatacenterScalingUp, corev1.ConditionTrue)) || updated
 			}
-
-			updated = rc.setCondition(
-				api.NewDatacenterCondition(
-					api.DatacenterScalingUp, corev1.ConditionTrue)) || updated
 
 			if updated {
 				err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
@@ -2080,12 +2082,16 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return result.Error(err).Output()
 	}
 
-	if err := rc.enableQuietPeriod(5); err != nil {
-		logger.Error(
-			err,
-			"Error when enabling quiet period")
-		return result.Error(err).Output()
-	}
+	// TODO until we ignore status updates as it pertains to reconcile
+	// we can't switch in to a quiet period here because it will create
+	// another reconcile iteration with (likely) no work to do
+
+	// if err := rc.enableQuietPeriod(5); err != nil {
+	// 	logger.Error(
+	// 		err,
+	// 		"Error when enabling quiet period")
+	// 	return result.Error(err).Output()
+	// }
 
 	rc.ReqLogger.Info("All StatefulSets should now be reconciled.")
 

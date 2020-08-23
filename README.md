@@ -10,7 +10,7 @@ Quick start:
 # *** This is for GKE Regular Channel - k8s 1.16 -> Adjust based on your cloud or storage options
 kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/v1.3.0/docs/user/cass-operator-manifests-v1.16.yaml
 kubectl create -f https://raw.githubusercontent.com/datastax/cass-operator/v1.3.0/operator/k8s-flavors/gke/storage.yaml
-kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/cass-operator/v1.3.0/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
+kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/cass-operator/v1.3.0/operator/example-cassdc-yaml/cassandra-3.11.x/example-cassdc-minimal.yaml
 ```
 
 ### Loading the operator
@@ -57,7 +57,7 @@ kubectl apply -f https://raw.githubusercontent.com/datastax/cass-operator/v1.3.0
 
 ### Creating a CassandraDatacenter
 
-The following resource defines a Cassandra 3.11.6 datacenter with 3 nodes on one rack, which you can also find at [operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml](operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml):
+The following resource defines a Cassandra 3.11.7 datacenter with 3 nodes on one rack, which you can also find at [operator/example-cassdc-yaml/cassandra-3.11.x/example-cassdc-minimal.yaml](operator/example-cassdc-yaml/cassandra-3.11.x/example-cassdc-minimal.yaml):
 
 ```yaml
 apiVersion: cassandra.datastax.com/v1beta1
@@ -67,7 +67,7 @@ metadata:
 spec:
   clusterName: cluster1
   serverType: cassandra
-  serverVersion: 3.11.6
+  serverVersion: 3.11.7
   managementApiAuth:
     insecure: {}
   size: 3
@@ -92,7 +92,7 @@ spec:
 Apply the above as follows:
 
 ```console
-kubectl -n cass-operator apply -f https://raw.githubusercontent.com/datastax/cass-operator/v1.3.0/operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml
+kubectl -n cass-operator apply -f https://raw.githubusercontent.com/datastax/cass-operator/v1.3.0/operator/example-cassdc-yaml/cassandra-3.11.x/example-cassdc-minimal.yaml
 ```
 
 You can check the status of pods in the Cassandra cluster as follows:

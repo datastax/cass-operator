@@ -1,6 +1,8 @@
 package reconciliation
 
 import (
+	"testing"
+
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/stretchr/testify/assert"
 	v1batch "k8s.io/api/batch/v1"
@@ -10,7 +12,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"testing"
 )
 
 func TestReconcileReaper_buildInitReaperSchemaJob(t *testing.T) {
@@ -116,7 +117,7 @@ func TestReconcileReaper_CheckReaperServiceReaperDisabled(t *testing.T) {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: rc.Datacenter.Namespace,
-			Name: serviceName,
+			Name:      serviceName,
 		},
 	}
 
@@ -139,14 +140,14 @@ func newCassandraDatacenter() *api.CassandraDatacenter {
 			Namespace: "reaper",
 			Labels: map[string]string{
 				api.DatacenterLabel: "ReaperSchemaJobTest",
-				api.ClusterLabel: "reaper",
+				api.ClusterLabel:    "reaper",
 			},
 		},
 		Spec: api.CassandraDatacenterSpec{
 			Size:          6,
 			ClusterName:   "reaper",
 			ServerType:    "Cassandra",
-			ServerVersion: "3.11.6",
+			ServerVersion: "3.11.7",
 		},
 	}
 }
