@@ -46,6 +46,9 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 		{
 			Name: "mgmt-api", Port: 8080, TargetPort: intstr.FromInt(8080),
 		},
+		{
+			Name: "prometheus", Port: 9103, TargetPort: intstr.FromInt(9103),
+		},
 	}
 
 	addHashAnnotation(service)
