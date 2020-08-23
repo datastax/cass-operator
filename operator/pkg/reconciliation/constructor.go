@@ -171,6 +171,23 @@ func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev
 	service.ObjectMeta.Name = dc.GetAllPodsServiceName()
 	service.Spec.PublishNotReadyAddresses = true
 
+	nativePort := api.DefaultNativePort
+	if dc.IsNodePortEnabled() {
+		nativePort = dc.GetNodePortNativePort()
+	}
+
+	service.Spec.Ports = []corev1.ServicePort{
+		{
+			Name: "native", Port: int32(nativePort), TargetPort: intstr.FromInt(nativePort),
+		},
+		{
+			Name: "mgmt-api", Port: 8080, TargetPort: intstr.FromInt(8080),
+		},
+		{
+			Name: "prometheus", Port: 9103, TargetPort: intstr.FromInt(9103),
+		},
+	}
+
 	addHashAnnotation(service)
 
 	return service
