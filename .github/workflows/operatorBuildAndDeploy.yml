@@ -3,7 +3,7 @@ on:
   push:
     branches: [ master ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, "1.4.x" ]
 jobs:
   build_operator_docker:
     name: Build Cass Operator Docker Image
