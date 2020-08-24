@@ -37,6 +37,10 @@ var setControllerReference = controllerutil.SetControllerReference
 var nodeToDc = make(map[string][]types.NamespacedName)
 var nodeToDcLock = sync.RWMutex{}
 
+// key: PersistentVolumeClaim.Name, value: CassandraDatacenter.Name
+var pvcToDc = make(map[string][]types.NamespacedName)
+var pvcToDcLock = sync.RWMutex{}
+
 // Get the dcNames and dcNamespaces for a node
 func DatacentersForNode(nodeName string) []types.NamespacedName {
 	nodeToDcLock.RLock()
@@ -64,11 +68,39 @@ func (rc *ReconciliationContext) RemoveDcFromNodeToDcMap(dcToRemove types.Namesp
 	}
 }
 
+// Get the dcNames and dcNamespaces for a pvc
+func DatacentersForPvc(pvcName string) []types.NamespacedName {
+	// pod.Spec.volumes[{name:server-data,persistentvolumeclaim.claimName=pvcname}]
+	pvcToDcLock.RLock()
+	defer pvcToDcLock.RUnlock()
+
+	dcs, ok := pvcToDc[pvcName]
+	if ok {
+		return dcs
+	}
+	return []types.NamespacedName{}
+}
+
+func (rc *ReconciliationContext) RemoveDcFromPvcToDcMap(dcToRemove types.NamespacedName) {
+	pvcToDcLock.Lock()
+	defer pvcToDcLock.Unlock()
+
+	for pvcName, dcs := range pvcToDc {
+		var newDcs = []types.NamespacedName{}
+		for _, dc := range dcs {
+			if dc != dcToRemove {
+				newDcs = append(newDcs, dc)
+			}
+		}
+		pvcToDc[pvcName] = newDcs
+	}
+}
+
 // We will only update the map for the current CassandraDatacenter
 // Every CassandraDatacenter with pods will have produced at least
 // one call to the reconcile loop.  Therefore this map will be
 // populated with the information for all current CassandraDatacenters.
-func (rc *ReconciliationContext) updateNodeToDcMap() error {
+func (rc *ReconciliationContext) updateDcMaps() error {
 
 	dcName := rc.Datacenter.ObjectMeta.Name
 
@@ -96,14 +128,20 @@ func (rc *ReconciliationContext) updateNodeToDcMap() error {
 	nodeToDcLock.Lock()
 	defer nodeToDcLock.Unlock()
 
+	pvcToDcLock.Lock()
+	defer pvcToDcLock.Unlock()
+
 	for _, pod := range podList.Items {
-		nodeName := pod.Spec.NodeName
-		needToAdd := true
 		dcToAdd := types.NamespacedName{
 			Namespace: pod.ObjectMeta.Namespace,
 			Name:      dcName,
 		}
 
+		// Update node map
+
+		nodeName := pod.Spec.NodeName
+
+		needToAdd := true
 		for _, dc := range nodeToDc[nodeName] {
 			if dc == dcToAdd {
 				needToAdd = false
@@ -112,6 +150,26 @@ func (rc *ReconciliationContext) updateNodeToDcMap() error {
 
 		if needToAdd {
 			nodeToDc[nodeName] = append(nodeToDc[nodeName], dcToAdd)
+		}
+
+		// Update pvc map
+
+		pvcName := ""
+		for _, vol := range pod.Spec.Volumes {
+			if vol.Name == PvcName {
+				pvcName = vol.PersistentVolumeClaim.ClaimName
+			}
+		}
+
+		needToAdd = true
+		for _, dc := range pvcToDc[pvcName] {
+			if dc == dcToAdd {
+				needToAdd = false
+			}
+		}
+
+		if needToAdd {
+			pvcToDc[pvcName] = append(pvcToDc[pvcName], dcToAdd)
 		}
 	}
 
@@ -126,7 +184,7 @@ func (rc *ReconciliationContext) calculateReconciliationActions() (reconcile.Res
 
 	rc.ReqLogger.Info("handler::calculateReconciliationActions")
 	if utils.IsPSPEnabled() {
-		if err := rc.updateNodeToDcMap(); err != nil {
+		if err := rc.updateDcMaps(); err != nil {
 			// We will not skip reconciliation if the map update failed
 			// return result.Error(err).Output()
 		}

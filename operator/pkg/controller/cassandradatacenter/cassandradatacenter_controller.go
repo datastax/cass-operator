@@ -158,6 +158,44 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		}
 	}
 
+	// Setup watches for pvc to check for taints being added
+
+	pvcMapFn := handler.ToRequestsFunc(
+		func(a handler.MapObject) []reconcile.Request {
+			log.Info("PersistentVolumeClaim Watch called")
+			requests := []reconcile.Request{}
+
+			pvcName := a.Object.(*corev1.PersistentVolumeClaim).Name
+			dcs := reconciliation.DatacentersForPvc(pvcName)
+
+			for _, dc := range dcs {
+				log.Info("PersistentVolumeClaim watch adding reconcilation request",
+					"cassandraDatacenter", dc.Name,
+					"namespace", dc.Namespace)
+
+				// Create reconcilerequests for the related cassandraDatacenter
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      dc.Name,
+						Namespace: dc.Namespace,
+					}},
+				)
+			}
+			return requests
+		})
+
+	if utils.IsPSPEnabled() {
+		err = c.Watch(
+			&source.Kind{Type: &corev1.PersistentVolumeClaim{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: pvcMapFn,
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Setup watches for Secrets. These secrets are often not owned by or created by
 	// the operator, so we must create a mapping back to the appropriate datacenters.
 
