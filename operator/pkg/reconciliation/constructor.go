@@ -34,17 +34,20 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 	service := makeGenericHeadlessService(dc)
 	service.ObjectMeta.Name = svcName
 
-	cqlPort := api.DefaultCqlPort
+	nativePort := api.DefaultNativePort
 	if dc.IsNodePortEnabled() {
-		cqlPort = dc.GetNodePortCqlPort()
+		nativePort = dc.GetNodePortNativePort()
 	}
 
 	service.Spec.Ports = []corev1.ServicePort{
 		{
-			Name: "native", Port: int32(cqlPort), TargetPort: intstr.FromInt(cqlPort),
+			Name: "native", Port: int32(nativePort), TargetPort: intstr.FromInt(nativePort),
 		},
 		{
 			Name: "mgmt-api", Port: 8080, TargetPort: intstr.FromInt(8080),
+		},
+		{
+			Name: "prometheus", Port: 9103, TargetPort: intstr.FromInt(9103),
 		},
 	}
 
@@ -139,22 +142,22 @@ func newNodePortServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *core
 	service.Spec.ClusterIP = ""
 	service.Spec.ExternalTrafficPolicy = corev1.ServiceExternalTrafficPolicyTypeLocal
 
-	cqlPort := dc.GetNodePortCqlPort()
-	broadcastPort := dc.GetNodePortBroadcastPort()
+	nativePort := dc.GetNodePortNativePort()
+	internodePort := dc.GetNodePortInternodePort()
 
 	service.Spec.Ports = []corev1.ServicePort{
 		// Note: Port Names cannot be more than 15 characters
 		{
-			Name:       "broadcast",
-			Port:       int32(broadcastPort),
-			NodePort:   int32(broadcastPort),
-			TargetPort: intstr.FromInt(broadcastPort),
+			Name:       "internode",
+			Port:       int32(internodePort),
+			NodePort:   int32(internodePort),
+			TargetPort: intstr.FromInt(internodePort),
 		},
 		{
 			Name:       "native",
-			Port:       int32(cqlPort),
-			NodePort:   int32(cqlPort),
-			TargetPort: intstr.FromInt(cqlPort),
+			Port:       int32(nativePort),
+			NodePort:   int32(nativePort),
+			TargetPort: intstr.FromInt(nativePort),
 		},
 	}
 
@@ -167,6 +170,23 @@ func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev
 	service := makeGenericHeadlessService(dc)
 	service.ObjectMeta.Name = dc.GetAllPodsServiceName()
 	service.Spec.PublishNotReadyAddresses = true
+
+	nativePort := api.DefaultNativePort
+	if dc.IsNodePortEnabled() {
+		nativePort = dc.GetNodePortNativePort()
+	}
+
+	service.Spec.Ports = []corev1.ServicePort{
+		{
+			Name: "native", Port: int32(nativePort), TargetPort: intstr.FromInt(nativePort),
+		},
+		{
+			Name: "mgmt-api", Port: 8080, TargetPort: intstr.FromInt(8080),
+		},
+		{
+			Name: "prometheus", Port: 9103, TargetPort: intstr.FromInt(9103),
+		},
+	}
 
 	addHashAnnotation(service)
 

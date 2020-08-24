@@ -10,8 +10,8 @@ spec:
     insecure: {}
   networking:
     nodePort:
-      cql: 30001
-      broadcast: 30002
+      native: 30001
+      internode: 30002
   size: 2
   storageConfig:
       cassandraDataVolumeClaimSpec:

@@ -369,15 +369,15 @@ A NodePort service may be requested by setting the following fields:
 
   networking:
     nodePort:
-      cql: 30001
-      broadcast: 30002
+      native: 30001
+      internode: 30002
  
 The SSL versions of the ports may be requested:
 
   networking:
     nodePort:
-      cqlSSL: 30010
-      broadcastSSL: 30020
+      nativeSSL: 30010
+      internodeSSL: 30020
       
 If any of the nodePort fields have been configured then a NodePort service will be created that routes from the specified external port to the identically numbered internal port.  Cassandra will be configured to listen on the specified ports.
 

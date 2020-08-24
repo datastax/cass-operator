@@ -836,8 +836,8 @@ func getRpcAddress(dc *api.CassandraDatacenter, pod *corev1.Pod) string {
 			return pod.Status.HostIP
 		}
 		if nc.NodePort != nil {
-			if nc.NodePort.Broadcast > 0 ||
-				nc.NodePort.BroadcastSSL > 0 {
+			if nc.NodePort.Internode > 0 ||
+				nc.NodePort.InternodeSSL > 0 {
 				return pod.Status.HostIP
 			}
 		}
