@@ -6280,6 +6280,11 @@ spec:
             quietPeriod:
               format: date-time
               type: string
+            reaperStatus:
+              properties:
+                schemaInitialized:
+                  type: boolean
+              type: object
             superUserUpserted:
               description: Deprecated. Use usersUpserted instead. The timestamp at
                 which CQL superuser credentials were last upserted to the management

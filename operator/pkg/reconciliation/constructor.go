@@ -554,9 +554,12 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 	loggerContainer.Resources = *getResourcesOrDefault(&dc.Spec.SystemLoggerResources, &DefaultsLoggerContainer)
 
 	containers := []corev1.Container{cassContainer, loggerContainer}
-	if dc.Spec.Reaper != nil && dc.Spec.Reaper.Enabled && dc.Spec.ServerType == "cassandra" {
-		reaperContainer := buildReaperContainer(dc)
-		containers = append(containers, reaperContainer)
+	if dc.DeployReaper() {
+		reaperContainer, err := buildReaperContainer(dc)
+		if err != nil {
+			return containers, err
+		}
+		containers = append(containers, *reaperContainer)
 	}
 
 	return containers, nil
@@ -658,7 +661,53 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	return baseTemplate, nil
 }
 
-func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1.Job {
+func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) (*v1.Job, error) {
+	envVars := []corev1.EnvVar{
+		{
+			Name:  "KEYSPACE",
+			Value: ReaperKeyspace,
+		},
+		{
+			Name:  "CONTACT_POINTS",
+			Value: dc.GetSeedServiceName(),
+		},
+		{
+			Name:  "REPLICATION",
+			Value: getReaperReplication(dc),
+		},
+	}
+
+	authEnabled, err := dc.IsAuthenticationEnabled()
+	if err != nil {
+		return nil, err
+	}
+
+	if authEnabled {
+		secretName := dc.GetReaperUserSecretNamespacedName()
+		envVars = append(envVars, corev1.EnvVar{
+			Name: "USERNAME",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName.Name,
+					},
+					Key: "username",
+				},
+			},
+		})
+		envVars = append(envVars, corev1.EnvVar{
+			Name: "PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName.Name,
+					},
+					Key: "password",
+				},
+			},
+		})
+	}
+
 	return &v1.Job{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Job",
@@ -677,27 +726,15 @@ func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1.Job {
 						{
 							Name:            getReaperSchemaInitJobName(dc),
 							Image:           ReaperSchemaInitJobImage,
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							Env: []corev1.EnvVar{
-								{
-									Name:  "KEYSPACE",
-									Value: ReaperKeyspace,
-								},
-								{
-									Name:  "CONTACT_POINTS",
-									Value: dc.GetSeedServiceName(),
-								},
-								{
-									Name:  "REPLICATION",
-									Value: getReaperReplication(dc),
-								},
-							},
+							//ImagePullPolicy: corev1.PullIfNotPresent,
+							ImagePullPolicy: corev1.PullAlways,
+							Env: envVars,
 						},
 					},
 				},
 			},
 		},
-	}
+	}, nil
 }
 
 func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {

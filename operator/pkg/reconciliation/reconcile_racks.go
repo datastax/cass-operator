@@ -111,6 +111,18 @@ func (rc *ReconciliationContext) CheckSuperuserSecretCreation() result.Reconcile
 	return result.Continue()
 }
 
+func (rc *ReconciliationContext) CheckReaperUserSecretCreation() result.ReconcileResult {
+	rc.ReqLogger.Info("reconcile_racks::CheckReaperUserSecretCreation")
+
+	_, err := rc.retrieveReaperUserSecretOrCreate()
+	if err != nil {
+		rc.ReqLogger.Error(err, "error retrieving Reaper user secret for CassandraDatacenter.")
+		return result.Error(err)
+	}
+
+	return result.Continue()
+}
+
 func (rc *ReconciliationContext) CheckInternodeCredentialCreation() result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_racks::CheckInternodeCredentialCreation")
 
@@ -758,6 +770,13 @@ func (rc *ReconciliationContext) GetUsers() []api.CassandraUser {
 		Superuser:  true,
 		SecretName: dc.GetSuperuserSecretNamespacedName().Name,
 	})
+
+	if dc.IsReaperEnabled() {
+		users = append(users, api.CassandraUser{
+			Superuser: true,
+			SecretName: dc.GetReaperUserSecretNamespacedName().Name,
+		})
+	}
 
 	return users
 }
@@ -2069,6 +2088,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
+	if recResult := rc.CheckReaperUserSecretCreation(); recResult.Completed() {
+		return recResult.Output()
+	}
+
 	if recResult := rc.CheckInternodeCredentialCreation(); recResult.Completed() {
 		return recResult.Output()
 	}
@@ -2105,10 +2128,6 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
-	if recResult := rc.CheckReaperSchemaInitialized(); recResult.Completed() {
-		return recResult.Output()
-	}
-
 	if recResult := rc.CheckRollingRestart(); recResult.Completed() {
 		return recResult.Output()
 	}
@@ -2126,6 +2145,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	}
 
 	if recResult := rc.CreateUsers(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckReaperSchemaInitialized(); recResult.Completed() {
 		return recResult.Output()
 	}
 

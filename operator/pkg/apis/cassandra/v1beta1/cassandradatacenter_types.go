@@ -6,13 +6,13 @@ package v1beta1
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-
 	"github.com/Jeffail/gabs"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"os"
+	"strings"
 
 	"github.com/datastax/cass-operator/operator/pkg/serverconfig"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
@@ -337,6 +337,10 @@ func NewDatacenterCondition(conditionType DatacenterConditionType, status corev1
 	}
 }
 
+type ReaperStatus struct {
+	SchemaInitialized bool `json:"schemaInitialized,omitempty"`
+}
+
 // CassandraDatacenterStatus defines the observed state of CassandraDatacenter
 // +k8s:openapi-gen=true
 type CassandraDatacenterStatus struct {
@@ -376,6 +380,8 @@ type CassandraDatacenterStatus struct {
 
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	ReaperStatus ReaperStatus `json:"reaperStatus,omitempty"`
 }
 
 // +genclient
@@ -575,6 +581,32 @@ func (dc *CassandraDatacenter) GetSuperuserSecretNamespacedName() types.Namespac
 		Name:      name,
 		Namespace: namespace,
 	}
+}
+
+func (dc *CassandraDatacenter) GetReaperUserSecretNamespacedName() types.NamespacedName {
+	name := dc.Spec.ClusterName + "-reaper"
+	namespace := dc.Namespace
+
+	return types.NamespacedName{Name: name, Namespace: namespace}
+}
+
+func (dc *CassandraDatacenter) IsReaperEnabled() bool {
+	return dc.Spec.Reaper != nil && dc.Spec.Reaper.Enabled && dc.Spec.ServerType == "cassandra"
+}
+
+func (dc *CassandraDatacenter) DeployReaper() bool {
+	return dc.IsReaperEnabled() && dc.Status.ReaperStatus.SchemaInitialized
+}
+
+func (dc *CassandraDatacenter) IsAuthenticationEnabled() (bool, error) {
+	b, err := dc.Spec.Config.MarshalJSON()
+	if err != nil {
+		return false, err
+	}
+
+	s := string(b)
+
+	return strings.Contains(s, "PasswordAuthenticator"), nil
 }
 
 // GetConfigAsJSON gets a JSON-encoded string suitable for passing to configBuilder

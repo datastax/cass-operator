@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"math"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strconv"
 )
 
@@ -30,10 +31,55 @@ const (
 	ReaperSchemaInitJobImage = "jsanda/reaper-init-keyspace:latest"
 )
 
-func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
+func buildReaperContainer(dc *api.CassandraDatacenter) (*corev1.Container, error) {
 	ports := []corev1.ContainerPort{
 		{Name: "ui", ContainerPort: ReaperUIPort, Protocol: "TCP"},
 		{Name: "admin", ContainerPort: ReaperAdminPort, Protocol: "TCP"},
+	}
+
+	envVars := []corev1.EnvVar{
+		{Name: "REAPER_STORAGE_TYPE", Value: "cassandra"},
+		{Name: "REAPER_ENABLE_DYNAMIC_SEED_LIST", Value: "false"},
+		{Name: "REAPER_DATACENTER_AVAILABILITY", Value: "SIDECAR"},
+		{Name: "REAPER_SERVER_APP_PORT", Value: strconv.Itoa(ReaperUIPort)},
+		{Name: "REAPER_SERVER_ADMIN_PORT", Value: strconv.Itoa(ReaperAdminPort)},
+		{Name: "REAPER_CASS_CLUSTER_NAME", Value: dc.ClusterName},
+		{Name: "REAPER_CASS_CONTACT_POINTS", Value: fmt.Sprintf("[%s]", dc.GetSeedServiceName())},
+		{Name: "REAPER_AUTH_ENABLED", Value: "false"},
+		{Name: "REAPER_JMX_AUTH_USERNAME", Value: ""},
+		{Name: "REAPER_JMX_AUTH_PASSWORD", Value: ""},
+	}
+
+	cassandraAuthEnabled, err := dc.IsAuthenticationEnabled()
+	if err != nil {
+		return nil, err
+	}
+
+	if cassandraAuthEnabled {
+		secretName := dc.GetReaperUserSecretNamespacedName()
+		envVars = append(envVars, corev1.EnvVar{Name: "REAPER_CASS_AUTH_ENABLED", Value: "true"})
+		envVars = append(envVars, corev1.EnvVar{
+			Name: "REAPER_CASS_AUTH_USERNAME",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName.Name,
+					},
+					Key: "username",
+				},
+			},
+		})
+		envVars = append(envVars, corev1.EnvVar{
+			Name: "REAPER_CASS_AUTH_PASSWORD",
+			ValueFrom: &corev1.EnvVarSource{
+				SecretKeyRef: &corev1.SecretKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: secretName.Name,
+					},
+					Key: "password",
+				},
+			},
+		})
 	}
 
 	container := corev1.Container{
@@ -43,22 +89,11 @@ func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
 		Ports: ports,
 		LivenessProbe: probe(ReaperAdminPort, ReaperHealthCheckPath, int(60 * dc.Spec.Size), 10),
 		ReadinessProbe: probe(ReaperAdminPort, ReaperHealthCheckPath, 30, 15),
-		Env: []corev1.EnvVar{
-			{Name: "REAPER_STORAGE_TYPE", Value: "cassandra"},
-			{Name: "REAPER_ENABLE_DYNAMIC_SEED_LIST", Value: "false"},
-			{Name: "REAPER_DATACENTER_AVAILABILITY", Value: "SIDECAR"},
-			{Name: "REAPER_SERVER_APP_PORT", Value: strconv.Itoa(ReaperUIPort)},
-			{Name: "REAPER_SERVER_ADMIN_PORT", Value: strconv.Itoa(ReaperAdminPort)},
-			{Name: "REAPER_CASS_CLUSTER_NAME", Value: dc.ClusterName},
-			{Name: "REAPER_CASS_CONTACT_POINTS", Value: fmt.Sprintf("[%s]", dc.GetSeedServiceName())},
-			{Name: "REAPER_AUTH_ENABLED", Value: "false"},
-			{Name: "REAPER_JMX_AUTH_USERNAME", Value: ""},
-			{Name: "REAPER_JMX_AUTH_PASSWORD", Value: ""},
-		},
+		Env: envVars,
 		Resources: *getResourcesOrDefault(&dc.Spec.Reaper.Resources, &DefaultsReaperContainer),
 	}
 
-	return container
+	return &container, nil
 }
 
 func getReaperImage(dc *api.CassandraDatacenter) string {
@@ -81,7 +116,7 @@ func (rc *ReconciliationContext) CheckReaperSchemaInitialized() result.Reconcile
 
 	rc.ReqLogger.Info("reconcile_reaper::CheckReaperSchemaInitialized")
 
-	if rc.Datacenter.Spec.Reaper == nil || !rc.Datacenter.Spec.Reaper.Enabled {
+	if !rc.Datacenter.IsReaperEnabled() {
 		return result.Continue()
 	}
 
@@ -91,7 +126,11 @@ func (rc *ReconciliationContext) CheckReaperSchemaInitialized() result.Reconcile
 	err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: rc.Datacenter.Namespace, Name: jobName}, schemaJob)
 	if err != nil && errors.IsNotFound(err) {
 		// Create the job
-		schemaJob := buildInitReaperSchemaJob(rc.Datacenter)
+		schemaJob, err := buildInitReaperSchemaJob(rc.Datacenter)
+		if err != nil {
+			rc.ReqLogger.Error(err, "failed to create Reaper schema init job")
+			return result.Error(err)
+		}
 		rc.ReqLogger.Info("creating Reaper schema init job", ReaperSchemaInitJob, schemaJob.Name)
 		if err := setControllerReference(rc.Datacenter, schemaJob, rc.Scheme); err != nil {
 			rc.ReqLogger.Error(err, "failed to set owner reference", ReaperSchemaInitJob, schemaJob.Name)
@@ -106,6 +145,12 @@ func (rc *ReconciliationContext) CheckReaperSchemaInitialized() result.Reconcile
 	} else if err != nil {
 		return result.Error(err)
 	} else if jobFinished(schemaJob) {
+		patch := client.MergeFrom(rc.Datacenter.DeepCopy())
+		rc.Datacenter.Status.ReaperStatus.SchemaInitialized = true
+		if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
+			rc.ReqLogger.Error(err, "error updating the reaper status")
+			return result.Error(err)
+		}
 		return result.Continue()
 	} else {
 		return result.RequeueSoon(2)

@@ -50,6 +50,12 @@ func generateUtf8Password() (string, error) {
 }
 
 func buildDefaultSuperuserSecret(dc *api.CassandraDatacenter) (*corev1.Secret, error) {
+	//if dc.ShouldGenerateSuperuserSecret() {
+	//	return buildUserSecret(dc.GetSuperuserSecretNamespacedName(), dc.Spec.ClusterName + "-superuser")
+	//
+	//}
+	//
+	//return nil, nil
 	var secret *corev1.Secret = nil
 
 	if dc.ShouldGenerateSuperuserSecret() {
@@ -74,6 +80,39 @@ func buildDefaultSuperuserSecret(dc *api.CassandraDatacenter) (*corev1.Secret, e
 			"username": []byte(username),
 			"password": []byte(password),
 		}
+	}
+
+	return secret, nil
+}
+
+func buildReaperUserSecret(dc *api.CassandraDatacenter) (*corev1.Secret, error) {
+	if dc.IsReaperEnabled() {
+		return buildUserSecret(dc.GetReaperUserSecretNamespacedName(), dc.Spec.ClusterName + "-reaper")
+	}
+
+	return nil, nil
+}
+
+func buildUserSecret(secretNamespacedName types.NamespacedName, username string) (*corev1.Secret, error) {
+	secret := &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "Secret",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: secretNamespacedName.Namespace,
+			Name: secretNamespacedName.Name,
+		},
+	}
+
+	password, err := generateUtf8Password()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to generate password for user %s: %w", username, err)
+	}
+
+	secret.Data = map[string][]byte{
+		"username": []byte(username),
+		"password": []byte(password),
 	}
 
 	return secret, nil
@@ -109,6 +148,12 @@ func (rc *ReconciliationContext) retrieveSuperuserSecret() (*corev1.Secret, erro
 	return rc.retrieveSecret(secretNamespacedName)
 }
 
+func (rc *ReconciliationContext) retrieveReaperUserSecret() (*corev1.Secret, error) {
+	dc := rc.Datacenter
+	secretNamespacedName := dc.GetReaperUserSecretNamespacedName()
+	return rc.retrieveSecret(secretNamespacedName)
+}
+
 func (rc *ReconciliationContext) retrieveSuperuserSecretOrCreateDefault() (*corev1.Secret, error) {
 	dc := rc.Datacenter
 
@@ -131,6 +176,38 @@ func (rc *ReconciliationContext) retrieveSuperuserSecretOrCreateDefault() (*core
 		} else {
 			return nil, retrieveErr
 		}
+	}
+
+	return secret, nil
+}
+
+func (rc *ReconciliationContext) retrieveReaperUserSecretOrCreate() (*corev1.Secret, error) {
+	dc := rc.Datacenter
+
+	// TODO if we go from enabled to disabled, should the secret get deleted?
+	if !dc.IsReaperEnabled() {
+		return nil, nil
+	}
+
+	secret, retrieveErr := rc.retrieveReaperUserSecret()
+	if retrieveErr != nil {
+		if errors.IsNotFound(retrieveErr) {
+			secret, err := buildReaperUserSecret(dc)
+
+			if err == nil && secret == nil {
+				return nil, retrieveErr
+			}
+
+			if err == nil {
+				err = rc.Client.Create(rc.Ctx, secret)
+			}
+
+			if err != nil {
+				return nil, fmt.Errorf("Failed to create reaper user secret: %w", err)
+			}
+		}
+	} else {
+		return nil, retrieveErr
 	}
 
 	return secret, nil
