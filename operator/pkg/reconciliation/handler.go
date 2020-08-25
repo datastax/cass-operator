@@ -246,9 +246,6 @@ func (r *ReconcileCassandraDatacenter) Reconcile(request reconcile.Request) (rec
 		return result.RequeueSoon(secs).Output()
 	}
 
-	// TODO: Remove this
-	time.Sleep(2*time.Second)
-
 	res, err := rc.calculateReconciliationActions()
 	if err != nil {
 		logger.Error(err, "calculateReconciliationActions returned an error")
