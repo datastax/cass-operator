@@ -82,7 +82,7 @@ func TestReconcileReaper_CheckReaperSchemaInitialized(t *testing.T) {
 	assert.NoError(t, err)
 
 	reconcileResult = rc.CheckReaperSchemaInitialized()
-	assert.False(t, reconcileResult.Completed())
+	assert.True(t, reconcileResult.Completed())
 }
 
 func TestReconcileReaper_CheckReaperSchemaNotInitialized(t *testing.T) {

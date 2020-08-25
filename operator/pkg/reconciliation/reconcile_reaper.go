@@ -151,7 +151,10 @@ func (rc *ReconciliationContext) CheckReaperSchemaInitialized() result.Reconcile
 			rc.ReqLogger.Error(err, "error updating the reaper status")
 			return result.Error(err)
 		}
-		return result.Continue()
+		// Requeue with a delay to give a chance for C* schema changes to propagate
+		//
+		// TODO Should the delay be adjusted based on the C* cluster size?
+		return result.RequeueSoon(5)
 	} else {
 		return result.RequeueSoon(2)
 	}
