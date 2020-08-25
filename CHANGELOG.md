@@ -1,5 +1,40 @@
 # Changelog
 
+## v1.4.0
+
+Features:
+* Cassandra 3.11.7 support [#209](https://github.com/datastax/cass-operator/commit/ecf81573948cf239180ab62fa72b91c9a8354a4e)
+* DSE 6.8.2 support [#207](https://github.com/datastax/cass-operator/commit/4d566f4a4d16c975919726b95a51c3be8729bf3e)
+* Configurable resource requests and limits for init and system-logger containers. [#184](https://github.com/datastax/cass-operator/commit/94634ba9a4b04f33fe7dfee539d500e0d4a0c02f)
+* Add quietPeriod and observedGeneration to the status [#190](https://github.com/datastax/cass-operator/commit/8cf67a6233054a6886a15ecc0e88bd6a9a2206bd)
+* Update config builder init container to 1.0.2 [#193](https://github.com/datastax/cass-operator/commit/811bca57e862a2e25c1b12db71e0da29d2cbd454)
+* Host network support [#186](https://github.com/datastax/cass-operator/commit/86b32ee3fc21e8cd33707890ff580a15db5d691b)
+* Helm chart option for cluster-scoped install [#182](https://github.com/datastax/cass-operator/commit/6c23b6ffe0fd45fa299540ea494ebecb21bc4ac9)
+* Create JKS for internode encryption [#156](https://github.com/datastax/cass-operator/commit/db8d16a651bc51c0256714ebdda2d51485c5d9fa)
+* Headless ClusterIP service for additional seeds [#175](https://github.com/datastax/cass-operator/commit/5f7296295e4dd7fda6b7ce7e2faca2b9efe2e414)
+* Operator managed NodePort service [#177](https://github.com/datastax/cass-operator/commit/b2cf2ecf05dfc240d670f13dffc8903fe14bb052)
+* Experimental ability to run DSE advanced workloads [#158](https://github.com/datastax/cass-operator/commit/ade4246b811a644ace75f9f561344eb815d43d52)
+* More validation logic in the webhook [#165](https://github.com/datastax/cass-operator/commit/3b7578987057fd9f90b7aeafea1d71ebbf691984)
+
+
+Bug fixes:
+* Fix watching CassDC to not trigger on status update [#212](https://github.com/datastax/cass-operator/commit/3ae79e01398d8f281769ef079bff66c3937eca24)
+* Enumerate more container ports [#200](https://github.com/datastax/cass-operator/commit/b0c004dc02b22c34682a3602097c1e09b6261572)
+* Resuming a stopped CassDC should not use the ScalingUp condition [#198](https://github.com/datastax/cass-operator/commit/7f26e0fd532ce690de282d1377dd00539ea8c251)
+* Idiomatic usage of the term "internode" [#197](https://github.com/datastax/cass-operator/commit/62993fa113053075a772fe532c35245003912a2f)
+* First-seed-in-the-DC logic should respect additionalSeeds [#180](https://github.com/datastax/cass-operator/commit/77750d11c62f2c3043f1088e377b743859c3be96)
+* Use the additional seeds service in the config [#189](https://github.com/datastax/cass-operator/commit/4aaaff7b4e4ff4df626aa12f149329b866a06d35)
+* Fix operator so it can watch multiple or all namespaces [#173](https://github.com/datastax/cass-operator/commit/bac509a81b6339219fe3fc313dbf384653563c59)
+
+
+Docs/tests:
+* Encryption documentation [#196](https://github.com/datastax/cass-operator/commit/3a139c5f717a165c0f32047b7813b103786132b8)
+* Fix link to sample-cluster-sample-dc.yaml [#191](https://github.com/datastax/cass-operator/commit/28039ee40ac582074a522d2a13f3dfe15350caac)
+* Kong Ingress Documentation [#160](https://github.com/datastax/cass-operator/commit/b70a995eaee988846e07f9da9b4ab07e443074c2)
+* Adding AKS storage example [#164](https://github.com/datastax/cass-operator/commit/721056a435492e552cd85d18e38ea85569ba755f)
+* Added ingress documentation and sample client application to docs [#140](https://github.com/datastax/cass-operator/commit/4dd8e7c5d53398bb827dda326762c2fa15c131f9)
+
+
 ## v1.3.0
 * Add DSE 6.8.1 support, and update to config-builder 1.0.1 [#139](https://github.com/datastax/cass-operator/commit/8026d3687ee6eb783743ea5481ee51e69e284e1c)
 * Experimental support for Cassandra Reaper running in sidecar mode [#116](https://github.com/datastax/cass-operator/commit/30ac85f3d71886b750414e90476c42394d439026)

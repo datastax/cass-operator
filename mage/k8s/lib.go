@@ -161,7 +161,7 @@ func SetupExampleCluster() {
 func SetupCassandraCluster() {
 	mg.Deps(SetupExampleCluster)
 	kubectl.ApplyFiles(
-		"operator/example-cassdc-yaml/cassandra-3.11.6/example-cassdc-minimal.yaml",
+		"operator/example-cassdc-yaml/cassandra-3.11.x/example-cassdc-minimal.yaml",
 	).ExecVPanic()
 	kubectl.WatchPods()
 }

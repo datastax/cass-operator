@@ -34,14 +34,14 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 			errString: "",
 		},
 		{
-			name: "Dse 6.8.1 Valid",
+			name: "Dse 6.8.2 Valid",
 			dc: &CassandraDatacenter{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "exampleDC",
 				},
 				Spec: CassandraDatacenterSpec{
 					ServerType:    "dse",
-					ServerVersion: "6.8.1",
+					ServerVersion: "6.8.2",
 				},
 			},
 			errString: "",
@@ -67,7 +67,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 				},
 				Spec: CassandraDatacenterSpec{
 					ServerType:    "cassandra",
-					ServerVersion: "3.11.6",
+					ServerVersion: "3.11.7",
 				},
 			},
 			errString: "",
@@ -122,7 +122,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 				},
 				Spec: CassandraDatacenterSpec{
 					ServerType:    "dse",
-					ServerVersion: "6.8.1",
+					ServerVersion: "6.8.2",
 					DseWorkloads: &DseWorkloads{
 						AnalyticsEnabled: true,
 					},
@@ -138,7 +138,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 				},
 				Spec: CassandraDatacenterSpec{
 					ServerType:    "cassandra",
-					ServerVersion: "3.11.6",
+					ServerVersion: "3.11.7",
 					Config: json.RawMessage(`
 					{
 						"cassandra-yaml": {},
@@ -149,7 +149,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 					`),
 				},
 			},
-			errString: "attempted to define config dse-yaml with cassandra-3.11.6",
+			errString: "attempted to define config dse-yaml with cassandra-3.11.7",
 		},
 		{
 			name: "Cassandra 3.11 invalid config file jvm-server-options",
@@ -159,7 +159,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 				},
 				Spec: CassandraDatacenterSpec{
 					ServerType:    "cassandra",
-					ServerVersion: "3.11.6",
+					ServerVersion: "3.11.7",
 					Config: json.RawMessage(`
 					{
 						"cassandra-yaml": {},
@@ -170,7 +170,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 					`),
 				},
 			},
-			errString: "attempted to define config jvm-server-options with cassandra-3.11.6",
+			errString: "attempted to define config jvm-server-options with cassandra-3.11.7",
 		},
 		{
 			name: "DSE 6.8 invalid config file jvm-options",
@@ -180,7 +180,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 				},
 				Spec: CassandraDatacenterSpec{
 					ServerType:    "dse",
-					ServerVersion: "6.8.1",
+					ServerVersion: "6.8.2",
 					Config: json.RawMessage(`
 					{
 						"cassandra-yaml": {},
@@ -191,7 +191,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 					`),
 				},
 			},
-			errString: "attempted to define config jvm-options with dse-6.8.1",
+			errString: "attempted to define config jvm-options with dse-6.8.2",
 		},
 		{
 			name: "Allow multiple nodes per worker requires resource requests",
@@ -201,7 +201,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 				},
 				Spec: CassandraDatacenterSpec{
 					ServerType:                  "dse",
-					ServerVersion:               "6.8.1",
+					ServerVersion:               "6.8.2",
 					Config:                      json.RawMessage(`{}`),
 					AllowMultipleNodesPerWorker: true,
 					Resources: corev1.ResourceRequirements{
@@ -226,7 +226,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 				},
 				Spec: CassandraDatacenterSpec{
 					ServerType:                  "dse",
-					ServerVersion:               "6.8.1",
+					ServerVersion:               "6.8.2",
 					Config:                      json.RawMessage(`{}`),
 					AllowMultipleNodesPerWorker: true,
 				},

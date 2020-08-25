@@ -5,13 +5,13 @@ metadata:
 spec:
   clusterName: cluster1
   serverType: dse
-  serverVersion: "6.8.1"
+  serverVersion: "6.8.2"
   managementApiAuth:
     insecure: {}
   networking:
     nodePort:
-      cql: 30001
-      broadcast: 30002
+      native: 30001
+      internode: 30002
   size: 2
   storageConfig:
       cassandraDataVolumeClaimSpec:

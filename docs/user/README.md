@@ -116,7 +116,7 @@ metadata:
 spec:
   clusterName: cluster1
   serverType: cassandra
-  serverVersion: 3.11.6
+  serverVersion: 3.11.7
   managementApiAuth:
     insecure: {}
   size: 3
@@ -318,7 +318,7 @@ for your `CassandraDatacenter` resource, you can use the `serverType`, `serverVe
 spec properties.
 
 `serverType` is required and must be either `dse` or `cassandra`. `serverVersion` is also required,
-and the supported versions for DSE are `6.8.0`/`6.8.1` and for Cassandra it is `3.11.6`. More versions
+and the supported versions for DSE are `6.8.0` through `6.8.2`, and for Cassandra it is `3.11.6`/`3.11.7`. More versions
 will be supported in the future.
 
 If `serverImage` is not specified, a default image for the provided `serverType` and
@@ -333,7 +333,7 @@ metadata:
   name: dtcntr
 spec:
   serverType: dse
-  serverVersion: 6.8.1
+  serverVersion: 6.8.2
 
 ```
 
@@ -347,7 +347,7 @@ metadata:
   name: dtcntr
 spec:
   serverType: cassandra
-  serverVersion: 3.11.6
+  serverVersion: 3.11.7
   serverImage: private-docker-registry.example.com/cass-img/cassandra-with-mgmtapi:1a2b3c4d
 ```
 
@@ -359,7 +359,7 @@ metadata:
   name: dtcntr
 spec:
   serverType: dse
-  serverVersion: 6.8.1
+  serverVersion: 6.8.2
   serverImage: private-docker-registry.example.com/dse-img/dse:5f6e7d8c
 ```
 
@@ -369,15 +369,15 @@ A NodePort service may be requested by setting the following fields:
 
   networking:
     nodePort:
-      cql: 30001
-      broadcast: 30002
+      native: 30001
+      internode: 30002
  
 The SSL versions of the ports may be requested:
 
   networking:
     nodePort:
-      cqlSSL: 30010
-      broadcastSSL: 30020
+      nativeSSL: 30010
+      internodeSSL: 30020
       
 If any of the nodePort fields have been configured then a NodePort service will be created that routes from the specified external port to the identically numbered internal port.  Cassandra will be configured to listen on the specified ports.
 

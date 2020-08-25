@@ -4,9 +4,10 @@
 package reconciliation
 
 import (
-	"k8s.io/apimachinery/pkg/api/resource"
 	"reflect"
 	"testing"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
@@ -126,7 +127,7 @@ func Test_newStatefulSetForCassandraDatacenter(t *testing.T) {
 							CassandraDataVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{},
 						},
 						ServerType:    "cassandra",
-						ServerVersion: "3.11.6",
+						ServerVersion: "3.11.7",
 					},
 				},
 			},
@@ -146,14 +147,14 @@ func TestCassandraDatacenter_buildInitContainer_resources_set(t *testing.T) {
 		Spec: api.CassandraDatacenterSpec{
 			ClusterName:   "bob",
 			ServerType:    "cassandra",
-			ServerVersion: "3.11.6",
+			ServerVersion: "3.11.7",
 			ConfigBuilderResources: corev1.ResourceRequirements{
-				Limits:   corev1.ResourceList{
-					"cpu": *resource.NewMilliQuantity(1, resource.DecimalSI),
+				Limits: corev1.ResourceList{
+					"cpu":    *resource.NewMilliQuantity(1, resource.DecimalSI),
 					"memory": *resource.NewScaledQuantity(1, resource.Giga),
 				},
 				Requests: corev1.ResourceList{
-					"cpu": *resource.NewMilliQuantity(1, resource.DecimalSI),
+					"cpu":    *resource.NewMilliQuantity(1, resource.DecimalSI),
 					"memory": *resource.NewScaledQuantity(1, resource.Giga),
 				},
 			},
@@ -175,7 +176,7 @@ func TestCassandraDatacenter_buildInitContainer_resources_set_when_not_specified
 		Spec: api.CassandraDatacenterSpec{
 			ClusterName:   "bob",
 			ServerType:    "cassandra",
-			ServerVersion: "3.11.6",
+			ServerVersion: "3.11.7",
 		},
 	}
 
@@ -194,14 +195,14 @@ func TestCassandraDatacenter_buildContainers_systemlogger_resources_set(t *testi
 		Spec: api.CassandraDatacenterSpec{
 			ClusterName:   "bob",
 			ServerType:    "cassandra",
-			ServerVersion: "3.11.6",
+			ServerVersion: "3.11.7",
 			SystemLoggerResources: corev1.ResourceRequirements{
-				Limits:   corev1.ResourceList{
-					"cpu": *resource.NewMilliQuantity(1, resource.DecimalSI),
+				Limits: corev1.ResourceList{
+					"cpu":    *resource.NewMilliQuantity(1, resource.DecimalSI),
 					"memory": *resource.NewScaledQuantity(1, resource.Giga),
 				},
 				Requests: corev1.ResourceList{
-					"cpu": *resource.NewMilliQuantity(1, resource.DecimalSI),
+					"cpu":    *resource.NewMilliQuantity(1, resource.DecimalSI),
 					"memory": *resource.NewScaledQuantity(1, resource.Giga),
 				},
 			},
@@ -222,7 +223,7 @@ func TestCassandraDatacenter_buildContainers_systemlogger_resources_set_when_not
 		Spec: api.CassandraDatacenterSpec{
 			ClusterName:   "bob",
 			ServerType:    "cassandra",
-			ServerVersion: "3.11.6",
+			ServerVersion: "3.11.7",
 		},
 	}
 
@@ -241,16 +242,16 @@ func TestCassandraDatacenter_buildContainers_reaper_resources(t *testing.T) {
 		Spec: api.CassandraDatacenterSpec{
 			ClusterName:   "bob",
 			ServerType:    "cassandra",
-			ServerVersion: "3.11.6",
+			ServerVersion: "3.11.7",
 			Reaper: &api.ReaperConfig{
 				Enabled: true,
 				Resources: corev1.ResourceRequirements{
-					Limits:   corev1.ResourceList{
-						"cpu": *resource.NewMilliQuantity(1, resource.DecimalSI),
+					Limits: corev1.ResourceList{
+						"cpu":    *resource.NewMilliQuantity(1, resource.DecimalSI),
 						"memory": *resource.NewScaledQuantity(1, resource.Giga),
 					},
 					Requests: corev1.ResourceList{
-						"cpu": *resource.NewMilliQuantity(1, resource.DecimalSI),
+						"cpu":    *resource.NewMilliQuantity(1, resource.DecimalSI),
 						"memory": *resource.NewScaledQuantity(1, resource.Giga),
 					},
 				},
@@ -272,7 +273,7 @@ func TestCassandraDatacenter_buildContainers_reaper_resources_set_when_not_speci
 		Spec: api.CassandraDatacenterSpec{
 			ClusterName:   "bob",
 			ServerType:    "cassandra",
-			ServerVersion: "3.11.6",
+			ServerVersion: "3.11.7",
 			Reaper: &api.ReaperConfig{
 				Enabled: true,
 			},
@@ -301,7 +302,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_containers_merge(t *testing.T)
 		Spec: api.CassandraDatacenterSpec{
 			ClusterName:   "bob",
 			ServerType:    "cassandra",
-			ServerVersion: "3.11.6",
+			ServerVersion: "3.11.7",
 			PodTemplateSpec: &corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{testContainer}},
@@ -329,7 +330,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_initcontainers_merge(t *testin
 		Spec: api.CassandraDatacenterSpec{
 			ClusterName:   "bob",
 			ServerType:    "cassandra",
-			ServerVersion: "3.11.6",
+			ServerVersion: "3.11.7",
 			PodTemplateSpec: &corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{testContainer}},
@@ -351,7 +352,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_labels_merge(t *testing.T) {
 		Spec: api.CassandraDatacenterSpec{
 			ClusterName:     "bob",
 			ServerType:      "cassandra",
-			ServerVersion:   "3.11.6",
+			ServerVersion:   "3.11.7",
 			PodTemplateSpec: &corev1.PodTemplateSpec{},
 		},
 	}
