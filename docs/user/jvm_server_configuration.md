@@ -13,7 +13,7 @@ metadata:
 spec:
   clusterName: cluster1
   serverType: cassandra
-  serverVersion: 3.11.6
+  serverVersion: 3.11.7
   size: 3
   storageConfig:
       cassandraDataVolumeClaimSpec:

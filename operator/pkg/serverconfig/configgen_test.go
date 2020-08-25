@@ -16,10 +16,10 @@ func TestGetModelValues(t *testing.T) {
 		graphEnabled     int
 		solrEnabled      int
 		sparkEnabled     int
-		cqlPort          int
-		cqlSSLPort       int
-		broadcastPort    int
-		broadcastSSLPort int
+		nativePort       int
+		nativeSSLPort    int
+		internodePort    int
+		internodeSSLPort int
 	}
 	tests := []struct {
 		name string
@@ -35,10 +35,10 @@ func TestGetModelValues(t *testing.T) {
 				graphEnabled:     1,
 				solrEnabled:      0,
 				sparkEnabled:     0,
-				cqlPort:          9042,
-				cqlSSLPort:       0,
-				broadcastPort:    7000,
-				broadcastSSLPort: 7000,
+				nativePort:       9042,
+				nativeSSLPort:    0,
+				internodePort:    7000,
+				internodeSSLPort: 7000,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -66,10 +66,10 @@ func TestGetModelValues(t *testing.T) {
 				graphEnabled:     0,
 				solrEnabled:      1,
 				sparkEnabled:     0,
-				cqlPort:          9042,
-				cqlSSLPort:       9142,
-				broadcastPort:    7000,
-				broadcastSSLPort: 0,
+				nativePort:       9042,
+				nativeSSLPort:    9142,
+				internodePort:    7000,
+				internodeSSLPort: 0,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -97,10 +97,10 @@ func TestGetModelValues(t *testing.T) {
 				graphEnabled:     1,
 				solrEnabled:      1,
 				sparkEnabled:     1,
-				cqlPort:          9042,
-				cqlSSLPort:       0,
-				broadcastPort:    7200,
-				broadcastSSLPort: 7300,
+				nativePort:       9042,
+				nativeSSLPort:    0,
+				internodePort:    7200,
+				internodeSSLPort: 7300,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -128,10 +128,10 @@ func TestGetModelValues(t *testing.T) {
 				graphEnabled:     0,
 				solrEnabled:      0,
 				sparkEnabled:     1,
-				cqlPort:          9142,
-				cqlSSLPort:       0,
-				broadcastPort:    7000,
-				broadcastSSLPort: 0,
+				nativePort:       9142,
+				nativeSSLPort:    0,
+				internodePort:    7000,
+				internodeSSLPort: 0,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -159,10 +159,10 @@ func TestGetModelValues(t *testing.T) {
 				graphEnabled:     0,
 				solrEnabled:      0,
 				sparkEnabled:     0,
-				cqlPort:          0,
-				cqlSSLPort:       0,
-				broadcastPort:    0,
-				broadcastSSLPort: 0,
+				nativePort:       0,
+				nativeSSLPort:    0,
+				internodePort:    0,
+				internodeSSLPort: 0,
 			},
 			want: NodeConfig{
 				"cluster-info": NodeConfig{
@@ -188,10 +188,10 @@ func TestGetModelValues(t *testing.T) {
 				tt.args.graphEnabled,
 				tt.args.solrEnabled,
 				tt.args.sparkEnabled,
-				tt.args.cqlPort,
-				tt.args.cqlSSLPort,
-				tt.args.broadcastPort,
-				tt.args.broadcastSSLPort); !reflect.DeepEqual(got, tt.want) {
+				tt.args.nativePort,
+				tt.args.nativeSSLPort,
+				tt.args.internodePort,
+				tt.args.internodeSSLPort); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetModelValues() = %v, want %v", got, tt.want)
 			}
 		})

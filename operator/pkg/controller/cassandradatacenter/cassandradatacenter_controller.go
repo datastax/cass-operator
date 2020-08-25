@@ -50,7 +50,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch for changes to primary resource CassandraDatacenter
 	err = c.Watch(
 		&source.Kind{Type: &api.CassandraDatacenter{}},
-		&handler.EnqueueRequestForObject{})
+		&handler.EnqueueRequestForObject{},
+		// This allows us to update the status on every reconcile call without 
+		// triggering an infinite loop.
+		predicate.GenerationChangedPredicate{})
 	if err != nil {
 		return err
 	}

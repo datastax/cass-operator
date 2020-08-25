@@ -42,8 +42,8 @@ const (
 	ProgressReady    ProgressState = "Ready"
 
 	// Default port numbers
-	DefaultCqlPort       = 9042
-	DefaultBroadcastPort = 7000
+	DefaultNativePort    = 9042
+	DefaultInternodePort = 7000
 )
 
 // This type exists so there's no chance of pushing random strings to our progress status
@@ -53,15 +53,21 @@ const (
 	defaultConfigBuilderImage     = "datastax/cass-config-builder:1.0.2"
 	ubi_defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.2-ubi7"
 
-	cassandra_3_11_6     = "datastax/cassandra-mgmtapi-3_11_6:v0.1.5"
-	cassandra_4_0_0      = "datastax/cassandra-mgmtapi-4_0_0:v0.1.5"
+	cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.5"
+	cassandra_3_11_7 = "datastax/cassandra-mgmtapi-3_11_7:v0.1.12"
+	cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.5"
+
 	ubi_cassandra_3_11_6 = "datastax/cassandra:3.11.6-ubi7"
+	ubi_cassandra_3_11_7 = "datastax/cassandra:3.11.7-ubi7"
 	ubi_cassandra_4_0_0  = "datastax/cassandra:4.0-ubi7"
 
-	dse_6_8_0     = "datastax/dse-server:6.8.0"
-	dse_6_8_1     = "datastax/dse-server:6.8.1"
+	dse_6_8_0 = "datastax/dse-server:6.8.0"
+	dse_6_8_1 = "datastax/dse-server:6.8.1"
+	dse_6_8_2 = "datastax/dse-server:6.8.2"
+
 	ubi_dse_6_8_0 = "datastax/dse-server:6.8.0-ubi7"
 	ubi_dse_6_8_1 = "datastax/dse-server:6.8.1-ubi7"
+	ubi_dse_6_8_2 = "datastax/dse-server:6.8.2-ubi7"
 
 	EnvBaseImageOs = "BASE_IMAGE_OS"
 )
@@ -102,8 +108,12 @@ func getImageForDefaultBaseOs(sv string) (string, bool) {
 		return dse_6_8_0, true
 	case "dse-6.8.1":
 		return dse_6_8_1, true
+	case "dse-6.8.2":
+		return dse_6_8_2, true
 	case "cassandra-3.11.6":
 		return cassandra_3_11_6, true
+	case "cassandra-3.11.7":
+		return cassandra_3_11_7, true
 	case "cassandra-4.0.0":
 		return cassandra_4_0_0, true
 	}
@@ -116,8 +126,12 @@ func getImageForUniversalBaseOs(sv string) (string, bool) {
 		return ubi_dse_6_8_0, true
 	case "dse-6.8.1":
 		return ubi_dse_6_8_1, true
+	case "dse-6.8.2":
+		return ubi_dse_6_8_2, true
 	case "cassandra-3.11.6":
 		return ubi_cassandra_3_11_6, true
+	case "cassandra-3.11.7":
+		return ubi_cassandra_3_11_7, true
 	case "cassandra-4.0.0":
 		return ubi_cassandra_4_0_0, true
 	}
@@ -142,7 +156,7 @@ type CassandraDatacenterSpec struct {
 
 	// Version string for config builder,
 	// used to generate Cassandra server configuration
-	// +kubebuilder:validation:Enum="6.8.0";"6.8.1";"3.11.6";"4.0.0"
+	// +kubebuilder:validation:Enum="6.8.0";"6.8.1";"6.8.2";"3.11.6";"3.11.7";"4.0.0"
 	ServerVersion string `json:"serverVersion"`
 
 	// Cassandra server image name.
@@ -244,10 +258,10 @@ type NetworkingConfig struct {
 }
 
 type NodePortConfig struct {
-	Cql          int `json:"cql,omitempty"`
-	CqlSSL       int `json:"cqlSSL,omitempty"`
-	Broadcast    int `json:"broadcast,omitempty"`
-	BroadcastSSL int `json:"broadcastSSL,omitempty"`
+	Native       int `json:"native,omitempty"`
+	NativeSSL    int `json:"nativeSSL,omitempty"`
+	Internode    int `json:"internode,omitempty"`
+	InternodeSSL int `json:"internodeSSL,omitempty"`
 }
 
 // Is the NodePort service enabled?
@@ -580,15 +594,15 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 		}
 	}
 
-	cql := 0
-	cqlSSL := 0
-	broadcast := 0
-	broadcastSSL := 0
+	native := 0
+	nativeSSL := 0
+	internode := 0
+	internodeSSL := 0
 	if dc.IsNodePortEnabled() {
-		cql = dc.Spec.Networking.NodePort.Cql
-		cqlSSL = dc.Spec.Networking.NodePort.CqlSSL
-		broadcast = dc.Spec.Networking.NodePort.Broadcast
-		broadcastSSL = dc.Spec.Networking.NodePort.BroadcastSSL
+		native = dc.Spec.Networking.NodePort.Native
+		nativeSSL = dc.Spec.Networking.NodePort.NativeSSL
+		internode = dc.Spec.Networking.NodePort.Internode
+		internodeSSL = dc.Spec.Networking.NodePort.InternodeSSL
 	}
 
 	modelValues := serverconfig.GetModelValues(
@@ -598,10 +612,10 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 		graphEnabled,
 		solrEnabled,
 		sparkEnabled,
-		cql,
-		cqlSSL,
-		broadcast,
-		broadcastSSL)
+		native,
+		nativeSSL,
+		internode,
+		internodeSSL)
 
 	var modelBytes []byte
 
@@ -635,87 +649,59 @@ func (dc *CassandraDatacenter) GetConfigAsJSON() (string, error) {
 // 0 will be returned if NodePort is not configured.
 // The SSL port will be returned if it is defined,
 // otherwise the normal CQL port will be used.
-func (dc *CassandraDatacenter) GetNodePortCqlPort() int {
+func (dc *CassandraDatacenter) GetNodePortNativePort() int {
 	if !dc.IsNodePortEnabled() {
 		return 0
 	}
 
-	if dc.Spec.Networking.NodePort.CqlSSL != 0 {
-		return dc.Spec.Networking.NodePort.CqlSSL
-	} else if dc.Spec.Networking.NodePort.Cql != 0 {
-		return dc.Spec.Networking.NodePort.Cql
+	if dc.Spec.Networking.NodePort.NativeSSL != 0 {
+		return dc.Spec.Networking.NodePort.NativeSSL
+	} else if dc.Spec.Networking.NodePort.Native != 0 {
+		return dc.Spec.Networking.NodePort.Native
 	} else {
-		return DefaultCqlPort
+		return DefaultNativePort
 	}
 }
 
-// Gets the defined broadcast/intranode port for NodePort.
+// Gets the defined internode/broadcast port for NodePort.
 // 0 will be returned if NodePort is not configured.
 // The SSL port will be returned if it is defined,
-// otherwise the normal broadcast port will be used.
-func (dc *CassandraDatacenter) GetNodePortBroadcastPort() int {
+// otherwise the normal internode port will be used.
+func (dc *CassandraDatacenter) GetNodePortInternodePort() int {
 	if !dc.IsNodePortEnabled() {
 		return 0
 	}
 
-	if dc.Spec.Networking.NodePort.BroadcastSSL != 0 {
-		return dc.Spec.Networking.NodePort.BroadcastSSL
-	} else if dc.Spec.Networking.NodePort.Broadcast != 0 {
-		return dc.Spec.Networking.NodePort.Broadcast
+	if dc.Spec.Networking.NodePort.InternodeSSL != 0 {
+		return dc.Spec.Networking.NodePort.InternodeSSL
+	} else if dc.Spec.Networking.NodePort.Internode != 0 {
+		return dc.Spec.Networking.NodePort.Internode
 	} else {
-		return DefaultBroadcastPort
+		return DefaultInternodePort
 	}
+}
+
+func namedPort(name string, port int) corev1.ContainerPort {
+	return corev1.ContainerPort{Name: name, ContainerPort: int32(port)}
 }
 
 // GetContainerPorts will return the container ports for the pods in a statefulset based on the provided config
 func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, error) {
 
-	cqlPort := DefaultCqlPort
-	broadcastPort := DefaultBroadcastPort
+	nativePort := DefaultNativePort
+	internodePort := DefaultInternodePort
+
+	// Note: Port Names cannot be more than 15 characters
 
 	ports := []corev1.ContainerPort{
-		{
-			// Note: Port Names cannot be more than 15 characters
-			Name:          "native",
-			ContainerPort: int32(cqlPort),
-		},
-		{
-			Name:          "internode-msg",
-			ContainerPort: 8609,
-		},
-		{
-			Name:          "internode",
-			ContainerPort: int32(broadcastPort),
-		},
-		{
-			Name:          "tls-internode",
-			ContainerPort: 7001,
-		},
-		// jmx-port 7199 was here, seems like we no longer need to expose it
-		{
-			Name:          "mgmt-api-http",
-			ContainerPort: 8080,
-		},
-	}
-
-	config, err := dc.GetConfigAsJSON()
-	if err != nil {
-		return nil, err
-	}
-
-	var f interface{}
-	err = json.Unmarshal([]byte(config), &f)
-	if err != nil {
-		return nil, err
-	}
-
-	m := f.(map[string]interface{})
-	promConf := utils.SearchMap(m, "10-write-prom-conf")
-	if _, ok := promConf["enabled"]; ok {
-		ports = append(ports, corev1.ContainerPort{
-			Name:          "prometheus",
-			ContainerPort: 9103,
-		})
+		namedPort("native", nativePort),
+		namedPort("tls-native", 9142),
+		namedPort("internode", internodePort),
+		namedPort("tls-internode", 7001),
+		namedPort("jmx", 7199),
+		namedPort("mgmt-api-http", 8080),
+		namedPort("prometheus", 9103),
+		namedPort("thrift", 9160),
 	}
 
 	return ports, nil

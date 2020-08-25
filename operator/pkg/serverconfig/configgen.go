@@ -18,10 +18,10 @@ func GetModelValues(
 	graphEnabled int,
 	solrEnabled int,
 	sparkEnabled int,
-	cqlPort int,
-	cqlSSLPort int,
-	broadcastPort int,
-	broadcastSSLPort int) NodeConfig {
+	nativePort int,
+	nativeSSLPort int,
+	internodePort int,
+	internodeSSLPort int) NodeConfig {
 
 	seedsString := strings.Join(seeds, ",")
 
@@ -40,16 +40,16 @@ func GetModelValues(
 		"cassandra-yaml": NodeConfig{},
 	}
 
-	if cqlSSLPort != 0 {
-		modelValues["cassandra-yaml"].(NodeConfig)["native_transport_port_ssl"] = cqlSSLPort
-	} else if cqlPort != 0 {
-		modelValues["cassandra-yaml"].(NodeConfig)["native_transport_port"] = cqlPort
+	if nativeSSLPort != 0 {
+		modelValues["cassandra-yaml"].(NodeConfig)["native_transport_port_ssl"] = nativeSSLPort
+	} else if nativePort != 0 {
+		modelValues["cassandra-yaml"].(NodeConfig)["native_transport_port"] = nativePort
 	}
 
-	if broadcastSSLPort != 0 {
-		modelValues["cassandra-yaml"].(NodeConfig)["ssl_storage_port"] = broadcastSSLPort
-	} else if broadcastPort != 0 {
-		modelValues["cassandra-yaml"].(NodeConfig)["storage_port"] = broadcastPort
+	if internodeSSLPort != 0 {
+		modelValues["cassandra-yaml"].(NodeConfig)["ssl_storage_port"] = internodeSSLPort
+	} else if internodePort != 0 {
+		modelValues["cassandra-yaml"].(NodeConfig)["storage_port"] = internodePort
 	}
 
 	return modelValues
