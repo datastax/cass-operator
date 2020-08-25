@@ -70,6 +70,38 @@ func Test_buildDefaultSuperuserSecret(t *testing.T) {
 	})
 }
 
+func Test_buildReaperUserSecret(t *testing.T) {
+	t.Run("test reaper user secret is created", func(t *testing.T) {
+		dc := &api.CassandraDatacenter{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "exampleDC",
+				Namespace: "examplens",
+			},
+			Spec: api.CassandraDatacenterSpec{
+				ClusterName: "exampleCluster",
+				ServerType: "cassandra",
+				Reaper: &api.ReaperConfig{
+					Enabled: true,
+				},
+			},
+		}
+		secret, err := buildReaperUserSecret(dc)
+		if err != nil {
+			t.Errorf("should not have returned an error %w", err)
+			return
+		}
+
+		if secret.ObjectMeta.Namespace != dc.ObjectMeta.Namespace {
+			t.Errorf("expected secret in namespace '%s' but was '%s", dc.ObjectMeta.Namespace, secret.ObjectMeta.Namespace)
+		}
+
+		expectedSecretName := fmt.Sprintf("%s-reaper", dc.Spec.ClusterName)
+		if secret.ObjectMeta.Name != expectedSecretName {
+			t.Errorf("expected default secret name '%s' but was '%s'", expectedSecretName, secret.ObjectMeta.Name)
+		}
+	})
+}
+
 func Test_validateCassandraUserSecretContent(t *testing.T) {
 	var (
 		name        = "datacenter-example"

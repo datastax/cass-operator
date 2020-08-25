@@ -264,6 +264,28 @@ func TestCassandraDatacenter_buildContainers_reaper_resources_set_when_not_speci
 	}
 }
 
+func TestCassandraDatacenter_buildContainers_no_reaper(t *testing.T) {
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName:   "bob",
+			ServerType:    "cassandra",
+			ServerVersion: "3.11.6",
+			Reaper: &api.ReaperConfig{
+				Enabled: true,
+			},
+		},
+	}
+
+	containers, err := buildContainers(dc, []corev1.VolumeMount{})
+	assert.NotNil(t, containers, "Unexpected containers containers received")
+	assert.Nil(t, err, "Unexpected error encountered")
+
+	assert.Len(t, containers, 2, "Unexpected number of containers containers returned")
+	for _, container := range containers {
+		assert.NotEqual(t, container.Name, ReaperContainerName)
+	}
+}
+
 func TestCassandraDatacenter_buildPodTemplateSpec_containers_merge(t *testing.T) {
 	testContainer := corev1.Container{}
 	testContainer.Name = "test-container"
