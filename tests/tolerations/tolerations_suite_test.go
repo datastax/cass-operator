@@ -45,7 +45,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator can build pods with tolerations", func() {
+		Specify("the operator can respond to PSP node taints", func() {
 
 			By("creating a namespace for the cass-operator")
 			err := kubectl.CreateNamespace(opNamespace).ExecV()

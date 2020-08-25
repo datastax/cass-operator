@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	testName    = "Tolerations"
-	opNamespace = "test-tolerations"
+	testName    = "Test PSP PVC Annotations"
+	opNamespace = "test-psp-pvc-annotation"
 	dc1Name     = "dc1"
 	// This scenario requires RF greater than 2
 	dc1Yaml      = "../testdata/tolerations-dc.yaml"
@@ -44,7 +44,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator can build pods with tolerations", func() {
+		Specify("the operator can respond to psp annotations on PVCs", func() {
 
 			By("creating a namespace for the cass-operator")
 			err := kubectl.CreateNamespace(opNamespace).ExecV()
@@ -61,38 +61,23 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForDatacenterReady(dc1Name)
 
-			// Add a taint to the node for the first pod
+			// Add an annotation to the pvc for the first pod
 
-			k = kubectl.GetNodeNameForPod(pod1Name)
-			node1Name, _, err := ns.ExecVCapture(k)
+			json := "jsonpath={.spec.volumes[?(@.name==\"server-data\")].persistentVolumeClaim.claimName}"
+
+			k = kubectl.Get(fmt.Sprintf("pod/%s", pod1Name)).FormatOutput(json)
+
+			pvc1Name, _, err := ns.ExecVCapture(k)
 			if err != nil {
 				panic(err)
 			}
 
-			node1Resource := fmt.Sprintf("node/%s", node1Name)
-
-			// Cleanup: Remove the taint
-			defer func() {
-				json := `
-						{
-							"spec": {
-								"taints": null
-							}
-						}`
-				k = kubectl.PatchMerge(node1Resource, json)
-				err = k.ExecV()
-				if err != nil {
-					panic(err)
-				}
-			}()
-
-			// node.vmware.com/drain=planned-downtime:NoSchedule
-			step = fmt.Sprintf("tainting node: %s", node1Name)
-			k = kubectl.Taint(
-				node1Name,
-				"node.vmware.com/drain",
-				"planned-downtime",
-				"NoSchedule")
+			step = fmt.Sprintf("annotating pvc: %s", pvc1Name)
+			k = kubectl.Annotate(
+				"persistentvolumeclaim",
+				pvc1Name,
+				"volumehealth.storage.kubernetes.io/health",
+				"inaccessible")
 			ns.ExecAndLog(step, k)
 
 			// Wait for a pod to no longer be ready
@@ -107,8 +92,6 @@ var _ = Describe(testName, func() {
 					break
 				}
 			}
-
-			// In my environment, I have to add a wait here
 
 			time.Sleep(1 * time.Minute)
 
