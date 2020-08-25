@@ -2141,10 +2141,11 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return result.Error(err).Output()
 	}
 
-	// We do the node taint check here, with the assumption that the cluster is "healthy"
+	// We do the node and pvc taint checks here
+	// with the assumption that the cluster is healthy
 
 	if utils.IsPSPEnabled() {
-		if err := rc.checkNodeTaints(); err != nil {
+		if err := rc.checkNodeAndPvcTaints(); err != nil {
 			return result.Error(err).Output()
 		}
 	}

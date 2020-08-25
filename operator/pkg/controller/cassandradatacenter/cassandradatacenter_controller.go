@@ -122,7 +122,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Setup watches for Nodes to check for taints being added
 
-	mapFn := handler.ToRequestsFunc(
+	nodeMapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
 			log.Info("Node Watch called")
 			requests := []reconcile.Request{}
@@ -150,7 +150,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		err = c.Watch(
 			&source.Kind{Type: &corev1.Node{}},
 			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: mapFn,
+				ToRequests: nodeMapFn,
 			},
 		)
 		if err != nil {
