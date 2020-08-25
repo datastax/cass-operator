@@ -221,6 +221,11 @@ func TestCassandraDatacenter_buildContainers_reaper_resources(t *testing.T) {
 				},
 			},
 		},
+		Status: api.CassandraDatacenterStatus{
+			ReaperStatus: api.ReaperStatus{
+				SchemaInitialized: true,
+			},
+		},
 	}
 
 	containers, err := buildContainers(dc, []corev1.VolumeMount{})
@@ -240,6 +245,11 @@ func TestCassandraDatacenter_buildContainers_reaper_resources_set_when_not_speci
 			ServerVersion: "3.11.7",
 			Reaper: &api.ReaperConfig{
 				Enabled: true,
+			},
+		},
+		Status: api.CassandraDatacenterStatus{
+			ReaperStatus: api.ReaperStatus{
+				SchemaInitialized: true,
 			},
 		},
 	}

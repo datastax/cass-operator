@@ -16,7 +16,9 @@ import (
 
 func TestReconcileReaper_buildInitReaperSchemaJob(t *testing.T) {
 	dc := newCassandraDatacenter()
-	job := buildInitReaperSchemaJob(dc)
+	job, err := buildInitReaperSchemaJob(dc)
+
+	assert.NoError(t, err)
 
 	assert.Equal(t, getReaperSchemaInitJobName(dc), job.Name)
 	assert.Equal(t, dc.GetDatacenterLabels(), job.Labels)
@@ -49,6 +51,7 @@ func TestReconcileReaper_newReaperService(t *testing.T) {
 
 func TestReconcileReaper_CheckReaperSchemaInitialized(t *testing.T) {
 	rc, _, cleanupMockScr := setupTest()
+	rc.Datacenter.Spec.ServerType = "cassandra"
 	rc.Datacenter.Spec.Reaper = &api.ReaperConfig{Enabled: true}
 	defer cleanupMockScr()
 
@@ -69,6 +72,17 @@ func TestReconcileReaper_CheckReaperSchemaInitialized(t *testing.T) {
 	err = rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: rc.Datacenter.Namespace, Name: jobName}, job)
 
 	assert.NoErrorf(t, err, "failed to get job %s", jobName)
+
+	job.Status.Conditions = append(job.Status.Conditions, v1batch.JobCondition{
+		Type: v1batch.JobComplete,
+		Status: corev1.ConditionTrue,
+	})
+
+	err = rc.Client.Status().Update(rc.Ctx, job)
+	assert.NoError(t, err)
+
+	reconcileResult = rc.CheckReaperSchemaInitialized()
+	assert.False(t, reconcileResult.Completed())
 }
 
 func TestReconcileReaper_CheckReaperSchemaNotInitialized(t *testing.T) {
