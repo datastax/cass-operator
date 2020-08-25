@@ -894,12 +894,14 @@ func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
 		for _, pod := range startedPods {
 			// Since pod is labeled as started, it should be done being replaced
 			if utils.IndexOfString(dc.Status.NodeReplacements, pod.Name) > -1 {
-				logger.Info("Finished replacing pod", "pod", pod.Name)
+				if isMgmtApiRunning(pod) && isServerReady(pod) && isServerStarted(pod) {
+					logger.Info("Finished replacing pod", "pod", pod.Name)
 
-				rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.FinishedReplaceNode,
-					"Finished replacing pod %s", pod.Name)
+					rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.FinishedReplaceNode,
+						"Finished replacing pod %s", pod.Name)
 
-				dc.Status.NodeReplacements = utils.RemoveValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
+					dc.Status.NodeReplacements = utils.RemoveValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
+				}
 			}
 		}
 	}
