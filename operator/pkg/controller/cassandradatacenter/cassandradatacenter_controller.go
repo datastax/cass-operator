@@ -53,7 +53,8 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		&handler.EnqueueRequestForObject{},
 		// This allows us to update the status on every reconcile call without 
 		// triggering an infinite loop.
-		predicate.GenerationChangedPredicate{})
+		// predicate.GenerationChangedPredicate{}
+	)
 	if err != nil {
 		return err
 	}
