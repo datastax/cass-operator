@@ -154,7 +154,20 @@ cluster1-superuser@cqlsh> select * from system.peers;
 
 ### (Optional) Loading the operator via Helm
 
-Helm may be used to load the operator.  The destination namespace must be created first.
+Helm may be used to install the operator. Consider installing it from our Helm Charts repo
+
+```console
+helm repo add datastax https://datastax.github.io/charts
+helm repo update
+
+# Helm 2
+helm install datastax/cass-operator
+
+# Helm 3
+helm install cass-operator datastax/cass-operator
+```
+
+_or via a local checkout_
 
 ```console
 kubectl create namespace cass-operator-system
