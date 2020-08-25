@@ -209,8 +209,8 @@ The operator is comprised of the following container images working in concert:
 * The config builder init container, built from sources in [datastax/cass-config-builder](https://github.com/datastax/cass-config-builder).
 * Cassandra, built from
   [datastax/management-api-for-apache-cassandra](https://github.com/datastax/management-api-for-apache-cassandra),
-  with Cassandra 3.11.6 support, and experimental support for Cassandra
-  4.0.0-alpha3.
+  with Cassandra 3.11.7 support, and experimental support for Cassandra
+  4.0-beta1.
 * ... or DSE, built from [datastax/docker-images](https://github.com/datastax/docker-images).
 
 ## Requirements
