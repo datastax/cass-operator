@@ -21,7 +21,7 @@ Bug fixes:
 * Fix watching CassDC to not trigger on status update [#212](https://github.com/datastax/cass-operator/commit/3ae79e01398d8f281769ef079bff66c3937eca24)
 * Enumerate more container ports [#200](https://github.com/datastax/cass-operator/commit/b0c004dc02b22c34682a3602097c1e09b6261572)
 * Resuming a stopped CassDC should not use the ScalingUp condition [#198](https://github.com/datastax/cass-operator/commit/7f26e0fd532ce690de282d1377dd00539ea8c251)
-* Idiomatic usage of "internode" shouldn't have a hyphen [#197](https://github.com/datastax/cass-operator/commit/62993fa113053075a772fe532c35245003912a2f)
+* Idiomatic usage of the term "internode" [#197](https://github.com/datastax/cass-operator/commit/62993fa113053075a772fe532c35245003912a2f)
 * First-seed-in-the-DC logic should respect additionalSeeds [#180](https://github.com/datastax/cass-operator/commit/77750d11c62f2c3043f1088e377b743859c3be96)
 * Use the additional seeds service in the config [#189](https://github.com/datastax/cass-operator/commit/4aaaff7b4e4ff4df626aa12f149329b866a06d35)
 * Fix operator so it can watch multiple or all namespaces [#173](https://github.com/datastax/cass-operator/commit/bac509a81b6339219fe3fc313dbf384653563c59)
