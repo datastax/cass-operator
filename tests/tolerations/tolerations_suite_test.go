@@ -24,6 +24,7 @@ var (
 	dc1Resource  = fmt.Sprintf("CassandraDatacenter/%s", dc1Name)
 	pod1Name     = "cluster1-dc1-r1-sts-0"
 	pod1Resource = fmt.Sprintf("pod/%s", pod1Name)
+	nodeCount    = 3
 	ns           = ginkgo_util.NewWrapper(testName, opNamespace)
 )
 
@@ -103,7 +104,7 @@ var _ = Describe(testName, func() {
 				i += 1
 
 				names := ns.GetDatacenterReadyPodNames(dc1Name)
-				if len(names) < 3 {
+				if len(names) < nodeCount {
 					break
 				}
 			}
@@ -115,6 +116,19 @@ var _ = Describe(testName, func() {
 			// Wait for the cluster to heal itself
 
 			ns.WaitForDatacenterReady(dc1Name)
+
+			// Make sure things look right in nodetool
+			step = "verify in nodetool that we still have the right number of cassandra nodes"
+			By(step)
+			podNames := ns.GetDatacenterReadyPodNames(dc1Name)
+			for _, podName := range podNames {
+				nodeInfos := ns.RetrieveStatusFromNodetool(podName)
+				Expect(len(nodeInfos)).To(Equal(nodeCount), "Expect nodetool to return info on exactly %d nodes", nodeCount)
+				for _, nodeInfo := range nodeInfos {
+					Expect(nodeInfo.Status).To(Equal("up"), "Expected all nodes to be up, but node %s was down", nodeInfo.HostId)
+					Expect(nodeInfo.State).To(Equal("normal"), "Expected all nodes to have a state of normal, but node %s was %s", nodeInfo.HostId, nodeInfo.State)
+				}
+			}
 		})
 	})
 })
