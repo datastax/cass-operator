@@ -103,7 +103,7 @@ var _ = Describe(testName, func() {
 				i += 1
 
 				names := ns.GetDatacenterReadyPodNames(dc1Name)
-				if len(names) < 2 {
+				if len(names) < 3 {
 					break
 				}
 			}
