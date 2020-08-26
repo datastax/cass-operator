@@ -608,6 +608,11 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 		return result.RequeueSoon(2)
 	}
 
+	// Wait on any nodes that are still being replaced
+	if len(rc.Datacenter.Status.NodeReplacements) > 0 {
+		return result.RequeueSoon(2)
+	}
+
 	// step 5 sanity check that all pods are labelled as started and are ready
 
 	readyPodCount, startedLabelCount := rc.countReadyAndStarted()
@@ -884,6 +889,19 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 	return nil
 }
 
+func getTimePodCreated(pod *corev1.Pod) metav1.Time {
+	return pod.ObjectMeta.CreationTimestamp
+}
+
+func getTimeStartedReplacingNodes(dc *api.CassandraDatacenter) (metav1.Time, bool) {
+	replaceCondition, hasReplaceCondition := dc.GetCondition(api.DatacenterReplacingNodes)
+	if hasReplaceCondition && replaceCondition.Status == corev1.ConditionTrue {
+		return replaceCondition.LastTransitionTime, true
+	} else {
+		return metav1.Time{}, false
+	}
+}
+
 func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
 	dc := rc.Datacenter
 	logger := rc.ReqLogger
@@ -894,29 +912,30 @@ func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
 		for _, pod := range startedPods {
 			// Since pod is labeled as started, it should be done being replaced
 			if utils.IndexOfString(dc.Status.NodeReplacements, pod.Name) > -1 {
-				podReady := false
-				containersReady := false
-				for _, condition := range pod.Status.Conditions {
-					if corev1.ConditionTrue == condition.Status {
-						if condition.Type == corev1.PodReady {
-							replaceCondition, hasReplaceCondition := dc.GetCondition(api.DatacenterReplacingNodes)
-							if hasReplaceCondition && replaceCondition.Status == corev1.ConditionTrue {
-								podReady = replaceCondition.LastTransitionTime.Before(&condition.LastTransitionTime)
-							} else {
-								podReady = true
-							}
-						} else if condition.Type == corev1.ContainersReady {
-							containersReady = true
-						}
+
+				// Ensure the pod is not only started but created _after_ we 
+				// started replacing nodes. This is because the Pod may have
+				// been ready, marked for replacement, and then deleted, so we
+				// have to make sure this is the incarnation of the Pod from 
+				// after the pod was deleted to be replaced.
+				timeStartedReplacing, isReplacing := getTimeStartedReplacingNodes(dc)
+				if isReplacing {
+					timeCreated := getTimePodCreated(pod)
+
+					// There isn't a good way to tell the operator to abort
+					// replacing a node, so if we've been replacing for over
+					// 30 minutes, and the pod is started, we'll go ahead and
+					// clear it.
+					replacingForOver30min := hasBeenXMinutes(30, timeStartedReplacing.Time)
+
+					if replacingForOver30min || timeStartedReplacing.Before(&timeCreated) || timeStartedReplacing.Equal(&timeCreated) {
+						logger.Info("Finished replacing pod", "pod", pod.Name)
+
+						rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.FinishedReplaceNode,
+							"Finished replacing pod %s", pod.Name)
+
+						dc.Status.NodeReplacements = utils.RemoveValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
 					}
-				}
-				if isMgmtApiRunning(pod) && isServerReady(pod) && isServerStarted(pod) && podReady && containersReady {
-					logger.Info("Finished replacing pod", "pod", pod.Name)
-
-					rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.FinishedReplaceNode,
-						"Finished replacing pod %s", pod.Name)
-
-					dc.Status.NodeReplacements = utils.RemoveValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
 				}
 			}
 		}
