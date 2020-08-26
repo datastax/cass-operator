@@ -5,7 +5,6 @@ package node_replace
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -62,52 +61,6 @@ func duplicate(value string, count int) string {
 	}
 
 	return strings.Join(result, " ")
-}
-
-type NodetoolNodeInfo struct {
-	Status  string
-	State   string
-	Address string
-	HostId  string
-	Rack    string
-}
-
-func RetrieveStatusFromNodetool(podName string) []NodetoolNodeInfo {
-	k := kubectl.KCmd{Command: "exec", Args: []string{podName, "-i", "-c", "cassandra", "--namespace", ns.Namespace, "--", "nodetool", "status"}}
-	output, err := k.Output()
-	Expect(err).ToNot(HaveOccurred())
-
-	getFullName := func(s string) string {
-		status, ok := map[string]string{
-			"U": "up",
-			"D": "down",
-			"N": "normal",
-			"L": "leaving",
-			"J": "joining",
-			"M": "moving",
-			"S": "stopped",
-		}[string(s)]
-
-		if !ok {
-			status = s
-		}
-		return status
-	}
-
-	nodeTexts := regexp.MustCompile(`(?m)^.*(([0-9a-fA-F]+-){4}([0-9a-fA-F]+)).*$`).FindAllString(output, -1)
-	nodeInfo := []NodetoolNodeInfo{}
-	for _, nodeText := range nodeTexts {
-		comps := regexp.MustCompile(`[[:space:]]+`).Split(nodeText, -1)
-		nodeInfo = append(nodeInfo,
-			NodetoolNodeInfo{
-				Status:  getFullName(string(comps[0][0])),
-				State:   getFullName(string(comps[0][1])),
-				Address: comps[1],
-				HostId:  comps[len(comps)-2],
-				Rack:    comps[len(comps)-1],
-			})
-	}
-	return nodeInfo
 }
 
 func DeleteIgnoreFinalizersAndLog(description string, resourceName string) {
@@ -229,7 +182,7 @@ var _ = Describe(testName, func() {
 			step = "verify in nodetool that we still have the right number of cassandra nodes"
 			By(step)
 			for _, podName := range podNames {
-				nodeInfos := RetrieveStatusFromNodetool(podName)
+				nodeInfos := ns.RetrieveStatusFromNodetool(podName)
 				Expect(len(nodeInfos)).To(Equal(len(podNames)), "Expect nodetool to return info on exactly %d nodes", len(podNames))
 				for _, nodeInfo := range nodeInfos {
 					Expect(nodeInfo.Status).To(Equal("up"), "Expected all nodes to be up, but node %s was down", nodeInfo.HostId)

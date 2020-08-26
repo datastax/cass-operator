@@ -153,7 +153,17 @@ func (rc *ReconciliationContext) calculateReconciliationActions() (reconcile.Res
 		return result.Error(err).Output()
 	}
 
-	return rc.ReconcileAllRacks()
+	result, err := rc.ReconcileAllRacks()
+
+	if err == nil {
+		// Update PSP status
+		// Always sync the datacenter status with the PSP health status
+		if err := rc.PSPHealthUpdater.Update(*rc.Datacenter); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
+	return result, err
 }
 
 // This file contains various definitions and plumbing setup used for reconciliation.
