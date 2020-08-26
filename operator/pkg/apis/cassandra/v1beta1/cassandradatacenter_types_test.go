@@ -4,7 +4,6 @@
 package v1beta1
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,9 +38,9 @@ func Test_makeImage(t *testing.T) {
 			args: args{
 				serverImage:   "",
 				serverType:    "cassandra",
-				serverVersion: "3.11.6",
+				serverVersion: "3.11.7",
 			},
-			want:      "datastax/cassandra-mgmtapi-3_11_6:v0.1.5",
+			want:      "datastax/cassandra-mgmtapi-3_11_7:v0.1.12",
 			errString: "",
 		},
 		{
@@ -65,13 +64,13 @@ func Test_makeImage(t *testing.T) {
 			errString: "server 'dse' and version '6.7.0' do not work together",
 		},
 		{
-			name: "test 6.8.1",
+			name: "test 6.8.2",
 			args: args{
 				serverImage:   "",
 				serverType:    "dse",
-				serverVersion: "6.8.1",
+				serverVersion: "6.8.2",
 			},
-			want:      "datastax/dse-server:6.8.1",
+			want:      "datastax/dse-server:6.8.2",
 			errString: "",
 		},
 	}
@@ -226,86 +225,41 @@ func TestCassandraDatacenter_GetContainerPorts(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Happy Path",
+			name: "Cassandra 3.11.6",
 			fields: fields{
 				Spec: CassandraDatacenterSpec{
-					ClusterName: "exampleCluster",
-					Config:      []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
+					ClusterName:   "exampleCluster",
+					ServerType:    "cassandra",
+					ServerVersion: "3.11.6",
 				},
 			},
 			want: []corev1.ContainerPort{
 				{
 					Name:          "native",
-					ContainerPort: DefaultCqlPort,
+					ContainerPort: DefaultNativePort,
 				}, {
-					Name:          "internode-msg",
-					ContainerPort: 8609,
+					Name:          "tls-native",
+					ContainerPort: 9142,
 				}, {
 					Name:          "internode",
-					ContainerPort: DefaultBroadcastPort,
+					ContainerPort: DefaultInternodePort,
 				}, {
 					Name:          "tls-internode",
 					ContainerPort: 7001,
 				}, {
-					Name:          "mgmt-api-http",
-					ContainerPort: 8080,
-				}},
-			wantErr: false,
-		},
-		{
-			name: "Expose Prometheus",
-			fields: fields{
-				Spec: CassandraDatacenterSpec{
-					ClusterName: "exampleCluster",
-					Config:      []byte("{\"cassandra-yaml\":{\"10-write-prom-conf\":{\"enabled\":true,\"port\":9103,\"staleness-delta\":300},\"authenticator\":\"AllowAllAuthenticator\",\"batch_size_fail_threshold_in_kb\":1280}}"),
-				},
-			},
-			want: []corev1.ContainerPort{
-				{
-					Name:          "native",
-					ContainerPort: DefaultCqlPort,
-				}, {
-					Name:          "internode-msg",
-					ContainerPort: 8609,
-				}, {
-					Name:          "internode",
-					ContainerPort: DefaultBroadcastPort,
-				}, {
-					Name:          "tls-internode",
-					ContainerPort: 7001,
+					Name:          "jmx",
+					ContainerPort: 7199,
 				}, {
 					Name:          "mgmt-api-http",
 					ContainerPort: 8080,
 				}, {
 					Name:          "prometheus",
 					ContainerPort: 9103,
-				}},
-			wantErr: false,
-		},
-		{
-			name: "Expose Prometheus - No config",
-			fields: fields{
-				Spec: CassandraDatacenterSpec{
-					ClusterName: "exampleCluster",
+				}, {
+					Name:          "thrift",
+					ContainerPort: 9160,
 				},
 			},
-			want: []corev1.ContainerPort{
-				{
-					Name:          "native",
-					ContainerPort: DefaultCqlPort,
-				}, {
-					Name:          "internode-msg",
-					ContainerPort: 8609,
-				}, {
-					Name:          "internode",
-					ContainerPort: DefaultBroadcastPort,
-				}, {
-					Name:          "tls-internode",
-					ContainerPort: 7001,
-				}, {
-					Name:          "mgmt-api-http",
-					ContainerPort: 8080,
-				}},
 			wantErr: false,
 		},
 	}
@@ -318,13 +272,12 @@ func TestCassandraDatacenter_GetContainerPorts(t *testing.T) {
 				Status:     tt.fields.Status,
 			}
 			got, err := dc.GetContainerPorts()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("CassandraDatacenter.GetContainerPorts() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			if tt.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("CassandraDatacenter.GetContainerPorts() = %v, want %v", got, tt.want)
-			}
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

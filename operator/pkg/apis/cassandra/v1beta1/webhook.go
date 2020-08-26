@@ -38,6 +38,8 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 			err = nil
 		case "6.8.1":
 			err = nil
+		case "6.8.2":
+			err = nil
 		default:
 			err = attemptedTo("use unsupported DSE version '%s'", dc.Spec.ServerVersion)
 		}
@@ -55,6 +57,8 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 	if dc.Spec.ServerType == "cassandra" {
 		switch dc.Spec.ServerVersion {
 		case "3.11.6":
+			err = nil
+		case "3.11.7":
 			err = nil
 		case "4.0.0":
 			err = nil

@@ -837,8 +837,8 @@ func getRpcAddress(dc *api.CassandraDatacenter, pod *corev1.Pod) string {
 			return pod.Status.HostIP
 		}
 		if nc.NodePort != nil {
-			if nc.NodePort.Broadcast > 0 ||
-				nc.NodePort.BroadcastSSL > 0 {
+			if nc.NodePort.Internode > 0 ||
+				nc.NodePort.InternodeSSL > 0 {
 				return pod.Status.HostIP
 			}
 		}
@@ -1073,6 +1073,26 @@ func (rc *ReconciliationContext) getCassMetadataEndpoints() httphelper.CassMetad
 	return metadata
 }
 
+// When a vmware taint occurs and we delete the pvc, pv, and
+// pod, then a new pod is created to replace the deleted pod.
+// However, there is a kubernetes bug that prevents a new pvc
+// from being created, and the new pod gets stuck in Pending.
+// see: https://github.com/kubernetes/kubernetes/issues/89910
+//
+// If we then delete this new pod, then the stateful will
+// properly recreate a pvc, pv, and pod.
+func (rc *ReconciliationContext) isNodeStuckWithoutPVC(pod *corev1.Pod) bool {
+	_, err := rc.GetPVCForPod(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
+	if err != nil {
+		rc.ReqLogger.Info(
+			"Unable to get PersistentVolumeClaim",
+			"error", err.Error())
+		return true
+	}
+
+	return false
+}
+
 func (rc *ReconciliationContext) deleteStuckNodes() (bool, error) {
 	rc.ReqLogger.Info("reconcile_racks::deleteStuckNodes")
 	for _, pod := range rc.dcPods {
@@ -1083,6 +1103,9 @@ func (rc *ReconciliationContext) deleteStuckNodes() (bool, error) {
 			shouldDelete = true
 		} else if isNodeStuckAfterLosingReadiness(pod) {
 			reason = "Pod got stuck after losing readiness"
+			shouldDelete = true
+		} else if utils.IsPSPEnabled() && rc.isNodeStuckWithoutPVC(pod) {
+			reason = "Pod got stuck waiting for PersistentValueClaim"
 			shouldDelete = true
 		}
 
@@ -1991,7 +2014,6 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 // ReconcileAllRacks determines if a rack needs to be reconciled.
 func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	logger := rc.ReqLogger
-	logger.Info("reconcile_racks::Apply")
 
 	podList, err := rc.listPods(rc.Datacenter.GetClusterLabels())
 	if err != nil {
@@ -2091,6 +2113,14 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 
 	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
 		return result.Error(err).Output()
+	}
+
+	// We do the node taint check here, with the assumption that the cluster is "healthy"
+
+	if utils.IsPSPEnabled() {
+		if err := rc.checkNodeTaints(); err != nil {
+			return result.Error(err).Output()
+		}
 	}
 
 	rc.ReqLogger.Info("All StatefulSets should now be reconciled.")

@@ -125,13 +125,13 @@ spec:
                   type: boolean
                 nodePort:
                   properties:
-                    broadcast:
+                    internode:
                       type: integer
-                    broadcastSSL:
+                    internodeSSL:
                       type: integer
-                    cql:
+                    native:
                       type: integer
-                    cqlSSL:
+                    nativeSSL:
                       type: integer
                   type: object
               type: object
@@ -6026,7 +6026,9 @@ spec:
               enum:
               - 6.8.0
               - 6.8.1
+              - 6.8.2
               - 3.11.6
+              - 3.11.7
               - 4.0.0
               type: string
             serviceAccount:

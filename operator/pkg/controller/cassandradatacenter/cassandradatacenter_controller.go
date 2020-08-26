@@ -5,25 +5,30 @@ package cassandradatacenter
 
 import (
 	"fmt"
-	
+
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	appsv1 "k8s.io/api/apps/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	"github.com/datastax/cass-operator/operator/pkg/reconciliation"
 	corev1 "k8s.io/api/core/v1"
+	types "k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
+
+var log = logf.Log.WithName("cassandradatacenter_controller")
 
 // Add creates a new CassandraDatacenter Controller and adds it to the Manager. The Manager will set fields on the Controller
 // and Start it when the Manager is Started.
@@ -45,7 +50,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	// Watch for changes to primary resource CassandraDatacenter
 	err = c.Watch(
 		&source.Kind{Type: &api.CassandraDatacenter{}},
-		&handler.EnqueueRequestForObject{})
+		&handler.EnqueueRequestForObject{},
+		// This allows us to update the status on every reconcile call without 
+		// triggering an infinite loop.
+		predicate.GenerationChangedPredicate{})
 	if err != nil {
 		return err
 	}
@@ -112,6 +120,44 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	// Setup watches for Nodes to check for taints being added
+
+	mapFn := handler.ToRequestsFunc(
+		func(a handler.MapObject) []reconcile.Request {
+			log.Info("Node Watch called")
+			requests := []reconcile.Request{}
+
+			nodeName := a.Object.(*corev1.Node).Name
+			dcs := reconciliation.DatacentersForNode(nodeName)
+
+			for _, dc := range dcs {
+				log.Info("node watch adding reconcilation request",
+					"cassandraDatacenter", dc.Name,
+					"namespace", dc.Namespace)
+
+				// Create reconcilerequests for the related cassandraDatacenter
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      dc.Name,
+						Namespace: dc.Namespace,
+					}},
+				)
+			}
+			return requests
+		})
+
+	if utils.IsPSPEnabled() {
+		err = c.Watch(
+			&source.Kind{Type: &corev1.Node{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: mapFn,
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+
 	// Setup watches for Secrets. These secrets are often not owned by or created by
 	// the operator, so we must create a mapping back to the appropriate datacenters.
 
@@ -133,7 +179,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	err = c.Watch(
 		&source.Kind{Type: &corev1.Secret{}},
-		&handler.EnqueueRequestsFromMapFunc{ToRequests: toRequests,},
+		&handler.EnqueueRequestsFromMapFunc{ToRequests: toRequests},
 	)
 	if err != nil {
 		return err

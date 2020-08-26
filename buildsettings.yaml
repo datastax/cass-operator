@@ -1,7 +1,7 @@
 version:
   major: 1
-  minor: 3
-  patch: 1
+  minor: 5
+  patch: 0
   prerelease: "snapshot"
 jenkins:
   master:
@@ -17,6 +17,6 @@ jenkins:
       - simple-theme-plugin
 dev:
   images:
-    - datastax/dse-server:6.8.1
+    - datastax/dse-server:6.8.2
     - datastax/cass-config-builder:1.0.2
-    - datastax/cassandra-mgmtapi-3_11_6:v0.1.5
+    - datastax/cassandra-mgmtapi-3_11_7:v0.1.12

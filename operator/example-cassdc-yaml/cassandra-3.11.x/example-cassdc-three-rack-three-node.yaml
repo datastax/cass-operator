@@ -1,4 +1,4 @@
-# Sized to work on 3 k8s workers nodes with 1 core / 4 GB RAM
+# Sized to work on 3 k8s workers nodes with 2 cores / 8 GB RAM
 # See neighboring example-cassdc-full.yaml for docs for each parameter
 apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
@@ -7,10 +7,18 @@ metadata:
 spec:
   clusterName: cluster1
   serverType: cassandra
-  serverVersion: "3.11.6"
+  serverVersion: "3.11.7"
   managementApiAuth:
     insecure: {}
   size: 3
+  racks:
+    - name: rack1
+    - name: rack2
+    - name: rack3
+  resources:
+    requests:
+      memory: 4Gi
+      cpu: 1000m
   storageConfig:
     cassandraDataVolumeClaimSpec:
       storageClassName: server-storage
@@ -18,12 +26,16 @@ spec:
         - ReadWriteOnce
       resources:
         requests:
-          storage: 5Gi
+          storage: 10Gi
   config:    
     cassandra-yaml:
+      num_tokens: 8    
       authenticator: org.apache.cassandra.auth.PasswordAuthenticator
       authorizer: org.apache.cassandra.auth.CassandraAuthorizer
       role_manager: org.apache.cassandra.auth.CassandraRoleManager
     jvm-options:
-      initial_heap_size: "800M"
-      max_heap_size: "800M"
+      initial_heap_size: "2G"
+      max_heap_size: "2G"
+      additional-jvm-opts:
+        - "-Dcassandra.system_distributed_replication_dc_names=dc1"
+        - "-Dcassandra.system_distributed_replication_per_dc=3"
