@@ -101,7 +101,7 @@ func (rc *ReconciliationContext) CheckHeadlessServices() result.ReconcileResult 
 
 		} else {
 			// if we found the service already, check if they need updating
-			if !resourcesHaveSameHash(currentService, desiredSvc) {
+			if !utils.ResourcesHaveSameHash(currentService, desiredSvc) {
 				resourceVersion := currentService.GetResourceVersion()
 				// preserve any labels and annotations that were added to the service post-creation
 				desiredSvc.Labels = utils.MergeMap(map[string]string{}, currentService.Labels, desiredSvc.Labels)

@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package reconciliation
+package utils
 
 import (
 	"crypto/sha256"
@@ -17,7 +17,7 @@ type Annotated interface {
 
 const resourceHashAnnotationKey = "cassandra.datastax.com/resource-hash"
 
-func resourcesHaveSameHash(r1, r2 Annotated) bool {
+func ResourcesHaveSameHash(r1, r2 Annotated) bool {
 	a1 := r1.GetAnnotations()
 	a2 := r2.GetAnnotations()
 	if a1 == nil || a2 == nil {
@@ -26,7 +26,7 @@ func resourcesHaveSameHash(r1, r2 Annotated) bool {
 	return a1[resourceHashAnnotationKey] == a2[resourceHashAnnotationKey]
 }
 
-func addHashAnnotation(r Annotated) {
+func AddHashAnnotation(r Annotated) {
 	hash := deepHashString(r)
 	m := r.GetAnnotations()
 	if m == nil {

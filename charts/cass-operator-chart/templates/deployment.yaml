@@ -55,6 +55,10 @@ spec:
           timeoutSeconds: 5
           failureThreshold: 1
         env:
+        {{- if .Values.vmwarePSPEnabled }}
+        - name: ENABLE_VMWARE_PSP
+          value: "true"
+        {{- end }}
         {{- if .Values.clusterWideInstall }}
         - name: WATCH_NAMESPACE
           value: ""
