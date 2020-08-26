@@ -104,6 +104,50 @@ func (rc *ReconciliationContext) DeletePvcIgnoreFinalizers(podNamespace string, 
 	return nil, *goRoutineError
 }
 
+func (rc *ReconciliationContext) removePvcAndPod(pod corev1.Pod) error {
+
+	// Drain the cassandra node
+
+	if isMgmtApiRunning(&pod) {
+		err := rc.NodeMgmtClient.CallDrainEndpoint(&pod)
+		if err != nil {
+			rc.ReqLogger.Error(err, "error during cassandra node drain",
+				"pod", pod.ObjectMeta.Name)
+			return err
+		}
+	}
+
+	// Add the cassandra node to replace nodes
+
+	rc.Datacenter.Spec.ReplaceNodes = append(rc.Datacenter.Spec.ReplaceNodes, pod.ObjectMeta.Name)
+
+	// Update CassandraDatacenter
+	if err := rc.Client.Update(rc.Ctx, rc.Datacenter); err != nil {
+		rc.ReqLogger.Error(err, "Failed to update CassandraDatacenter with removed finalizers")
+		return err
+	}
+
+	// Remove the pvc
+
+	_, err := rc.DeletePvcIgnoreFinalizers(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
+	if err != nil {
+		rc.ReqLogger.Error(err, "error during PersistentVolume delete",
+			"pod", pod.ObjectMeta.Name)
+		return err
+	}
+
+	// Remove the pod
+
+	err = rc.Client.Delete(rc.Ctx, &pod)
+	if err != nil {
+		rc.ReqLogger.Error(err, "error during cassandra node delete",
+			"pod", pod.ObjectMeta.Name)
+		return err
+	}
+
+	return nil
+}
+
 // Check nodes for vmware PSP draining taints
 // and check PVCs for vmware PSP failure annotations
 func (rc *ReconciliationContext) checkNodeAndPvcTaints() error {
@@ -134,46 +178,13 @@ func (rc *ReconciliationContext) checkNodeAndPvcTaints() error {
 		for _, taint := range node.Spec.Taints {
 			if taint.Key == "node.vmware.com/drain" && taint.Effect == "NoSchedule" {
 				if taint.Value == "planned-downtime" || taint.Value == "drain" {
-
-					// Drain the cassandra node
-
 					rc.ReqLogger.Info("reconciler::checkNodesTaints vmware taint found.  draining and deleting pod",
 						"pod", pod.Name)
 
-					if isMgmtApiRunning(&pod) {
-						err = rc.NodeMgmtClient.CallDrainEndpoint(&pod)
-						if err != nil {
-							rc.ReqLogger.Error(err, "error during cassandra node drain for vmware drain",
-								"pod", pod.Name)
-						}
-					}
-
-					// Add the cassandra node to replace nodes
-
-					rc.Datacenter.Spec.ReplaceNodes = append(rc.Datacenter.Spec.ReplaceNodes, pod.ObjectMeta.Name)
-
-					// Update CassandraDatacenter
-					if err := rc.Client.Update(rc.Ctx, rc.Datacenter); err != nil {
-						rc.ReqLogger.Error(err, "Failed to update CassandraDatacenter with removed finalizers")
-						return err
-					}
-
-					// Remove the pvc
-
-					_, err := rc.DeletePvcIgnoreFinalizers(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
+					err = rc.removePvcAndPod(pod)
 					if err != nil {
-						rc.ReqLogger.Error(err, "error during PersistentVolume delete for vmware drain",
-							"pod", pod.ObjectMeta.Name)
-						return err
-					}
-
-					// Remove the pod
-
-					err = rc.Client.Delete(rc.Ctx, &pod)
-					if err != nil {
-						rc.ReqLogger.Info("pod delete - err")
-						rc.ReqLogger.Error(err, "error during cassandra node delete for vmware drain",
-							"pod", pod.ObjectMeta.Name)
+						rc.ReqLogger.Error(err, "error during cassandra node drain",
+							"pod", pod.Name)
 						return err
 					}
 				}
@@ -204,45 +215,13 @@ func (rc *ReconciliationContext) checkNodeAndPvcTaints() error {
 
 		for k, v := range pvc.ObjectMeta.Annotations {
 			if k == "volumehealth.storage.kubernetes.io/health" && v == "inaccessible" {
-				// Drain the cassandra node
-
 				rc.ReqLogger.Info("vmware pvc inaccessible annotation found.  draining and deleting pod",
 					"pod", pod.Name)
 
-				if isMgmtApiRunning(&pod) {
-					err = rc.NodeMgmtClient.CallDrainEndpoint(&pod)
-					if err != nil {
-						rc.ReqLogger.Error(err, "error during cassandra node drain for vmware pvc inaccessible",
-							"pod", pod.Name)
-					}
-				}
-
-				// Add the cassandra node to replace nodes
-
-				rc.Datacenter.Spec.ReplaceNodes = append(rc.Datacenter.Spec.ReplaceNodes, pod.ObjectMeta.Name)
-
-				// Update CassandraDatacenter
-				if err := rc.Client.Update(rc.Ctx, rc.Datacenter); err != nil {
-					rc.ReqLogger.Error(err, "Failed to update CassandraDatacenter with removed finalizers")
-					return err
-				}
-
-				// Remove the pvc
-
-				_, err := rc.DeletePvcIgnoreFinalizers(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
+				err = rc.removePvcAndPod(pod)
 				if err != nil {
-					rc.ReqLogger.Error(err, "error during PersistentVolume delete for vmware pvc inaccessible",
-						"pod", pod.ObjectMeta.Name)
-					return err
-				}
-
-				// Remove the pod
-
-				err = rc.Client.Delete(rc.Ctx, &pod)
-				if err != nil {
-					rc.ReqLogger.Info("pod delete - err")
-					rc.ReqLogger.Error(err, "error during cassandra node delete for vmware pvc inaccessible",
-						"pod", pod.ObjectMeta.Name)
+					rc.ReqLogger.Error(err, "error during cassandra node drain",
+						"pod", pod.Name)
 					return err
 				}
 			}
