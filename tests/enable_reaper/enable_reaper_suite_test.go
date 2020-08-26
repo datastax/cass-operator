@@ -20,7 +20,7 @@ var (
 	testName     = "Enable Reaper"
 	namespace    = "test-enable-reaper"
 	dcName       = "dc1"
-	dcYaml       = "../testdata/oss-three-rack-three-node-dc.yaml"
+	dcYaml       = "../testdata/oss-three-node-with-auth-dc.yaml"
 	operatorYaml = "../testdata/operator.yaml"
 	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
