@@ -28,9 +28,6 @@ const (
 	// SeedNodeLabel is the operator's label for the seed node state
 	SeedNodeLabel = "cassandra.datastax.com/seed-node"
 
-	// DecommisioningLabel
-	DecommissioningLabel = "cassandra.datastax.com/decommissioning"
-
 	// RackLabel is the operator's label for the rack name
 	RackLabel = "cassandra.datastax.com/rack"
 

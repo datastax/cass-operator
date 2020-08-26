@@ -18,6 +18,7 @@ const (
 	StartedCassandra                  string = "StartedCassandra"
 	LabeledPodAsSeed                  string = "LabeledPodAsSeed"
 	LabeledPodAsDecommissioning       string = "LabeledPodAsDecommissioning"
+	DeletedPvc                        string = "DeletedPvc"
 	UnlabeledPodAsSeed                string = "UnlabeledPodAsSeed"
 	LabeledRackResource               string = "LabeledRackResource"
 	ScalingUpRack                     string = "ScalingUpRack"
