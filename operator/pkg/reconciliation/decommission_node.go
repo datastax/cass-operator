@@ -81,7 +81,7 @@ func (rc *ReconciliationContext) DecommissionNodeOnRack(rackName string, lastPod
 
 			if err := rc.NodeMgmtClient.CallDecommissionNodeEndpoint(pod); err != nil {
 				// TODO this returns a 500 when it works
-				// We are waiting for a new version of dse with a fix for this
+				// We are waiting for a new version of mgmt api with a fix for this
 				// return false, err
 			}
 
