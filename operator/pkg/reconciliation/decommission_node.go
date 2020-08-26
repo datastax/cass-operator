@@ -24,9 +24,6 @@ func (rc *ReconciliationContext) DecommissionNodes() result.ReconcileResult {
 	for idx := range rc.desiredRackInformation {
 		rackInfo := rc.desiredRackInformation[idx]
 		statefulSet := rc.statefulSets[idx]
-
-		// By the time we get here we know all the racks are ready for that particular size
-
 		desiredNodeCount := int32(rackInfo.NodeCount)
 		maxReplicas := *statefulSet.Spec.Replicas
 		lastPodSuffix := stsLastPodSuffix(maxReplicas)
@@ -47,7 +44,6 @@ func (rc *ReconciliationContext) DecommissionNodes() result.ReconcileResult {
 				}
 			}
 
-			// update it
 			rc.ReqLogger.Info(
 				"Need to update the rack's node count",
 				"Rack", rackInfo.RackName,
@@ -83,22 +79,21 @@ func (rc *ReconciliationContext) DecommissionNodeOnRack(rackName string, lastPod
 				return fmt.Errorf("Management API is not up on node that we are trying to decommission")
 			}
 
-			// decommission node
 			if err := rc.NodeMgmtClient.CallDecommissionNodeEndpoint(pod); err != nil {
-				// TODO figure out why this returns a 500 when it works
+				// TODO this returns a 500 when it works
+				// We are waiting for a new version of dse with a fix for this
 				// return false, err
 			}
 
+			rc.ReqLogger.Info("Marking node as decommissioning")
 			patch := client.MergeFrom(pod.DeepCopy())
 			pod.Labels[api.CassNodeState] = stateDecommissioning
 			if err := rc.Client.Patch(rc.Ctx, pod, patch); err != nil {
 				return err
 			}
 
-			rc.ReqLogger.Info("Marking node as decommissioning")
-
 			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.LabeledPodAsDecommissioning,
-				"Labeled pod as decommissioning %s", pod.Name)
+				"Labeled node as decommissioning %s", pod.Name)
 
 			return nil
 		}
@@ -131,7 +126,7 @@ func (rc *ReconciliationContext) CheckDecommissioningNodes(epData httphelper.Cas
 
 			}
 
-			return result.RequeueSoon(10)
+			return result.RequeueSoon(5)
 		}
 	}
 
@@ -161,8 +156,10 @@ func IsDoneDecommissioning(pod *v1.Pod, epData httphelper.CassMetadataEndpoints)
 		}
 	}
 
-	// If we got here, we could not find endpoint metadata on the pod.
-	// Does this mean that we can assume it decommissioned successfully?
+	// If we got here, we could not find endpoint metadata on the node.
+	// This should mean that it no longer exists... but typically
+	// the endpoint data lingers for a while after it has been decommissioned
+	// so this scenario should be unlikely
 	return true
 }
 
@@ -220,7 +217,8 @@ func (rc *ReconciliationContext) RemoveDecommissionedPodFromSts(pod *v1.Pod) err
 		return rc.UpdateRackNodeCount(sts, *sts.Spec.Replicas-1)
 	} else {
 		// Pod does not match the last pod in statefulSet
-		// Can we assume it has already been removed?
+		// This scenario should only happen if the pod
+		// has already been terminated
 		return nil
 	}
 }

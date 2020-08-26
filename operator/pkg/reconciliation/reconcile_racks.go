@@ -683,17 +683,6 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 				return result.Error(err)
 			}
 		}
-
-		// currentReplicas := statefulSet.Status.CurrentReplicas
-		// if currentReplicas > desiredNodeCount {
-		// 	// too many ready replicas, how did this happen?
-		// 	rc.ReqLogger.Info(
-		// 		"Too many replicas for StatefulSet",
-		// 		"desiredCount", desiredNodeCount,
-		// 		"currentCount", currentReplicas)
-		// 	err := fmt.Errorf("too many replicas")
-		// 	return result.Error(err)
-		// }
 	}
 
 	return result.Continue()
