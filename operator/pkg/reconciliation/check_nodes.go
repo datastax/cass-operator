@@ -105,7 +105,7 @@ func (rc *ReconciliationContext) DeletePvcIgnoreFinalizers(podNamespace string, 
 }
 
 // Check nodes for vmware PSP draining taints
-// and check PVCs for vmware PSP failure taints
+// and check PVCs for vmware PSP failure annotations
 func (rc *ReconciliationContext) checkNodeAndPvcTaints() error {
 	logger := rc.ReqLogger
 	rc.ReqLogger.Info("reconciler::checkNodesTaints")
