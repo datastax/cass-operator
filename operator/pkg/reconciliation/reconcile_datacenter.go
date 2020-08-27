@@ -44,10 +44,6 @@ func (rc *ReconciliationContext) ProcessDeletion() result.ReconcileResult {
 		rc.RemoveDcFromNodeToDcMap(types.NamespacedName{
 			Name:      rc.Datacenter.GetName(),
 			Namespace: rc.Datacenter.GetNamespace()})
-
-		rc.RemoveDcFromPvcToDcMap(types.NamespacedName{
-			Name:      rc.Datacenter.GetName(),
-			Namespace: rc.Datacenter.GetNamespace()})
 	}
 
 	// Update finalizer to allow delete of CassandraDatacenter

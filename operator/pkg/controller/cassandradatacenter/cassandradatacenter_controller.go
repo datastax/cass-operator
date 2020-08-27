@@ -51,7 +51,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	err = c.Watch(
 		&source.Kind{Type: &api.CassandraDatacenter{}},
 		&handler.EnqueueRequestForObject{},
-		// This allows us to update the status on every reconcile call without 
+		// This allows us to update the status on every reconcile call without
 		// triggering an infinite loop.
 		predicate.GenerationChangedPredicate{})
 	if err != nil {
@@ -165,22 +165,23 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			log.Info("PersistentVolumeClaim Watch called")
 			requests := []reconcile.Request{}
 
-			pvcName := a.Object.(*corev1.PersistentVolumeClaim).Name
-			dcs := reconciliation.DatacentersForPvc(pvcName)
+			pvc := a.Object.(*corev1.PersistentVolumeClaim)
+			pvcLabels := pvc.ObjectMeta.Labels
+			pvcNamespace := pvc.ObjectMeta.Namespace
 
-			for _, dc := range dcs {
-				log.Info("PersistentVolumeClaim watch adding reconcilation request",
-					"cassandraDatacenter", dc.Name,
-					"namespace", dc.Namespace)
+			dcName := pvcLabels[api.DatacenterLabel]
 
-				// Create reconcilerequests for the related cassandraDatacenter
-				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      dc.Name,
-						Namespace: dc.Namespace,
-					}},
-				)
-			}
+			log.Info("PersistentVolumeClaim watch adding reconcilation request",
+				"cassandraDatacenter", dcName,
+				"namespace", pvcNamespace)
+
+			// Create reconcilerequests for the related cassandraDatacenter
+			requests = append(requests, reconcile.Request{
+				NamespacedName: types.NamespacedName{
+					Name:      dcName,
+					Namespace: pvcNamespace,
+				}},
+			)
 			return requests
 		})
 
