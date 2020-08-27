@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package tolerations
+package psp_pvc_annotation
 
 import (
 	"fmt"
@@ -16,15 +16,14 @@ import (
 )
 
 var (
-	testName    = "Tolerations"
-	opNamespace = "test-tolerations"
+	testName    = "Test PSP PVC Annotations"
+	opNamespace = "test-psp-pvc-annotation"
 	dc1Name     = "dc1"
 	// This scenario requires RF greater than 2
 	dc1Yaml      = "../testdata/tolerations-dc.yaml"
 	dc1Resource  = fmt.Sprintf("CassandraDatacenter/%s", dc1Name)
 	pod1Name     = "cluster1-dc1-r1-sts-0"
 	pod1Resource = fmt.Sprintf("pod/%s", pod1Name)
-	nodeCount    = 3
 	ns           = ginkgo_util.NewWrapper(testName, opNamespace)
 )
 
@@ -45,7 +44,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator can respond to PSP node taints", func() {
+		Specify("the operator can respond to psp annotations on PVCs", func() {
 
 			By("creating a namespace for the cass-operator")
 			err := kubectl.CreateNamespace(opNamespace).ExecV()
@@ -62,38 +61,23 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForDatacenterReady(dc1Name)
 
-			// Add a taint to the node for the first pod
+			// Add an annotation to the pvc for the first pod
 
-			k = kubectl.GetNodeNameForPod(pod1Name)
-			node1Name, _, err := ns.ExecVCapture(k)
+			json := "jsonpath={.spec.volumes[?(@.name==\"server-data\")].persistentVolumeClaim.claimName}"
+
+			k = kubectl.Get(fmt.Sprintf("pod/%s", pod1Name)).FormatOutput(json)
+
+			pvc1Name, _, err := ns.ExecVCapture(k)
 			if err != nil {
 				panic(err)
 			}
 
-			node1Resource := fmt.Sprintf("node/%s", node1Name)
-
-			// Cleanup: Remove the taint
-			defer func() {
-				json := `
-						{
-							"spec": {
-								"taints": null
-							}
-						}`
-				k = kubectl.PatchMerge(node1Resource, json)
-				err = k.ExecV()
-				if err != nil {
-					panic(err)
-				}
-			}()
-
-			// node.vmware.com/drain=planned-downtime:NoSchedule
-			step = fmt.Sprintf("tainting node: %s", node1Name)
-			k = kubectl.Taint(
-				node1Name,
-				"node.vmware.com/drain",
-				"planned-downtime",
-				"NoSchedule")
+			step = fmt.Sprintf("annotating pvc: %s", pvc1Name)
+			k = kubectl.Annotate(
+				"persistentvolumeclaim",
+				pvc1Name,
+				"volumehealth.storage.kubernetes.io/health",
+				"inaccessible")
 			ns.ExecAndLog(step, k)
 
 			// Wait for a pod to no longer be ready
@@ -104,31 +88,16 @@ var _ = Describe(testName, func() {
 				i += 1
 
 				names := ns.GetDatacenterReadyPodNames(dc1Name)
-				if len(names) < nodeCount {
+				if len(names) < 3 {
 					break
 				}
 			}
-
-			// In my environment, I have to add a wait here
 
 			time.Sleep(1 * time.Minute)
 
 			// Wait for the cluster to heal itself
 
 			ns.WaitForDatacenterReady(dc1Name)
-
-			// Make sure things look right in nodetool
-			step = "verify in nodetool that we still have the right number of cassandra nodes"
-			By(step)
-			podNames := ns.GetDatacenterReadyPodNames(dc1Name)
-			for _, podName := range podNames {
-				nodeInfos := ns.RetrieveStatusFromNodetool(podName)
-				Expect(len(nodeInfos)).To(Equal(nodeCount), "Expect nodetool to return info on exactly %d nodes", nodeCount)
-				for _, nodeInfo := range nodeInfos {
-					Expect(nodeInfo.Status).To(Equal("up"), "Expected all nodes to be up, but node %s was down", nodeInfo.HostId)
-					Expect(nodeInfo.State).To(Equal("normal"), "Expected all nodes to have a state of normal, but node %s was %s", nodeInfo.HostId, nodeInfo.State)
-				}
-			}
 		})
 	})
 })
