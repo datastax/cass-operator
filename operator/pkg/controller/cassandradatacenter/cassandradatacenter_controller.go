@@ -18,7 +18,6 @@ import (
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
-	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/reconciliation"
 	corev1 "k8s.io/api/core/v1"
 	types "k8s.io/apimachinery/pkg/types"
