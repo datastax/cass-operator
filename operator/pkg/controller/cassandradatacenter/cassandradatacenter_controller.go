@@ -18,6 +18,7 @@ import (
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
+	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/reconciliation"
 	corev1 "k8s.io/api/core/v1"
 	types "k8s.io/apimachinery/pkg/types"
@@ -169,19 +170,27 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			pvcLabels := pvc.ObjectMeta.Labels
 			pvcNamespace := pvc.ObjectMeta.Namespace
 
-			dcName := pvcLabels[api.DatacenterLabel]
+			managedByValue, ok := pvcLabels[oplabels.ManagedByLabel]
+			if !ok {
+				return requests
+			}
 
-			log.Info("PersistentVolumeClaim watch adding reconcilation request",
-				"cassandraDatacenter", dcName,
-				"namespace", pvcNamespace)
+			if (managedByValue == oplabels.ManagedByLabelValue) || (managedByValue == oplabels.ManagedByLabelDefunctValue) {
 
-			// Create reconcilerequests for the related cassandraDatacenter
-			requests = append(requests, reconcile.Request{
-				NamespacedName: types.NamespacedName{
-					Name:      dcName,
-					Namespace: pvcNamespace,
-				}},
-			)
+				dcName := pvcLabels[api.DatacenterLabel]
+
+				log.Info("PersistentVolumeClaim watch adding reconcilation request",
+					"cassandraDatacenter", dcName,
+					"namespace", pvcNamespace)
+
+				// Create reconcilerequests for the related cassandraDatacenter
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      dcName,
+						Namespace: pvcNamespace,
+					}},
+				)
+			}
 			return requests
 		})
 
