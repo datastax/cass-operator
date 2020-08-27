@@ -401,6 +401,26 @@ func (ns NsWrapper) ExpectKeyValues(actual map[string]interface{}, expected map[
 	}
 }
 
+func (ns NsWrapper) ExpectDoneReconciling(dcName string) {
+	ginkgo.By(fmt.Sprintf("ensure %s is done reconciling", dcName))
+	time.Sleep(1*time.Minute)
+
+	json := `jsonpath={.metadata.resourceVersion}`
+	k := kubectl.Get("CassandraDatacenter", dcName).
+		FormatOutput(json)
+	resourceVersion := ns.OutputPanic(k)
+
+	time.Sleep(1*time.Minute)
+
+	json = `jsonpath={.metadata.resourceVersion}`
+	k = kubectl.Get("CassandraDatacenter", dcName).
+		FormatOutput(json)
+	newResourceVersion := ns.OutputPanic(k)
+
+	Expect(newResourceVersion).To(Equal(resourceVersion), 
+		"CassandraDatacenter %s is still being reconciled as the resource version is changing", dcName)
+}
+
 type NodetoolNodeInfo struct {
 	Status  string
 	State   string
