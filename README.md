@@ -204,6 +204,16 @@ kubectl create namespace cass-operator-system
 helm install --set clusterWideInstall=true --namespace=cass-operator-system cass-operator ./charts/cass-operator-chart
 ```
 
+### (Optional) Using github personal access token with the Helm Chart
+
+First, create a Github personal access token.
+
+See:
+
+https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token
+
+
+
 ## Features
 
 - Proper token ring initialization, with only one node bootstrapping at a time
