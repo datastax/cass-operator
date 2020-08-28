@@ -51,7 +51,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	err = c.Watch(
 		&source.Kind{Type: &api.CassandraDatacenter{}},
 		&handler.EnqueueRequestForObject{},
-		// This allows us to update the status on every reconcile call without 
+		// This allows us to update the status on every reconcile call without
 		// triggering an infinite loop.
 		predicate.GenerationChangedPredicate{})
 	if err != nil {
@@ -122,7 +122,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 	// Setup watches for Nodes to check for taints being added
 
-	mapFn := handler.ToRequestsFunc(
+	nodeMapFn := handler.ToRequestsFunc(
 		func(a handler.MapObject) []reconcile.Request {
 			log.Info("Node Watch called")
 			requests := []reconcile.Request{}
@@ -150,7 +150,54 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		err = c.Watch(
 			&source.Kind{Type: &corev1.Node{}},
 			&handler.EnqueueRequestsFromMapFunc{
-				ToRequests: mapFn,
+				ToRequests: nodeMapFn,
+			},
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Setup watches for pvc to check for taints being added
+
+	pvcMapFn := handler.ToRequestsFunc(
+		func(a handler.MapObject) []reconcile.Request {
+			log.Info("PersistentVolumeClaim Watch called")
+			requests := []reconcile.Request{}
+
+			pvc := a.Object.(*corev1.PersistentVolumeClaim)
+			pvcLabels := pvc.ObjectMeta.Labels
+			pvcNamespace := pvc.ObjectMeta.Namespace
+
+			managedByValue, ok := pvcLabels[oplabels.ManagedByLabel]
+			if !ok {
+				return requests
+			}
+
+			if (managedByValue == oplabels.ManagedByLabelValue) || (managedByValue == oplabels.ManagedByLabelDefunctValue) {
+
+				dcName := pvcLabels[api.DatacenterLabel]
+
+				log.Info("PersistentVolumeClaim watch adding reconcilation request",
+					"cassandraDatacenter", dcName,
+					"namespace", pvcNamespace)
+
+				// Create reconcilerequests for the related cassandraDatacenter
+				requests = append(requests, reconcile.Request{
+					NamespacedName: types.NamespacedName{
+						Name:      dcName,
+						Namespace: pvcNamespace,
+					}},
+				)
+			}
+			return requests
+		})
+
+	if utils.IsPSPEnabled() {
+		err = c.Watch(
+			&source.Kind{Type: &corev1.PersistentVolumeClaim{}},
+			&handler.EnqueueRequestsFromMapFunc{
+				ToRequests: pvcMapFn,
 			},
 		)
 		if err != nil {

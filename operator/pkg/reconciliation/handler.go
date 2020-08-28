@@ -68,7 +68,7 @@ func (rc *ReconciliationContext) RemoveDcFromNodeToDcMap(dcToRemove types.Namesp
 // Every CassandraDatacenter with pods will have produced at least
 // one call to the reconcile loop.  Therefore this map will be
 // populated with the information for all current CassandraDatacenters.
-func (rc *ReconciliationContext) updateNodeToDcMap() error {
+func (rc *ReconciliationContext) updateDcMaps() error {
 
 	dcName := rc.Datacenter.ObjectMeta.Name
 
@@ -97,13 +97,16 @@ func (rc *ReconciliationContext) updateNodeToDcMap() error {
 	defer nodeToDcLock.Unlock()
 
 	for _, pod := range podList.Items {
-		nodeName := pod.Spec.NodeName
-		needToAdd := true
 		dcToAdd := types.NamespacedName{
 			Namespace: pod.ObjectMeta.Namespace,
 			Name:      dcName,
 		}
 
+		// Update node map
+
+		nodeName := pod.Spec.NodeName
+
+		needToAdd := true
 		for _, dc := range nodeToDc[nodeName] {
 			if dc == dcToAdd {
 				needToAdd = false
@@ -126,7 +129,7 @@ func (rc *ReconciliationContext) calculateReconciliationActions() (reconcile.Res
 
 	rc.ReqLogger.Info("handler::calculateReconciliationActions")
 	if utils.IsPSPEnabled() {
-		if err := rc.updateNodeToDcMap(); err != nil {
+		if err := rc.updateDcMaps(); err != nil {
 			// We will not skip reconciliation if the map update failed
 			// return result.Error(err).Output()
 		}
@@ -153,7 +156,17 @@ func (rc *ReconciliationContext) calculateReconciliationActions() (reconcile.Res
 		return result.Error(err).Output()
 	}
 
-	return rc.ReconcileAllRacks()
+	result, err := rc.ReconcileAllRacks()
+
+	if err == nil {
+		// Update PSP status
+		// Always sync the datacenter status with the PSP health status
+		if err := rc.PSPHealthUpdater.Update(*rc.Datacenter); err != nil {
+			return reconcile.Result{}, err
+		}
+	}
+
+	return result, err
 }
 
 // This file contains various definitions and plumbing setup used for reconciliation.

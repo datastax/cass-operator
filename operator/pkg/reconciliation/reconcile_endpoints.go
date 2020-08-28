@@ -80,7 +80,7 @@ func (rc *ReconciliationContext) CheckAdditionalSeedEndpoints() result.Reconcile
 
 	} else {
 		// if we found the endpoints already, check if it needs updating
-		if !resourcesHaveSameHash(currentEndpoints, desiredEndpoints) {
+		if !utils.ResourcesHaveSameHash(currentEndpoints, desiredEndpoints) {
 			resourceVersion := currentEndpoints.GetResourceVersion()
 			// preserve any labels and annotations that were added to the Endpoints post-creation
 			desiredEndpoints.Labels = utils.MergeMap(map[string]string{}, currentEndpoints.Labels, desiredEndpoints.Labels)

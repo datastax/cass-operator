@@ -14,24 +14,27 @@ import (
 	"k8s.io/client-go/tools/record"
 	runtimeClient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/dynamicwatch"
 	"github.com/datastax/cass-operator/operator/pkg/events"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
+	"github.com/datastax/cass-operator/operator/pkg/psp"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 )
 
 // ReconciliationContext contains all of the input necessary to calculate a list of ReconciliationActions
 type ReconciliationContext struct {
-	Request        *reconcile.Request
-	Client         runtimeClient.Client
-	Scheme         *runtime.Scheme
-	Datacenter     *api.CassandraDatacenter
-	NodeMgmtClient httphelper.NodeMgmtClient
-	Recorder       record.EventRecorder
-	ReqLogger      logr.Logger
-
-	SecretWatches dynamicwatch.DynamicWatches
+	Request          *reconcile.Request
+	Client           runtimeClient.Client
+	Scheme           *runtime.Scheme
+	Datacenter       *api.CassandraDatacenter
+	NodeMgmtClient   httphelper.NodeMgmtClient
+	Recorder         record.EventRecorder
+	ReqLogger        logr.Logger
+	PSPHealthUpdater psp.HealthStatusUpdater
+	SecretWatches    dynamicwatch.DynamicWatches
 
 	// According to golang recommendations the context should not be stored in a struct but given that
 	// this is passed around as a parameter we feel that its a fair compromise. For further discussion
@@ -54,6 +57,7 @@ func CreateReconciliationContext(
 	rec record.EventRecorder,
 	secretWatches dynamicwatch.DynamicWatches,
 	reqLogger logr.Logger) (*ReconciliationContext, error) {
+	
 	rc := &ReconciliationContext{}
 	rc.Request = req
 	rc.Client = cli
@@ -67,6 +71,19 @@ func CreateReconciliationContext(
 		WithValues("namespace", req.Namespace)
 
 	rc.ReqLogger.Info("handler::CreateReconciliationContext")
+
+	if utils.IsPSPEnabled() {
+		// Add PSP health status updater
+		// TODO: Feature gate this
+		operatorNs, err := k8sutil.GetOperatorNamespace()
+		if err != nil {
+			return nil, err
+		}
+		rc.PSPHealthUpdater = psp.NewHealthStatusUpdater(cli, operatorNs)
+	} else {
+		// Use no-op updater if PSP is disabled
+		rc.PSPHealthUpdater = &psp.NoOpUpdater{}
+	}
 
 	// Fetch the datacenter resource
 	dc := &api.CassandraDatacenter{}
