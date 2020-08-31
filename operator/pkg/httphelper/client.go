@@ -52,6 +52,7 @@ type EndpointState struct {
 	IsAlive                string `json:"IS_ALIVE"`
 	NativeTransportAddress string `json:"NATIVE_TRANSPORT_ADDRESS"`
 	RpcAddress             string `json:"RPC_ADDRESS"`
+	Schema                 string `json:"SCHEMA"`
 }
 
 func (x *EndpointState) GetRpcAddress() string {

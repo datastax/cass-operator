@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/stretchr/testify/assert"
 	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -28,11 +29,35 @@ func TestReconcileReaper_buildInitReaperSchemaJob(t *testing.T) {
 
 	assert.Equal(t, ReaperSchemaInitJobImage, container.Image)
 
+	secretName := dc.GetReaperUserSecretNamespacedName()
+
 	expectedEnvVars := []corev1.EnvVar{
 		{Name: "KEYSPACE", Value: ReaperKeyspace},
 		{Name: "CONTACT_POINTS", Value: dc.GetSeedServiceName()},
 		{Name: "REPLICATION", Value: "{'class': 'NetworkTopologyStrategy', 'ReaperSchemaJobTest': 3}"},
 	}
+	expectedEnvVars = append(expectedEnvVars, corev1.EnvVar{
+		Name: "USERNAME",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName.Name,
+				},
+				Key: "username",
+			},
+		},
+	})
+	expectedEnvVars = append(expectedEnvVars, corev1.EnvVar{
+		Name: "PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName.Name,
+				},
+				Key: "password",
+			},
+		},
+	})
 	assert.ElementsMatch(t, expectedEnvVars, container.Env)
 }
 
@@ -59,7 +84,18 @@ func TestReconcileReaper_CheckReaperSchemaInitialized(t *testing.T) {
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
-	reconcileResult := rc.CheckReaperSchemaInitialized()
+	endpoints := httphelper.CassMetadataEndpoints{
+		Entity: []httphelper.EndpointState{
+			{
+				Schema: "e84b6a60-24cf-30ca-9b58-452d92911703",
+			},
+			{
+				Schema: "e84b6a60-24cf-30ca-9b58-452d92911703",
+			},
+		},
+	}
+
+	reconcileResult := rc.CheckReaperSchemaInitialized(endpoints)
 	assert.True(t, reconcileResult.Completed())
 
 	result, err := reconcileResult.Output()
@@ -81,8 +117,8 @@ func TestReconcileReaper_CheckReaperSchemaInitialized(t *testing.T) {
 	err = rc.Client.Status().Update(rc.Ctx, job)
 	assert.NoError(t, err)
 
-	reconcileResult = rc.CheckReaperSchemaInitialized()
-	assert.True(t, reconcileResult.Completed())
+	reconcileResult = rc.CheckReaperSchemaInitialized(endpoints)
+	assert.False(t, reconcileResult.Completed())
 }
 
 func TestReconcileReaper_CheckReaperSchemaNotInitialized(t *testing.T) {
@@ -93,7 +129,18 @@ func TestReconcileReaper_CheckReaperSchemaNotInitialized(t *testing.T) {
 
 	rc.Client = fake.NewFakeClient(trackObjects...)
 
-	reconcileResult := rc.CheckReaperSchemaInitialized()
+	endpoints := httphelper.CassMetadataEndpoints{
+		Entity: []httphelper.EndpointState{
+			{
+				Schema: "e84b6a60-24cf-30ca-9b58-452d92911703",
+			},
+			{
+				Schema: "e84b6a60-24cf-30ca-9b58-452d92911703",
+			},
+		},
+	}
+
+	reconcileResult := rc.CheckReaperSchemaInitialized(endpoints)
 	assert.False(t, reconcileResult.Completed())
 
 	job := &v1batch.Job{}

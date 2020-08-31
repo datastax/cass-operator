@@ -101,4 +101,5 @@ func Test_parseMetadataEndpointsResponseBody(t *testing.T) {
 	assert.Equal(t, 2, len(endpoints.Entity))
 	assert.Equal(t, "10.233.90.45", endpoints.Entity[0].RpcAddress)
 	assert.Equal(t, "95c157dc-2811-446a-a541-9faaab2e6930", endpoints.Entity[0].HostID)
+	assert.Equal(t, "e84b6a60-24cf-30ca-9b58-452d92911703", endpoints.Entity[0].Schema)
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/datastax/cass-operator/operator/internal/result"
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -50,37 +51,30 @@ func buildReaperContainer(dc *api.CassandraDatacenter) (*corev1.Container, error
 		{Name: "REAPER_JMX_AUTH_PASSWORD", Value: ""},
 	}
 
-	cassandraAuthEnabled, err := dc.IsAuthenticationEnabled()
-	if err != nil {
-		return nil, err
-	}
-
-	if cassandraAuthEnabled {
-		secretName := dc.GetReaperUserSecretNamespacedName()
-		envVars = append(envVars, corev1.EnvVar{Name: "REAPER_CASS_AUTH_ENABLED", Value: "true"})
-		envVars = append(envVars, corev1.EnvVar{
-			Name: "REAPER_CASS_AUTH_USERNAME",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secretName.Name,
-					},
-					Key: "username",
+	secretName := dc.GetReaperUserSecretNamespacedName()
+	envVars = append(envVars, corev1.EnvVar{Name: "REAPER_CASS_AUTH_ENABLED", Value: "true"})
+	envVars = append(envVars, corev1.EnvVar{
+		Name: "REAPER_CASS_AUTH_USERNAME",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName.Name,
 				},
+				Key: "username",
 			},
-		})
-		envVars = append(envVars, corev1.EnvVar{
-			Name: "REAPER_CASS_AUTH_PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secretName.Name,
-					},
-					Key: "password",
+		},
+	})
+	envVars = append(envVars, corev1.EnvVar{
+		Name: "REAPER_CASS_AUTH_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName.Name,
 				},
+				Key: "password",
 			},
-		})
-	}
+		},
+	})
 
 	container := corev1.Container{
 		Name: ReaperContainerName,
@@ -110,7 +104,7 @@ func getReaperPullPolicy(dc *api.CassandraDatacenter) corev1.PullPolicy {
 	return dc.Spec.Reaper.ImagePullPolicy
 }
 
-func (rc *ReconciliationContext) CheckReaperSchemaInitialized() result.ReconcileResult {
+func (rc *ReconciliationContext) CheckReaperSchemaInitialized(endpoints httphelper.CassMetadataEndpoints) result.ReconcileResult {
 	// Using a job eventually get replaced with calls to the mgmt api once it has support for
 	// creating keyspaces and tables.
 
@@ -145,16 +139,17 @@ func (rc *ReconciliationContext) CheckReaperSchemaInitialized() result.Reconcile
 	} else if err != nil {
 		return result.Error(err)
 	} else if jobFinished(schemaJob) {
-		patch := client.MergeFrom(rc.Datacenter.DeepCopy())
-		rc.Datacenter.Status.ReaperStatus.SchemaInitialized = true
-		if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
-			rc.ReqLogger.Error(err, "error updating the reaper status")
-			return result.Error(err)
+		if checkSchemaAgreement(endpoints) {
+			patch := client.MergeFrom(rc.Datacenter.DeepCopy())
+			rc.Datacenter.Status.ReaperStatus.SchemaInitialized = true
+			if err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, patch); err != nil {
+				rc.ReqLogger.Error(err, "error updating the reaper status")
+				return result.Error(err)
+			}
+			return result.Continue()
+		} else {
+			return result.RequeueSoon(5)
 		}
-		// Requeue with a delay to give a chance for C* schema changes to propagate
-		//
-		// TODO Should the delay be adjusted based on the C* cluster size?
-		return result.RequeueSoon(5)
 	} else {
 		return result.RequeueSoon(2)
 	}
@@ -240,4 +235,12 @@ func newReaperService(dc *api.CassandraDatacenter) *corev1.Service {
 			Selector: dc.GetDatacenterLabels(),
 		},
 	}
+}
+
+func checkSchemaAgreement(endpoints httphelper.CassMetadataEndpoints) bool {
+	schemaVersions := make(map[string]bool)
+	for _, state := range endpoints.Entity {
+		schemaVersions[state.Schema] = true
+	}
+	return len(schemaVersions) == 1
 }

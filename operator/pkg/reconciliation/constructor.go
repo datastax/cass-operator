@@ -677,36 +677,29 @@ func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) (*v1.Job, error) {
 		},
 	}
 
-	authEnabled, err := dc.IsAuthenticationEnabled()
-	if err != nil {
-		return nil, err
-	}
-
-	if authEnabled {
-		secretName := dc.GetReaperUserSecretNamespacedName()
-		envVars = append(envVars, corev1.EnvVar{
-			Name: "USERNAME",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secretName.Name,
-					},
-					Key: "username",
+	secretName := dc.GetReaperUserSecretNamespacedName()
+	envVars = append(envVars, corev1.EnvVar{
+		Name: "USERNAME",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName.Name,
 				},
+				Key: "username",
 			},
-		})
-		envVars = append(envVars, corev1.EnvVar{
-			Name: "PASSWORD",
-			ValueFrom: &corev1.EnvVarSource{
-				SecretKeyRef: &corev1.SecretKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: secretName.Name,
-					},
-					Key: "password",
+		},
+	})
+	envVars = append(envVars, corev1.EnvVar{
+		Name: "PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: secretName.Name,
 				},
+				Key: "password",
 			},
-		})
-	}
+		},
+	})
 
 	return &v1.Job{
 		TypeMeta: metav1.TypeMeta{

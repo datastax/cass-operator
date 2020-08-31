@@ -7,15 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/Jeffail/gabs"
+	"github.com/datastax/cass-operator/operator/pkg/serverconfig"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"os"
-	"strings"
-
-	"github.com/datastax/cass-operator/operator/pkg/serverconfig"
-	"github.com/datastax/cass-operator/operator/pkg/utils"
 )
 
 const (
@@ -596,17 +594,6 @@ func (dc *CassandraDatacenter) IsReaperEnabled() bool {
 
 func (dc *CassandraDatacenter) DeployReaper() bool {
 	return dc.IsReaperEnabled() && dc.Status.ReaperStatus.SchemaInitialized
-}
-
-func (dc *CassandraDatacenter) IsAuthenticationEnabled() (bool, error) {
-	b, err := dc.Spec.Config.MarshalJSON()
-	if err != nil {
-		return false, err
-	}
-
-	s := string(b)
-
-	return strings.Contains(s, "PasswordAuthenticator"), nil
 }
 
 // GetConfigAsJSON gets a JSON-encoded string suitable for passing to configBuilder

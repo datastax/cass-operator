@@ -211,62 +211,6 @@ func Test_GenerateBaseConfigString(t *testing.T) {
 	}
 }
 
-func TestCassandraDataCenter_IsAuthenticationEnabled(t *testing.T) {
-	tests := []struct {
-		name      string
-		dc        *CassandraDatacenter
-		want      bool
-		errString string
-	}{
-		{
-			name: "auth enabled",
-			dc: &CassandraDatacenter{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "exampleDC",
-				},
-				Spec: CassandraDatacenterSpec{
-					ClusterName: "exampleCluster",
-					Config:      []byte("{\"cassandra-yaml\":{\"authenticator\":\"PasswordAuthenticator\"}}"),
-				},
-			},
-			want:      true,
-			errString: "",
-		},
-		{
-			name: "auth disabled",
-			dc: &CassandraDatacenter{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "exampleDC",
-				},
-				Spec: CassandraDatacenterSpec{
-					ClusterName: "exampleCluster",
-					Config:      []byte("{\"cassandra-yaml\":{\"authenticator\":\"AllowAuthenticator\"}}"),
-				},
-			},
-			want:      false,
-			errString: "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := tt.dc.IsAuthenticationEnabled()
-			if got != tt.want {
-				t.Errorf("IsAuthenticationEnabled() got = %v, want %v", got, tt.want)
-			}
-			if err == nil {
-				if tt.errString != "" {
-					t.Errorf("IsAuthenticationEnabled() err = %v, want %v", err, tt.errString)
-				}
-			} else {
-				if err.Error() != tt.errString {
-					t.Errorf("IsAuthenticationEnabled() err = %v, want %v", err, tt.errString)
-				}
-			}
-		})
-	}
-}
-
 func TestCassandraDatacenter_GetContainerPorts(t *testing.T) {
 	type fields struct {
 		TypeMeta   metav1.TypeMeta
