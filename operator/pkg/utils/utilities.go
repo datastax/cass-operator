@@ -8,11 +8,6 @@ import (
 	"strings"
 )
 
-const (
-	enableVmwarePspEnv     = "ENABLE_VMWARE_PSP"
-	customImageRegistryEnv = "CUSTOM_IMAGE_REGISTRY"
-)
-
 func IsPSPEnabled() bool {
 	value, exists := os.LookupEnv("ENABLE_VMWARE_PSP")
 	return exists && "true" == strings.TrimSpace(value)
