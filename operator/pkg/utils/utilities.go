@@ -6,7 +6,6 @@ package utils
 import (
 	"os"
 	"strings"
-	"fmt"
 )
 
 const (
@@ -17,32 +16,6 @@ const (
 func IsPSPEnabled() bool {
 	value, exists := os.LookupEnv("ENABLE_VMWARE_PSP")
 	return exists && "true" == strings.TrimSpace(value)
-}
-
-func GetCustomImageRegistry() string {
-	return os.Getenv(customImageRegistryEnv)
-}
-
-func stripRegistry(image string) string {
-	comps := strings.Split(image, "/")
-
-	if len(comps) > 1 && strings.Contains(comps[0], ".") || strings.Contains(comps[0], ":") {
-		return strings.Join(comps[1:], "/")
-	} else {
-		return image
-	}
-}
-
-func ApplyCustomRegistry(image string) string {
-	customRegistry := GetCustomImageRegistry()
-	customRegistry = strings.TrimSuffix(customRegistry, "/")
-
-	if customRegistry == "" {
-		return image
-	} else {
-		imageNoRegistry := stripRegistry(image)
-		return fmt.Sprintf("%s/%s", customRegistry, imageNoRegistry)
-	}
 }
 
 // MergeMap will take two maps, merging the entries of the source map into destination map. If both maps share the same key
