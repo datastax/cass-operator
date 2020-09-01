@@ -57,8 +57,8 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForDatacenterReady(dcName)
 
-			// solr takes a LONG time to come up in my environment
-			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 300)
+			// solr takes 10 minutes to come up on my machine
+			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 600)
 		})
 	})
 })
