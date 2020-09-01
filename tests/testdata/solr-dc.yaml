@@ -18,13 +18,13 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 4Gi
+            storage: 1Gi
   racks:
     - name: r1
   config:
     jvm-server-options:
-      initial_heap_size: "12000m"
-      max_heap_size: "12000m"
+      initial_heap_size: "2000m"
+      max_heap_size: "2000m"
     cassandra-yaml:
-      file_cache_size_in_mb: 1000
-      memtable_space_in_mb: 2000
+      file_cache_size_in_mb: 200
+      memtable_space_in_mb: 200
