@@ -478,11 +478,11 @@ func getJvmExtraOpts(dc *api.CassandraDatacenter) string {
 
 	if dc.Spec.DseWorkloads.AnalyticsEnabled == true {
 		//flags += "-k "
-		flags += "-Dspark-trackers=true"
+		flags += "-Dspark-trackers=true "
 	}
 	if dc.Spec.DseWorkloads.GraphEnabled == true {
 		//flags += "-g "
-		flags += "-Dgraph-enabled=true"
+		flags += "-Dgraph-enabled=true "
 	}
 	if dc.Spec.DseWorkloads.SearchEnabled == true {
 		//flags += "-s"
