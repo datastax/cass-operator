@@ -55,10 +55,8 @@ var _ = Describe(testName, func() {
 			k := kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterReady(dcName)
-
 			// solr takes 10 minutes to come up on my machine
-			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 600)
+			ns.WaitForDatacenterReadyWithTimeouts(dcName, 1000, 30)
 		})
 	})
 })
