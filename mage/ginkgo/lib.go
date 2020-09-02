@@ -259,7 +259,11 @@ func (ns *NsWrapper) GetNodeStatusesHostIds(dcName string) []string {
 }
 
 func (ns *NsWrapper) WaitForDatacenterReadyPodCount(dcName string, count int) {
-	timeout := count * 400
+	ns.WaitForDatacenterReadyPodCountWithTimeout(dcName, count, 400)
+}
+
+func (ns *NsWrapper) WaitForDatacenterReadyPodCountWithTimeout(dcName string, count int, podCountTimeout int) {
+	timeout := count * podCountTimeout
 	step := "waiting for the node to become ready"
 	json := "jsonpath={.items[*].status.containerStatuses[0].ready}"
 	k := kubectl.Get("pods").
@@ -270,14 +274,18 @@ func (ns *NsWrapper) WaitForDatacenterReadyPodCount(dcName string, count int) {
 }
 
 func (ns *NsWrapper) WaitForDatacenterReady(dcName string) {
+	ns.WaitForDatacenterReadyWithTimeouts(dcName, 400, 30)
+}
+
+func (ns *NsWrapper) WaitForDatacenterReadyWithTimeouts(dcName string, podCountTimeout int, dcReadyTimeout int) {
 	json := "jsonpath={.spec.size}"
 	k := kubectl.Get("CassandraDatacenter", dcName).FormatOutput(json)
 	sizeString := ns.OutputPanic(k)
 	size, err := strconv.Atoi(sizeString)
 	Expect(err).ToNot(HaveOccurred())
 
-	ns.WaitForDatacenterReadyPodCount(dcName, size)
-	ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 30)
+	ns.WaitForDatacenterReadyPodCountWithTimeout(dcName, size, podCountTimeout)
+	ns.WaitForDatacenterOperatorProgress(dcName, "Ready", dcReadyTimeout)
 }
 
 func (ns *NsWrapper) WaitForPodNotStarted(podName string) {

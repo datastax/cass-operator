@@ -1,0 +1,30 @@
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: dc1
+spec:
+  clusterName: cluster1
+  serverType: dse
+  serverVersion: "6.8.2"
+  dseWorkloads:
+    searchEnabled: true
+  managementApiAuth:
+    insecure: {}
+  size: 1
+  storageConfig:
+      cassandraDataVolumeClaimSpec:
+        storageClassName: server-storage
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+  racks:
+    - name: r1
+  config:
+    jvm-server-options:
+      initial_heap_size: "2000m"
+      max_heap_size: "2000m"
+    cassandra-yaml:
+      file_cache_size_in_mb: 200
+      memtable_space_in_mb: 200
