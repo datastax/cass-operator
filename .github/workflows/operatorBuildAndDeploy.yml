@@ -1,7 +1,7 @@
 name: Cass Operator Build & Deploy
 on:
   push:
-    branches: [ master ]
+    branches: [ master, multiarch-pr ]
   pull_request:
     branches: [ master ]
 jobs:
@@ -38,35 +38,74 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testGenerateClient
-      - name: Build docker - standard and ubi images
-        env:
-          PR_REF: ${{ github.event.pull_request.head.ref }}
-          MO_BASE_OS: 'registry.access.redhat.com/ubi7/ubi-minimal:7.8'
+      - name: Unit Tests
         run: |
-          if [ "${GITHUB_EVENT_NAME}" == "pull_request" ]; then
-            export MO_BRANCH=${PR_REF}
-          else
-            export MO_BRANCH="master"
-          fi;
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          mage operator:testAndBuild
-      - name: Deploy to ECR
+          mage operator:testGo
+      - name: Login to GitHub Package Registry
+        run: echo "${{ secrets.JOHN_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u "${{ github.actor }}" --password-stdin
+      # - name: Login to ECR
+      #   run: echo "${{ secrets.ECR_SECRET }}" | docker login "${{ secrets.ECR_REPO }}" -u "${{ secrets.ECR_ID }}" --password-stdin
+      - name: Build and Push Docker
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
         env:
-          MO_ECR_ID: ${{ secrets.ECR_ID }}
-          MO_ECR_SECRET: ${{ secrets.ECR_SECRET }}
-          MO_ECR_REPO: ${{ secrets.ECR_REPO }}
+          ECR_REPO: ${{ secrets.ECR_REPO }}
         run: |
-          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          export MO_TAGS=$(cat ./build/tagsToPush.txt)
-          mage operator:deployToECR
-      - name: Deploy to GH Packages
-        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
-        env:
-          MO_GH_USR: 'datastax/cass-operator'
-          MO_GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MO_GH_PKG_REPO: 'datastax/cass-operator/operator'
-        run: |
-          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          export MO_TAGS=$(cat ./build/tagsToPush.txt)
-          mage operator:deployToGHPackages
+          GITHUB_REPO_URL="https://github.com/${{ github.repository }}"
+          VERSION="$(mage operator:printVersion)"
+          FULL_VERSION="$(mage operator:printFullVersion)"
+          ECR_TAGS=()
+          ECR_UBI_TAGS=()
+          GH_TAGS=()
+          GH_UBI_TAGS=()
+          GH_ARM64_TAGS=()
+          
+          for t in "${FULL_VERSION}" "${GITHUB_SHA}" "latest"; do
+            # ECR_TAGS+=(--tag "${ECR_REPO}/datastax/cass-operator:${t}")
+            # ECR_UBI_TAGS=+(--tag "${ECR_REPO}/datastax/cass-operator:${t}-ubi")
+
+            GH_TAGS+=(--tag "docker.pkg.github.com/${{ github.repository_owner }}/cass-operator/operator:${t}")
+            GH_UBI_TAGS+=(--tag "docker.pkg.github.com/${{ github.repository_owner }}/cass-operator/operator:${t}-ubi")
+            GH_ARM64_TAGS=+(--tag "docker.pkg.github.com/${{ github.repository_owner }}/cass-operator/operator:${t}-arm64")
+          done
+
+          LABELS=(
+            --label "release=$FULL_VERSION"
+            --label "org.label-schema.schema-version=1.0"
+            --label "org.label-schema.vcs-ref=$GITHUB_SHA"
+            --label "org.label-schema.vcs-url=$GITHUB_REPO_URL"
+            --label "org.label-schema.version=$VERSION"
+          )
+
+          COMMON_ARGS=("${LABELS[@]}" --file operator/docker/base/Dockerfile)
+
+          # docker buildx build \
+          #   --push \
+          #   "${COMMON_ARGS[@]}" \
+          #   "${ECR_TAGS[@]}" \
+          #   --target cass-operator \
+          #   --platform linux/amd64,linux/arm64 \
+          #   .
+
+          docker buildx build \
+            --load \
+            "${COMMON_ARGS[@]}" \
+            "${GH_TAGS[@]}" \
+            --target cass-operator \
+            --platform linux/amd64 \
+            .
+
+          docker buildx build \
+            --load \
+            "${COMMON_ARGS[@]}" \
+            "${GH_ARM64_TAGS[@]}" \
+            --target cass-operator \
+            --platform linux/amd64 \
+            .
+
+          TAGS_TO_PUSH=("${GH_ARM64_TAGS[@]}" "${GH_TAGS[@]}")
+          echo "Pushing tags: " "${TAGS_TO_PUSH[@]}"
+          # for ((x=0; x<${#TAGS_TO_PUSH[@]}; x=x+2));
+          # do
+          #     docker push "${TAGS_TO_PUSH[x]}"
+          # done
