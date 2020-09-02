@@ -20,6 +20,7 @@ type DockerCmd struct {
 	Args      []string
 	ConfigDir string
 	Input     string
+	Env       map[string]string
 }
 
 func (cmd DockerCmd) ToCliArgs() []string {
@@ -50,55 +51,55 @@ func FromArgsInput(args []string, in string) DockerCmd {
 }
 
 func exec(cmd DockerCmd,
-	withInput func(string, string, ...string) error,
-	withoutInput func(string, ...string) error) error {
+	withInput func(map[string]string, string, string, ...string) error,
+	withoutInput func(map[string]string, string, ...string) error) error {
 
 	var err error
 	args := cmd.ToCliArgs()
 	if cmd.Input != "" {
-		err = withInput("docker", cmd.Input, args...)
+		err = withInput(cmd.Env, "docker", cmd.Input, args...)
 
 	} else {
-		err = withoutInput("docker", args...)
+		err = withoutInput(cmd.Env, "docker", args...)
 	}
 	return err
 }
 
 func output(cmd DockerCmd,
-	withInput func(string, string, ...string) (string, error),
-	withoutInput func(string, ...string) (string, error)) (string, error) {
+	withInput func(map[string]string, string, string, ...string) (string, error),
+	withoutInput func(map[string]string, string, ...string) (string, error)) (string, error) {
 
 	var err error
 	var out string
 	args := cmd.ToCliArgs()
 	if cmd.Input != "" {
-		out, err = withInput("docker", cmd.Input, args...)
+		out, err = withInput(cmd.Env, "docker", cmd.Input, args...)
 
 	} else {
-		out, err = withoutInput("docker", args...)
+		out, err = withoutInput(cmd.Env, "docker", args...)
 	}
 	return out, err
 }
 
 func (cmd DockerCmd) Exec() error {
-	return exec(cmd, shutil.RunWithInput, shutil.Run)
+	return exec(cmd, shutil.RunWithEnvWithInput, shutil.RunWithEnv)
 }
 
 func (cmd DockerCmd) ExecV() error {
-	return exec(cmd, shutil.RunVWithInput, shutil.RunV)
+	return exec(cmd, shutil.RunVWithEnvWithInput, shutil.RunVWithEnv)
 }
 
 func (cmd DockerCmd) ExecVPanic() {
-	err := exec(cmd, shutil.RunVWithInput, shutil.RunV)
+	err := exec(cmd, shutil.RunVWithEnvWithInput, shutil.RunVWithEnv)
 	mageutil.PanicOnError(err)
 }
 
 func (cmd DockerCmd) Output() (string, error) {
-	return output(cmd, shutil.OutputWithInput, shutil.Output)
+	return output(cmd, shutil.OutputWithEnvWithInput, shutil.OutputWithEnv)
 }
 
 func (cmd DockerCmd) OutputPanic() string {
-	out, err := output(cmd, shutil.OutputWithInput, shutil.Output)
+	out, err := output(cmd, shutil.OutputWithEnvWithInput, shutil.OutputWithEnv)
 	mageutil.PanicOnError(err)
 	return out
 }
@@ -165,7 +166,12 @@ func Build(contextDir string, targetStage string, dockerFilePath string, namesAn
 		args = append(args, "--build-arg")
 		args = append(args, x)
 	}
-	return FromArgs(args)
+	c := FromArgs(args)
+	if c.Env == nil {
+		c.Env = map[string]string{}
+	}
+	c.Env["DOCKER_BUILDKIT"] = "1"
+	return c
 }
 
 func Login(configDir string, user string, pw string, repo string) DockerCmd {

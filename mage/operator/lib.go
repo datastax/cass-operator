@@ -395,6 +395,18 @@ func runGoBuild(version string) {
 	os.Chdir("..")
 }
 
+func PrintVersion() {
+	settings := cfgutil.ReadBuildSettings()
+	fmt.Printf("%v\n", settings.Version)
+}
+
+func PrintFullVersion() {
+	settings := cfgutil.ReadBuildSettings()
+	git := getGitData()
+	version := calcFullVersion(settings, git)
+	fmt.Printf("%v\n", version)
+}
+
 // Builds operator go code.
 //
 // By default, a dev version will be stamped into

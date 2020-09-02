@@ -4,15 +4,16 @@
 ##########
 # "builder" compiles and tests the code
 # This stage name is important to the Cloud Platform CI/CD infrastructure, and should be preserved
-FROM golang:1.13-stretch as builder
+FROM --platform=${BUILDPLATFORM} golang:1.13-stretch as builder
 
 # Disable cgo - this makes static binaries that will work on an Alpine image
 ENV CGO_ENABLED=0
 ENV GOPROXY=https://proxy.golang.org,https://gocenter.io,direct
 
 # Target os and arch
-ENV GOOS linux
-ENV GOARCH amd64
+ARG TARGETARCH
+ENV GOOS=linux
+ENV GOARCH=${TARGETARCH}
 ENV GOPATH=/go
 
 
@@ -45,8 +46,7 @@ RUN MO_VERSION=${VERSION_STAMP} mage operator:buildGo
 
 # Second stage
 # Produce a smaller image than the one used to build the code
-FROM alpine:3.9
-
+FROM alpine:3.9 as cass-operator
 ENV GOPATH=/go
 
 RUN mkdir -p /var/lib/cass-operator/
@@ -54,6 +54,7 @@ RUN touch /var/lib/cass-operator/base_os
 WORKDIR /go
 
 # All we need from the builder image is operator executable
-COPY --from=builder /cass-operator/build/bin/cass-operator-linux-amd64 bin/operator
+ARG TARGETARCH
+COPY --from=builder /cass-operator/build/bin/cass-operator-linux-${TARGETARCH} bin/operator
 
 CMD [ "/go/bin/operator" ]
