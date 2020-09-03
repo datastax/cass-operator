@@ -48,9 +48,10 @@ jobs:
       #   run: echo "${{ secrets.ECR_SECRET }}" | docker login "${{ secrets.ECR_REPO }}" -u "${{ secrets.ECR_ID }}" --password-stdin
       - name: Build and Push Docker
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
-        env:
-          ECR_REPO: ${{ secrets.ECR_REPO }}
+        # env:
+        #   ECR_REPO: ${{ secrets.ECR_REPO }}
         run: |
+          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           GITHUB_REPO_URL="https://github.com/${{ github.repository }}"
           VERSION="$(mage operator:printVersion)"
           FULL_VERSION="$(mage operator:printFullVersion)"
