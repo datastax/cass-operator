@@ -83,7 +83,7 @@ func CreateMockReconciliationContext(
 			Size:          size,
 			ClusterName:   clusterName,
 			ServerType:    "dse",
-			ServerVersion: "6.8.2",
+			ServerVersion: "6.8.3",
 			StorageConfig: storageConfig,
 		},
 	}
