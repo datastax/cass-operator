@@ -259,7 +259,11 @@ func (ns *NsWrapper) GetNodeStatusesHostIds(dcName string) []string {
 }
 
 func (ns *NsWrapper) WaitForDatacenterReadyPodCount(dcName string, count int) {
-	timeout := count * 400
+	ns.WaitForDatacenterReadyPodCountWithTimeout(dcName, count, 400)
+}
+
+func (ns *NsWrapper) WaitForDatacenterReadyPodCountWithTimeout(dcName string, count int, podCountTimeout int) {
+	timeout := count * podCountTimeout
 	step := "waiting for the node to become ready"
 	json := "jsonpath={.items[*].status.containerStatuses[0].ready}"
 	k := kubectl.Get("pods").
@@ -270,14 +274,18 @@ func (ns *NsWrapper) WaitForDatacenterReadyPodCount(dcName string, count int) {
 }
 
 func (ns *NsWrapper) WaitForDatacenterReady(dcName string) {
+	ns.WaitForDatacenterReadyWithTimeouts(dcName, 400, 30)
+}
+
+func (ns *NsWrapper) WaitForDatacenterReadyWithTimeouts(dcName string, podCountTimeout int, dcReadyTimeout int) {
 	json := "jsonpath={.spec.size}"
 	k := kubectl.Get("CassandraDatacenter", dcName).FormatOutput(json)
 	sizeString := ns.OutputPanic(k)
 	size, err := strconv.Atoi(sizeString)
 	Expect(err).ToNot(HaveOccurred())
 
-	ns.WaitForDatacenterReadyPodCount(dcName, size)
-	ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 30)
+	ns.WaitForDatacenterReadyPodCountWithTimeout(dcName, size, podCountTimeout)
+	ns.WaitForDatacenterOperatorProgress(dcName, "Ready", dcReadyTimeout)
 }
 
 func (ns *NsWrapper) WaitForPodNotStarted(podName string) {
@@ -368,6 +376,15 @@ func (ns NsWrapper) HelmInstall(chartPath string) {
 	mageutil.PanicOnError(err)
 }
 
+func (ns NsWrapper) HelmInstallWithPSPEnabled(chartPath string) {
+	var overrides = map[string]string{
+		"image":            cfgutil.GetOperatorImage(),
+		"vmwarePSPEnabled": "true",
+	}
+	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
+	mageutil.PanicOnError(err)
+}
+
 // Note that the actual value will be cast to a string before the comparison with the expectedValue
 func (ns NsWrapper) ExpectKeyValue(m map[string]interface{}, key string, expectedValue string) {
 	actualValue, ok := m[key].(string)
@@ -390,4 +407,70 @@ func (ns NsWrapper) ExpectKeyValues(actual map[string]interface{}, expected map[
 	for key := range expected {
 		ns.ExpectKeyValue(actual, key, expected[key])
 	}
+}
+
+func (ns NsWrapper) ExpectDoneReconciling(dcName string) {
+	ginkgo.By(fmt.Sprintf("ensure %s is done reconciling", dcName))
+	time.Sleep(1 * time.Minute)
+
+	json := `jsonpath={.metadata.resourceVersion}`
+	k := kubectl.Get("CassandraDatacenter", dcName).
+		FormatOutput(json)
+	resourceVersion := ns.OutputPanic(k)
+
+	time.Sleep(1 * time.Minute)
+
+	json = `jsonpath={.metadata.resourceVersion}`
+	k = kubectl.Get("CassandraDatacenter", dcName).
+		FormatOutput(json)
+	newResourceVersion := ns.OutputPanic(k)
+
+	Expect(newResourceVersion).To(Equal(resourceVersion),
+		"CassandraDatacenter %s is still being reconciled as the resource version is changing", dcName)
+}
+
+type NodetoolNodeInfo struct {
+	Status  string
+	State   string
+	Address string
+	HostId  string
+	Rack    string
+}
+
+func (ns NsWrapper) RetrieveStatusFromNodetool(podName string) []NodetoolNodeInfo {
+	k := kubectl.KCmd{Command: "exec", Args: []string{podName, "-i", "-c", "cassandra", "--namespace", ns.Namespace, "--", "nodetool", "status"}}
+	output, err := k.Output()
+	Expect(err).ToNot(HaveOccurred())
+
+	getFullName := func(s string) string {
+		status, ok := map[string]string{
+			"U": "up",
+			"D": "down",
+			"N": "normal",
+			"L": "leaving",
+			"J": "joining",
+			"M": "moving",
+			"S": "stopped",
+		}[string(s)]
+
+		if !ok {
+			status = s
+		}
+		return status
+	}
+
+	nodeTexts := regexp.MustCompile(`(?m)^.*(([0-9a-fA-F]+-){4}([0-9a-fA-F]+)).*$`).FindAllString(output, -1)
+	nodeInfo := []NodetoolNodeInfo{}
+	for _, nodeText := range nodeTexts {
+		comps := regexp.MustCompile(`[[:space:]]+`).Split(nodeText, -1)
+		nodeInfo = append(nodeInfo,
+			NodetoolNodeInfo{
+				Status:  getFullName(string(comps[0][0])),
+				State:   getFullName(string(comps[0][1])),
+				Address: comps[1],
+				HostId:  comps[len(comps)-2],
+				Rack:    comps[len(comps)-1],
+			})
+	}
+	return nodeInfo
 }

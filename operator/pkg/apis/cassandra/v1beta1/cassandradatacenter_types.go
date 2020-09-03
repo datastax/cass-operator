@@ -491,6 +491,16 @@ func (dc *CassandraDatacenter) GetConditionStatus(conditionType DatacenterCondit
 	return (&dc.Status).GetConditionStatus(conditionType)
 }
 
+func (dc *CassandraDatacenter) GetCondition(conditionType DatacenterConditionType) (DatacenterCondition, bool) {
+	for _, condition := range dc.Status.Conditions {
+		if condition.Type == conditionType {
+			return condition, true
+		}
+	}
+
+	return DatacenterCondition{}, false
+}
+
 func (status *CassandraDatacenterStatus) SetCondition(condition DatacenterCondition) {
 	conditions := status.Conditions
 	added := false

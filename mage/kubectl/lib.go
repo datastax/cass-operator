@@ -137,6 +137,16 @@ func CreateSecretLiteral(name string, user string, pw string) KCmd {
 	return KCmd{Command: "create", Args: args, Flags: flags}
 }
 
+func Taint(node string, key string, value string, effect string) KCmd {
+	args := []string{"nodes", node, fmt.Sprintf("%s=%s:%s", key, value, effect)}
+	return KCmd{Command: "taint", Args: args}
+}
+
+func Annotate(resource string, name string, key string, value string) KCmd {
+	args := []string{resource, name, fmt.Sprintf("%s=%s", key, value)}
+	return KCmd{Command: "annotate", Args: args}
+}
+
 func CreateFromFiles(paths ...string) KCmd {
 	var args []string
 	for _, p := range paths {
@@ -300,4 +310,9 @@ func ExecOnPod(podName string, args ...string) KCmd {
 	execArgs := []string{podName}
 	execArgs = append(execArgs, args...)
 	return KCmd{Command: "exec", Args: execArgs}
+}
+
+func GetNodeNameForPod(podName string) KCmd {
+	json := "jsonpath={.spec.nodeName}"
+	return Get(fmt.Sprintf("pod/%s", podName)).FormatOutput(json)
 }

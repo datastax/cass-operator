@@ -3,6 +3,16 @@
 
 package utils
 
+import (
+	"os"
+	"strings"
+)
+
+func IsPSPEnabled() bool {
+	value, exists := os.LookupEnv("ENABLE_VMWARE_PSP")
+	return exists && "true" == strings.TrimSpace(value)
+}
+
 // MergeMap will take two maps, merging the entries of the source map into destination map. If both maps share the same key
 // then destination's value for that key will be overwritten with what's in source.
 func MergeMap(destination map[string]string, sources ...map[string]string) map[string]string {

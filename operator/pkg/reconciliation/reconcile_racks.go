@@ -216,7 +216,7 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 
 		needsUpdate := false
 
-		if !resourcesHaveSameHash(statefulSet, desiredSts) {
+		if !utils.ResourcesHaveSameHash(statefulSet, desiredSts) {
 			logger.
 				WithValues("rackName", rackName).
 				Info("statefulset needs an update")
@@ -608,6 +608,11 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 		return result.RequeueSoon(2)
 	}
 
+	// Wait on any nodes that are still being replaced
+	if len(rc.Datacenter.Status.NodeReplacements) > 0 {
+		return result.RequeueSoon(2)
+	}
+
 	// step 5 sanity check that all pods are labelled as started and are ready
 
 	readyPodCount, startedLabelCount := rc.countReadyAndStarted()
@@ -884,6 +889,19 @@ func (rc *ReconciliationContext) UpdateCassandraNodeStatus() error {
 	return nil
 }
 
+func getTimePodCreated(pod *corev1.Pod) metav1.Time {
+	return pod.ObjectMeta.CreationTimestamp
+}
+
+func getTimeStartedReplacingNodes(dc *api.CassandraDatacenter) (metav1.Time, bool) {
+	replaceCondition, hasReplaceCondition := dc.GetCondition(api.DatacenterReplacingNodes)
+	if hasReplaceCondition && replaceCondition.Status == corev1.ConditionTrue {
+		return replaceCondition.LastTransitionTime, true
+	} else {
+		return metav1.Time{}, false
+	}
+}
+
 func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
 	dc := rc.Datacenter
 	logger := rc.ReqLogger
@@ -894,12 +912,31 @@ func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
 		for _, pod := range startedPods {
 			// Since pod is labeled as started, it should be done being replaced
 			if utils.IndexOfString(dc.Status.NodeReplacements, pod.Name) > -1 {
-				logger.Info("Finished replacing pod", "pod", pod.Name)
 
-				rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.FinishedReplaceNode,
-					"Finished replacing pod %s", pod.Name)
+				// Ensure the pod is not only started but created _after_ we 
+				// started replacing nodes. This is because the Pod may have
+				// been ready, marked for replacement, and then deleted, so we
+				// have to make sure this is the incarnation of the Pod from 
+				// after the pod was deleted to be replaced.
+				timeStartedReplacing, isReplacing := getTimeStartedReplacingNodes(dc)
+				if isReplacing {
+					timeCreated := getTimePodCreated(pod)
 
-				dc.Status.NodeReplacements = utils.RemoveValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
+					// There isn't a good way to tell the operator to abort
+					// replacing a node, so if we've been replacing for over
+					// 30 minutes, and the pod is started, we'll go ahead and
+					// clear it.
+					replacingForOver30min := hasBeenXMinutes(30, timeStartedReplacing.Time)
+
+					if replacingForOver30min || timeStartedReplacing.Before(&timeCreated) || timeStartedReplacing.Equal(&timeCreated) {
+						logger.Info("Finished replacing pod", "pod", pod.Name)
+
+						rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.FinishedReplaceNode,
+							"Finished replacing pod %s", pod.Name)
+
+						dc.Status.NodeReplacements = utils.RemoveValueFromStringArray(dc.Status.NodeReplacements, pod.Name)
+					}
+				}
 			}
 		}
 	}
@@ -1072,6 +1109,26 @@ func (rc *ReconciliationContext) getCassMetadataEndpoints() httphelper.CassMetad
 	return metadata
 }
 
+// When a vmware taint occurs and we delete the pvc, pv, and
+// pod, then a new pod is created to replace the deleted pod.
+// However, there is a kubernetes bug that prevents a new pvc
+// from being created, and the new pod gets stuck in Pending.
+// see: https://github.com/kubernetes/kubernetes/issues/89910
+//
+// If we then delete this new pod, then the stateful will
+// properly recreate a pvc, pv, and pod.
+func (rc *ReconciliationContext) isNodeStuckWithoutPVC(pod *corev1.Pod) bool {
+	_, err := rc.GetPVCForPod(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
+	if err != nil {
+		rc.ReqLogger.Info(
+			"Unable to get PersistentVolumeClaim",
+			"error", err.Error())
+		return true
+	}
+
+	return false
+}
+
 func (rc *ReconciliationContext) deleteStuckNodes() (bool, error) {
 	rc.ReqLogger.Info("reconcile_racks::deleteStuckNodes")
 	for _, pod := range rc.dcPods {
@@ -1082,6 +1139,9 @@ func (rc *ReconciliationContext) deleteStuckNodes() (bool, error) {
 			shouldDelete = true
 		} else if isNodeStuckAfterLosingReadiness(pod) {
 			reason = "Pod got stuck after losing readiness"
+			shouldDelete = true
+		} else if utils.IsPSPEnabled() && rc.isNodeStuckWithoutPVC(pod) {
+			reason = "Pod got stuck waiting for PersistentValueClaim"
 			shouldDelete = true
 		}
 
@@ -1265,7 +1325,7 @@ func (rc *ReconciliationContext) CheckDcPodDisruptionBudget() result.ReconcileRe
 
 	found := err == nil
 
-	if found && resourcesHaveSameHash(currentBudget, desiredBudget) {
+	if found && utils.ResourcesHaveSameHash(currentBudget, desiredBudget) {
 		return result.Continue()
 	}
 
@@ -1988,7 +2048,6 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 // ReconcileAllRacks determines if a rack needs to be reconciled.
 func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	logger := rc.ReqLogger
-	logger.Info("reconcile_racks::Apply")
 
 	podList, err := rc.listPods(rc.Datacenter.GetClusterLabels())
 	if err != nil {
@@ -2080,6 +2139,15 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 
 	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
 		return result.Error(err).Output()
+	}
+
+	// We do the node and pvc taint checks here
+	// with the assumption that the cluster is healthy
+
+	if utils.IsPSPEnabled() {
+		if err := rc.checkNodeAndPvcTaints(); err != nil {
+			return result.Error(err).Output()
+		}
 	}
 
 	// TODO until we ignore status updates as it pertains to reconcile

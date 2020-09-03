@@ -25,7 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const pvcName = "server-data"
+const PvcName = "server-data"
 
 // Creates a headless service object for the Datacenter, for clients wanting to
 // reach out to a ready Server node for either CQL or mgmt API
@@ -51,7 +51,7 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 		},
 	}
 
-	addHashAnnotation(service)
+	utils.AddHashAnnotation(service)
 
 	return service
 }
@@ -78,7 +78,7 @@ func newSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.S
 	service.Spec.Selector = buildLabelSelectorForSeedService(dc)
 	service.Spec.PublishNotReadyAddresses = true
 
-	addHashAnnotation(service)
+	utils.AddHashAnnotation(service)
 
 	return service
 }
@@ -97,7 +97,7 @@ func newAdditionalSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter)
 	service.Spec.ClusterIP = "None"
 	service.Spec.PublishNotReadyAddresses = true
 
-	addHashAnnotation(&service)
+	utils.AddHashAnnotation(&service)
 
 	return &service
 }
@@ -126,7 +126,7 @@ func newEndpointsForAdditionalSeeds(dc *api.CassandraDatacenter) *corev1.Endpoin
 		},
 	}
 
-	addHashAnnotation(&endpoints)
+	utils.AddHashAnnotation(&endpoints)
 
 	return &endpoints
 }
@@ -188,7 +188,7 @@ func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev
 		},
 	}
 
-	addHashAnnotation(service)
+	utils.AddHashAnnotation(service)
 
 	return service
 }
@@ -298,7 +298,7 @@ func newStatefulSetForCassandraDatacenterHelper(
 	volumeClaimTemplates = []corev1.PersistentVolumeClaim{{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: pvcLabels,
-			Name:   pvcName,
+			Name:   PvcName,
 		},
 		Spec: *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec,
 	}}
@@ -347,7 +347,7 @@ func newStatefulSetForCassandraDatacenterHelper(
 	result.Annotations = map[string]string{}
 
 	// add a hash here to facilitate checking if updates are needed
-	addHashAnnotation(result)
+	utils.AddHashAnnotation(result)
 
 	return result, nil
 }
@@ -374,7 +374,7 @@ func newPodDisruptionBudgetForDatacenter(dc *api.CassandraDatacenter) *policyv1b
 	}
 
 	// add a hash here to facilitate checking if updates are needed
-	addHashAnnotation(pdb)
+	utils.AddHashAnnotation(pdb)
 
 	return pdb
 }
@@ -477,13 +477,13 @@ func getJvmExtraOpts(dc *api.CassandraDatacenter) string {
 	flags := ""
 
 	if dc.Spec.DseWorkloads.AnalyticsEnabled == true {
-		flags += "-k "
+		flags += "-Dspark-trackers=true "
 	}
 	if dc.Spec.DseWorkloads.GraphEnabled == true {
-		flags += "-g "
+		flags += "-Dgraph-enabled=true "
 	}
 	if dc.Spec.DseWorkloads.SearchEnabled == true {
-		flags += "-s"
+		flags += "-Dsearch-service=true"
 	}
 	return flags
 }
@@ -530,7 +530,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 	}
 	serverVolumeMounts = append(serverVolumeMounts, cassServerLogsMount)
 	serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
-		Name:      pvcName,
+		Name:      PvcName,
 		MountPath: "/var/lib/cassandra",
 	})
 	serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
