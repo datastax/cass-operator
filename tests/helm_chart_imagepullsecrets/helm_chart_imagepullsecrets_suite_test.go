@@ -15,13 +15,11 @@ import (
 )
 
 var (
-	testName       = "Helm Chart imagePullSecrets"
-	opNamespace    = "test-helm-chart-imagepullsecrets"
-	operatorImage  = ""
-	dc1Name        = "dc2"
-	dc1Yaml        = "../testdata/default-single-rack-single-node-dc.yaml"
-	registrySecret = "githubpullsecret"
-	ns             = ginkgo_util.NewWrapper(testName, opNamespace)
+	testName    = "Helm Chart imagePullSecrets"
+	opNamespace = "test-helm-chart-imagepullsecrets"
+	dc1Name     = "dc2"
+	dc1Yaml     = "../testdata/default-single-rack-single-node-dc.yaml"
+	ns          = ginkgo_util.NewWrapper(testName, opNamespace)
 )
 
 func TestLifecycle(t *testing.T) {
@@ -50,11 +48,9 @@ var _ = Describe(testName, func() {
 			err := kubectl.CreateNamespace(opNamespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
 
-			ns.CreateDockerRegistrySecret(registrySecret)
-
 			step := "setting up cass-operator resources via helm chart"
 
-			ns.HelmInstallWithImagePullSecret("../../charts/cass-operator-chart", registrySecret)
+			ns.HelmInstall("../../charts/cass-operator-chart")
 
 			ns.WaitForOperatorReady()
 

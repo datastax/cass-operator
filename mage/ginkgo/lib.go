@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	EnvNoCleanup = "M_NO_CLEANUP"
+	EnvNoCleanup        = "M_NO_CLEANUP"
+	ImagePullSecretName = "imagepullsecret"
 )
 
 func duplicate(value string, count int) string {
@@ -375,25 +376,24 @@ func (ns NsWrapper) CreateDockerRegistrySecret(name string) {
 }
 
 func (ns NsWrapper) HelmInstall(chartPath string) {
-	var overrides = map[string]string{"image": cfgutil.GetOperatorImage()}
-	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
-	mageutil.PanicOnError(err)
+	ns.HelmWithOverrides(chartPath, map[string]string{})
 }
 
 func (ns NsWrapper) HelmInstallWithPSPEnabled(chartPath string) {
 	var overrides = map[string]string{
-		"image":            cfgutil.GetOperatorImage(),
 		"vmwarePSPEnabled": "true",
 	}
-	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
-	mageutil.PanicOnError(err)
+	ns.HelmWithOverrides(chartPath, overrides)
 }
 
-func (ns NsWrapper) HelmInstallWithImagePullSecret(chartPath string, secret string) {
-	var overrides = map[string]string{
-		"image":           cfgutil.GetOperatorImage(),
-		"imagePullSecret": secret,
+func (ns NsWrapper) HelmWithOverrides(chartPath string, overrides map[string]string) {
+	overrides["image"] = cfgutil.GetOperatorImage()
+
+	if kubectl.DockerCredentialsDefined() {
+		ns.CreateDockerRegistrySecret(ImagePullSecretName)
+		overrides["imagePullSecret"] = ImagePullSecretName
 	}
+
 	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
 	mageutil.PanicOnError(err)
 }
