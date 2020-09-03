@@ -124,7 +124,7 @@ jobs:
 
           TAGS_TO_PUSH=("${GH_ARM64_TAGS[@]}" "${GH_TAGS[@]}")
           echo "Pushing tags: " "${TAGS_TO_PUSH[@]}"
-          for ((x=0; x<${#TAGS_TO_PUSH[@]}; x=x+2));
+          for ((x=1; x<${#TAGS_TO_PUSH[@]}; x=x+2));
           do
-              docker push "${TAGS_TO_PUSH[x]}"
+            docker push "${TAGS_TO_PUSH[x]}"
           done
