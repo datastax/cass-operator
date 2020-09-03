@@ -362,6 +362,19 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 	ns.WaitForOutputAndLog(step, k, "true", 240)
 }
 
+// kubectl create secret docker-registry github-docker-registry --docker-username=USER --docker-password=PASS --docker-server docker.pkg.github.com
+func (ns NsWrapper) CreateDockerRegistrySecret(name string) {
+	step := "creating docker-registry secret"
+	args := []string{"secret", "docker-registry", name}
+	flags := map[string]string{
+		"docker-username": os.Getenv(kubectl.EnvDockerUsername),
+		"docker-password": os.Getenv(kubectl.EnvDockerPassword),
+		"docker-server":   os.Getenv(kubectl.EnvDockerServer),
+	}
+	k := kubectl.KCmd{Command: "create", Args: args, Flags: flags}
+	ns.WaitForOutputAndLog(step, k, "true", 240)
+}
+
 func (ns NsWrapper) HelmInstall(chartPath string) {
 	var overrides = map[string]string{"image": cfgutil.GetOperatorImage()}
 	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
@@ -370,7 +383,7 @@ func (ns NsWrapper) HelmInstall(chartPath string) {
 
 func (ns NsWrapper) HelmInstallWithPSPEnabled(chartPath string) {
 	var overrides = map[string]string{
-		"image": cfgutil.GetOperatorImage(),
+		"image":            cfgutil.GetOperatorImage(),
 		"vmwarePSPEnabled": "true",
 	}
 	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
@@ -403,21 +416,21 @@ func (ns NsWrapper) ExpectKeyValues(actual map[string]interface{}, expected map[
 
 func (ns NsWrapper) ExpectDoneReconciling(dcName string) {
 	ginkgo.By(fmt.Sprintf("ensure %s is done reconciling", dcName))
-	time.Sleep(1*time.Minute)
+	time.Sleep(1 * time.Minute)
 
 	json := `jsonpath={.metadata.resourceVersion}`
 	k := kubectl.Get("CassandraDatacenter", dcName).
 		FormatOutput(json)
 	resourceVersion := ns.OutputPanic(k)
 
-	time.Sleep(1*time.Minute)
+	time.Sleep(1 * time.Minute)
 
 	json = `jsonpath={.metadata.resourceVersion}`
 	k = kubectl.Get("CassandraDatacenter", dcName).
 		FormatOutput(json)
 	newResourceVersion := ns.OutputPanic(k)
 
-	Expect(newResourceVersion).To(Equal(resourceVersion), 
+	Expect(newResourceVersion).To(Equal(resourceVersion),
 		"CassandraDatacenter %s is still being reconciled as the resource version is changing", dcName)
 }
 

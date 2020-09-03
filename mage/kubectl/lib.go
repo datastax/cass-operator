@@ -328,12 +328,3 @@ func DockerCredentialsDefined() bool {
 	_, ok := os.LookupEnv(EnvDockerUsername)
 	return ok
 }
-
-// This uses M_GITHUB_TOKEN to create an imagePullSecret for
-// pulling from github packages
-/*
-func CreateGithubPackagesImagePullSecret(name string, namespace string) {
-
-	noCleanup := os.Getenv(EnvNoCleanup)
-}
-*/
