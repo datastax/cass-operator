@@ -69,7 +69,7 @@ jobs:
 
             GH_TAGS+=(--tag "docker.pkg.github.com/johntrimble/cass-operator/operator:${t}")
             GH_UBI_TAGS+=(--tag "docker.pkg.github.com/johntrimble/cass-operator/operator:${t}-ubi")
-            GH_ARM64_TAGS=+(--tag "docker.pkg.github.com/johntrimble/cass-operator/operator:${t}-arm64")
+            GH_ARM64_TAGS+=(--tag "docker.pkg.github.com/johntrimble/cass-operator/operator:${t}-arm64")
           done
 
           LABELS=(
