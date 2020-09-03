@@ -50,8 +50,8 @@ const (
 type ProgressState string
 
 const (
-	defaultConfigBuilderImage     = "datastax/cass-config-builder:1.0.2"
-	ubi_defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.2-ubi7"
+	defaultConfigBuilderImage     = "datastax/cass-config-builder:1.0.3"
+	ubi_defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.3-ubi7"
 
 	cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.5"
 	cassandra_3_11_7 = "datastax/cassandra-mgmtapi-3_11_7:v0.1.12"
