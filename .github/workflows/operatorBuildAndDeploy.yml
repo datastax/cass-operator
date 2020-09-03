@@ -46,6 +46,17 @@ jobs:
         run: echo "${{ secrets.JOHN_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u "${{ github.actor }}" --password-stdin
       # - name: Login to ECR
       #   run: echo "${{ secrets.ECR_SECRET }}" | docker login "${{ secrets.ECR_REPO }}" -u "${{ secrets.ECR_ID }}" --password-stdin
+      - name: Setup Buildx
+        id: buildx
+        uses: crazy-max/ghaction-docker-buildx@v3
+      - name: Cache Docker layers
+        uses: actions/cache@v2
+        id: cache
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
       - name: Build and Push Docker
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
         # env:
@@ -61,15 +72,15 @@ jobs:
           GH_UBI_TAGS=()
           GH_ARM64_TAGS=()
 
-          echo "Repository owner: ${{ github.repository_owner }}"
+          echo "Repository owner: "
 
           for t in "${FULL_VERSION}" "${GITHUB_SHA}" "latest"; do
             # ECR_TAGS+=(--tag "${ECR_REPO}/datastax/cass-operator:${t}")
-            # ECR_UBI_TAGS=+(--tag "${ECR_REPO}/datastax/cass-operator:${t}-ubi")
+            # ECR_UBI_TAGS+=(--tag "${ECR_REPO}/datastax/cass-operator:${t}-ubi")
 
-            GH_TAGS+=(--tag "docker.pkg.github.com/johntrimble/cass-operator/operator:${t}")
-            GH_UBI_TAGS+=(--tag "docker.pkg.github.com/johntrimble/cass-operator/operator:${t}-ubi")
-            GH_ARM64_TAGS+=(--tag "docker.pkg.github.com/johntrimble/cass-operator/operator:${t}-arm64")
+            GH_TAGS+=(--tag "docker.pkg.github.com/${{ github.repository_owner }}/cass-operator/operator:${t}")
+            GH_UBI_TAGS+=(--tag "docker.pkg.github.com/${{ github.repository_owner }}/cass-operator/operator:${t}-ubi")
+            GH_ARM64_TAGS+=(--tag "docker.pkg.github.com/${{ github.repository_owner }}/cass-operator/operator:${t}-arm64")
           done
 
           LABELS=(
@@ -80,7 +91,12 @@ jobs:
             --label "org.label-schema.version=$VERSION"
           )
 
-          COMMON_ARGS=("${LABELS[@]}" --file operator/docker/base/Dockerfile)
+          COMMON_ARGS=(
+            "${LABELS[@]}"
+            --file operator/docker/base/Dockerfile
+            --cache-from "type=local,src=/tmp/.buildx-cache"
+            --cache-to "type=local,dest=/tmp/.buildx-cache"
+          )
 
           # docker buildx build \
           #   --push \
@@ -108,7 +124,7 @@ jobs:
 
           TAGS_TO_PUSH=("${GH_ARM64_TAGS[@]}" "${GH_TAGS[@]}")
           echo "Pushing tags: " "${TAGS_TO_PUSH[@]}"
-          # for ((x=0; x<${#TAGS_TO_PUSH[@]}; x=x+2));
-          # do
-          #     docker push "${TAGS_TO_PUSH[x]}"
-          # done
+          for ((x=0; x<${#TAGS_TO_PUSH[@]}; x=x+2));
+          do
+              docker push "${TAGS_TO_PUSH[x]}"
+          done
