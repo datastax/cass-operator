@@ -59,14 +59,16 @@ jobs:
           GH_TAGS=()
           GH_UBI_TAGS=()
           GH_ARM64_TAGS=()
-          
+
+          echo "Repository owner: ${{ github.repository_owner }}"
+
           for t in "${FULL_VERSION}" "${GITHUB_SHA}" "latest"; do
             # ECR_TAGS+=(--tag "${ECR_REPO}/datastax/cass-operator:${t}")
             # ECR_UBI_TAGS=+(--tag "${ECR_REPO}/datastax/cass-operator:${t}-ubi")
 
-            GH_TAGS+=(--tag "docker.pkg.github.com/${{ github.repository_owner }}/cass-operator/operator:${t}")
-            GH_UBI_TAGS+=(--tag "docker.pkg.github.com/${{ github.repository_owner }}/cass-operator/operator:${t}-ubi")
-            GH_ARM64_TAGS=+(--tag "docker.pkg.github.com/${{ github.repository_owner }}/cass-operator/operator:${t}-arm64")
+            GH_TAGS+=(--tag "docker.pkg.github.com/johntrimble/cass-operator/operator:${t}")
+            GH_UBI_TAGS+=(--tag "docker.pkg.github.com/johntrimble/cass-operator/operator:${t}-ubi")
+            GH_ARM64_TAGS=+(--tag "docker.pkg.github.com/johntrimble/cass-operator/operator:${t}-arm64")
           done
 
           LABELS=(
