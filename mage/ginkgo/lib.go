@@ -364,7 +364,6 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 
 // kubectl create secret docker-registry github-docker-registry --docker-username=USER --docker-password=PASS --docker-server docker.pkg.github.com
 func (ns NsWrapper) CreateDockerRegistrySecret(name string) {
-	step := "creating docker-registry secret"
 	args := []string{"secret", "docker-registry", name}
 	flags := map[string]string{
 		"docker-username": os.Getenv(kubectl.EnvDockerUsername),
@@ -372,7 +371,7 @@ func (ns NsWrapper) CreateDockerRegistrySecret(name string) {
 		"docker-server":   os.Getenv(kubectl.EnvDockerServer),
 	}
 	k := kubectl.KCmd{Command: "create", Args: args, Flags: flags}
-	ns.WaitForOutputAndLog(step, k, "true", 240)
+	ns.ExecVCapture(k)
 }
 
 func (ns NsWrapper) HelmInstall(chartPath string) {
@@ -385,6 +384,15 @@ func (ns NsWrapper) HelmInstallWithPSPEnabled(chartPath string) {
 	var overrides = map[string]string{
 		"image":            cfgutil.GetOperatorImage(),
 		"vmwarePSPEnabled": "true",
+	}
+	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
+	mageutil.PanicOnError(err)
+}
+
+func (ns NsWrapper) HelmInstallWithImagePullSecret(chartPath string, secret string) {
+	var overrides = map[string]string{
+		"image":           cfgutil.GetOperatorImage(),
+		"imagePullSecret": secret,
 	}
 	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
 	mageutil.PanicOnError(err)

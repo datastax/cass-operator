@@ -13,9 +13,9 @@ spec:
         name: cass-operator
     spec:
       serviceAccountName: {{ .Values.serviceAccountName }}
-    {{- if .Values.imagePullSecrets }}
+    {{- if .Values.imagePullSecret }}
       imagePullSecrets:
-      - name: {{ .Values.imagePullSecrets }}
+      - name: {{ .Values.imagePullSecret }}
     {{- end }}
       volumes:
       - name: tmpconfig-volume

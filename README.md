@@ -189,6 +189,7 @@ deploymentName: cass-operator
 deploymentReplicas: 1
 image: "datastax/cass-operator:1.4.0"
 imagePullPolicy: IfNotPresent
+imagePullSecret: ""
 ```
 
 NOTE: roleName and roleBindingName will be used for a clusterRole and clusterRoleBinding if clusterWideInstall is set to true.

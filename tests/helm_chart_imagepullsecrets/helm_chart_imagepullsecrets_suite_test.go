@@ -6,7 +6,6 @@ package helm_chart_imagepullsecrets
 import (
 	"fmt"
 	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -18,9 +17,10 @@ import (
 var (
 	testName       = "Helm Chart imagePullSecrets"
 	opNamespace    = "test-helm-chart-imagepullsecrets"
+	operatorImage  = ""
 	dc1Name        = "dc2"
 	dc1Yaml        = "../testdata/default-single-rack-single-node-dc.yaml"
-	registrySecret = "githubPullSecret"
+	registrySecret = "githubpullsecret"
 	ns             = ginkgo_util.NewWrapper(testName, opNamespace)
 )
 
@@ -52,22 +52,18 @@ var _ = Describe(testName, func() {
 
 			ns.CreateDockerRegistrySecret(registrySecret)
 
-			time.Sleep(1 * time.Minute)
+			step := "setting up cass-operator resources via helm chart"
 
-			/*
-				step := "setting up cass-operator resources via helm chart"
+			ns.HelmInstallWithImagePullSecret("../../charts/cass-operator-chart", registrySecret)
 
-						ns.HelmInstallWithImagePullSecrets("../../charts/cass-operator-chart")
+			ns.WaitForOperatorReady()
 
-						ns.WaitForOperatorReady()
+			// Create a small cass cluster to verify cass-operator is functional
+			step = "creating first datacenter resource"
+			k := kubectl.ApplyFiles(dc1Yaml)
+			ns.ExecAndLog(step, k)
 
-						// Create a small cass cluster to verify cass-operator is functional
-						step = "creating first datacenter resource"
-						k := kubectl.ApplyFiles(dc1Yaml)
-						ns.ExecAndLog(step, k)
-
-						ns.WaitForDatacenterReady(dc1Name)
-			*/
+			ns.WaitForDatacenterReady(dc1Name)
 		})
 	})
 })
