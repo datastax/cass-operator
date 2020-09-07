@@ -234,7 +234,7 @@ type CassandraDatacenterSpec struct {
 	RollingRestartRequested bool `json:"rollingRestartRequested,omitempty"`
 
 	// A map of label keys and values to restrict Cassandra node scheduling to k8s workers
-	// with matchiing labels.
+	// with matching labels.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
 
@@ -247,6 +247,9 @@ type CassandraDatacenterSpec struct {
 
 	// PodTemplate provides customisation options (labels, annotations, affinity rules, resource requests, and so on) for the cassandra pods
 	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplateSpec,omitempty"`
+
+	// Tolerations: Kubernetes allows users to mark a node (taint the node) so that no pods can be scheduled to it, unless a pod explicitly tolerates the taint
+	Tolerations []*corev1.Toleration `json:"tolerations,omitempty"`
 
 	// Cassandra users to bootstrap
 	Users []CassandraUser `json:"users,omitempty"`
