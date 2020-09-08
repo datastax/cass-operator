@@ -12,7 +12,6 @@ import (
 	cfgutil "github.com/datastax/cass-operator/mage/config"
 	gcp "github.com/datastax/cass-operator/mage/gcloud"
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
-	helm_util "github.com/datastax/cass-operator/mage/helm"
 	integutil "github.com/datastax/cass-operator/mage/integ-tests"
 	k3d "github.com/datastax/cass-operator/mage/k3d"
 	kind "github.com/datastax/cass-operator/mage/kind"
