@@ -55,7 +55,7 @@ const (
 
 	cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.5"
 	cassandra_3_11_7 = "datastax/cassandra-mgmtapi-3_11_7:v0.1.12"
-	cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.5"
+	cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.12"
 
 	ubi_cassandra_3_11_6 = "datastax/cassandra:3.11.6-ubi7"
 	ubi_cassandra_3_11_7 = "datastax/cassandra:3.11.7-ubi7"
