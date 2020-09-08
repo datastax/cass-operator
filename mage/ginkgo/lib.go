@@ -399,6 +399,18 @@ func HelmInstallWithOverrides(chartPath string, namespace string, overrides map[
 	mageutil.PanicOnError(err)
 }
 
+func HelmUpgradeWithOverrides(chartPath string, namespace string, overrides map[string]string) {
+	overrides["image"] = cfgutil.GetOperatorImage()
+
+	// NOTE: This assumes the credential has already been defined during HelmInstallWithOverrides
+	if kubectl.DockerCredentialsDefined() {
+		overrides["imagePullSecret"] = ImagePullSecretName
+	}
+
+	err := helm_util.Upgrade(chartPath, "cass-operator", namespace, overrides)
+	mageutil.PanicOnError(err)
+}
+
 // Note that the actual value will be cast to a string before the comparison with the expectedValue
 func (ns NsWrapper) ExpectKeyValue(m map[string]interface{}, key string, expectedValue string) {
 	actualValue, ok := m[key].(string)
