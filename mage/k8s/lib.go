@@ -148,7 +148,7 @@ func SetupExampleCluster() {
 	var namespace = "default"
 	overrides := map[string]string{}
 
-	ginkgo_util.HelmWithOverrides("./charts/cass-operator-chart", namespace, overrides)
+	ginkgo_util.HelmInstallWithOverrides("./charts/cass-operator-chart", namespace, overrides)
 
 	// Wait for 15 seconds for the operator to come up
 	// because the apiserver will call the webhook too soon and fail if we do not wait

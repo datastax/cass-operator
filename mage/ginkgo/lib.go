@@ -376,18 +376,18 @@ func CreateDockerRegistrySecret(name string, namespace string) {
 }
 
 func (ns NsWrapper) HelmInstall(chartPath string) {
-	HelmWithOverrides(chartPath, ns.Namespace, map[string]string{})
+	HelmInstallWithOverrides(chartPath, ns.Namespace, map[string]string{})
 }
 
 func (ns NsWrapper) HelmInstallWithPSPEnabled(chartPath string) {
 	var overrides = map[string]string{
 		"vmwarePSPEnabled": "true",
 	}
-	HelmWithOverrides(chartPath, ns.Namespace, overrides)
+	HelmInstallWithOverrides(chartPath, ns.Namespace, overrides)
 }
 
 // This is not a method on NsWrapper to allow mage to use it to create an example cluster.
-func HelmWithOverrides(chartPath string, namespace string, overrides map[string]string) {
+func HelmInstallWithOverrides(chartPath string, namespace string, overrides map[string]string) {
 	overrides["image"] = cfgutil.GetOperatorImage()
 
 	if kubectl.DockerCredentialsDefined() {
