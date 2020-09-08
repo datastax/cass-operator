@@ -249,7 +249,7 @@ type CassandraDatacenterSpec struct {
 	PodTemplateSpec *corev1.PodTemplateSpec `json:"podTemplateSpec,omitempty"`
 
 	// Tolerations: Kubernetes allows users to mark a node (taint the node) so that no pods can be scheduled to it, unless a pod explicitly tolerates the taint
-	Tolerations []*corev1.Toleration `json:"tolerations,omitempty"`
+	Tolerations []corev1.Toleration `json:"tolerations,omitempty"`
 
 	// Cassandra users to bootstrap
 	Users []CassandraUser `json:"users,omitempty"`
