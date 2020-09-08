@@ -315,7 +315,7 @@ func newStatefulSetForCassandraDatacenterHelper(
 		template.Spec.NodeSelector = utils.MergeMap(map[string]string{}, dc.Spec.NodeSelector)
 	}
 
-	// if the dc.Spec has tolerations map, copy them into each sts pod template
+	// if the dc.Spec has tolerations, copy them into each sts pod template
 	if len(dc.Spec.Tolerations) > 0 {
 		tolerations := make([]corev1.Toleration, len(dc.Spec.Tolerations))
 	    for i, toleration := range dc.Spec.Tolerations {
@@ -327,6 +327,8 @@ func newStatefulSetForCassandraDatacenterHelper(
 				TolerationSeconds: toleration.TolerationSeconds,
 			}
 		}
+
+		template.Spec.Tolerations = tolerations
 	}
 
 	// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019

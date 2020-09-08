@@ -67,7 +67,6 @@ func Test_calculateNodeAffinity(t *testing.T) {
 	})
 }
 
-
 func Test_newStatefulSetForCassandraDatacenter(t *testing.T) {
 	type args struct {
 		rackName     string
@@ -103,6 +102,57 @@ func Test_newStatefulSetForCassandraDatacenter(t *testing.T) {
 		assert.NoError(t, err, "newStatefulSetForCassandraDatacenter should not have errored")
 		assert.NotNil(t, got, "newStatefulSetForCassandraDatacenter should not have returned a nil statefulset")
 		assert.Equal(t, map[string]string{"dedicated": "cassandra"}, got.Spec.Template.Spec.NodeSelector)
+	}
+}
+
+func Test_newStatefulSetForCassandraDatacenter_with_tolerations(t *testing.T) {
+	type args struct {
+		rackName     string
+		dc           *api.CassandraDatacenter
+		replicaCount int
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "test tolerations",
+			args: args{
+				rackName:     "r1",
+				replicaCount: 1,
+				dc: &api.CassandraDatacenter{
+					Spec: api.CassandraDatacenterSpec{
+						ClusterName:  "c1",
+						StorageConfig: api.StorageConfig{
+							CassandraDataVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{},
+						},
+						ServerType:    "cassandra",
+						ServerVersion: "3.11.7",
+						Tolerations: []corev1.Toleration{
+							{
+								Key:      "myFirstKey",
+								Operator: "In",
+								Value:    "myValue",
+								Effect:   "NoSchedule",
+							},
+							{
+								Key:      "mySecondKey",
+								Operator: "Exist",
+								Effect:   "NoSchedule",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Log(tt.name)
+		got, err := newStatefulSetForCassandraDatacenter(tt.args.rackName, tt.args.dc, tt.args.replicaCount)
+		assert.NoError(t, err, "newStatefulSetForCassandraDatacenter should not have errored")
+		assert.NotNil(t, got, "newStatefulSetForCassandraDatacenter should not have returned a nil statefulset")
+		assert.Equal(t, "myFirstKey", got.Spec.Template.Spec.Tolerations[0].Key)
+		assert.Equal(t, "mySecondKey", got.Spec.Template.Spec.Tolerations[1].Key)
 	}
 }
 
