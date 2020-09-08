@@ -364,7 +364,7 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 }
 
 // kubectl create secret docker-registry github-docker-registry --docker-username=USER --docker-password=PASS --docker-server docker.pkg.github.com
-func (ns NsWrapper) CreateDockerRegistrySecret(name string) {
+func CreateDockerRegistrySecret(name string, namespace string) {
 	args := []string{"secret", "docker-registry", name}
 	flags := map[string]string{
 		"docker-username": os.Getenv(kubectl.EnvDockerUsername),
@@ -372,29 +372,30 @@ func (ns NsWrapper) CreateDockerRegistrySecret(name string) {
 		"docker-server":   os.Getenv(kubectl.EnvDockerServer),
 	}
 	k := kubectl.KCmd{Command: "create", Args: args, Flags: flags}
-	ns.ExecVCapture(k)
+	k.InNamespace(namespace).ExecVCapture()
 }
 
 func (ns NsWrapper) HelmInstall(chartPath string) {
-	ns.HelmWithOverrides(chartPath, map[string]string{})
+	HelmWithOverrides(chartPath, ns.Namespace, map[string]string{})
 }
 
 func (ns NsWrapper) HelmInstallWithPSPEnabled(chartPath string) {
 	var overrides = map[string]string{
 		"vmwarePSPEnabled": "true",
 	}
-	ns.HelmWithOverrides(chartPath, overrides)
+	HelmWithOverrides(chartPath, ns.Namespace, overrides)
 }
 
-func (ns NsWrapper) HelmWithOverrides(chartPath string, overrides map[string]string) {
+// This is not a method on NsWrapper to allow mage to use it to create an example cluster.
+func HelmWithOverrides(chartPath string, namespace string, overrides map[string]string) {
 	overrides["image"] = cfgutil.GetOperatorImage()
 
 	if kubectl.DockerCredentialsDefined() {
-		ns.CreateDockerRegistrySecret(ImagePullSecretName)
+		CreateDockerRegistrySecret(ImagePullSecretName, namespace)
 		overrides["imagePullSecret"] = ImagePullSecretName
 	}
 
-	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
+	err := helm_util.Install(chartPath, "cass-operator", namespace, overrides)
 	mageutil.PanicOnError(err)
 }
 

@@ -145,10 +145,10 @@ func SetupExampleCluster() {
 	mg.Deps(SetupEmptyCluster)
 	kubectl.CreateSecretLiteral("cassandra-superuser-secret", "devuser", "devpass").ExecVPanic()
 
-	overrides := map[string]string{"image": getOperatorImage()}
 	var namespace = "default"
-	err := helm_util.Install("./charts/cass-operator-chart", "cass-operator", namespace, overrides)
-	mageutil.PanicOnError(err)
+	overrides := map[string]string{}
+
+	ginkgo_util.HelmWithOverrides("./charts/cass-operator-chart", namespace, overrides)
 
 	// Wait for 15 seconds for the operator to come up
 	// because the apiserver will call the webhook too soon and fail if we do not wait
