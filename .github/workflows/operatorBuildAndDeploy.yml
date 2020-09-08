@@ -42,6 +42,8 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testGo
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
       - name: Login to GitHub Package Registry
         run: echo "${{ secrets.JOHN_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u "${{ github.actor }}" --password-stdin
       # - name: Login to ECR
@@ -66,17 +68,19 @@ jobs:
           GITHUB_REPO_URL="https://github.com/${{ github.repository }}"
           VERSION="$(mage operator:printVersion)"
           FULL_VERSION="$(mage operator:printFullVersion)"
+
           ECR_TAGS=()
           ECR_UBI_TAGS=()
+          DOCKER_TAGS=()
           GH_TAGS=()
           GH_UBI_TAGS=()
           GH_ARM64_TAGS=()
 
-          echo "Repository owner: "
-
           for t in "${FULL_VERSION}" "${GITHUB_SHA}" "latest"; do
             # ECR_TAGS+=(--tag "${ECR_REPO}/datastax/cass-operator:${t}")
             # ECR_UBI_TAGS+=(--tag "${ECR_REPO}/datastax/cass-operator:${t}-ubi")
+
+            DOCKER_TAGS=(--tag "johntrimble/cass-operator-multiarch:${t}")
 
             GH_TAGS+=(--tag "docker.pkg.github.com/${{ github.repository_owner }}/cass-operator/operator:${t}")
             GH_UBI_TAGS+=(--tag "docker.pkg.github.com/${{ github.repository_owner }}/cass-operator/operator:${t}-ubi")
@@ -98,13 +102,13 @@ jobs:
             --cache-to "type=local,dest=/tmp/.buildx-cache"
           )
 
-          # docker buildx build \
-          #   --push \
-          #   "${COMMON_ARGS[@]}" \
-          #   "${ECR_TAGS[@]}" \
-          #   --target cass-operator \
-          #   --platform linux/amd64,linux/arm64 \
-          #   .
+          docker buildx build \
+            --push \
+            "${COMMON_ARGS[@]}" \
+            "${DOCKER_TAGS[@]}" \
+            --target cass-operator \
+            --platform linux/amd64,linux/arm64 \
+            .
 
           docker buildx build \
             --load \
