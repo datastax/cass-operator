@@ -44,6 +44,25 @@ not automatically run the tests or tear down, run:
 M_K8S_FLAVOR=k3d mage k8s:setupEmptyCluster
 ```
 
+### Using a custom Docker registry for the operator image
+
+If M_DOCKER_USERNAME, M_DOCKER_PASSWORD, and M_DOCKER_SERVER environment variables are defined, then they will be used to create an image pull secret.  This secret will automatically be used by the integration tests for pulling the Docker image of the operator.
+
+This should be used in conjunction with the M_OPERATOR_IMAGE environment variable to select a specific image.  Note that the M_OPERATOR_IMAGE value should include the name of the custom registry.
+
+Example:
+
+```console
+export M_DOCKER_USERNAME=USERNAME
+export M_DOCKER_PASSWORD=ACCESSTOKEN
+export M_DOCKER_SERVER="docker.pkg.github.com"
+export M_OPERATOR_IMAGE="docker.pkg.github.com/datastax/cass-operator/operator:latest-ubi"
+```
+
+Replace USERNAME with the Github username and ACCESSTOKEN with a Github access token in the above commands.
+
+Note: The automatically created image pull secret will be named "imagepullsecret", and it will be removed at the end of each test when the test namespace is deleted.
+
 ### Kicking off the tests on an existing cluster
 To kick off all integration tests against the cluster that your kubectl
 is currently configured against, run:
