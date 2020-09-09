@@ -13,8 +13,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-logr/logr"
 	"github.com/datastax/cass-operator/operator/pkg/psp"
+	"github.com/go-logr/logr"
 	mock "github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -84,7 +84,7 @@ func CreateMockReconciliationContext(
 			Size:          size,
 			ClusterName:   clusterName,
 			ServerType:    "dse",
-			ServerVersion: "6.8.2",
+			ServerVersion: "6.8.3",
 			StorageConfig: storageConfig,
 		},
 	}
