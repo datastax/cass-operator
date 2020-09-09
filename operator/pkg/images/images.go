@@ -27,11 +27,14 @@ const (
 //    - versionToDSE
 // 4. Additionally, if there a is a UBI Cassandra/DSE image
 //    available, also update:
-//    - cassandraToUBI
+//    - versionToUBIOSSCassandra
+//    - versionToUBIDSE
 //
 
 type Image int
 
+// IMPORTANT: Only Image enum values (and ImageEnumLength) should go in  this
+// const expression
 const (
 	Cassandra_3_11_6 Image = iota
 	Cassandra_3_11_7
@@ -89,21 +92,16 @@ var imageLookupMap map[Image]string = map[Image]string {
 	Reaper:      "thelastpickle/cassandra-reaper:2.0.5",
 }
 
-var cassandraToUBI map[Image]Image = map[Image]Image {
-	Cassandra_3_11_6: UBICassandra_3_11_6,
-	Cassandra_3_11_7: UBICassandra_3_11_7,
-	Cassandra_4_0_0:  UBICassandra_4_0_0,
-
-	DSE_6_8_0: UBIDSE_6_8_0,
-	DSE_6_8_1: UBIDSE_6_8_1,
-	DSE_6_8_2: UBIDSE_6_8_2,
-	DSE_6_8_3: UBIDSE_6_8_3,
-}
-
 var versionToOSSCassandra map[string]Image = map[string]Image {
 	"3.11.6": Cassandra_3_11_6,
 	"3.11.7": Cassandra_3_11_7,
 	"4.0.0":  Cassandra_4_0_0,
+}
+
+var versionToUBIOSSCassandra map[string]Image = map[string]Image {
+	"3.11.6": UBICassandra_3_11_6,
+	"3.11.7": UBICassandra_3_11_7,
+	"4.0.0":  UBICassandra_4_0_0,
 }
 
 var versionToDSE map[string]Image = map[string]Image {
@@ -111,6 +109,13 @@ var versionToDSE map[string]Image = map[string]Image {
 	"6.8.1": DSE_6_8_1,
 	"6.8.2": DSE_6_8_2,
 	"6.8.3": DSE_6_8_3,
+}
+
+var versionToUBIDSE map[string]Image = map[string]Image {
+	"6.8.0": UBIDSE_6_8_0,
+	"6.8.1": UBIDSE_6_8_1,
+	"6.8.2": UBIDSE_6_8_2,
+	"6.8.3": UBIDSE_6_8_3,
 }
 
 var log = logf.Log.WithName("images")
@@ -165,19 +170,6 @@ func (image Image) String() string {
 	return GetImage(image)
 }
 
-func getCassandraUBIImage(name Image) (Image, error) {
-	for key, value := range cassandraToUBI {
-		// We check against both the key and the value as the 
-		// passed name may already be a UBI image
-		if value == name || key == name {
-			return value, nil
-		}
-	}
-
-	// If we got here, then we didn't find anything
-	return -1, fmt.Errorf("Could not find a UBI image for %s", name)
-}
-
 func shouldUseUBI() bool {
 	baseImageOs := os.Getenv(EnvBaseImageOS)
 	return baseImageOs != ""
@@ -187,25 +179,25 @@ func GetCassandraImage(serverType, version string) (string, error) {
 	var imageKey Image
 	var found bool
 
+	dseMap := versionToDSE
+	cassandraMap := versionToOSSCassandra
+
+	if shouldUseUBI() {
+		dseMap = versionToUBIDSE
+		cassandraMap = versionToUBIOSSCassandra
+	}
+
 	switch serverType {
 	case "dse":
-		imageKey, found = versionToDSE[version]
+		imageKey, found = dseMap[version]
 	case "cassandra":
-		imageKey, found = versionToOSSCassandra[version]
+		imageKey, found = cassandraMap[version]
 	default:
 		return "", fmt.Errorf("Unknown server type '%s'", serverType)
 	}
 
 	if !found {
 		return "", fmt.Errorf("server '%s' and version '%s' do not work together", serverType, version)
-	}
-
-	var err error
-	if shouldUseUBI() {
-		imageKey, err = getCassandraUBIImage(imageKey)
-		if err != nil {
-			return "", fmt.Errorf("Coud not find UBI image for server '%s' and version '%s': %w", serverType, version, err)
-		}
 	}
 
 	return GetImage(imageKey), nil
