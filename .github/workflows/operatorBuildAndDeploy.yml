@@ -1,7 +1,7 @@
 name: Cass Operator Build & Deploy
 on:
   push:
-    branches: [ master, multiarch-pr ]
+    branches: [ master ]
   pull_request:
     branches: [ master ]
 jobs:
@@ -42,12 +42,10 @@ jobs:
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage operator:testGo
-      - name: Login to DockerHub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
       - name: Login to GitHub Package Registry
-        run: echo "${{ secrets.JOHN_GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u "${{ github.actor }}" --password-stdin
-      # - name: Login to ECR
-      #   run: echo "${{ secrets.ECR_SECRET }}" | docker login "${{ secrets.ECR_REPO }}" -u "${{ secrets.ECR_ID }}" --password-stdin
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u "${{ github.actor }}" --password-stdin
+      - name: Login to ECR
+        run: echo "${{ secrets.ECR_SECRET }}" | docker login "${{ secrets.ECR_REPO }}" -u "${{ secrets.ECR_ID }}" --password-stdin
       - name: Setup Buildx
         id: buildx
         uses: crazy-max/ghaction-docker-buildx@v3
@@ -61,9 +59,16 @@ jobs:
             ${{ runner.os }}-buildx-
       - name: Build and Push Docker
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'datastax/cass-operator'
-        # env:
-        #   ECR_REPO: ${{ secrets.ECR_REPO }}
+        env:
+          ECR_REPO: ${{ secrets.ECR_REPO }}
+          PR_REF: ${{ github.event.pull_request.head.ref }}
         run: |
+          if [ "${GITHUB_EVENT_NAME}" == "pull_request" ]; then
+            export MO_BRANCH=${PR_REF}
+          else
+            export MO_BRANCH="master"
+          fi
+
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           GITHUB_REPO_URL="https://github.com/${{ github.repository }}"
 
@@ -76,18 +81,13 @@ jobs:
 
           ECR_TAGS=()
           ECR_UBI_TAGS=()
-          DOCKERHUB_TAGS=()
-          DOCKERHUB_UBI_TAGS=()
           GH_TAGS=()
           GH_UBI_TAGS=()
           GH_ARM64_TAGS=()
 
           for t in "${FULL_VERSION}" "${GITHUB_SHA}" "latest"; do
-            # ECR_TAGS+=(--tag "${ECR_REPOSITORY}:${t}")
-            # ECR_UBI_TAGS+=(--tag "${ECR_REPOSITORY}:${t}-ubi")
-
-            DOCKERHUB_TAGS+=(--tag "johntrimble/cass-operator-multiarch:${t}")
-            DOCKERHUB_UBI_TAGS+=(--tag "johntrimble/cass-operator-multiarch:${t}-ubi")
+            ECR_TAGS+=(--tag "${ECR_REPOSITORY}:${t}")
+            ECR_UBI_TAGS+=(--tag "${ECR_REPOSITORY}:${t}-ubi")
 
             GH_TAGS+=(--tag "${GH_REPOSITORY}:${t}")
             GH_UBI_TAGS+=(--tag "${GH_REPOSITORY}:${t}-ubi")
@@ -128,7 +128,7 @@ jobs:
           docker buildx build \
             --push \
             "${STANDARD_ARGS[@]}" \
-            "${DOCKERHUB_TAGS[@]}" "${ECR_TAGS[@]}" \
+            "${ECR_TAGS[@]}" \
             --platform linux/amd64,linux/arm64 \
             .
 
@@ -138,7 +138,7 @@ jobs:
           docker buildx build \
             --push \
             "${UBI_ARGS[@]}" \
-            "${DOCKERHUB_UBI_TAGS[@]}" "${ECR_UBI_TAGS[@]}" \
+            "${ECR_UBI_TAGS[@]}" \
             --platform linux/amd64 \
             .
 
@@ -169,7 +169,7 @@ jobs:
           TAGS_TO_PUSH=("${GH_ARM64_TAGS[@]}" "${GH_TAGS[@]}" "${GH_UBI_TAGS[@]}")
           echo "Pushing tags: " "${TAGS_TO_PUSH[@]}"
 
-          # Note: Every other element of TAGS_TO_PUSH will be the string '--tag'
+          # Note: Every even index of TAGS_TO_PUSH will be the string '--tag'
           #       so we skip over those while looping.
 
           for ((x=1; x<${#TAGS_TO_PUSH[@]}; x=x+2)); do
