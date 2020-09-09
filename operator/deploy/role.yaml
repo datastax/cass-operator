@@ -11,6 +11,7 @@ rules:
   - services
   - endpoints
   - persistentvolumeclaims
+  - persistentvolumeclaims
   - events
   - configmaps
   - secrets

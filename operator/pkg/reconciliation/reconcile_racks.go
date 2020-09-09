@@ -903,10 +903,10 @@ func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
 			// Since pod is labeled as started, it should be done being replaced
 			if utils.IndexOfString(dc.Status.NodeReplacements, pod.Name) > -1 {
 
-				// Ensure the pod is not only started but created _after_ we 
+				// Ensure the pod is not only started but created _after_ we
 				// started replacing nodes. This is because the Pod may have
 				// been ready, marked for replacement, and then deleted, so we
-				// have to make sure this is the incarnation of the Pod from 
+				// have to make sure this is the incarnation of the Pod from
 				// after the pod was deleted to be replaced.
 				timeStartedReplacing, isReplacing := getTimeStartedReplacingNodes(dc)
 				if isReplacing {
@@ -1997,6 +1997,7 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 		api.DatacenterUpdating,
 		api.DatacenterRollingRestart,
 		api.DatacenterResuming,
+		api.DatacenterScalingDown,
 	}
 	updated := false
 
@@ -2037,8 +2038,22 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 	return result.Continue()
 }
 
+func (rc *ReconciliationContext) CheckForErrorConditions() result.ReconcileResult {
+	if rc.Datacenter.GetConditionStatus(api.DatacenterScaleDownFailed) == corev1.ConditionTrue {
+		err := fmt.Errorf("Scale down failed for datacenter %s. Manual intervention required",
+			rc.Datacenter.Name)
+		return result.Error(err)
+	}
+
+	return result.Continue()
+}
+
 // ReconcileAllRacks determines if a rack needs to be reconciled.
 func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
+	if recResult := rc.CheckForErrorConditions(); recResult.Completed() {
+		return recResult.Output()
+	}
+
 	logger := rc.ReqLogger
 
 	podList, err := rc.listPods(rc.Datacenter.GetClusterLabels())
@@ -2133,7 +2148,7 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
-	if recResult := rc.DecommissionNodes(); recResult.Completed() {
+	if recResult := rc.DecommissionNodes(endpointData); recResult.Completed() {
 		return recResult.Output()
 	}
 

@@ -1,10 +1,11 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package decom_nodes
+package decom_nodes_not_enough_space
 
 import (
 	"fmt"
+	"math/rand"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -14,13 +15,14 @@ import (
 
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
 	"github.com/datastax/cass-operator/mage/kubectl"
+	"github.com/google/uuid"
 )
 
 var (
-	testName   = "Decommission nodes"
-	namespace  = "test-decom-nodes"
+	testName   = "Decommission nodes not enough space"
+	namespace  = "test-decom-nodes-not-enough-space"
 	dcName     = "dc1"
-	dcYaml     = "../testdata/default-three-rack-four-node-dc.yaml"
+	dcYaml     = "../testdata/default-three-rack-four-node-limited-storage-dc.yaml"
 	dcResource = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel    = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
 	ns         = ginkgo_util.NewWrapper(testName, namespace)
@@ -56,40 +58,49 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForDatacenterReady(dcName)
 
+			podToDecommission := "cluster1-dc1-r1-sts-1"
+			podPvcName := "server-data-cluster1-dc1-r1-sts-1"
+
+			user, pw := ns.RetrieveSuperuserCreds("cluster1")
+			ns.CqlExecute(podToDecommission, "create keyspace", "CREATE KEYSPACE IF NOT EXISTS my_key WITH REPLICATION = {'class': 'SimpleStrategy', 'replication_factor': 1}", user, pw)
+
+			ns.CqlExecute(podToDecommission, "create table", "CREATE TABLE IF NOT EXISTS my_key.my_table (id uuid, data text, PRIMARY KEY(id))", user, pw)
+
+			randStr := genRandString(100000)
+			for i := 0; i < 25; i++ {
+				uuid := uuid.New()
+
+				cql := fmt.Sprintf("INSERT INTO my_key.my_table (id, data) VALUES (%s, '%s')", uuid, randStr)
+				ns.CqlExecute(podToDecommission, "Insert random data", cql, user, pw)
+			}
+
 			step = "scale down to 3 nodes"
 			json := "{\"spec\": {\"size\": 3}}"
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterCondition(dcName, "ScalingDown", string(corev1.ConditionTrue))
+			ns.WaitForDatacenterCondition(dcName, "ScaleDownFailed", string(corev1.ConditionTrue))
 
-			podWithDecommissionedNode := "cluster1-dc1-r1-sts-1"
-			podPvcName := "server-data-cluster2-dc1-r1-sts-1"
-
-			step = "check node status set to decommissioning"
-			json = "jsonpath={.items[*].metadata.name}"
+			step = "check node status is not set to decommissioning"
+			json = "jsonpath={.items}"
 			k = kubectl.Get("pod").
 				WithLabel("cassandra.datastax.com/node-state=Decommissioning").
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, podWithDecommissionedNode, 30)
-
-			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
-			ns.WaitForDatacenterCondition(dcName, "ScalingDown", string(corev1.ConditionFalse))
-			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 360)
-
-			step = "check that the decomm'd pod got terminated"
-			json = "jsonpath={.items}"
-			k = kubectl.Get("pod").
-				WithFlag("field-selector", fmt.Sprintf("metadata.name=%s", podWithDecommissionedNode)).
-				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "[]", 30)
 
-			step = "check that the decomm'd pod's PVCs got terminated"
-			json = "jsonpath={.items}"
+			step = "check that the pod did not get terminated"
+			json = "jsonpath={.items[*].metadata.name}"
+			k = kubectl.Get("pod").
+				WithFlag("field-selector", fmt.Sprintf("metadata.name=%s", podToDecommission)).
+				FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, podToDecommission, 30)
+
+			step = "check that the pod's PVCs did not get terminated"
+			json = "jsonpath={.items[*].metadata.name}"
 			k = kubectl.Get("pvc").
 				WithFlag("field-selector", fmt.Sprintf("metadata.name=%s", podPvcName)).
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "[]", 30)
+			ns.WaitForOutputAndLog(step, k, podPvcName, 30)
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
@@ -105,3 +116,12 @@ var _ = Describe(testName, func() {
 		})
 	})
 })
+
+func genRandString(n int) string {
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+	return string(b)
+}

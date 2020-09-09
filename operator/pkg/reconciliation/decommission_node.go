@@ -2,6 +2,7 @@ package reconciliation
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -16,7 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (rc *ReconciliationContext) DecommissionNodes() result.ReconcileResult {
+func (rc *ReconciliationContext) DecommissionNodes(epData httphelper.CassMetadataEndpoints) result.ReconcileResult {
 	logger := rc.ReqLogger
 	logger.Info("reconcile_racks::DecommissionNodes")
 	dc := rc.Datacenter
@@ -58,7 +59,7 @@ func (rc *ReconciliationContext) DecommissionNodes() result.ReconcileResult {
 				return result.Error(err)
 			}
 
-			err := rc.DecommissionNodeOnRack(rackInfo.RackName, lastPodSuffix)
+			err := rc.DecommissionNodeOnRack(rackInfo.RackName, epData, lastPodSuffix)
 			if err != nil {
 				return result.Error(err)
 			}
@@ -70,13 +71,28 @@ func (rc *ReconciliationContext) DecommissionNodes() result.ReconcileResult {
 	return result.Continue()
 }
 
-func (rc *ReconciliationContext) DecommissionNodeOnRack(rackName string, lastPodSuffix string) error {
+func (rc *ReconciliationContext) DecommissionNodeOnRack(rackName string, epData httphelper.CassMetadataEndpoints, lastPodSuffix string) error {
 	for _, pod := range rc.dcPods {
 		podRack := pod.Labels[api.RackLabel]
 		if podRack == rackName && strings.HasSuffix(pod.Name, lastPodSuffix) {
 			mgmtApiUp := isMgmtApiRunning(pod)
 			if !mgmtApiUp {
 				return fmt.Errorf("Management API is not up on node that we are trying to decommission")
+			}
+
+			if err := rc.EnsurePodsCanAbsorbDecommData(pod, epData); err != nil {
+				dcPatch := client.MergeFrom(rc.Datacenter.DeepCopy())
+				updated := rc.setCondition(api.NewDatacenterCondition(api.DatacenterScaleDownFailed,
+					corev1.ConditionTrue))
+
+				if updated {
+					patchErr := rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, dcPatch)
+					if patchErr != nil {
+						rc.ReqLogger.Error(patchErr, "error patching datacenter status for scale down failed")
+						return patchErr
+					}
+				}
+				return err
 			}
 
 			if err := rc.NodeMgmtClient.CallDecommissionNodeEndpoint(pod); err != nil {
@@ -105,6 +121,10 @@ func (rc *ReconciliationContext) DecommissionNodeOnRack(rackName string, lastPod
 
 // Wait for decommissioning nodes to finish before continuing to reconcile
 func (rc *ReconciliationContext) CheckDecommissioningNodes(epData httphelper.CassMetadataEndpoints) result.ReconcileResult {
+	if rc.Datacenter.GetConditionStatus(api.DatacenterScalingDown) == corev1.ConditionFalse {
+		return result.Continue()
+	}
+
 	for _, pod := range rc.dcPods {
 		if pod.Labels[api.CassNodeState] == stateDecommissioning {
 			if !IsDoneDecommissioning(pod, epData) {
@@ -178,18 +198,18 @@ func (rc *ReconciliationContext) DeletePodPvcs(pod *v1.Pod) error {
 		podPvc := &corev1.PersistentVolumeClaim{}
 		err := rc.Client.Get(rc.Ctx, name, podPvc)
 		if err != nil {
-			rc.ReqLogger.Info("Failed to get pod PVC with name: %s", pvcName)
+			rc.ReqLogger.Error(err, "Failed to get pod PVC", "Claim Name", pvcName)
 			return err
 		}
 
 		err = rc.Client.Delete(rc.Ctx, podPvc)
 		if err != nil {
-			rc.ReqLogger.Info("Failed to delete pod PVC with name: %s", pvcName)
+			rc.ReqLogger.Error(err, "Failed to delete pod PVC", "Claim Name", pvcName)
 			return err
 		}
 
 		rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeNormal, events.DeletedPvc,
-			"Deleted PVC %s", pvcName)
+			"Claim Name: %s", pvcName)
 
 	}
 
@@ -225,4 +245,83 @@ func (rc *ReconciliationContext) RemoveDecommissionedPodFromSts(pod *v1.Pod) err
 
 func stsLastPodSuffix(maxReplicas int32) string {
 	return fmt.Sprintf("sts-%v", maxReplicas-1)
+}
+
+func (rc *ReconciliationContext) EnsurePodsCanAbsorbDecommData(decommPod *v1.Pod, epData httphelper.CassMetadataEndpoints) error {
+	podsUsedStorage, err := rc.GetUsedStorageForPods(epData)
+	if err != nil {
+		return err
+	}
+
+	spaceUsedByDecommPod := podsUsedStorage[decommPod.Name]
+
+	for _, pod := range rc.dcPods {
+		if pod.Name == decommPod.Name {
+			continue
+		}
+
+		serverDataPv, err := rc.getServerDataPv(pod)
+		if err != nil {
+			return err
+		}
+
+		storageResource := serverDataPv.Spec.Capacity["storage"]
+		total := storageResource.AsDec().UnscaledBig().Int64()
+		used := podsUsedStorage[pod.Name]
+		free := total - int64(used)
+		if free < int64(spaceUsedByDecommPod) {
+			msg := "Not enough free space available to decommission"
+			rc.ReqLogger.Info(msg, "pod", pod.Name,
+				"free space", free,
+				"required space", spaceUsedByDecommPod)
+
+			err := fmt.Errorf(msg)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (rc *ReconciliationContext) GetUsedStorageForPods(epData httphelper.CassMetadataEndpoints) (map[string]float64, error) {
+	podStorageMap := make(map[string]float64)
+	mappedData := MapPodsToEndpointDataByName(rc.dcPods, epData)
+	for podName, data := range mappedData {
+		load, err := strconv.ParseFloat(data.Load, 64)
+		if err != nil {
+			rc.ReqLogger.Error(
+				fmt.Errorf("Failed to parse pod load reported from mgmt api."),
+				"pod", podName,
+				"Bytes reported by mgmt api", data.Load)
+			return nil, err
+
+		}
+		podStorageMap[podName] = load
+	}
+
+	return podStorageMap, nil
+}
+
+func (rc *ReconciliationContext) getServerDataPv(pod *v1.Pod) (*corev1.PersistentVolume, error) {
+	pvcName := types.NamespacedName{
+		Name:      fmt.Sprintf("server-data-%s", pod.Name),
+		Namespace: rc.Datacenter.Namespace,
+	}
+	pvc := &corev1.PersistentVolumeClaim{}
+	if err := rc.Client.Get(rc.Ctx, pvcName, pvc); err != nil {
+		rc.ReqLogger.Error(err, "Failed to get server-data pvc", "pod", pod.Name)
+		return nil, err
+	}
+
+	pvName := types.NamespacedName{
+		Name:      pvc.Spec.VolumeName,
+		Namespace: "",
+	}
+	pv := &corev1.PersistentVolume{}
+	if err := rc.Client.Get(rc.Ctx, pvName, pv); err != nil {
+		rc.ReqLogger.Error(err, "Failed to get server-data pv", "pod", pod.Name)
+		return nil, err
+	}
+
+	return pv, nil
 }

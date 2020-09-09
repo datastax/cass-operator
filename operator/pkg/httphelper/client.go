@@ -53,6 +53,7 @@ type EndpointState struct {
 	NativeTransportAddress string `json:"NATIVE_TRANSPORT_ADDRESS"`
 	RpcAddress             string `json:"RPC_ADDRESS"`
 	Status                 string `json:"STATUS"`
+	Load                   string `json:"LOAD"`
 }
 
 func (x *EndpointState) GetRpcAddress() string {

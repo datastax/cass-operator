@@ -314,15 +314,16 @@ type CassandraStatusMap map[string]CassandraNodeStatus
 type DatacenterConditionType string
 
 const (
-	DatacenterReady          DatacenterConditionType = "Ready"
-	DatacenterInitialized    DatacenterConditionType = "Initialized"
-	DatacenterReplacingNodes DatacenterConditionType = "ReplacingNodes"
-	DatacenterScalingUp      DatacenterConditionType = "ScalingUp"
-	DatacenterScalingDown    DatacenterConditionType = "ScalingDown"
-	DatacenterUpdating       DatacenterConditionType = "Updating"
-	DatacenterStopped        DatacenterConditionType = "Stopped"
-	DatacenterResuming       DatacenterConditionType = "Resuming"
-	DatacenterRollingRestart DatacenterConditionType = "RollingRestart"
+	DatacenterReady           DatacenterConditionType = "Ready"
+	DatacenterInitialized     DatacenterConditionType = "Initialized"
+	DatacenterReplacingNodes  DatacenterConditionType = "ReplacingNodes"
+	DatacenterScalingUp       DatacenterConditionType = "ScalingUp"
+	DatacenterScalingDown     DatacenterConditionType = "ScalingDown"
+	DatacenterScaleDownFailed DatacenterConditionType = "ScaleDownFailed"
+	DatacenterUpdating        DatacenterConditionType = "Updating"
+	DatacenterStopped         DatacenterConditionType = "Stopped"
+	DatacenterResuming        DatacenterConditionType = "Resuming"
+	DatacenterRollingRestart  DatacenterConditionType = "RollingRestart"
 )
 
 type DatacenterCondition struct {

@@ -4,6 +4,7 @@
 package ginkgo_util
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"regexp"
@@ -370,7 +371,7 @@ func (ns NsWrapper) HelmInstall(chartPath string) {
 
 func (ns NsWrapper) HelmInstallWithPSPEnabled(chartPath string) {
 	var overrides = map[string]string{
-		"image": cfgutil.GetOperatorImage(),
+		"image":            cfgutil.GetOperatorImage(),
 		"vmwarePSPEnabled": "true",
 	}
 	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
@@ -403,21 +404,21 @@ func (ns NsWrapper) ExpectKeyValues(actual map[string]interface{}, expected map[
 
 func (ns NsWrapper) ExpectDoneReconciling(dcName string) {
 	ginkgo.By(fmt.Sprintf("ensure %s is done reconciling", dcName))
-	time.Sleep(1*time.Minute)
+	time.Sleep(1 * time.Minute)
 
 	json := `jsonpath={.metadata.resourceVersion}`
 	k := kubectl.Get("CassandraDatacenter", dcName).
 		FormatOutput(json)
 	resourceVersion := ns.OutputPanic(k)
 
-	time.Sleep(1*time.Minute)
+	time.Sleep(1 * time.Minute)
 
 	json = `jsonpath={.metadata.resourceVersion}`
 	k = kubectl.Get("CassandraDatacenter", dcName).
 		FormatOutput(json)
 	newResourceVersion := ns.OutputPanic(k)
 
-	Expect(newResourceVersion).To(Equal(resourceVersion), 
+	Expect(newResourceVersion).To(Equal(resourceVersion),
 		"CassandraDatacenter %s is still being reconciled as the resource version is changing", dcName)
 }
 
@@ -465,4 +466,38 @@ func (ns NsWrapper) RetrieveStatusFromNodetool(podName string) []NodetoolNodeInf
 			})
 	}
 	return nodeInfo
+}
+
+func (ns NsWrapper) RetrieveSuperuserCreds(clusterName string) (string, string) {
+	secretName := fmt.Sprintf("%s-superuser", clusterName)
+	secretResource := fmt.Sprintf("secret/%s", secretName)
+
+	step := "get superuser username"
+	json := "jsonpath={.data.username}"
+	k := kubectl.Get(secretResource).FormatOutput(json)
+	usernameBase64 := ns.OutputAndLog(step, k)
+	Expect(usernameBase64).ToNot(Equal(""), "Expected secret to specify a username")
+	usernameDecoded, err := base64.StdEncoding.DecodeString(usernameBase64)
+	Expect(err).ToNot(HaveOccurred())
+
+	step = "get superuser password"
+	json = "jsonpath={.data.password}"
+	k = kubectl.Get(secretResource).FormatOutput(json)
+	passwordBase64 := ns.OutputAndLog(step, k)
+	Expect(passwordBase64).ToNot(Equal(""), "Expected secret to specify a password")
+	passwordDecoded, err := base64.StdEncoding.DecodeString(passwordBase64)
+	Expect(err).ToNot(HaveOccurred())
+
+	return string(usernameDecoded), string(passwordDecoded)
+}
+
+func (ns NsWrapper) CqlExecute(podName string, stepDesc string, cql string, user string, pw string) {
+	k := kubectl.ExecOnPod(
+		podName, "--", "cqlsh",
+		"--user", user,
+		"--password", pw,
+		"-e", cql).
+		WithFlag("container", "cassandra")
+	ginkgo.By(stepDesc)
+	ns.ExecVPanic(k)
 }
