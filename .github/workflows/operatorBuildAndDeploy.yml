@@ -166,7 +166,7 @@ jobs:
             --platform linux/amd64 \
             .
 
-          TAGS_TO_PUSH=("${GH_ARM64_TAGS[@]}" "${GH_TAGS[@]}" "${GH_UBI_TAGS[@]")
+          TAGS_TO_PUSH=("${GH_ARM64_TAGS[@]}" "${GH_TAGS[@]}" "${GH_UBI_TAGS[@]}")
           echo "Pushing tags: " "${TAGS_TO_PUSH[@]}"
 
           # Note: Every other element of TAGS_TO_PUSH will be the string '--tag'
