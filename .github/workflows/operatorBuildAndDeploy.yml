@@ -45,6 +45,11 @@ jobs:
       - name: Login to GitHub Package Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u "${{ github.actor }}" --password-stdin
       - name: Login to ECR
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.ECR_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.ECR_SECRET }}
+        run: |
+          $(aws ecr get-login --no-include-email --region us-east-1)
         run: echo "${{ secrets.ECR_SECRET }}" | docker login "${{ secrets.ECR_REPO }}" -u "${{ secrets.ECR_ID }}" --password-stdin
       - name: Setup Buildx
         id: buildx
