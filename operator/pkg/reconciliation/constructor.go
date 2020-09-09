@@ -650,6 +650,9 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 		baseTemplate.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet
 	}
 
+	// adds custom registry pull secret if needed
+	_ = images.AddCustomRegistryImagePullSecrets(&baseTemplate.Spec)
+
 	return baseTemplate, nil
 }
 

@@ -362,19 +362,20 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 	ns.WaitForOutputAndLog(step, k, "true", 240)
 }
 
-func (ns NsWrapper) HelmInstall(chartPath string) {
-	var overrides = map[string]string{"image": cfgutil.GetOperatorImage()}
-	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
+func (ns NsWrapper) HelmInstall(chartPath string, overrides... string) {
+	overridesMap := map[string]string{}
+	overridesMap["image"] = cfgutil.GetOperatorImage()
+
+	for i := 0; i < len(overrides) - 1; i = i + 2 {
+		overridesMap[overrides[i]] = overrides[i+1]
+	}
+
+	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overridesMap)
 	mageutil.PanicOnError(err)
 }
 
 func (ns NsWrapper) HelmInstallWithPSPEnabled(chartPath string) {
-	var overrides = map[string]string{
-		"image": cfgutil.GetOperatorImage(),
-		"vmwarePSPEnabled": "true",
-	}
-	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
-	mageutil.PanicOnError(err)
+	ns.HelmInstall(chartPath, "vmwarePSPEnabled", "true")
 }
 
 // Note that the actual value will be cast to a string before the comparison with the expectedValue

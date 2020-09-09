@@ -8,12 +8,14 @@ import (
 	"strings"
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 const (
-	envCustomImageRegistry = "CUSTOM_IMAGE_REGISTRY"
-	EnvBaseImageOS = "BASE_IMAGE_OS"
+	envCustomImageRegistry            = "CUSTOM_IMAGE_REGISTRY"
+	envCustomImageRegistryPullSecrets = "CUSTOM_IMAGE_REGISTRY_PULL_SECRETS"
+	EnvBaseImageOS                    = "BASE_IMAGE_OS"
 )
 
 // How to add new images:
@@ -135,14 +137,20 @@ func applyCustomRegistry(image string) string {
 
 func GetImage(name Image) string {
 	image, ok := imageLookupMap[name]
-	if ok {
+	if !ok {
+		if name == BaseImageOS {
+			image = os.Getenv(EnvBaseImageOS)
+		} else {
+			// This should never happen as we have a unit test
+			// to ensure imageLookupMap is fully populated.
+			log.Error(nil, "Could not find image", "image", int(name))
+			return ""
+		}
+	}
+
+	if image != "" {
 		return applyCustomRegistry(image)
-	} else if name == BaseImageOS {
-		return os.Getenv(EnvBaseImageOS)
 	} else {
-		// This should never happen as we have a unit test
-		// to ensure imageLookupMap is fully populated.
-		log.Error(nil, "Could not find image", "image", int(name))
 		return ""
 	}
 }
@@ -215,4 +223,15 @@ func GetSystemLoggerImage() string {
 	} else {
 		return GetImage(BusyBox)
 	}
+}
+
+func AddCustomRegistryImagePullSecrets(podSpec *corev1.PodSpec) bool {
+	secretName := os.Getenv(envCustomImageRegistryPullSecrets)
+	if secretName != "" {
+		podSpec.ImagePullSecrets = append(
+			podSpec.ImagePullSecrets, 
+			corev1.LocalObjectReference{Name: secretName})
+		return true
+	}
+	return false
 }
