@@ -20,9 +20,20 @@ spec:
       - name: cass-operator-certs-volume
         secret:
           secretName: cass-operator-webhook-config
+      {{- if .Values.registryUsername }}
+      imagePullSecrets:
+      - name: cass-operator-custom-registry-regcred
+      {{- else }}
+      {{- end }}
       containers:
       - name: cass-operator
+        {{- if .Values.image }}
         image: {{ .Values.image }}
+        {{- else if .Values.registryName }}
+        image: {{ printf "%s/%s .Values.registryName .Values.defaultImage }}
+        {{- else }}
+        image: {{ .Values.defaultImage }}
+        {{- end }}
         imagePullPolicy: {{ .Values.imagePullPolicy }}
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
@@ -58,6 +69,14 @@ spec:
         {{- if .Values.vmwarePSPEnabled }}
         - name: ENABLE_VMWARE_PSP
           value: "true"
+        {{- end }}
+        {{- if .Values.registryName }}
+        - name: CUSTOM_IMAGE_REGISTRY
+          value: {{ .Values.registryName }}
+        {{- end }}
+        {{- if .Values.registryUsername }}
+        - name: CUSTOM_IMAGE_REGISTRY_PULL_SECRETS
+          value: cass-operator-custom-registry-regcred
         {{- end }}
         {{- if .Values.clusterWideInstall }}
         - name: WATCH_NAMESPACE
