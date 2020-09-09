@@ -2,6 +2,15 @@
 # NOTE: When building this image, there is an assumption that you are in the top level directory of the repository.
 # $ docker build . -f operator/Dockerfile -t operator
 ##########
+
+# This arg is only used when building UBI images; however, if it does not have 
+# a value, the build will fail even if not using a UBI target. To get around this
+# we give the argument a dummy value so that an arg need not be provided, but it
+# will still fail if building a UBI image without providing an explicit value.
+# The value is prefixed with 'datastax/' to ensure it points to an image that we
+# can ensure does not exist.
+ARG BASE_OS=datastax/doesnotexist
+
 # "builder" compiles and tests the code
 # This stage name is important to the Cloud Platform CI/CD infrastructure, and should be preserved
 FROM --platform=${BUILDPLATFORM} golang:1.13-stretch as builder
@@ -61,7 +70,7 @@ CMD [ "/go/bin/operator" ]
 
 # UBI Image
 
-ARG BASE_OS
+
 
 #############################################################
 
