@@ -26,7 +26,7 @@ jobs:
           GIT_TAG="${GITHUB_REF##*/}"
           VERSION=${GIT_TAG#v} # strip the initial 'v' from the tag to get the version
 
-          DOCKERHUB_REPOSITORY="johntrimble/cass-config-builder-multiarch"
+          DOCKERHUB_REPOSITORY="datastax/cass-config-builder"
           ECR_REPOSITORY="${ECR_REPO}/datastax/cass-operator"
 
           # Pull the image from ECR so that we can push it to dockerhub.
