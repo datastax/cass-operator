@@ -67,7 +67,7 @@ type CassandraDatacenterSpec struct {
 
 	// Version string for config builder,
 	// used to generate Cassandra server configuration
-	// +kubebuilder:validation:Enum="6.8.0";"6.8.1";"6.8.2";"3.11.6";"3.11.7";"4.0.0"
+	// +kubebuilder:validation:Enum="6.8.0";"6.8.1";"6.8.2";"6.8.3";"3.11.6";"3.11.7";"4.0.0"
 	ServerVersion string `json:"serverVersion"`
 
 	// Cassandra server image name.

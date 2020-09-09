@@ -44,10 +44,12 @@ const (
 	DSE_6_8_0
 	DSE_6_8_1
 	DSE_6_8_2
+	DSE_6_8_3
 
 	UBIDSE_6_8_0
 	UBIDSE_6_8_1
 	UBIDSE_6_8_2
+	UBIDSE_6_8_3
 
 	ConfigBuilder
 	UBIConfigBuilder
@@ -64,7 +66,7 @@ var imageLookupMap map[Image]string = map[Image]string {
 
 	Cassandra_3_11_6: "datastax/cassandra-mgmtapi-3_11_6:v0.1.5",
 	Cassandra_3_11_7: "datastax/cassandra-mgmtapi-3_11_7:v0.1.12",
-	Cassandra_4_0_0:  "datastax/cassandra-mgmtapi-4_0_0:v0.1.5",
+	Cassandra_4_0_0:  "datastax/cassandra-mgmtapi-4_0_0:v0.1.12",
 
 	UBICassandra_3_11_6: "datastax/cassandra:3.11.6-ubi7",
 	UBICassandra_3_11_7: "datastax/cassandra:3.11.7-ubi7",
@@ -73,13 +75,15 @@ var imageLookupMap map[Image]string = map[Image]string {
 	DSE_6_8_0: "datastax/dse-server:6.8.0",
 	DSE_6_8_1: "datastax/dse-server:6.8.1",
 	DSE_6_8_2: "datastax/dse-server:6.8.2",
+	DSE_6_8_3: "datastax/dse-server:6.8.3",
 
 	UBIDSE_6_8_0: "datastax/dse-server:6.8.0-ubi7",
 	UBIDSE_6_8_1: "datastax/dse-server:6.8.1-ubi7",
 	UBIDSE_6_8_2: "datastax/dse-server:6.8.2-ubi7",
+	UBIDSE_6_8_3: "datastax/dse-server:6.8.3-ubi7",
 
-	ConfigBuilder:    "datastax/cass-config-builder:1.0.2",
-	UBIConfigBuilder: "datastax/cass-config-builder:1.0.2-ubi7",
+	ConfigBuilder:    "datastax/cass-config-builder:1.0.3",
+	UBIConfigBuilder: "datastax/cass-config-builder:1.0.3-ubi7",
 
 	BusyBox:     "busybox",
 	Reaper:      "thelastpickle/cassandra-reaper:2.0.5",
@@ -93,6 +97,7 @@ var cassandraToUBI map[Image]Image = map[Image]Image {
 	DSE_6_8_0: UBIDSE_6_8_0,
 	DSE_6_8_1: UBIDSE_6_8_1,
 	DSE_6_8_2: UBIDSE_6_8_2,
+	DSE_6_8_3: UBIDSE_6_8_3,
 }
 
 var versionToOSSCassandra map[string]Image = map[string]Image {
@@ -105,6 +110,7 @@ var versionToDSE map[string]Image = map[string]Image {
 	"6.8.0": DSE_6_8_0,
 	"6.8.1": DSE_6_8_1,
 	"6.8.2": DSE_6_8_2,
+	"6.8.3": DSE_6_8_3,
 }
 
 var log = logf.Log.WithName("images")

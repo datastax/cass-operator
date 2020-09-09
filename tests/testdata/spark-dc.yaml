@@ -1,11 +1,13 @@
 apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
 metadata:
-  name: dc2
+  name: dc1
 spec:
-  clusterName: cluster2
+  clusterName: cluster1
   serverType: dse
   serverVersion: "6.8.3"
+  dseWorkloads:
+    analyticsEnabled: true
   managementApiAuth:
     insecure: {}
   size: 1
@@ -21,8 +23,8 @@ spec:
     - name: r1
   config:
     jvm-server-options:
-      initial_heap_size: "800m"
-      max_heap_size: "800m"
+      initial_heap_size: "4000m"
+      max_heap_size: "4000m"
     cassandra-yaml:
       file_cache_size_in_mb: 100
       memtable_space_in_mb: 100
