@@ -33,7 +33,7 @@ func describeEnv() map[string]string {
 }
 
 func deleteCluster() error {
-	return shutil.RunV("k3d", "delete")
+	return shutil.RunV("k3d", "delete", "cluster", "k3s-default")
 }
 
 func clusterExists() bool {
@@ -52,8 +52,9 @@ func createCluster() {
 		err = shutil.RunV(
 			"k3d",
 			"create",
+			"cluster",
 			"-w", "6",
-			"-image",
+			"--image",
 			"rancher/k3s:v1.17.6-k3s1",
 		)
 		if err != nil {
@@ -103,7 +104,7 @@ func reloadLocalImage(image string) {
 }
 
 func setupKubeconfig() {
-	k3dConfig := shutil.OutputPanic("k3d", "get-kubeconfig")
+	k3dConfig := shutil.OutputPanic("k3d", "get", "kubeconfig", "k3s-default")
 	currentConfig := kubectl.GetKubeconfig(true)
 
 	// merge current config + new k3d config
