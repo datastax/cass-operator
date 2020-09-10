@@ -77,10 +77,10 @@ func install() {
 	mageutil.PanicOnError(err)
 	os.Chdir("/tmp")
 	shutil.RunVPanic("curl",
-		"https://raw.githubusercontent.com/rancher/k3d/master/install.sh",
+		"https://raw.githubusercontent.com/rancher/k3d/main/install.sh",
 		"-o", "k3d_install.sh",
 	)
-	os.Setenv("TAG", "v1.3.4")
+	os.Setenv("TAG", "v3.0.1")
 	os.Chmod("./k3d_install.sh", 0755)
 	shutil.RunVPanic("./k3d_install.sh")
 	os.Chdir(cwd)
