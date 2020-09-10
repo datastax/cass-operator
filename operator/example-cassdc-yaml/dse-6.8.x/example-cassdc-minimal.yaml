@@ -10,12 +10,10 @@ spec:
   serverVersion: "6.8.3"
   managementApiAuth:
     insecure: {}
-  size: 1
-  dseWorkloads:
-    searchEnabled: true
+  size: 3
   storageConfig:
     cassandraDataVolumeClaimSpec:
-      storageClassName: local-path
+      storageClassName: server-storage
       accessModes:
         - ReadWriteOnce
       resources:
@@ -23,5 +21,5 @@ spec:
           storage: 5Gi
   config:
     jvm-server-options:
-      initial_heap_size: "16G"
-      max_heap_size: "16G"
+      initial_heap_size: "800M"
+      max_heap_size: "800M"
