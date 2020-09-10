@@ -30,7 +30,7 @@ spec:
         {{- if .Values.image }}
         image: {{ .Values.image }}
         {{- else if .Values.registryName }}
-        image: {{ printf "%s/%s .Values.registryName .Values.defaultImage }}
+        image: {{ printf "%s/%s" .Values.registryName .Values.defaultImage }}
         {{- else }}
         image: {{ .Values.defaultImage }}
         {{- end }}

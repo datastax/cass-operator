@@ -99,7 +99,9 @@ func loadImage(image string) {
 			return shutil.RunV("k3d", "i", image)
 		},
 		2 * time.Second,
-		5 * time.Minute)
+		// Loading images takes an eternity so give it a generous amount of time
+		15 * time.Minute,
+	)
 	mageutil.PanicOnError(err)
 }
 
