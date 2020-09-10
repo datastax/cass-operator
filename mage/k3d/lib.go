@@ -8,6 +8,8 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"time"
+	"math/rand"
 
 	cfgutil "github.com/datastax/cass-operator/mage/config"
 	dockerutil "github.com/datastax/cass-operator/mage/docker"
@@ -66,9 +68,39 @@ func createCluster() {
 	mageutil.PanicOnError(err)
 }
 
+func withExponentialBackoff(f func() error, baseWait, timeout time.Duration) error {
+	timeoutTime := time.Now().Add(timeout)
+	currentWaitTime := baseWait
+	var err error = nil
+
+	for true {
+		err = f()
+		if err == nil {
+			break
+		}
+
+		// if we are going to wait longer than our timeout, then we've failed
+		if time.Now().Add(currentWaitTime).After(timeoutTime) {
+			break
+		}
+
+		jitter := time.Duration(int64(0.10*float64(baseWait)*rand.Float64()))
+		time.Sleep(currentWaitTime + jitter)
+		currentWaitTime = currentWaitTime * baseWait
+	}
+
+	return err
+}
+
 func loadImage(image string) {
 	fmt.Printf("Loading image in k3d: %s", image)
-	shutil.RunVPanic("k3d", "i", image)
+	err := withExponentialBackoff(
+		func() error {
+			return shutil.RunV("k3d", "i", image)
+		},
+		2 * time.Second,
+		5 * time.Minute)
+	mageutil.PanicOnError(err)
 }
 
 func install() {
