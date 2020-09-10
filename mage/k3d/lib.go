@@ -84,6 +84,8 @@ func withExponentialBackoff(f func() error, baseWait, timeout time.Duration) err
 			break
 		}
 
+		fmt.Printf("Encountered an error, retrying: %v", err)
+
 		jitter := time.Duration(int64(0.10*float64(baseWait)*rand.Float64()))
 		time.Sleep(currentWaitTime + jitter)
 		currentWaitTime = currentWaitTime * baseWait
