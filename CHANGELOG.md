@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.4.1
+
+Features:
+* Use Cassandra 4.0-beta1 image [#237](https://github.com/datastax/cass-operator/commit/085cdbb1a50534d4087c344e1e1a7b28a5aa922e)
+* Update to cass-config-builder 1.0.3 [#235](https://github.com/datastax/cass-operator/commit/7c317ecaa287f175e9556b48140b648d2ec60aa2)
+* DSE 6.8.3 support [#233](https://github.com/datastax/cass-operator/commit/0b9885a654ab09bb4144934b217dbbc9d0869da3)
+
+Bug fixes:
+* Fix for enabling DSE advanced workloads [#230](https://github.com/datastax/cass-operator/commit/72248629b7de7944fe9e7e262ef8d3c7c838a8c6)
+
 ## v1.4.0
 
 Features:
