@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package decom_nodes
+package scale_down
 
 import (
 	"fmt"
@@ -17,8 +17,8 @@ import (
 )
 
 var (
-	testName   = "Decommission nodes"
-	namespace  = "test-decom-nodes"
+	testName   = "Scale down datacenter"
+	namespace  = "test-scale-down"
 	dcName     = "dc1"
 	dcYaml     = "../testdata/default-three-rack-four-node-dc.yaml"
 	dcResource = fmt.Sprintf("CassandraDatacenter/%s", dcName)
@@ -40,7 +40,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("nodes can be decommmissioned", func() {
+		Specify("a datacenter can be scaled down", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())

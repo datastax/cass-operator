@@ -472,18 +472,18 @@ func (ns NsWrapper) RetrieveSuperuserCreds(clusterName string) (string, string) 
 	secretName := fmt.Sprintf("%s-superuser", clusterName)
 	secretResource := fmt.Sprintf("secret/%s", secretName)
 
-	step := "get superuser username"
+	ginkgo.By("get superuser username")
 	json := "jsonpath={.data.username}"
 	k := kubectl.Get(secretResource).FormatOutput(json)
-	usernameBase64 := ns.OutputAndLog(step, k)
+	usernameBase64 := ns.OutputPanic(k)
 	Expect(usernameBase64).ToNot(Equal(""), "Expected secret to specify a username")
 	usernameDecoded, err := base64.StdEncoding.DecodeString(usernameBase64)
 	Expect(err).ToNot(HaveOccurred())
 
-	step = "get superuser password"
+	ginkgo.By("get superuser password")
 	json = "jsonpath={.data.password}"
 	k = kubectl.Get(secretResource).FormatOutput(json)
-	passwordBase64 := ns.OutputAndLog(step, k)
+	passwordBase64 := ns.OutputPanic(k)
 	Expect(passwordBase64).ToNot(Equal(""), "Expected secret to specify a password")
 	passwordDecoded, err := base64.StdEncoding.DecodeString(passwordBase64)
 	Expect(err).ToNot(HaveOccurred())

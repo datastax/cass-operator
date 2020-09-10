@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package decom_nodes_not_enough_space
+package scale_down_not_enough_space
 
 import (
 	"fmt"
@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	testName   = "Decommission nodes not enough space"
-	namespace  = "test-decom-nodes-not-enough-space"
+	testName   = "Scale down datacenter but not enough space"
+	namespace  = "test-scale-down-not-enough-space"
 	dcName     = "dc1"
 	dcYaml     = "../testdata/default-three-rack-four-node-limited-storage-dc.yaml"
 	dcResource = fmt.Sprintf("CassandraDatacenter/%s", dcName)
@@ -42,7 +42,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("nodes can be decommmissioned", func() {
+		Specify("scaling down fails when there is not enough space to absorb data", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
