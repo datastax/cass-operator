@@ -46,13 +46,16 @@ func TestLifecycle(t *testing.T) {
 func InstallOldOperator() {
 	step := "install old Cass Operator v1.1.0"
 	By(step)
-	ginkgo_util.HelmInstallWithOverrides(oldOperatorChart, ns.Namespace, map[string]string{})
+	err := helm_util.Install(oldOperatorChart, "cass-operator", ns.Namespace, map[string]string{})
+	mageutil.PanicOnError(err)
 }
 
 func UpgradeOperator() {
 	step := "upgrade Cass Operator"
 	By(step)
-	ginkgo_util.HelmUpgradeWithOverrides("../../charts/cass-operator-chart", ns.Namespace, map[string]string{})
+	var overrides = map[string]string{"image": cfgutil.GetOperatorImage()}
+	err := helm_util.Upgrade("../../charts/cass-operator-chart", "cass-operator", ns.Namespace, overrides)
+	mageutil.PanicOnError(err)
 }
 
 var _ = Describe(testName, func() {
