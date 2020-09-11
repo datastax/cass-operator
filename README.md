@@ -189,6 +189,7 @@ deploymentName: cass-operator
 deploymentReplicas: 1
 image: "datastax/cass-operator:1.4.1"
 imagePullPolicy: IfNotPresent
+imagePullSecret: ""
 ```
 
 NOTE: roleName and roleBindingName will be used for a clusterRole and clusterRoleBinding if clusterWideInstall is set to true.
@@ -202,6 +203,36 @@ Example:
 ```console
 kubectl create namespace cass-operator-system
 helm install --set clusterWideInstall=true --namespace=cass-operator-system cass-operator ./charts/cass-operator-chart
+```
+
+#### Using a custom Docker registry with the Helm Chart
+
+A custom Docker registry may be used as the source of the operator Docker image.  Before "helm install" is run, a Secret of type "docker-registry" should be created with the proper credentials.
+
+Then the "imagePullSecret" helm value may be set to the name of the ImagePullSecret to cause the custom Docker registry to be used.
+
+##### Custom Docker registry example: Github packages
+
+Github Packages may be used as a custom Docker registry.
+
+First, a Github personal access token must be created.
+
+See:
+
+https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token
+
+Second, the access token will be used to create the Secret:
+
+```console
+kubectl create secret docker-registry github-docker-registry --docker-username=USERNAME --docker-password=ACCESSTOKEN --docker-server docker.pkg.github.com
+```
+
+Replace USERNAME with the github username and ACCESSTOKEN with the personal access token.
+
+Now we can run "helm install" with the override value for imagePullSecret.  This is often used with an override value for image so that a specific tag can be chosen.  Note that the image value should include the full path to the custom registry.
+
+```console
+helm install --set image=docker.pkg.github.com/datastax/cass-operator/operator:latest-ubi --set imagePullSecrets=github-docker-registry cass-operator ./charts/cass-operator-chart
 ```
 
 ## Features

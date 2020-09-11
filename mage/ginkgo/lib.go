@@ -22,7 +22,8 @@ import (
 )
 
 const (
-	EnvNoCleanup = "M_NO_CLEANUP"
+	EnvNoCleanup        = "M_NO_CLEANUP"
+	ImagePullSecretName = "imagepullsecret"
 )
 
 func duplicate(value string, count int) string {
@@ -370,18 +371,51 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 	ns.WaitForOutputAndLog(step, k, "true", 240)
 }
 
+// kubectl create secret docker-registry github-docker-registry --docker-username=USER --docker-password=PASS --docker-server docker.pkg.github.com
+func CreateDockerRegistrySecret(name string, namespace string) {
+	args := []string{"secret", "docker-registry", name}
+	flags := map[string]string{
+		"docker-username": os.Getenv(kubectl.EnvDockerUsername),
+		"docker-password": os.Getenv(kubectl.EnvDockerPassword),
+		"docker-server":   os.Getenv(kubectl.EnvDockerServer),
+	}
+	k := kubectl.KCmd{Command: "create", Args: args, Flags: flags}
+	k.InNamespace(namespace).ExecVCapture()
+}
+
 func (ns NsWrapper) HelmInstall(chartPath string) {
-	var overrides = map[string]string{"image": cfgutil.GetOperatorImage()}
-	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
-	mageutil.PanicOnError(err)
+	HelmInstallWithOverrides(chartPath, ns.Namespace, map[string]string{})
 }
 
 func (ns NsWrapper) HelmInstallWithPSPEnabled(chartPath string) {
 	var overrides = map[string]string{
-		"image":            cfgutil.GetOperatorImage(),
 		"vmwarePSPEnabled": "true",
 	}
-	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
+	HelmInstallWithOverrides(chartPath, ns.Namespace, overrides)
+}
+
+// This is not a method on NsWrapper to allow mage to use it to create an example cluster.
+func HelmInstallWithOverrides(chartPath string, namespace string, overrides map[string]string) {
+	overrides["image"] = cfgutil.GetOperatorImage()
+
+	if kubectl.DockerCredentialsDefined() {
+		CreateDockerRegistrySecret(ImagePullSecretName, namespace)
+		overrides["imagePullSecret"] = ImagePullSecretName
+	}
+
+	err := helm_util.Install(chartPath, "cass-operator", namespace, overrides)
+	mageutil.PanicOnError(err)
+}
+
+func HelmUpgradeWithOverrides(chartPath string, namespace string, overrides map[string]string) {
+	overrides["image"] = cfgutil.GetOperatorImage()
+
+	// NOTE: This assumes the credential has already been defined during HelmInstallWithOverrides
+	if kubectl.DockerCredentialsDefined() {
+		overrides["imagePullSecret"] = ImagePullSecretName
+	}
+
+	err := helm_util.Upgrade(chartPath, "cass-operator", namespace, overrides)
 	mageutil.PanicOnError(err)
 }
 

@@ -16,6 +16,13 @@ import (
 	mageutil "github.com/datastax/cass-operator/mage/util"
 )
 
+const (
+	// Credentials for creating an ImagePullSecret
+	EnvDockerUsername = "M_DOCKER_USERNAME"
+	EnvDockerPassword = "M_DOCKER_PASSWORD"
+	EnvDockerServer   = "M_DOCKER_SERVER"
+)
+
 func GetKubeconfig(createDefault bool) string {
 	usr, err := user.Current()
 	if err != nil {
@@ -315,4 +322,9 @@ func ExecOnPod(podName string, args ...string) KCmd {
 func GetNodeNameForPod(podName string) KCmd {
 	json := "jsonpath={.spec.nodeName}"
 	return Get(fmt.Sprintf("pod/%s", podName)).FormatOutput(json)
+}
+
+func DockerCredentialsDefined() bool {
+	_, ok := os.LookupEnv(EnvDockerUsername)
+	return ok
 }

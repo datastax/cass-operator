@@ -11,3 +11,4 @@ deploymentName: cass-operator
 deploymentReplicas: 1
 image: "datastax/cass-operator:1.4.1"
 imagePullPolicy: IfNotPresent
+imagePullSecret: ""
