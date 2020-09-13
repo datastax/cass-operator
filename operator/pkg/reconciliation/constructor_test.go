@@ -271,7 +271,7 @@ func TestCassandraDatacenter_buildContainers_no_reaper(t *testing.T) {
 			ServerType:    "cassandra",
 			ServerVersion: "3.11.6",
 			Reaper: &api.ReaperConfig{
-				Enabled: true,
+				Enabled: false,
 			},
 		},
 	}

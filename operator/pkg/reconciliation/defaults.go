@@ -8,5 +8,5 @@ var (
 	DefaultsConfigInitContainer = buildResourceRequirements(256, 256)
 
 	// Provides reasonable defaults for the reaper sidecar container.
-	DefaultsReaperContainer = buildResourceRequirements(2000, 512)
+	DefaultsReaperContainer = buildResourceRequirements(800, 512)
 )

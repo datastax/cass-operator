@@ -554,8 +554,9 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 	loggerContainer.Resources = *getResourcesOrDefault(&dc.Spec.SystemLoggerResources, &DefaultsLoggerContainer)
 
 	containers := []corev1.Container{cassContainer, loggerContainer}
-	if dc.DeployReaper() {
-		reaperContainer, err := buildReaperContainer(dc)
+
+	if dc.IsReaperEnabled() {
+		reaperContainer, err := buildReaperContainer(dc, false)
 		if err != nil {
 			return containers, err
 		}
@@ -661,6 +662,42 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	return baseTemplate, nil
 }
 
+func buildReaperSchemaJob(dc *api.CassandraDatacenter) (*v1.Job, error) {
+	container, err := buildReaperContainer(dc, true)
+	if err != nil {
+		return nil, err
+	}
+
+	container.Env = append(container.Env, corev1.EnvVar{
+		Name: "SCHEMA_ONLY",
+		Value: "true",
+	})
+	container.Image = ReaperDefaultImage
+	container.ImagePullPolicy = corev1.PullIfNotPresent
+
+	jobName := fmt.Sprintf("%s-reaper-schema", dc.Spec.ClusterName)
+
+	return &v1.Job{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Job",
+			APIVersion: "batch/v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: dc.Namespace,
+			Name:      jobName,
+			Labels:    dc.GetDatacenterLabels(),
+		},
+		Spec: v1.JobSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					RestartPolicy: corev1.RestartPolicyOnFailure,
+					Containers: []corev1.Container{*container},
+				},
+			},
+		},
+	}, nil
+}
+
 func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) (*v1.Job, error) {
 	envVars := []corev1.EnvVar{
 		{
@@ -719,8 +756,7 @@ func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) (*v1.Job, error) {
 						{
 							Name:            getReaperSchemaInitJobName(dc),
 							Image:           ReaperSchemaInitJobImage,
-							//ImagePullPolicy: corev1.PullIfNotPresent,
-							ImagePullPolicy: corev1.PullAlways,
+							ImagePullPolicy: corev1.PullIfNotPresent,
 							Env: envVars,
 						},
 					},
