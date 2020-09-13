@@ -237,6 +237,52 @@ func (client *NodeMgmtClient) CallKeyspaceCleanupEndpoint(pod *corev1.Pod, jobs 
 	return err
 }
 
+type ReplicationSetting struct {
+	Datacenter string
+	ReplicationFactor int
+}
+
+func (client *NodeMgmtClient) CallAlterKeyspaceEndpoint(pod *corev1.Pod, keyspace string, replicationSettings[]ReplicationSetting) error {
+	client.Log.Info(
+		"calling Management API alter keyspace - POST /api/v0/ops/keyspace/alter",
+		"pod", pod.Name,
+	)
+	postData := make(map[string]interface{})
+
+	postData["keyspace_name"] = keyspace
+	replication := make([]map[string]interface{}, 0)
+
+	for _, r := range replicationSettings {
+		dcReplication := make(map[string]interface{})
+		dcReplication["dc_name"] = r.Datacenter
+		dcReplication["replication_factor"] = r.ReplicationFactor
+
+		replication = append(replication, dcReplication)
+	}
+	postData["replication_settings"] = replication
+
+	body, err := json.Marshal(postData)
+	if err != nil {
+		return err
+	}
+
+	podHost, err := BuildPodHostFromPod(pod)
+	if err != nil {
+		return err
+	}
+
+	request := nodeMgmtRequest{
+		endpoint: "/api/v0/ops/keyspace/alter",
+		host:     podHost,
+		method:   http.MethodPost,
+		timeout:  time.Second * 20,
+		body:     body,
+	}
+
+	_, err = callNodeMgmtEndpoint(client, request, "application/json")
+	return err
+}
+
 func (client *NodeMgmtClient) CallLifecycleStartEndpointWithReplaceIp(pod *corev1.Pod, replaceIp string) error {
 	// talk to the pod via IP because we are dialing up a pod that isn't ready,
 	// so it won't be reachable via the service and pod DNS

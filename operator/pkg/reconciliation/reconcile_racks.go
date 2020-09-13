@@ -5,6 +5,7 @@ package reconciliation
 
 import (
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"strings"
@@ -842,6 +843,36 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 	}
 
 	return result.Continue()
+}
+
+func (rc *ReconciliationContext) ConfigureSystemAuthReplication() result.ReconcileResult {
+	dc := rc.Datacenter
+
+	if dc.Spec.Stopped {
+		rc.ReqLogger.Info("cluster is stopped, skipping ConfigureSystemAuthReplication")
+		return result.Continue()
+	}
+
+	pod := rc.dcPods[0]
+
+	replication := []httphelper.ReplicationSetting{
+		{
+			Datacenter: dc.Name,
+			ReplicationFactor: getSystemAuthRF(dc),
+		},
+	}
+
+	err := rc.NodeMgmtClient.CallAlterKeyspaceEndpoint(pod, "system_auth", replication)
+
+	if err != nil {
+		return result.Error(err)
+	}
+
+	return result.Continue()
+}
+
+func getSystemAuthRF(dc *api.CassandraDatacenter) int {
+	return int(math.Min(float64(3), float64(dc.Spec.Size)))
 }
 
 func findHostIdForIpFromEndpointsData(endpointsData []httphelper.EndpointState, ip string) string {
@@ -2141,6 +2172,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	}
 
 	if recResult := rc.CheckRackPodLabels(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.ConfigureSystemAuthReplication(); recResult.Completed() {
 		return recResult.Output()
 	}
 
