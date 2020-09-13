@@ -50,12 +50,6 @@ func generateUtf8Password() (string, error) {
 }
 
 func buildDefaultSuperuserSecret(dc *api.CassandraDatacenter) (*corev1.Secret, error) {
-	//if dc.ShouldGenerateSuperuserSecret() {
-	//	return buildUserSecret(dc.GetSuperuserSecretNamespacedName(), dc.Spec.ClusterName + "-superuser")
-	//
-	//}
-	//
-	//return nil, nil
 	var secret *corev1.Secret = nil
 
 	if dc.ShouldGenerateSuperuserSecret() {
