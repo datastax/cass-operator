@@ -239,6 +239,14 @@ func (ns *NsWrapper) WaitForDatacenterOperatorProgress(dcName string, progressVa
 	ns.WaitForOutputAndLog(step, k, progressValue, timeout)
 }
 
+func (ns *NsWrapper) WaitForReaperSchemaInitialized(dcName string, timeout int) {
+	step := fmt.Sprintf("checking the reaper status schemaInitialized is set to true")
+	json := "jsonpath={.status.reaperStatus.schemaInitialized}"
+	k := kubectl.Get("CassandraDatacenter", dcName).
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, "true", timeout)
+}
+
 func (ns *NsWrapper) WaitForSuperUserUpserted(dcName string, timeout int) {
 	json := "jsonpath={.status.superUserUpserted}"
 	k := kubectl.Get("CassandraDatacenter", dcName).

@@ -61,9 +61,9 @@ var _ = Describe(testName, func() {
 			nodeStatusesHostIds := ns.GetNodeStatusesHostIds(dcName)
 			Expect(len(nodeStatusesHostIds), 3)
 
-			ns.WaitForDatacenterReady(dcName)
 			ns.WaitForDatacenterCondition(dcName, "Ready", string(corev1.ConditionTrue))
 			ns.WaitForDatacenterCondition(dcName, "Initialized", string(corev1.ConditionTrue))
+			ns.WaitForDatacenterReady(dcName)
 
 			step = "enable Reaper"
 			json := `{"spec": {"reaper": {"enabled": true}}}`
@@ -71,13 +71,9 @@ var _ = Describe(testName, func() {
 			ns.ExecAndLog(step, k)
 
 			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
-			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 600)
 
-			step = "check that Reaper container is deployed"
-			json = `jsonpath={.items[*].spec.containers[?(@.name=="reaper")].name}`
-			k = kubectl.Get("pods").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "reaper reaper reaper", 20)
+			ns.WaitForReaperSchemaInitialized(dcName, 900)
+			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 120)
 
 			step = "disable Reaper"
 			json = `{"spec": {"reaper": {"enabled": false}}}`
