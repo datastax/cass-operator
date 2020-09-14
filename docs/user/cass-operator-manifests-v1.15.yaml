@@ -6036,6 +6036,7 @@ spec:
               - 6.8.0
               - 6.8.1
               - 6.8.2
+              - 6.8.3
               - 3.11.6
               - 3.11.7
               - 4.0.0
@@ -6458,7 +6459,7 @@ spec:
           value: cass-operator
         - name: SKIP_VALIDATING_WEBHOOK
           value: "FALSE"
-        image: datastax/cass-operator:1.4.0
+        image: datastax/cass-operator:1.4.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:

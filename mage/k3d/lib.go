@@ -16,6 +16,11 @@ import (
 	mageutil "github.com/datastax/cass-operator/mage/util"
 )
 
+const (
+	clusterName = "k3s-default"
+	context     = "k3d-k3s-default"
+)
+
 var ClusterActions = cfgutil.NewClusterActions(
 	deleteCluster,
 	clusterExists,
@@ -33,11 +38,11 @@ func describeEnv() map[string]string {
 }
 
 func deleteCluster() error {
-	return shutil.RunV("k3d", "delete")
+	return shutil.RunV("k3d", "cluster", "delete", clusterName)
 }
 
 func clusterExists() bool {
-	err := shutil.RunV("k3d", "ls")
+	err := shutil.RunV("k3d", "cluster", "ls", clusterName)
 	return err == nil
 }
 
@@ -51,9 +56,10 @@ func createCluster() {
 	for retries > 0 {
 		err = shutil.RunV(
 			"k3d",
+			"cluster",
 			"create",
-			"-w", "6",
-			"-image",
+			"-s", "6",
+			"--image",
 			"rancher/k3s:v1.17.6-k3s1",
 		)
 		if err != nil {
@@ -68,7 +74,7 @@ func createCluster() {
 
 func loadImage(image string) {
 	fmt.Printf("Loading image in k3d: %s", image)
-	shutil.RunVPanic("k3d", "i", image)
+	shutil.RunVPanic("k3d", "image", "import", image)
 }
 
 func install() {
@@ -76,10 +82,10 @@ func install() {
 	mageutil.PanicOnError(err)
 	os.Chdir("/tmp")
 	shutil.RunVPanic("curl",
-		"https://raw.githubusercontent.com/rancher/k3d/master/install.sh",
+		"https://raw.githubusercontent.com/rancher/k3d/main/install.sh",
 		"-o", "k3d_install.sh",
 	)
-	os.Setenv("TAG", "v1.3.4")
+	os.Setenv("TAG", "v3.0.1")
 	os.Chmod("./k3d_install.sh", 0755)
 	shutil.RunVPanic("./k3d_install.sh")
 	os.Chdir(cwd)
@@ -98,18 +104,25 @@ func reloadLocalImage(image string) {
 		}
 	}
 	fmt.Println("Loading new operator Docker image into k3d cluster")
-	shutil.RunVPanic("k3d", "i", image)
+	shutil.RunVPanic("k3d", "image", "import", image)
 	fmt.Println("Finished loading new operator image into k3d.")
 }
 
 func setupKubeconfig() {
-	k3dConfig := shutil.OutputPanic("k3d", "get-kubeconfig")
 	currentConfig := kubectl.GetKubeconfig(true)
+
+	//k3d returns the raw config values instead of a filepath
+	k3dConfig := shutil.OutputPanic("k3d", "kubeconfig", "get", clusterName)
+	tempK3dConfigFile := "/tmp/k3d_temp_config"
+	ioutil.WriteFile(tempK3dConfigFile, []byte(k3dConfig), os.ModePerm)
+	os.Chmod(tempK3dConfigFile, 0755)
 
 	// merge current config + new k3d config
 	// the new config must appear before the current config to update it
 	// when merging
-	os.Setenv("KUBECONFIG", fmt.Sprintf("%s:%s", k3dConfig, currentConfig))
+	configPaths := fmt.Sprintf("%s:%s", tempK3dConfigFile, currentConfig)
+	os.Setenv("KUBECONFIG", configPaths)
+	fmt.Printf("Merging KUBECONFIG from: %s\n", configPaths)
 	merged := shutil.OutputPanic("kubectl", "config", "view", "--flatten")
 
 	// look up current config file so we can retain its permissions
@@ -124,7 +137,7 @@ func setupKubeconfig() {
 		panic(err)
 	}
 
-	kubectl.ClusterInfoForContext("default").ExecVPanic()
+	kubectl.ClusterInfoForContext(context).ExecVPanic()
 }
 
 func applyDefaultStorage() {

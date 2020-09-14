@@ -58,15 +58,11 @@ var _ = Describe(testName, func() {
 			err := kubectl.CreateNamespace(opNamespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
 
-			//step := "setting up cass-operator resources via helm chart"
-
 			var overrides = map[string]string{
-				"image":              cfgutil.GetOperatorImage(),
 				"clusterWideInstall": "true",
 			}
 			chartPath := "../../charts/cass-operator-chart"
-			err = helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
-			mageutil.PanicOnError(err)
+			ginkgo_util.HelmInstallWithOverrides(chartPath, ns.Namespace, overrides)
 
 			ns.WaitForOperatorReady()
 
