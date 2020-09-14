@@ -46,8 +46,8 @@ func Test_BaseImageOS(t *testing.T) {
 	assert.Equal(t, "my-test-value", GetImage(BaseImageOS))
 }
 
-func Test_CustomRegistry(t *testing.T) {
-	restore, err := tempSetEnv(envCustomImageRegistry, "localhost:5000")
+func Test_DefaultRegistryOverride(t *testing.T) {
+	restore, err := tempSetEnv(envDefaultRegistryOverride, "localhost:5000")
 	require.NoError(t, err)
 	defer restore()
 

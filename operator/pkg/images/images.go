@@ -13,9 +13,9 @@ import (
 )
 
 const (
-	envCustomImageRegistry            = "CUSTOM_IMAGE_REGISTRY"
-	envCustomImageRegistryPullSecrets = "CUSTOM_IMAGE_REGISTRY_PULL_SECRETS"
-	EnvBaseImageOS                    = "BASE_IMAGE_OS"
+	envDefaultRegistryOverride            = "DEFAULT_CONTAINER_REGISTRY_OVERRIDE"
+	envDefaultRegistryOverridePullSecrets = "DEFAULT_CONTAINER_REGISTRY_OVERRIDE_PULL_SECRETS"
+	EnvBaseImageOS                        = "BASE_IMAGE_OS"
 )
 
 // How to add new images:
@@ -88,8 +88,8 @@ var imageLookupMap map[Image]string = map[Image]string {
 	ConfigBuilder:    "datastax/cass-config-builder:1.0.3",
 	UBIConfigBuilder: "datastax/cass-config-builder:1.0.3-ubi7",
 
-	BusyBox:     "busybox",
-	Reaper:      "thelastpickle/cassandra-reaper:2.0.5",
+	BusyBox: "busybox",
+	Reaper:  "thelastpickle/cassandra-reaper:2.0.5",
 }
 
 var versionToOSSCassandra map[string]Image = map[string]Image {
@@ -120,10 +120,6 @@ var versionToUBIDSE map[string]Image = map[string]Image {
 
 var log = logf.Log.WithName("images")
 
-func getCustomImageRegistry() string {
-	return os.Getenv(envCustomImageRegistry)
-}
-
 func stripRegistry(image string) string {
 	comps := strings.Split(image, "/")
 
@@ -134,8 +130,8 @@ func stripRegistry(image string) string {
 	}
 }
 
-func applyCustomRegistry(image string) string {
-	customRegistry := getCustomImageRegistry()
+func applyDefaultRegistryOverride(image string) string {
+	customRegistry := os.Getenv(envDefaultRegistryOverride)
 	customRegistry = strings.TrimSuffix(customRegistry, "/")
 
 	if customRegistry == "" {
@@ -160,7 +156,7 @@ func GetImage(name Image) string {
 	}
 
 	if image != "" {
-		return applyCustomRegistry(image)
+		return applyDefaultRegistryOverride(image)
 	} else {
 		return ""
 	}
@@ -223,8 +219,8 @@ func GetSystemLoggerImage() string {
 	}
 }
 
-func AddCustomRegistryImagePullSecrets(podSpec *corev1.PodSpec) bool {
-	secretName := os.Getenv(envCustomImageRegistryPullSecrets)
+func AddDefaultRegistryImagePullSecrets(podSpec *corev1.PodSpec) bool {
+	secretName := os.Getenv(envDefaultRegistryOverridePullSecrets)
 	if secretName != "" {
 		podSpec.ImagePullSecrets = append(
 			podSpec.ImagePullSecrets, 

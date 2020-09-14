@@ -651,7 +651,7 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	}
 
 	// adds custom registry pull secret if needed
-	_ = images.AddCustomRegistryImagePullSecrets(&baseTemplate.Spec)
+	_ = images.AddDefaultRegistryImagePullSecrets(&baseTemplate.Spec)
 
 	return baseTemplate, nil
 }
