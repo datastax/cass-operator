@@ -383,8 +383,12 @@ func CreateDockerRegistrySecret(name string, namespace string) {
 	k.InNamespace(namespace).ExecVCapture()
 }
 
-func (ns NsWrapper) HelmInstall(chartPath string) {
-	HelmInstallWithOverrides(chartPath, ns.Namespace, map[string]string{})
+func (ns NsWrapper) HelmInstall(chartPath string, overrides ...string) {
+	overridesMap := map[string]string{}
+	for i := 0; i < len(overrides) - 1; i = i+2 {
+		overridesMap[overrides[i]] = overrides[i+1]
+	}
+	HelmInstallWithOverrides(chartPath, ns.Namespace, overridesMap)
 }
 
 func (ns NsWrapper) HelmInstallWithPSPEnabled(chartPath string) {
