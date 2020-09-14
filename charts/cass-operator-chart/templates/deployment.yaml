@@ -13,6 +13,19 @@ spec:
         name: cass-operator
     spec:
       serviceAccountName: {{ .Values.serviceAccountName }}
+      {{- $imagePullSecrets := list -}}
+      {{- if .Values.imagePullSecret }}
+        {{- $imagePullSecrets = append $imagePullSecrets .Values.imagePullSecret }}
+      {{- end }}
+      {{- if .Values.registryUsername }}
+        {{- $imagePullSecrets = append $imagePullSecrets "cass-operator-registry-override-regcred" }}
+      {{- end }}
+      {{- if empty $imagePullSecrets | not }}
+      imagePullSecrets:
+      {{- range $imagePullSecrets }}
+       - name: {{ . | quote }}
+      {{- end }}
+      {{- end }}
       volumes:
       - name: tmpconfig-volume
         emptyDir:
@@ -20,11 +33,6 @@ spec:
       - name: cass-operator-certs-volume
         secret:
           secretName: cass-operator-webhook-config
-      {{- if .Values.registryUsername }}
-      imagePullSecrets:
-      - name: cass-operator-registry-override-regcred
-      {{- else }}
-      {{- end }}
       containers:
       - name: cass-operator
         {{- if .Values.image }}
