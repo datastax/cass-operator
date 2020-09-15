@@ -2,7 +2,8 @@
 
 * Make a `release` branch.
 * Update `buildsettings.yaml` in the root of the repo with `prerelease: rc1`
-* Update `image: "datastax/cass-operator:1.2.3"` in the Helm `values.yaml`
+* Update `image: "datastax/cass-operator:1.2.3"` in the Helm `values.yaml` file
+* Update `version: 1.2.3` and `appVersion: 1.2.3` in the Helm `Chart.yaml` file
 * Make sure `hack/release/build-kind-control-planes.sh` has run and updated the yaml bundles
 * Run all int tests
 * Update `CHANGELOG.md`
