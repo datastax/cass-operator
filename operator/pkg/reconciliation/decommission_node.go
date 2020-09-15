@@ -148,14 +148,14 @@ func (rc *ReconciliationContext) CheckDecommissioningNodes(epData httphelper.Cas
 }
 
 func (rc *ReconciliationContext) cleanUpAfterDecommissionedPod(pod *corev1.Pod) result.ReconcileResult {
-	rc.ReqLogger.Info("Deleting pod PVCs")
-	err := rc.DeletePodPvcs(pod)
+	rc.ReqLogger.Info("Scaling down statefulset")
+	err := rc.RemoveDecommissionedPodFromSts(pod)
 	if err != nil {
 		return result.Error(err)
 	}
 
-	rc.ReqLogger.Info("Scaling down statefulset")
-	err = rc.RemoveDecommissionedPodFromSts(pod)
+	rc.ReqLogger.Info("Deleting pod PVCs")
+	err = rc.DeletePodPvcs(pod)
 	if err != nil {
 		return result.Error(err)
 	}

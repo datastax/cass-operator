@@ -92,7 +92,7 @@ var _ = Describe(testName, func() {
 			ns.WaitForOutputAndLog(step, k, "[]", 30)
 
 			step = "ensure that the node status got deleted for decommissioned pod"
-			json = fmt.Sprintf("jsonpath={.status.nodeStatuses['%s']}", podWithDecommissionedNode)
+			json = "jsonpath={.status.nodeStatuses['cluster1-dc1-r1-sts-1']}"
 			k = kubectl.Get("CassandraDatacenter", dcName).FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "", 30)
 
