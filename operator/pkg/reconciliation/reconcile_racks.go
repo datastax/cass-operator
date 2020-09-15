@@ -1992,12 +1992,15 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 
 	// If we are here, any action that was in progress should now be completed, so start
 	// clearing conditions
-	actionConditionTypes := []api.DatacenterConditionType{
+	conditionsThatShouldBeFalse := []api.DatacenterConditionType{
 		api.DatacenterReplacingNodes,
 		api.DatacenterUpdating,
 		api.DatacenterRollingRestart,
 		api.DatacenterResuming,
 		api.DatacenterScalingDown,
+	}
+	conditionsThatShouldBeTrue := []api.DatacenterConditionType{
+		api.DatacenterConditionValid,
 	}
 	updated := false
 
@@ -2013,10 +2016,14 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 			api.NewDatacenterCondition(api.DatacenterScalingUp, corev1.ConditionFalse)) || updated
 	}
 
-	for _, conditionType := range actionConditionTypes {
-
+	for _, conditionType := range conditionsThatShouldBeFalse {
 		updated = rc.setCondition(
 			api.NewDatacenterCondition(conditionType, corev1.ConditionFalse)) || updated
+	}
+
+	for _, conditionType := range conditionsThatShouldBeTrue {
+		updated = rc.setCondition(
+			api.NewDatacenterCondition(conditionType, corev1.ConditionTrue)) || updated
 	}
 
 	if updated {
@@ -2038,10 +2045,10 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 	return result.Continue()
 }
 
-func (rc *ReconciliationContext) CheckForErrorConditions() result.ReconcileResult {
-	if rc.Datacenter.GetConditionStatus(api.DatacenterScaleDownFailed) == corev1.ConditionTrue {
-		err := fmt.Errorf("Scale down failed for datacenter %s. Manual intervention required",
-			rc.Datacenter.Name)
+func (rc *ReconciliationContext) CheckForInvalidState() result.ReconcileResult {
+	cond, isSet := rc.Datacenter.GetCondition(api.DatacenterConditionValid)
+	if isSet && cond.Status == corev1.ConditionFalse {
+		err := fmt.Errorf("Datacenter %s is not in a valid state: %s", rc.Datacenter.Name, cond.Message)
 		return result.Error(err)
 	}
 
@@ -2050,7 +2057,7 @@ func (rc *ReconciliationContext) CheckForErrorConditions() result.ReconcileResul
 
 // ReconcileAllRacks determines if a rack needs to be reconciled.
 func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
-	if recResult := rc.CheckForErrorConditions(); recResult.Completed() {
+	if recResult := rc.CheckForInvalidState(); recResult.Completed() {
 		return recResult.Output()
 	}
 

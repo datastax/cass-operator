@@ -16,7 +16,7 @@ spec:
           - ReadWriteOnce
         resources:
           requests:
-            storage: 150Ki
+            storage: 300Ki
   racks:
     - name: r1
     - name: r2

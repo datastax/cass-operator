@@ -320,28 +320,41 @@ type CassandraStatusMap map[string]CassandraNodeStatus
 type DatacenterConditionType string
 
 const (
-	DatacenterReady           DatacenterConditionType = "Ready"
-	DatacenterInitialized     DatacenterConditionType = "Initialized"
-	DatacenterReplacingNodes  DatacenterConditionType = "ReplacingNodes"
-	DatacenterScalingUp       DatacenterConditionType = "ScalingUp"
-	DatacenterScalingDown     DatacenterConditionType = "ScalingDown"
-	DatacenterScaleDownFailed DatacenterConditionType = "ScaleDownFailed"
-	DatacenterUpdating        DatacenterConditionType = "Updating"
-	DatacenterStopped         DatacenterConditionType = "Stopped"
-	DatacenterResuming        DatacenterConditionType = "Resuming"
-	DatacenterRollingRestart  DatacenterConditionType = "RollingRestart"
+	DatacenterReady          DatacenterConditionType = "Ready"
+	DatacenterInitialized    DatacenterConditionType = "Initialized"
+	DatacenterReplacingNodes DatacenterConditionType = "ReplacingNodes"
+	DatacenterScalingUp      DatacenterConditionType = "ScalingUp"
+	DatacenterScalingDown    DatacenterConditionType = "ScalingDown"
+	DatacenterUpdating       DatacenterConditionType = "Updating"
+	DatacenterStopped        DatacenterConditionType = "Stopped"
+	DatacenterResuming       DatacenterConditionType = "Resuming"
+	DatacenterRollingRestart DatacenterConditionType = "RollingRestart"
+	DatacenterConditionValid DatacenterConditionType = "DatacenterConditionValid"
 )
 
 type DatacenterCondition struct {
 	Type               DatacenterConditionType `json:"type"`
 	Status             corev1.ConditionStatus  `json:"status"`
+	Reason             string                  `json:"reason"`
+	Message            string                  `json:"message"`
 	LastTransitionTime metav1.Time             `json:"lastTransitionTime,omitempty"`
 }
 
 func NewDatacenterCondition(conditionType DatacenterConditionType, status corev1.ConditionStatus) *DatacenterCondition {
 	return &DatacenterCondition{
-		Type:   conditionType,
-		Status: status,
+		Type:    conditionType,
+		Status:  status,
+		Reason:  "",
+		Message: "",
+	}
+}
+
+func NewDatacenterConditionWithReason(conditionType DatacenterConditionType, status corev1.ConditionStatus, reason string, message string) *DatacenterCondition {
+	return &DatacenterCondition{
+		Type:    conditionType,
+		Status:  status,
+		Reason:  reason,
+		Message: message,
 	}
 }
 
@@ -492,7 +505,7 @@ func (status *CassandraDatacenterStatus) GetConditionStatus(conditionType Datace
 			return condition.Status
 		}
 	}
-	return corev1.ConditionFalse
+	return corev1.ConditionUnknown
 }
 
 func (dc *CassandraDatacenter) GetConditionStatus(conditionType DatacenterConditionType) corev1.ConditionStatus {

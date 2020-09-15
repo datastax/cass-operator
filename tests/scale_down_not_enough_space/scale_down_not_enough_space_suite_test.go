@@ -67,7 +67,7 @@ var _ = Describe(testName, func() {
 			ns.CqlExecute(podToDecommission, "create table", "CREATE TABLE IF NOT EXISTS my_key.my_table (id uuid, data text, PRIMARY KEY(id))", user, pw)
 
 			randStr := genRandString(100000)
-			for i := 0; i < 25; i++ {
+			for i := 0; i < 500; i++ {
 				uuid := uuid.New()
 
 				cql := fmt.Sprintf("INSERT INTO my_key.my_table (id, data) VALUES (%s, '%s')", uuid, randStr)
@@ -79,7 +79,7 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterCondition(dcName, "ScaleDownFailed", string(corev1.ConditionTrue))
+			ns.WaitForDatacenterConditionWithReason(dcName, "DatacenterConditionValid", string(corev1.ConditionFalse), "notEnoughSpaceToScaleDown")
 
 			step = "check node status is not set to decommissioning"
 			json = "jsonpath={.items}"

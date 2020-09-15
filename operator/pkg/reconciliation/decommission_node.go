@@ -81,17 +81,6 @@ func (rc *ReconciliationContext) DecommissionNodeOnRack(rackName string, epData 
 			}
 
 			if err := rc.EnsurePodsCanAbsorbDecommData(pod, epData); err != nil {
-				dcPatch := client.MergeFrom(rc.Datacenter.DeepCopy())
-				updated := rc.setCondition(api.NewDatacenterCondition(api.DatacenterScaleDownFailed,
-					corev1.ConditionTrue))
-
-				if updated {
-					patchErr := rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, dcPatch)
-					if patchErr != nil {
-						rc.ReqLogger.Error(patchErr, "error patching datacenter status for scale down failed")
-						return patchErr
-					}
-				}
 				return err
 			}
 
@@ -254,7 +243,6 @@ func (rc *ReconciliationContext) EnsurePodsCanAbsorbDecommData(decommPod *v1.Pod
 	}
 
 	spaceUsedByDecommPod := podsUsedStorage[decommPod.Name]
-
 	for _, pod := range rc.dcPods {
 		if pod.Name == decommPod.Name {
 			continue
@@ -265,18 +253,43 @@ func (rc *ReconciliationContext) EnsurePodsCanAbsorbDecommData(decommPod *v1.Pod
 			return err
 		}
 
-		storageResource := serverDataPv.Spec.Capacity["storage"]
-		total := storageResource.AsDec().UnscaledBig().Int64()
+		pvCapacity := serverDataPv.Spec.Capacity
+		if pvCapacity == nil {
+			return fmt.Errorf("Could not determine storage capacity when checking if scale-down attempt is valid")
+		}
+
+		storage, ok := pvCapacity["storage"]
+		if !ok {
+			return fmt.Errorf("Could not determine storage capacity when checking if scale-down attempt is valid")
+		}
+
+		total := storage.AsDec().UnscaledBig().Int64()
 		used := podsUsedStorage[pod.Name]
 		free := total - int64(used)
-		if free < int64(spaceUsedByDecommPod) {
-			msg := "Not enough free space available to decommission"
-			rc.ReqLogger.Info(msg, "pod", pod.Name,
-				"free space", free,
-				"required space", spaceUsedByDecommPod)
 
-			err := fmt.Errorf(msg)
-			return err
+		if free < int64(spaceUsedByDecommPod) {
+			msg := fmt.Sprintf("Not enough free space available to decommission. %s has %d free space, but %d is needed.",
+				pod.Name, free, int64(spaceUsedByDecommPod),
+			)
+			rc.ReqLogger.Info(msg)
+
+			dcPatch := client.MergeFrom(rc.Datacenter.DeepCopy())
+			updated := rc.setCondition(
+				api.NewDatacenterConditionWithReason(api.DatacenterConditionValid,
+					corev1.ConditionFalse, "notEnoughSpaceToScaleDown", msg,
+				),
+			)
+
+			if updated {
+				patchErr := rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, dcPatch)
+				if patchErr != nil {
+					msg := "error patching condition datacenterConditionValid for failed scale down."
+					rc.ReqLogger.Error(patchErr, msg)
+					return patchErr
+				}
+			}
+
+			return fmt.Errorf(msg)
 		}
 	}
 
