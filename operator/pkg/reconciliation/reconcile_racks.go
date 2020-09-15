@@ -2150,16 +2150,12 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		}
 	}
 
-	// TODO until we ignore status updates as it pertains to reconcile
-	// we can't switch in to a quiet period here because it will create
-	// another reconcile iteration with (likely) no work to do
-
-	// if err := rc.enableQuietPeriod(5); err != nil {
-	// 	logger.Error(
-	// 		err,
-	// 		"Error when enabling quiet period")
-	// 	return result.Error(err).Output()
-	// }
+	if err := rc.enableQuietPeriod(5); err != nil {
+		logger.Error(
+			err,
+			"Error when enabling quiet period")
+		return result.Error(err).Output()
+	}
 
 	rc.ReqLogger.Info("All StatefulSets should now be reconciled.")
 
