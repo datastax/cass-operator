@@ -242,7 +242,7 @@ type ReplicationSetting struct {
 	ReplicationFactor int
 }
 
-func (client *NodeMgmtClient) CallAlterKeyspaceEndpoint(pod *corev1.Pod, keyspace string, replicationSettings[]ReplicationSetting) error {
+func (client *NodeMgmtClient) CallAlterKeyspaceEndpoint(pod *corev1.Pod, keyspace string, replicationSettings []ReplicationSetting) error {
 	client.Log.Info(
 		"calling Management API alter keyspace - POST /api/v0/ops/keyspace/alter",
 		"pod", pod.Name,
