@@ -78,7 +78,8 @@ func cleanupLingeringHelmResources() {
 
 func loadClusterSettings() {
 	if clusterType == "" {
-		clusterType = mageutil.EnvOrDefault(envK8sFlavor, "k3d")
+		// Default to kind because it is more reliable
+		clusterType = mageutil.EnvOrDefault(envK8sFlavor, "kind")
 	}
 
 	if clusterActions == nil {
