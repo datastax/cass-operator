@@ -1351,6 +1351,7 @@ func (rc *ReconciliationContext) CheckDcPodDisruptionBudget() result.ReconcileRe
 	return result.Continue()
 }
 
+// Updates the node count on a rack (statefulset)
 func (rc *ReconciliationContext) UpdateRackNodeCount(statefulSet *appsv1.StatefulSet, newNodeCount int32) error {
 	rc.ReqLogger.Info("reconcile_racks::updateRack")
 
@@ -2135,6 +2136,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
+	if recResult := rc.DecommissionNodes(endpointData); recResult.Completed() {
+		return recResult.Output()
+	}
+
 	if recResult := rc.CheckRackPodTemplate(); recResult.Completed() {
 		return recResult.Output()
 	}
@@ -2152,10 +2157,6 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	}
 
 	if recResult := rc.CheckConditionInitializedAndReady(); recResult.Completed() {
-		return recResult.Output()
-	}
-
-	if recResult := rc.DecommissionNodes(endpointData); recResult.Completed() {
 		return recResult.Output()
 	}
 

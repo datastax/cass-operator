@@ -91,9 +91,10 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "[]", 30)
 
-			step = "check recorded host IDs"
-			nodeStatusesHostIds := ns.GetNodeStatusesHostIds(dcName)
-			Expect(len(nodeStatusesHostIds), 3)
+			step = "ensure that the node status got deleted for decommissioned pod"
+			json = fmt.Sprintf("jsonpath={.status.nodeStatuses['%s']}", podWithDecommissionedNode)
+			k = kubectl.Get("CassandraDatacenter", dcName).FormatOutput(json)
+			ns.WaitForOutputAndLog(step, k, "", 30)
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)

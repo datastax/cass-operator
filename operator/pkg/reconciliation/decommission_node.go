@@ -110,7 +110,7 @@ func (rc *ReconciliationContext) DecommissionNodeOnRack(rackName string, epData 
 
 // Wait for decommissioning nodes to finish before continuing to reconcile
 func (rc *ReconciliationContext) CheckDecommissioningNodes(epData httphelper.CassMetadataEndpoints) result.ReconcileResult {
-	if rc.Datacenter.GetConditionStatus(api.DatacenterScalingDown) == corev1.ConditionFalse {
+	if rc.Datacenter.GetConditionStatus(api.DatacenterScalingDown) != corev1.ConditionTrue {
 		return result.Continue()
 	}
 
