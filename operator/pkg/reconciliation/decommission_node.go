@@ -120,19 +120,9 @@ func (rc *ReconciliationContext) CheckDecommissioningNodes(epData httphelper.Cas
 				rc.ReqLogger.Info("Node decommissioning, reconciling again soon")
 			} else {
 				rc.ReqLogger.Info("Node finished decommissioning")
-				rc.ReqLogger.Info("Deleting pod PVCs")
-
-				err := rc.DeletePodPvcs(pod)
-				if err != nil {
-					return result.Error(err)
+				if res := rc.cleanUpAfterDecommissionedPod(pod); res != nil {
+					return res
 				}
-
-				rc.ReqLogger.Info("Scaling down statefulset")
-				err = rc.RemoveDecommissionedPodFromSts(pod)
-				if err != nil {
-					return result.Error(err)
-				}
-
 			}
 
 			return result.RequeueSoon(5)
@@ -155,6 +145,31 @@ func (rc *ReconciliationContext) CheckDecommissioningNodes(epData httphelper.Cas
 	}
 
 	return result.Continue()
+}
+
+func (rc *ReconciliationContext) cleanUpAfterDecommissionedPod(pod *corev1.Pod) result.ReconcileResult {
+	rc.ReqLogger.Info("Deleting pod PVCs")
+	err := rc.DeletePodPvcs(pod)
+	if err != nil {
+		return result.Error(err)
+	}
+
+	rc.ReqLogger.Info("Scaling down statefulset")
+	err = rc.RemoveDecommissionedPodFromSts(pod)
+	if err != nil {
+		return result.Error(err)
+	}
+
+	dcPatch := client.MergeFrom(rc.Datacenter.DeepCopy())
+	delete(rc.Datacenter.Status.NodeStatuses, pod.Name)
+
+	err = rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, dcPatch)
+	if err != nil {
+		rc.ReqLogger.Error(err, "error patching datacenter status to remove decommissioned pod from node status")
+		return result.Error(err)
+	}
+
+	return nil
 }
 
 func IsDoneDecommissioning(pod *v1.Pod, epData httphelper.CassMetadataEndpoints) bool {
