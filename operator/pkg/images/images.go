@@ -33,7 +33,7 @@ const (
 
 type Image int
 
-// IMPORTANT: Only Image enum values (and ImageEnumLength) should go in  this
+// IMPORTANT: Only Image enum values (and ImageEnumLength) should go in this
 // const expression
 const (
 	Cassandra_3_11_6 Image = iota
