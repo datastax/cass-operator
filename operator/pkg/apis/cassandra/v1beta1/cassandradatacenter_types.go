@@ -6,7 +6,6 @@ package v1beta1
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/Jeffail/gabs"
 	"github.com/pkg/errors"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/datastax/cass-operator/operator/pkg/serverconfig"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
+	"github.com/datastax/cass-operator/operator/pkg/images"
 )
 
 const (
@@ -48,101 +48,6 @@ const (
 
 // This type exists so there's no chance of pushing random strings to our progress status
 type ProgressState string
-
-const (
-	defaultConfigBuilderImage     = "datastax/cass-config-builder:1.0.3"
-	ubi_defaultConfigBuilderImage = "datastax/cass-config-builder:1.0.3-ubi7"
-
-	cassandra_3_11_6 = "datastax/cassandra-mgmtapi-3_11_6:v0.1.5"
-	cassandra_3_11_7 = "datastax/cassandra-mgmtapi-3_11_7:v0.1.12"
-	cassandra_4_0_0  = "datastax/cassandra-mgmtapi-4_0_0:v0.1.12"
-
-	ubi_cassandra_3_11_6 = "datastax/cassandra:3.11.6-ubi7"
-	ubi_cassandra_3_11_7 = "datastax/cassandra:3.11.7-ubi7"
-	ubi_cassandra_4_0_0  = "datastax/cassandra:4.0-ubi7"
-
-	dse_6_8_0 = "datastax/dse-server:6.8.0"
-	dse_6_8_1 = "datastax/dse-server:6.8.1"
-	dse_6_8_2 = "datastax/dse-server:6.8.2"
-	dse_6_8_3 = "datastax/dse-server:6.8.3"
-
-	ubi_dse_6_8_0 = "datastax/dse-server:6.8.0-ubi7"
-	ubi_dse_6_8_1 = "datastax/dse-server:6.8.1-ubi7"
-	ubi_dse_6_8_2 = "datastax/dse-server:6.8.2-ubi7"
-	ubi_dse_6_8_3 = "datastax/dse-server:6.8.3-ubi7"
-
-	EnvBaseImageOs = "BASE_IMAGE_OS"
-)
-
-// getImageForServerVersion tries to look up a known image for a server type and version number.
-// In the event that no image is found, an error is returned
-func getImageForServerVersion(server, version string) (string, error) {
-	baseImageOs := os.Getenv(EnvBaseImageOs)
-
-	var imageCalc func(string) (string, bool)
-	var img string
-	var success bool
-	var errMsg string
-
-	if baseImageOs == "" {
-		imageCalc = getImageForDefaultBaseOs
-		errMsg = fmt.Sprintf("server '%s' and version '%s' do not work together", server, version)
-	} else {
-		// if this operator was compiled using a UBI base image
-		// such as registry.access.redhat.com/ubi7/ubi-minimal:7.8
-		// then we use specific cassandra and init container coordinates
-		// that are built accordingly
-		errMsg = fmt.Sprintf("server '%s' and version '%s', along with the specified base OS '%s', do not work together", server, version, baseImageOs)
-		imageCalc = getImageForUniversalBaseOs
-	}
-
-	img, success = imageCalc(server + "-" + version)
-	if !success {
-		return "", fmt.Errorf(errMsg)
-	}
-
-	return img, nil
-}
-
-func getImageForDefaultBaseOs(sv string) (string, bool) {
-	switch sv {
-	case "dse-6.8.0":
-		return dse_6_8_0, true
-	case "dse-6.8.1":
-		return dse_6_8_1, true
-	case "dse-6.8.2":
-		return dse_6_8_2, true
-	case "dse-6.8.3":
-		return dse_6_8_3, true
-	case "cassandra-3.11.6":
-		return cassandra_3_11_6, true
-	case "cassandra-3.11.7":
-		return cassandra_3_11_7, true
-	case "cassandra-4.0.0":
-		return cassandra_4_0_0, true
-	}
-	return "", false
-}
-
-func getImageForUniversalBaseOs(sv string) (string, bool) {
-	switch sv {
-	case "dse-6.8.0":
-		return ubi_dse_6_8_0, true
-	case "dse-6.8.1":
-		return ubi_dse_6_8_1, true
-	case "dse-6.8.2":
-		return ubi_dse_6_8_2, true
-	case "dse-6.8.3":
-		return ubi_dse_6_8_3, true
-	case "cassandra-3.11.6":
-		return ubi_cassandra_3_11_6, true
-	case "cassandra-3.11.7":
-		return ubi_cassandra_3_11_7, true
-	case "cassandra-4.0.0":
-		return ubi_cassandra_4_0_0, true
-	}
-	return "", false
-}
 
 type CassandraUser struct {
 	SecretName string `json:"secretName"`
@@ -440,15 +345,11 @@ func init() {
 }
 
 func (dc *CassandraDatacenter) GetConfigBuilderImage() string {
-	var image string
 	if dc.Spec.ConfigBuilderImage != "" {
-		image = dc.Spec.ConfigBuilderImage
-	} else if baseImageOs := os.Getenv(EnvBaseImageOs); baseImageOs != "" {
-		image = ubi_defaultConfigBuilderImage
+		return dc.Spec.ConfigBuilderImage
 	} else {
-		image = defaultConfigBuilderImage
+		return images.GetConfigBuilderImage()
 	}
-	return image
 }
 
 // GetServerImage produces a fully qualified container image to pull
@@ -468,7 +369,7 @@ func (dc *CassandraDatacenter) GetServerImage() (string, error) {
 // In the event that no image is found, an error is returned
 func makeImage(serverType, serverVersion, serverImage string) (string, error) {
 	if serverImage == "" {
-		return getImageForServerVersion(serverType, serverVersion)
+		return images.GetCassandraImage(serverType, serverVersion)
 	}
 	return serverImage, nil
 }

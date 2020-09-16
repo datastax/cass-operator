@@ -126,7 +126,7 @@ func TestCassandraDatacenter_GetServerImage(t *testing.T) {
 				},
 			},
 			want:      "",
-			errString: "server '' and version '9000' do not work together",
+			errString: "Unknown server type ''",
 		},
 	}
 	for _, tt := range tests {
