@@ -2,9 +2,10 @@ package events
 
 import (
 	"fmt"
+
 	"github.com/go-logr/logr"
-	"k8s.io/client-go/tools/record"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 )
 
 const (
@@ -16,9 +17,12 @@ const (
 	CreatedResource                   string = "CreatedResource"
 	StartedCassandra                  string = "StartedCassandra"
 	LabeledPodAsSeed                  string = "LabeledPodAsSeed"
+	LabeledPodAsDecommissioning       string = "LabeledPodAsDecommissioning"
+	DeletedPvc                        string = "DeletedPvc"
 	UnlabeledPodAsSeed                string = "UnlabeledPodAsSeed"
 	LabeledRackResource               string = "LabeledRackResource"
 	ScalingUpRack                     string = "ScalingUpRack"
+	ScalingDownRack                   string = "ScalingDownRack"
 	CreatedSuperuser                  string = "CreatedSuperuser" // deprecated
 	CreatedUsers                      string = "CreatedUsers"
 	FinishedReplaceNode               string = "FinishedReplaceNode"

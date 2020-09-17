@@ -6237,11 +6237,17 @@ spec:
                   lastTransitionTime:
                     format: date-time
                     type: string
+                  message:
+                    type: string
+                  reason:
+                    type: string
                   status:
                     type: string
                   type:
                     type: string
                 required:
+                - message
+                - reason
                 - status
                 - type
                 type: object

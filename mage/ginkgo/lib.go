@@ -4,6 +4,7 @@
 package ginkgo_util
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"regexp"
@@ -216,6 +217,14 @@ func (ns *NsWrapper) WaitForOutputContainsAndLog(description string, kcmd kubect
 }
 
 func (ns *NsWrapper) WaitForDatacenterCondition(dcName string, conditionType string, value string) {
+	step := fmt.Sprintf("checking that dc condition %s has value %s", conditionType, value)
+	json := fmt.Sprintf("jsonpath={.status.conditions[?(.type=='%s')].status}", conditionType)
+	k := kubectl.Get("cassandradatacenter", dcName).
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, value, 600)
+}
+
+func (ns *NsWrapper) WaitForDatacenterConditionWithReason(dcName string, conditionType string, value string, reason string) {
 	step := fmt.Sprintf("checking that dc condition %s has value %s", conditionType, value)
 	json := fmt.Sprintf("jsonpath={.status.conditions[?(.type=='%s')].status}", conditionType)
 	k := kubectl.Get("cassandradatacenter", dcName).
@@ -511,4 +520,38 @@ func (ns NsWrapper) RetrieveStatusFromNodetool(podName string) []NodetoolNodeInf
 			})
 	}
 	return nodeInfo
+}
+
+func (ns NsWrapper) RetrieveSuperuserCreds(clusterName string) (string, string) {
+	secretName := fmt.Sprintf("%s-superuser", clusterName)
+	secretResource := fmt.Sprintf("secret/%s", secretName)
+
+	ginkgo.By("get superuser username")
+	json := "jsonpath={.data.username}"
+	k := kubectl.Get(secretResource).FormatOutput(json)
+	usernameBase64 := ns.OutputPanic(k)
+	Expect(usernameBase64).ToNot(Equal(""), "Expected secret to specify a username")
+	usernameDecoded, err := base64.StdEncoding.DecodeString(usernameBase64)
+	Expect(err).ToNot(HaveOccurred())
+
+	ginkgo.By("get superuser password")
+	json = "jsonpath={.data.password}"
+	k = kubectl.Get(secretResource).FormatOutput(json)
+	passwordBase64 := ns.OutputPanic(k)
+	Expect(passwordBase64).ToNot(Equal(""), "Expected secret to specify a password")
+	passwordDecoded, err := base64.StdEncoding.DecodeString(passwordBase64)
+	Expect(err).ToNot(HaveOccurred())
+
+	return string(usernameDecoded), string(passwordDecoded)
+}
+
+func (ns NsWrapper) CqlExecute(podName string, stepDesc string, cql string, user string, pw string) {
+	k := kubectl.ExecOnPod(
+		podName, "--", "cqlsh",
+		"--user", user,
+		"--password", pw,
+		"-e", cql).
+		WithFlag("container", "cassandra")
+	ginkgo.By(stepDesc)
+	ns.ExecVPanic(k)
 }
