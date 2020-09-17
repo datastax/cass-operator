@@ -214,6 +214,8 @@ type Rack struct {
 	Name string `json:"name"`
 	// Zone name to pin the rack, using node affinity
 	Zone string `json:"zone,omitempty"`
+
+	Partition int32 `json:"partition,omitempty"`
 }
 
 type CassandraNodeStatus struct {

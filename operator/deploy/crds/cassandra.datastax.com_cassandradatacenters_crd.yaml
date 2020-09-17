@@ -5931,6 +5931,9 @@ spec:
                     description: The rack name
                     minLength: 2
                     type: string
+                  partition:
+                    format: int32
+                    type: integer
                   zone:
                     description: Zone name to pin the rack, using node affinity
                     type: string

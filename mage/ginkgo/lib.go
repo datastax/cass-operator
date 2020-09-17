@@ -361,6 +361,19 @@ func (ns *NsWrapper) GetDatacenterReadyPodNames(dcName string) []string {
 	return podNames
 }
 
+func (ns *NsWrapper) GetCassandraContainerImages(dcName string) []string {
+	json := "jsonpath={.items[*].spec.containers[?(@.name == 'cassandra')].image}"
+	k := kubectl.Get("pods").
+		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		FormatOutput(json)
+
+	output := ns.OutputPanic(k)
+	images := strings.Split(output, " ")
+	sort.Strings(images)
+
+	return images
+}
+
 func (ns *NsWrapper) WaitForOperatorReady() {
 	step := "waiting for the operator to become ready"
 	json := "jsonpath={.items[0].status.containerStatuses[0].ready}"

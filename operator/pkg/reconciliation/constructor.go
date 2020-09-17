@@ -281,9 +281,11 @@ func newStatefulSetForCassandraDatacenterHelper(
 
 	racks := dc.GetRacks()
 	var zone string
+	var partition int32
 	for _, rack := range racks {
 		if rack.Name == rackName {
 			zone = rack.Zone
+			partition = rack.Partition
 			break
 		}
 	}
@@ -341,6 +343,12 @@ func newStatefulSetForCassandraDatacenterHelper(
 			PodManagementPolicy:  appsv1.ParallelPodManagement,
 			Template:             *template,
 			VolumeClaimTemplates: volumeClaimTemplates,
+			UpdateStrategy: appsv1.StatefulSetUpdateStrategy{
+				Type: appsv1.RollingUpdateStatefulSetStrategyType,
+				RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
+					Partition: &partition,
+				},
+			},
 		},
 	}
 	result.Annotations = map[string]string{}
