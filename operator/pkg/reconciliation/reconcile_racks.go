@@ -231,7 +231,7 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 
 			if dc.Spec.CanaryUpgrade {
 				var partition int32
-				if dc.Spec.CanaryUpgradeCount > int32(rc.desiredRackInformation[idx].NodeCount) {
+				if dc.Spec.CanaryUpgradeCount == 0 || dc.Spec.CanaryUpgradeCount > int32(rc.desiredRackInformation[idx].NodeCount) {
 					partition = int32(rc.desiredRackInformation[idx].NodeCount)
 				} else {
 					partition = int32(rc.desiredRackInformation[idx].NodeCount) - dc.Spec.CanaryUpgradeCount
