@@ -229,6 +229,22 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 			desiredSts.Labels = utils.MergeMap(map[string]string{}, statefulSet.Labels, desiredSts.Labels)
 			desiredSts.Annotations = utils.MergeMap(map[string]string{}, statefulSet.Annotations, desiredSts.Annotations)
 
+			if dc.Spec.CanaryUpgrade {
+				var partition int32
+				if dc.Spec.CanaryUpgradeCount > int32(rc.desiredRackInformation[idx].NodeCount) {
+					partition = int32(rc.desiredRackInformation[idx].NodeCount)
+				} else {
+					partition = int32(rc.desiredRackInformation[idx].NodeCount) - dc.Spec.CanaryUpgradeCount
+				}
+				strategy := appsv1.StatefulSetUpdateStrategy{
+					Type: appsv1.RollingUpdateStatefulSetStrategyType,
+					RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
+						Partition: &partition,
+					},
+				}
+				desiredSts.Spec.UpdateStrategy = strategy
+			}
+
 			desiredSts.DeepCopyInto(statefulSet)
 		}
 

@@ -48,6 +48,9 @@ spec:
               description: Indicates that configuration and container image changes
                 should only be pushed to the first rack of the datacenter
               type: boolean
+            canaryUpgradeCount:
+              format: int32
+              type: integer
             clusterName:
               description: The name by which CQL clients and instances will know the
                 cluster. If the same cluster name is shared by multiple Datacenters
