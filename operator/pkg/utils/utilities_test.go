@@ -6,7 +6,57 @@ package utils
 import (
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
+
+func test_RangeInt(t *testing.T) {
+	assert.Equal(t, []int{0, 2, 4, 6, 8}, RangeInt(0, 10, 2))
+	assert.Equal(t, []int{0, 1, 2, 3, 4}, RangeInt(0, 5, 1))
+	assert.Equal(t, []int{5, 8}, RangeInt(5, 10, 3))
+}
+
+type foo struct {
+	a int
+	b int
+}
+
+func Test_DeepEqualArrayIgnoreOrder(t *testing.T) {
+	var aNil []int = nil
+	var bNil []int = nil
+
+	assert.True(t, DeepEqualArrayIgnoreOrder(
+		[]foo{{1,2}, {3,4}, {5,6}},
+		[]foo{{1,2}, {3,4}, {5,6}}))
+
+	assert.True(t, DeepEqualArrayIgnoreOrder(
+		[]foo{{1,2}, {3,4}, {5,6}},
+		[]foo{{5,6}, {1,2}, {3,4}}))
+
+	assert.True(t, DeepEqualArrayIgnoreOrder(
+		aNil,
+		bNil))
+
+	assert.False(t, DeepEqualArrayIgnoreOrder(
+		[]foo{{1,2}, {3,4}, {5,6}},
+		[]foo{{5,6}, {1,2}}))
+
+	assert.False(t, DeepEqualArrayIgnoreOrder(
+		[]foo{{1,2}, {1,2}},
+		[]foo{{5,6}, {1,2}}))
+
+	assert.False(t, DeepEqualArrayIgnoreOrder(
+		[]foo{{5,6}, {1,2}},
+		[]foo{{1,2}, {1,2}}))
+
+	assert.False(t, DeepEqualArrayIgnoreOrder(
+		aNil,
+		[]foo{{1,2}, {1,2}}))
+
+	assert.False(t, DeepEqualArrayIgnoreOrder(
+		[]foo{{5,6}, {1,2}},
+		bNil))
+}
 
 func Test_mergeMap(t *testing.T) {
 	type args struct {

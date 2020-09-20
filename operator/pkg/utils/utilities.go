@@ -6,11 +6,62 @@ package utils
 import (
 	"os"
 	"strings"
+	"reflect"
+	"math"
 )
 
 func IsPSPEnabled() bool {
 	value, exists := os.LookupEnv("ENABLE_VMWARE_PSP")
 	return exists && "true" == strings.TrimSpace(value)
+}
+
+func RangeInt(min, max, step int) []int {
+	size := int(math.Ceil(float64((max - min)) / float64(step)))
+	l := make([]int, size)
+	for i := 0; i < size; i++ {
+		l[i] = min + i * step
+	}
+	return l
+}
+
+func isArrayOrSlice(a interface{}) bool {
+	t := reflect.TypeOf(a)
+	k := t.Kind()
+	return k == reflect.Slice || k == reflect.Array
+}
+
+func DeepEqualArrayIgnoreOrder(a interface{}, b interface{}) bool {
+	if !isArrayOrSlice(a) || !isArrayOrSlice(b) {
+		return false
+	}
+
+	aValue := reflect.ValueOf(a)
+	bValue := reflect.ValueOf(b)
+
+	if aValue.Len() != bValue.Len() {
+		return false
+	}
+
+	idxs := RangeInt(0, bValue.Len(), 1)
+
+	for i := 0; i < aValue.Len(); i++ {
+		e1 := aValue.Index(i)
+
+		foundIndex := -1
+		for k, bIndex := range idxs {
+			e2 := bValue.Index(bIndex)
+			if reflect.DeepEqual(e1.Interface(), e2.Interface()) {
+				foundIndex = k
+				break
+			}
+		}
+		if foundIndex > -1 {
+			idxs = append(idxs[:foundIndex], idxs[foundIndex+1:]...)
+		} else {
+			return false
+		}
+	}
+	return true
 }
 
 // MergeMap will take two maps, merging the entries of the source map into destination map. If both maps share the same key
