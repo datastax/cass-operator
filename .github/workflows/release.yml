@@ -11,13 +11,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Login to DockerHub
-        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
-      - name: Login to ECR
+      - name: Login Skopeo DockerHub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | skopeo login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin docker.io
+      - name: Login Skopeo ECR
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.ECR_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.ECR_SECRET }}
-        run: $(aws ecr get-login --no-include-email --region us-east-1)
+        run: aws ecr get-login-password --region us-east-1 | skopeo login -u AWS --password-stdin ${ECR_REPO}
       - name: Publish to Dockerhub
         env:
           ECR_REPO: ${{ secrets.ECR_REPO }}
@@ -29,16 +29,11 @@ jobs:
           DOCKERHUB_REPOSITORY="datastax/cass-operator"
           ECR_REPOSITORY="${ECR_REPO}/datastax/cass-operator"
 
-          # Pull the image from ECR so that we can push it to dockerhub.
-          # We exploit the fact that we tag docker images in ECR with the
-          # git sha.
-          docker pull "${ECR_REPOSITORY}:${GITHUB_SHA}"
-          docker pull "${ECR_REPOSITORY}:${GITHUB_SHA}-ubi"
-
           # Get the version label of the ECR image so that we can double
           # check that it makes since for this tag name.
-          LABEL_VERSION="$(docker inspect "${ECR_REPOSITORY}:${GITHUB_SHA}" --format='{{index .Config.Labels "org.label-schema.version"}}')"
-          LABEL_VERSION_UBI="$(docker inspect "${ECR_REPOSITORY}:${GITHUB_SHA}-ubi" --format='{{index .Config.Labels "org.label-schema.version"}}')"
+          VERSION_PATH='.Labels["org.label-schema.version"]'
+          LABEL_VERSION="$(skopeo inspect "docker://${ECR_REPOSITORY}:${GITHUB_SHA}" | jq "$VERSION_PATH" --raw-output)"
+          LABEL_VERSION_UBI="$(skopeo inspect "docker://${ECR_REPOSITORY}:${GITHUB_SHA}-ubi" | jq "$VERSION_PATH" --raw-output)"
 
           # Sanity check. This should never happen.
           if ! [ "$LABEL_VERSION" = "$LABEL_VERSION_UBI" ]; then
@@ -63,9 +58,6 @@ jobs:
 
           # Tag images for DockerHub and push them
           for t in "$VERSION" "latest"; do
-            docker tag "${ECR_REPOSITORY}:${GITHUB_SHA}" "${DOCKERHUB_REPOSITORY}:${t}"
-            docker push "${DOCKERHUB_REPOSITORY}:${t}"
-
-            docker tag "${ECR_REPOSITORY}:${GITHUB_SHA}-ubi" "${DOCKERHUB_REPOSITORY}:${t}-ubi"
-            docker push "${DOCKERHUB_REPOSITORY}:${t}-ubi"
+            skopeo copy --all "docker://${ECR_REPOSITORY}:${GITHUB_SHA}" "docker://"${DOCKERHUB_REPOSITORY}:${t}"
+            skopeo copy --all "docker://${ECR_REPOSITORY}:${GITHUB_SHA}-ubi" "deocker://${DOCKERHUB_REPOSITORY}:${t}-ubi"
           done
