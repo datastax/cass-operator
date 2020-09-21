@@ -12,6 +12,10 @@ jobs:
       GOPATH: /home/runner/go
       GOROOT: /usr/local/go1.13
     steps:
+      - name: Print AWS cli version
+        run: |
+          echo "AWS cli version"
+          aws --version
       - uses: actions/checkout@v2
         if: github.event_name == 'pull_request'
         with:
