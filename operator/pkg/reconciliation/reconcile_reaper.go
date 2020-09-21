@@ -5,22 +5,24 @@ package reconciliation
 
 import (
 	"fmt"
-	"github.com/datastax/cass-operator/operator/internal/result"
-	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"math"
+	"strconv"
+
 	v1batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"math"
-	"strconv"
+
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/internal/result"
+	"github.com/datastax/cass-operator/operator/pkg/images"
 )
 
 const (
 	ReaperUIPort             = 7080
 	ReaperAdminPort          = 7081
-	ReaperDefaultImage     = "thelastpickle/cassandra-reaper:2.0.5"
 	ReaperDefaultPullPolicy  = corev1.PullIfNotPresent
 	ReaperContainerName      = "reaper"
 	ReaperHealthCheckPath    = "/healthcheck"
@@ -63,7 +65,7 @@ func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
 
 func getReaperImage(dc *api.CassandraDatacenter) string {
 	if len(dc.Spec.Reaper.Image) == 0 {
-		return ReaperDefaultImage
+		return images.GetReaperImage()
 	}
 	return dc.Spec.Reaper.Image
 }

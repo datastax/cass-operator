@@ -7,16 +7,15 @@ package reconciliation
 
 import (
 	"fmt"
-	"os"
-
-	v1 "k8s.io/api/batch/v1"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	"github.com/datastax/cass-operator/operator/pkg/images"
 
+	batchv1 "k8s.io/api/batch/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
@@ -542,11 +541,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 	// server logger container
 	loggerContainer := corev1.Container{}
 	loggerContainer.Name = "server-system-logger"
-	if baseImageOs := os.Getenv(api.EnvBaseImageOs); baseImageOs != "" {
-		loggerContainer.Image = baseImageOs
-	} else {
-		loggerContainer.Image = "busybox"
-	}
+	loggerContainer.Image = images.GetSystemLoggerImage()
 	loggerContainer.Args = []string{
 		"/bin/sh", "-c", "tail -n+1 -F /var/log/cassandra/system.log",
 	}
@@ -655,11 +650,14 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 		baseTemplate.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet
 	}
 
+	// adds custom registry pull secret if needed
+	_ = images.AddDefaultRegistryImagePullSecrets(&baseTemplate.Spec)
+
 	return baseTemplate, nil
 }
 
-func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1.Job {
-	return &v1.Job{
+func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *batchv1.Job {
+	return &batchv1.Job{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Job",
 			APIVersion: "batch/v1",
@@ -669,7 +667,7 @@ func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *v1.Job {
 			Name:      getReaperSchemaInitJobName(dc),
 			Labels:    dc.GetDatacenterLabels(),
 		},
-		Spec: v1.JobSpec{
+		Spec: batchv1.JobSpec{
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					RestartPolicy: corev1.RestartPolicyOnFailure,

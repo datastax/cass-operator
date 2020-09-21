@@ -4,6 +4,7 @@
 package ginkgo_util
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"regexp"
@@ -22,7 +23,8 @@ import (
 )
 
 const (
-	EnvNoCleanup = "M_NO_CLEANUP"
+	EnvNoCleanup        = "M_NO_CLEANUP"
+	ImagePullSecretName = "imagepullsecret"
 )
 
 func duplicate(value string, count int) string {
@@ -222,6 +224,14 @@ func (ns *NsWrapper) WaitForDatacenterCondition(dcName string, conditionType str
 	ns.WaitForOutputAndLog(step, k, value, 600)
 }
 
+func (ns *NsWrapper) WaitForDatacenterConditionWithReason(dcName string, conditionType string, value string, reason string) {
+	step := fmt.Sprintf("checking that dc condition %s has value %s", conditionType, value)
+	json := fmt.Sprintf("jsonpath={.status.conditions[?(.type=='%s')].status}", conditionType)
+	k := kubectl.Get("cassandradatacenter", dcName).
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, value, 600)
+}
+
 func (ns *NsWrapper) WaitForDatacenterToHaveNoPods(dcName string) {
 	step := "checking that no dc pods remain"
 	json := "jsonpath={.items}"
@@ -370,18 +380,55 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 	ns.WaitForOutputAndLog(step, k, "true", 240)
 }
 
-func (ns NsWrapper) HelmInstall(chartPath string) {
-	var overrides = map[string]string{"image": cfgutil.GetOperatorImage()}
-	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
-	mageutil.PanicOnError(err)
+// kubectl create secret docker-registry github-docker-registry --docker-username=USER --docker-password=PASS --docker-server docker.pkg.github.com
+func CreateDockerRegistrySecret(name string, namespace string) {
+	args := []string{"secret", "docker-registry", name}
+	flags := map[string]string{
+		"docker-username": os.Getenv(kubectl.EnvDockerUsername),
+		"docker-password": os.Getenv(kubectl.EnvDockerPassword),
+		"docker-server":   os.Getenv(kubectl.EnvDockerServer),
+	}
+	k := kubectl.KCmd{Command: "create", Args: args, Flags: flags}
+	k.InNamespace(namespace).ExecVCapture()
+}
+
+func (ns NsWrapper) HelmInstall(chartPath string, overrides ...string) {
+	overridesMap := map[string]string{}
+	for i := 0; i < len(overrides) - 1; i = i+2 {
+		overridesMap[overrides[i]] = overrides[i+1]
+	}
+	HelmInstallWithOverrides(chartPath, ns.Namespace, overridesMap)
 }
 
 func (ns NsWrapper) HelmInstallWithPSPEnabled(chartPath string) {
 	var overrides = map[string]string{
-		"image":            cfgutil.GetOperatorImage(),
 		"vmwarePSPEnabled": "true",
 	}
-	err := helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
+	HelmInstallWithOverrides(chartPath, ns.Namespace, overrides)
+}
+
+// This is not a method on NsWrapper to allow mage to use it to create an example cluster.
+func HelmInstallWithOverrides(chartPath string, namespace string, overrides map[string]string) {
+	overrides["image"] = cfgutil.GetOperatorImage()
+
+	if kubectl.DockerCredentialsDefined() {
+		CreateDockerRegistrySecret(ImagePullSecretName, namespace)
+		overrides["imagePullSecret"] = ImagePullSecretName
+	}
+
+	err := helm_util.Install(chartPath, "cass-operator", namespace, overrides)
+	mageutil.PanicOnError(err)
+}
+
+func HelmUpgradeWithOverrides(chartPath string, namespace string, overrides map[string]string) {
+	overrides["image"] = cfgutil.GetOperatorImage()
+
+	// NOTE: This assumes the credential has already been defined during HelmInstallWithOverrides
+	if kubectl.DockerCredentialsDefined() {
+		overrides["imagePullSecret"] = ImagePullSecretName
+	}
+
+	err := helm_util.Upgrade(chartPath, "cass-operator", namespace, overrides)
 	mageutil.PanicOnError(err)
 }
 
@@ -473,4 +520,38 @@ func (ns NsWrapper) RetrieveStatusFromNodetool(podName string) []NodetoolNodeInf
 			})
 	}
 	return nodeInfo
+}
+
+func (ns NsWrapper) RetrieveSuperuserCreds(clusterName string) (string, string) {
+	secretName := fmt.Sprintf("%s-superuser", clusterName)
+	secretResource := fmt.Sprintf("secret/%s", secretName)
+
+	ginkgo.By("get superuser username")
+	json := "jsonpath={.data.username}"
+	k := kubectl.Get(secretResource).FormatOutput(json)
+	usernameBase64 := ns.OutputPanic(k)
+	Expect(usernameBase64).ToNot(Equal(""), "Expected secret to specify a username")
+	usernameDecoded, err := base64.StdEncoding.DecodeString(usernameBase64)
+	Expect(err).ToNot(HaveOccurred())
+
+	ginkgo.By("get superuser password")
+	json = "jsonpath={.data.password}"
+	k = kubectl.Get(secretResource).FormatOutput(json)
+	passwordBase64 := ns.OutputPanic(k)
+	Expect(passwordBase64).ToNot(Equal(""), "Expected secret to specify a password")
+	passwordDecoded, err := base64.StdEncoding.DecodeString(passwordBase64)
+	Expect(err).ToNot(HaveOccurred())
+
+	return string(usernameDecoded), string(passwordDecoded)
+}
+
+func (ns NsWrapper) CqlExecute(podName string, stepDesc string, cql string, user string, pw string) {
+	k := kubectl.ExecOnPod(
+		podName, "--", "cqlsh",
+		"--user", user,
+		"--password", pw,
+		"-e", cql).
+		WithFlag("container", "cassandra")
+	ginkgo.By(stepDesc)
+	ns.ExecVPanic(k)
 }

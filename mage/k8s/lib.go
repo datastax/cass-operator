@@ -12,7 +12,6 @@ import (
 	cfgutil "github.com/datastax/cass-operator/mage/config"
 	gcp "github.com/datastax/cass-operator/mage/gcloud"
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
-	helm_util "github.com/datastax/cass-operator/mage/helm"
 	integutil "github.com/datastax/cass-operator/mage/integ-tests"
 	k3d "github.com/datastax/cass-operator/mage/k3d"
 	kind "github.com/datastax/cass-operator/mage/kind"
@@ -78,7 +77,8 @@ func cleanupLingeringHelmResources() {
 
 func loadClusterSettings() {
 	if clusterType == "" {
-		clusterType = mageutil.EnvOrDefault(envK8sFlavor, "k3d")
+		// Default to kind because it is more reliable
+		clusterType = mageutil.EnvOrDefault(envK8sFlavor, "kind")
 	}
 
 	if clusterActions == nil {
@@ -145,10 +145,10 @@ func SetupExampleCluster() {
 	mg.Deps(SetupEmptyCluster)
 	kubectl.CreateSecretLiteral("cassandra-superuser-secret", "devuser", "devpass").ExecVPanic()
 
-	overrides := map[string]string{"image": getOperatorImage()}
 	var namespace = "default"
-	err := helm_util.Install("./charts/cass-operator-chart", "cass-operator", namespace, overrides)
-	mageutil.PanicOnError(err)
+	overrides := map[string]string{}
+
+	ginkgo_util.HelmInstallWithOverrides("./charts/cass-operator-chart", namespace, overrides)
 
 	// Wait for 15 seconds for the operator to come up
 	// because the apiserver will call the webhook too soon and fail if we do not wait

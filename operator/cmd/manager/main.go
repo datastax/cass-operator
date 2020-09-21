@@ -39,6 +39,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/images"
 )
 
 // Change below variables to serve metrics on different host or port.
@@ -224,8 +225,8 @@ func readBaseOsIntoEnv() error {
 	}
 
 	baseOs := strings.TrimSpace(string(rawVal))
-	os.Setenv(api.EnvBaseImageOs, baseOs)
-	log.Info(fmt.Sprintf("%s set to '%s'", api.EnvBaseImageOs, baseOs))
+	os.Setenv(images.EnvBaseImageOS, baseOs)
+	log.Info(fmt.Sprintf("%s set to '%s'", images.EnvBaseImageOS, baseOs))
 
 	return nil
 }

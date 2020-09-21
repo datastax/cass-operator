@@ -10,11 +10,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	cfgutil "github.com/datastax/cass-operator/mage/config"
 	ginkgo_util "github.com/datastax/cass-operator/mage/ginkgo"
-	helm_util "github.com/datastax/cass-operator/mage/helm"
 	"github.com/datastax/cass-operator/mage/kubectl"
-	mageutil "github.com/datastax/cass-operator/mage/util"
 )
 
 // Note: the cass-operator itself will be installed in the test-cluster-wide-install namespace
@@ -58,15 +55,11 @@ var _ = Describe(testName, func() {
 			err := kubectl.CreateNamespace(opNamespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
 
-			//step := "setting up cass-operator resources via helm chart"
-
 			var overrides = map[string]string{
-				"image":              cfgutil.GetOperatorImage(),
 				"clusterWideInstall": "true",
 			}
 			chartPath := "../../charts/cass-operator-chart"
-			err = helm_util.Install(chartPath, "cass-operator", ns.Namespace, overrides)
-			mageutil.PanicOnError(err)
+			ginkgo_util.HelmInstallWithOverrides(chartPath, ns.Namespace, overrides)
 
 			ns.WaitForOperatorReady()
 

@@ -13,6 +13,19 @@ spec:
         name: cass-operator
     spec:
       serviceAccountName: {{ .Values.serviceAccountName }}
+      {{- $imagePullSecrets := list -}}
+      {{- if .Values.imagePullSecret }}
+        {{- $imagePullSecrets = append $imagePullSecrets .Values.imagePullSecret }}
+      {{- end }}
+      {{- if .Values.registryUsername }}
+        {{- $imagePullSecrets = append $imagePullSecrets "cass-operator-registry-override-regcred" }}
+      {{- end }}
+      {{- if empty $imagePullSecrets | not }}
+      imagePullSecrets:
+      {{- range $imagePullSecrets }}
+       - name: {{ . | quote }}
+      {{- end }}
+      {{- end }}
       volumes:
       - name: tmpconfig-volume
         emptyDir:
@@ -22,7 +35,13 @@ spec:
           secretName: cass-operator-webhook-config
       containers:
       - name: cass-operator
+        {{- if .Values.image }}
         image: {{ .Values.image }}
+        {{- else if .Values.registryName }}
+        image: {{ printf "%s/%s" .Values.registryName .Values.defaultImage }}
+        {{- else }}
+        image: {{ .Values.defaultImage }}
+        {{- end }}
         imagePullPolicy: {{ .Values.imagePullPolicy }}
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
@@ -58,6 +77,14 @@ spec:
         {{- if .Values.vmwarePSPEnabled }}
         - name: ENABLE_VMWARE_PSP
           value: "true"
+        {{- end }}
+        {{- if .Values.registryName }}
+        - name: DEFAULT_CONTAINER_REGISTRY_OVERRIDE
+          value: {{ .Values.registryName }}
+        {{- end }}
+        {{- if .Values.registryUsername }}
+        - name: DEFAULT_CONTAINER_REGISTRY_OVERRIDE_PULL_SECRETS
+          value: cass-operator-registry-override-regcred
         {{- end }}
         {{- if .Values.clusterWideInstall }}
         - name: WATCH_NAMESPACE

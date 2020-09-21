@@ -502,7 +502,7 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					Size: 3,
 				},
 			},
-			errString: "decrease size",
+			errString: "",
 		},
 		{
 			name: "Changed a rack name",
