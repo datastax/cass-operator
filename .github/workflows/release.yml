@@ -30,7 +30,7 @@ jobs:
           ECR_REPOSITORY="${ECR_REPO}/datastax/cass-operator"
 
           # Get the version label of the ECR image so that we can double
-          # check that it makes since for this tag name.
+          # check that it makes sense for this tag name.
           VERSION_PATH='.Labels["org.label-schema.version"]'
           LABEL_VERSION="$(skopeo inspect "docker://${ECR_REPOSITORY}:${GITHUB_SHA}" | jq "$VERSION_PATH" --raw-output)"
           LABEL_VERSION_UBI="$(skopeo inspect "docker://${ECR_REPOSITORY}:${GITHUB_SHA}-ubi" | jq "$VERSION_PATH" --raw-output)"
