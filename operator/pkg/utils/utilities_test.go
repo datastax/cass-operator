@@ -21,39 +21,39 @@ type foo struct {
 	b int
 }
 
-func Test_DeepEqualArrayIgnoreOrder(t *testing.T) {
+func Test_ElementsMatch(t *testing.T) {
 	var aNil []int = nil
 	var bNil []int = nil
 
-	assert.True(t, DeepEqualArrayIgnoreOrder(
+	assert.True(t, ElementsMatch(
 		[]foo{{1,2}, {3,4}, {5,6}},
 		[]foo{{1,2}, {3,4}, {5,6}}))
 
-	assert.True(t, DeepEqualArrayIgnoreOrder(
+	assert.True(t, ElementsMatch(
 		[]foo{{1,2}, {3,4}, {5,6}},
 		[]foo{{5,6}, {1,2}, {3,4}}))
 
-	assert.True(t, DeepEqualArrayIgnoreOrder(
+	assert.True(t, ElementsMatch(
 		aNil,
 		bNil))
 
-	assert.False(t, DeepEqualArrayIgnoreOrder(
+	assert.False(t, ElementsMatch(
 		[]foo{{1,2}, {3,4}, {5,6}},
 		[]foo{{5,6}, {1,2}}))
 
-	assert.False(t, DeepEqualArrayIgnoreOrder(
+	assert.False(t, ElementsMatch(
 		[]foo{{1,2}, {1,2}},
 		[]foo{{5,6}, {1,2}}))
 
-	assert.False(t, DeepEqualArrayIgnoreOrder(
+	assert.False(t, ElementsMatch(
 		[]foo{{5,6}, {1,2}},
 		[]foo{{1,2}, {1,2}}))
 
-	assert.False(t, DeepEqualArrayIgnoreOrder(
+	assert.False(t, ElementsMatch(
 		aNil,
 		[]foo{{1,2}, {1,2}}))
 
-	assert.False(t, DeepEqualArrayIgnoreOrder(
+	assert.False(t, ElementsMatch(
 		[]foo{{5,6}, {1,2}},
 		bNil))
 }

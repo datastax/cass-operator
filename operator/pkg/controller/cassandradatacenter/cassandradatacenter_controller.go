@@ -164,7 +164,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 				return true
 			}
 
-			return !utils.DeepEqualArrayIgnoreOrder(
+			return !utils.ElementsMatch(
 				nodeOld.Spec.Taints, nodeNew.Spec.Taints)
 		},
 	}

@@ -30,7 +30,7 @@ func isArrayOrSlice(a interface{}) bool {
 	return k == reflect.Slice || k == reflect.Array
 }
 
-func DeepEqualArrayIgnoreOrder(a interface{}, b interface{}) bool {
+func ElementsMatch(a interface{}, b interface{}) bool {
 	if !isArrayOrSlice(a) || !isArrayOrSlice(b) {
 		return false
 	}
