@@ -10,18 +10,18 @@ import (
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
+	"github.com/datastax/cass-operator/operator/pkg/images"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
-	"github.com/datastax/cass-operator/operator/pkg/images"
 
-	batchv1 "k8s.io/api/batch/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	appsv1 "k8s.io/api/apps/v1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const PvcName = "server-data"
@@ -487,9 +487,9 @@ func getJvmExtraOpts(dc *api.CassandraDatacenter) string {
 	return flags
 }
 
-func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.VolumeMount) ([]corev1.Container, error) {
+func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.VolumeMount, cassContainer corev1.Container) ([]corev1.Container, error) {
 	// cassandra container
-	cassContainer := corev1.Container{}
+
 	cassContainer.Name = "cassandra"
 
 	serverImage, err := dc.GetServerImage()
@@ -637,7 +637,20 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	}
 
 	// containers
-	containers, err := buildContainers(dc, serverVolumeMounts)
+
+	cassContainer := corev1.Container{}
+	for idx, c := range baseTemplate.Spec.Containers {
+		if c.Name == "cassandra" {
+			// Remove the container from the baseTemplate because we are going to customize it
+			copy(baseTemplate.Spec.Containers[idx:], baseTemplate.Spec.Containers[idx+1:])
+			baseTemplate.Spec.Containers = baseTemplate.Spec.Containers[:len(baseTemplate.Spec.Containers)-1]
+
+			cassContainer = c
+			break
+		}
+	}
+
+	containers, err := buildContainers(dc, serverVolumeMounts, cassContainer)
 	if err != nil {
 		return nil, err
 	}

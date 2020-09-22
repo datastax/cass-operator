@@ -67,7 +67,6 @@ func Test_calculateNodeAffinity(t *testing.T) {
 	})
 }
 
-
 func Test_newStatefulSetForCassandraDatacenter(t *testing.T) {
 	type args struct {
 		rackName     string
@@ -173,7 +172,8 @@ func TestCassandraDatacenter_buildContainers_systemlogger_resources_set(t *testi
 		},
 	}
 
-	containers, err := buildContainers(dc, []corev1.VolumeMount{})
+	cassContainer := corev1.Container{}
+	containers, err := buildContainers(dc, []corev1.VolumeMount{}, cassContainer)
 	assert.NotNil(t, containers, "Unexpected containers containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
@@ -191,7 +191,8 @@ func TestCassandraDatacenter_buildContainers_systemlogger_resources_set_when_not
 		},
 	}
 
-	containers, err := buildContainers(dc, []corev1.VolumeMount{})
+	cassContainer := corev1.Container{}
+	containers, err := buildContainers(dc, []corev1.VolumeMount{}, cassContainer)
 	assert.NotNil(t, containers, "Unexpected containers containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
@@ -223,7 +224,8 @@ func TestCassandraDatacenter_buildContainers_reaper_resources(t *testing.T) {
 		},
 	}
 
-	containers, err := buildContainers(dc, []corev1.VolumeMount{})
+	cassContainer := corev1.Container{}
+	containers, err := buildContainers(dc, []corev1.VolumeMount{}, cassContainer)
 	assert.NotNil(t, containers, "Unexpected containers containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
@@ -244,7 +246,8 @@ func TestCassandraDatacenter_buildContainers_reaper_resources_set_when_not_speci
 		},
 	}
 
-	containers, err := buildContainers(dc, []corev1.VolumeMount{})
+	cassContainer := corev1.Container{}
+	containers, err := buildContainers(dc, []corev1.VolumeMount{}, cassContainer)
 	assert.NotNil(t, containers, "Unexpected containers containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
