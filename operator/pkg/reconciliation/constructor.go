@@ -487,6 +487,7 @@ func getJvmExtraOpts(dc *api.CassandraDatacenter) string {
 	return flags
 }
 
+// This function will override certain values on cassContainer.
 func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.VolumeMount, cassContainer corev1.Container) ([]corev1.Container, error) {
 	// cassandra container
 
@@ -499,7 +500,10 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 
 	cassContainer.Image = serverImage
 	cassContainer.Resources = dc.Spec.Resources
-	cassContainer.Env = []corev1.EnvVar{
+
+	// Combine env vars
+	// Note we do not handle if there is an env var with the same key.
+	envOverrides := []corev1.EnvVar{
 		{Name: "DS_LICENSE", Value: "accept"},
 		{Name: "DSE_AUTO_CONF_OFF", Value: "all"},
 		{Name: "USE_MGMT_API", Value: "true"},
@@ -507,6 +511,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 		// TODO remove this post 1.0
 		{Name: "DSE_MGMT_EXPLICIT_START", Value: "true"},
 	}
+	cassContainer.Env = append(cassContainer.Env, envOverrides...)
 
 	if dc.Spec.ServerType == "dse" && dc.Spec.DseWorkloads != nil {
 		cassContainer.Env = append(
@@ -514,15 +519,19 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 			corev1.EnvVar{Name: "JVM_EXTRA_OPTS", Value: getJvmExtraOpts(dc)})
 	}
 
-	ports, err := dc.GetContainerPorts()
+	// Combine ports
+	// Note we do not handle if there is a port defined with the same number.
+	portOverrides, err := dc.GetContainerPorts()
 	if err != nil {
 		return nil, err
 	}
 
-	cassContainer.Ports = ports
+	cassContainer.Ports = append(cassContainer.Ports, portOverrides...)
 	cassContainer.LivenessProbe = probe(8080, "/api/v0/probes/liveness", 15, 15)
 	cassContainer.ReadinessProbe = probe(8080, "/api/v0/probes/readiness", 20, 10)
 
+	// Combine volumes
+	// Note we do not handle if there is a volume defined with the same name.
 	cassServerLogsMount := corev1.VolumeMount{
 		Name:      "server-logs",
 		MountPath: "/var/log/cassandra",
@@ -536,7 +545,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 		Name:      "encryption-cred-storage",
 		MountPath: "/etc/encryption/",
 	})
-	cassContainer.VolumeMounts = serverVolumeMounts
+	cassContainer.VolumeMounts = append(cassContainer.VolumeMounts, serverVolumeMounts...)
 
 	// server logger container
 	loggerContainer := corev1.Container{}

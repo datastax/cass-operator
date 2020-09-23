@@ -257,6 +257,43 @@ func TestCassandraDatacenter_buildContainers_reaper_resources_set_when_not_speci
 	}
 }
 
+func TestCassandraDatacenter_buildContainers_use_cassandra_settings(t *testing.T) {
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName:   "bob",
+			ServerType:    "cassandra",
+			ServerVersion: "3.11.7",
+			Reaper: &api.ReaperConfig{
+				Enabled: true,
+			},
+		},
+	}
+
+	cassContainer := corev1.Container{
+		Name: "cassandra",
+		Env: []corev1.EnvVar{
+			corev1.EnvVar{
+				Name:  "k1",
+				Value: "v1",
+			},
+		},
+	}
+
+	containers, err := buildContainers(dc, []corev1.VolumeMount{}, cassContainer)
+	assert.NotNil(t, containers, "Unexpected containers containers received")
+	assert.Nil(t, err, "Unexpected error encountered")
+
+	assert.Len(t, containers, 3, "Unexpected number of containers containers returned")
+	if !reflect.DeepEqual(containers[2].Resources, DefaultsReaperContainer) {
+		t.Error("reaper container resources are not set to the default values.")
+	}
+
+	if !reflect.DeepEqual(containers[0].Env[0].Name, "k1") {
+		t.Errorf("container env var = %v", containers[0].Env)
+		t.Error("environment variables for cassandra container are not being merged properly.")
+	}
+}
+
 func TestCassandraDatacenter_buildPodTemplateSpec_containers_merge(t *testing.T) {
 	testContainer := corev1.Container{}
 	testContainer.Name = "test-container"
