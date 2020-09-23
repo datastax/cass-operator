@@ -7,6 +7,7 @@ package reconciliation
 
 import (
 	"fmt"
+	"reflect"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
@@ -487,23 +488,37 @@ func getJvmExtraOpts(dc *api.CassandraDatacenter) string {
 	return flags
 }
 
-// This function will override certain values on cassContainer.
+// If values are provided in the "cassandra" container in the
+// PodTemplateSpec field of the dc, they will override defaults.
 func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.VolumeMount, cassContainer corev1.Container) ([]corev1.Container, error) {
-	// cassandra container
+
+	// Cassandra container
 
 	cassContainer.Name = "cassandra"
+	if cassContainer.Image == "" {
+		serverImage, err := dc.GetServerImage()
+		if err != nil {
+			return nil, err
+		}
 
-	serverImage, err := dc.GetServerImage()
-	if err != nil {
-		return nil, err
+		cassContainer.Image = serverImage
 	}
 
-	cassContainer.Image = serverImage
-	cassContainer.Resources = dc.Spec.Resources
+	if reflect.DeepEqual(cassContainer.Resources, corev1.ResourceRequirements{}) {
+		cassContainer.Resources = dc.Spec.Resources
+	}
+
+	if cassContainer.LivenessProbe == nil {
+		cassContainer.LivenessProbe = probe(8080, "/api/v0/probes/liveness", 15, 15)
+	}
+
+	if cassContainer.ReadinessProbe == nil {
+		cassContainer.ReadinessProbe = probe(8080, "/api/v0/probes/readiness", 20, 10)
+	}
 
 	// Combine env vars
-	// Note we do not handle if there is an env var with the same key.
-	envOverrides := []corev1.EnvVar{
+
+	envDefaults := []corev1.EnvVar{
 		{Name: "DS_LICENSE", Value: "accept"},
 		{Name: "DSE_AUTO_CONF_OFF", Value: "all"},
 		{Name: "USE_MGMT_API", Value: "true"},
@@ -511,43 +526,81 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 		// TODO remove this post 1.0
 		{Name: "DSE_MGMT_EXPLICIT_START", Value: "true"},
 	}
-	cassContainer.Env = append(cassContainer.Env, envOverrides...)
 
 	if dc.Spec.ServerType == "dse" && dc.Spec.DseWorkloads != nil {
-		cassContainer.Env = append(
-			cassContainer.Env,
+		envDefaults = append(
+			envDefaults,
 			corev1.EnvVar{Name: "JVM_EXTRA_OPTS", Value: getJvmExtraOpts(dc)})
 	}
 
+	for _, envDefault := range envDefaults {
+		found := false
+		for _, envOverride := range cassContainer.Env {
+			if envDefault.Name == envOverride.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			cassContainer.Env = append(cassContainer.Env, envDefault)
+		}
+	}
+
 	// Combine ports
-	// Note we do not handle if there is a port defined with the same number.
-	portOverrides, err := dc.GetContainerPorts()
+
+	portDefaults, err := dc.GetContainerPorts()
 	if err != nil {
 		return nil, err
 	}
 
-	cassContainer.Ports = append(cassContainer.Ports, portOverrides...)
-	cassContainer.LivenessProbe = probe(8080, "/api/v0/probes/liveness", 15, 15)
-	cassContainer.ReadinessProbe = probe(8080, "/api/v0/probes/readiness", 20, 10)
+	for _, portDefault := range portDefaults {
+		found := false
+		for _, portOverride := range cassContainer.Ports {
+			if portDefault.Name == portOverride.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			cassContainer.Ports = append(cassContainer.Ports, portDefault)
+		}
+	}
 
 	// Combine volumes
-	// Note we do not handle if there is a volume defined with the same name.
+
+	volumeDefaults := []corev1.VolumeMount{}
+
 	cassServerLogsMount := corev1.VolumeMount{
 		Name:      "server-logs",
 		MountPath: "/var/log/cassandra",
 	}
-	serverVolumeMounts = append(serverVolumeMounts, cassServerLogsMount)
-	serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
+	volumeDefaults = append(volumeDefaults, cassServerLogsMount)
+
+	volumeDefaults = append(volumeDefaults, corev1.VolumeMount{
 		Name:      PvcName,
 		MountPath: "/var/lib/cassandra",
 	})
-	serverVolumeMounts = append(serverVolumeMounts, corev1.VolumeMount{
+
+	volumeDefaults = append(volumeDefaults, corev1.VolumeMount{
 		Name:      "encryption-cred-storage",
 		MountPath: "/etc/encryption/",
 	})
-	cassContainer.VolumeMounts = append(cassContainer.VolumeMounts, serverVolumeMounts...)
+
+	for _, volumeDefault := range volumeDefaults {
+		found := false
+		for _, volumeOverride := range cassContainer.VolumeMounts {
+			if volumeDefault.Name == volumeOverride.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			cassContainer.VolumeMounts = append(cassContainer.VolumeMounts, volumeDefault)
+		}
+	}
 
 	// server logger container
+
 	loggerContainer := corev1.Container{}
 	loggerContainer.Name = "server-system-logger"
 	loggerContainer.Image = images.GetSystemLoggerImage()
