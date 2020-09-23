@@ -17,13 +17,48 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+func (rc *ReconciliationContext) CalculateRackInfoForDecomm() ([]*RackInformation, error) {
+	currentSize := 0
+	for _, sts := range rc.statefulSets {
+		currentSize += int(*sts.Spec.Replicas)
+	}
+	racks := rc.Datacenter.GetRacks()
+	rackCount := len(racks)
+
+	// only worry about scaling 1 node at a time
+	desiredSize := currentSize - 1
+
+	if desiredSize < rackCount {
+		return nil, fmt.Errorf("the number of nodes cannot be smaller than the number of racks")
+	}
+
+	var decommRackInfo []*RackInformation
+	rackNodeCounts := api.SplitRacks(desiredSize, rackCount)
+
+	for rackIndex, currentRack := range racks {
+		nextRack := &RackInformation{}
+		nextRack.RackName = currentRack.Name
+		nextRack.NodeCount = rackNodeCounts[rackIndex]
+
+		decommRackInfo = append(decommRackInfo, nextRack)
+	}
+
+	return decommRackInfo, nil
+}
+
 func (rc *ReconciliationContext) DecommissionNodes(epData httphelper.CassMetadataEndpoints) result.ReconcileResult {
 	logger := rc.ReqLogger
 	logger.Info("reconcile_racks::DecommissionNodes")
 	dc := rc.Datacenter
 
-	for idx := range rc.desiredRackInformation {
-		rackInfo := rc.desiredRackInformation[idx]
+	decommRackInfo, err := rc.CalculateRackInfoForDecomm()
+	if err != nil {
+		logger.Error(err, "error calculating rack info for decommissioning nodes")
+		return result.Error(err)
+	}
+
+	for idx := range decommRackInfo {
+		rackInfo := decommRackInfo[idx]
 		statefulSet := rc.statefulSets[idx]
 		desiredNodeCount := int32(rackInfo.NodeCount)
 		maxReplicas := *statefulSet.Spec.Replicas
