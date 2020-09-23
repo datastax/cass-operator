@@ -19,6 +19,19 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+func usesDefunctPvcManagedByLabel(sts *appsv1.StatefulSet) bool {
+	usesDefunct := false
+	for _, pvc := range sts.Spec.VolumeClaimTemplates {
+		value, ok := pvc.Labels[oplabels.ManagedByLabel]
+		if ok && value == oplabels.ManagedByLabelDefunctValue {
+			usesDefunct = true
+			break
+		}
+	}
+
+	return usesDefunct
+}
+
 func newNamespacedNameForStatefulSet(
 	dc *api.CassandraDatacenter,
 	rackName string) types.NamespacedName {

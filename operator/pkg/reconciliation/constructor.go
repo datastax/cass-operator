@@ -14,7 +14,6 @@ import (
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
 
-	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
@@ -24,19 +23,6 @@ import (
 )
 
 const PvcName = "server-data"
-
-func usesDefunctPvcManagedByLabel(sts *appsv1.StatefulSet) bool {
-	usesDefunct := false
-	for _, pvc := range sts.Spec.VolumeClaimTemplates {
-		value, ok := pvc.Labels[oplabels.ManagedByLabel]
-		if ok && value == oplabels.ManagedByLabelDefunctValue {
-			usesDefunct = true
-			break
-		}
-	}
-
-	return usesDefunct
-}
 
 // Create a PodDisruptionBudget object for the Datacenter
 func newPodDisruptionBudgetForDatacenter(dc *api.CassandraDatacenter) *policyv1beta1.PodDisruptionBudget {
