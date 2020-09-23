@@ -68,13 +68,16 @@ func TestCassandraDatacenter_buildInitContainer_resources_set(t *testing.T) {
 		},
 	}
 
-	initContainers, err := buildInitContainers(dc, "testRack")
+	podTemplateSpec := corev1.PodTemplateSpec{}
+	err := buildInitContainers(dc, "testRack", &podTemplateSpec)
+	initContainers := podTemplateSpec.Spec.InitContainers
 	assert.NotNil(t, initContainers, "Unexpected init containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
 	assert.Len(t, initContainers, 1, "Unexpected number of init containers returned")
 	if !reflect.DeepEqual(dc.Spec.ConfigBuilderResources, initContainers[0].Resources) {
 		t.Errorf("system-config-init container resources not correctly set")
+		t.Errorf("got: %v", initContainers[0])
 	}
 }
 
@@ -87,7 +90,9 @@ func TestCassandraDatacenter_buildInitContainer_resources_set_when_not_specified
 		},
 	}
 
-	initContainers, err := buildInitContainers(dc, "testRack")
+	podTemplateSpec := corev1.PodTemplateSpec{}
+	err := buildInitContainers(dc, "testRack", &podTemplateSpec)
+	initContainers := podTemplateSpec.Spec.InitContainers
 	assert.NotNil(t, initContainers, "Unexpected init containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
@@ -290,7 +295,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_initcontainers_merge(t *testin
 
 	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
 	assert.Equal(t, 2, len(got.Spec.InitContainers))
-	if !reflect.DeepEqual(testContainer, got.Spec.InitContainers[1]) {
+	if !reflect.DeepEqual(testContainer, got.Spec.InitContainers[0]) {
 		t.Errorf("second init container = %v, want %v", got, testContainer)
 	}
 }

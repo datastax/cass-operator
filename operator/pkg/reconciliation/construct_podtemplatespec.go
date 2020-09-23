@@ -109,6 +109,21 @@ func getJvmExtraOpts(dc *api.CassandraDatacenter) string {
 	return flags
 }
 
+func combineEnvSlices(defaults []corev1.EnvVar, overrides []corev1.EnvVar) []corev1.EnvVar {
+	out := append([]corev1.EnvVar{}, overrides...)
+outerLoop:
+	// Only add the defaults that don't have an override
+	for _, envDefault := range defaults {
+		for _, envOverride := range overrides {
+			if envDefault.Name == envOverride.Name {
+				continue outerLoop
+			}
+		}
+		out = append(out, envDefault)
+	}
+	return out
+}
+
 func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
 	vServerConfig := corev1.Volume{}
 	vServerConfig.Name = "server-config"
@@ -144,10 +159,23 @@ volLoop:
 	return volumes
 }
 
-func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1.Container, error) {
-	serverCfg := corev1.Container{}
+// This ensure that the server-config-builder init container is properly configured.
+func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTemplate *corev1.PodTemplateSpec) error {
+
+	serverCfg := &corev1.Container{}
+	foundOverrides := false
+	for _, c := range baseTemplate.Spec.InitContainers {
+		if c.Name == "server-config-init" {
+			// Modify the existing container
+			foundOverrides = true
+			serverCfg = &c
+			break
+		}
+	}
 	serverCfg.Name = "server-config-init"
-	serverCfg.Image = dc.GetConfigBuilderImage()
+	if serverCfg.Image == "" {
+		serverCfg.Image = dc.GetConfigBuilderImage()
+	}
 	serverCfgMount := corev1.VolumeMount{
 		Name:      "server-config",
 		MountPath: "/config",
@@ -163,10 +191,12 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1
 
 	configData, err := dc.GetConfigAsJSON()
 	if err != nil {
-		return nil, err
+		return err
 	}
+
 	serverVersion := dc.Spec.ServerVersion
-	serverCfg.Env = []corev1.EnvVar{
+
+	envDefaults := []corev1.EnvVar{
 		{Name: "CONFIG_FILE_DATA", Value: configData},
 		{Name: "POD_IP", ValueFrom: selectorFromFieldPath("status.podIP")},
 		{Name: "HOST_IP", ValueFrom: selectorFromFieldPath("status.hostIP")},
@@ -178,7 +208,15 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1
 		{Name: "DSE_VERSION", Value: serverVersion},
 	}
 
-	return []corev1.Container{serverCfg}, nil
+	serverCfg.Env = combineEnvSlices(envDefaults, serverCfg.Env)
+
+	if !foundOverrides {
+		// Note that append makes a copy, so we must do this after
+		// serverCfg has been properly set up.
+		baseTemplate.Spec.InitContainers = append(baseTemplate.Spec.InitContainers, *serverCfg)
+	}
+
+	return nil
 }
 
 // If values are provided in the "cassandra" container in the
@@ -226,15 +264,7 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 			corev1.EnvVar{Name: "JVM_EXTRA_OPTS", Value: getJvmExtraOpts(dc)})
 	}
 
-envLoop:
-	for _, envDefault := range envDefaults {
-		for _, envOverride := range cassContainer.Env {
-			if envDefault.Name == envOverride.Name {
-				continue envLoop
-			}
-		}
-		cassContainer.Env = append(cassContainer.Env, envDefault)
-	}
+	cassContainer.Env = combineEnvSlices(envDefaults, cassContainer.Env)
 
 	// Combine ports
 
@@ -334,14 +364,13 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	baseTemplate.Spec.ServiceAccountName = serviceAccount
 
 	// init containers
-	initContainers, err := buildInitContainers(dc, rackName)
+	err := buildInitContainers(dc, rackName, baseTemplate)
 	if err != nil {
 		return nil, err
 	}
-	baseTemplate.Spec.InitContainers = append(initContainers, baseTemplate.Spec.InitContainers...)
 
 	var serverVolumeMounts []corev1.VolumeMount
-	for _, c := range initContainers {
+	for _, c := range baseTemplate.Spec.InitContainers {
 		serverVolumeMounts = append(serverVolumeMounts, c.VolumeMounts...)
 	}
 
