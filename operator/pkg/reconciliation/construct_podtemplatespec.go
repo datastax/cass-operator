@@ -130,9 +130,18 @@ func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpe
 	}
 
 	volumes := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
-	baseTemplate.Spec.Volumes = append(baseTemplate.Spec.Volumes, volumes...)
-	return volumes
 
+volLoop:
+	for _, volumeDefault := range volumes {
+		for _, volumeOverride := range baseTemplate.Spec.Volumes {
+			if volumeDefault.Name == volumeOverride.Name {
+				continue volLoop
+			}
+		}
+		baseTemplate.Spec.Volumes = append(baseTemplate.Spec.Volumes, volumeDefault)
+	}
+
+	return volumes
 }
 
 func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1.Container, error) {
@@ -217,17 +226,14 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 			corev1.EnvVar{Name: "JVM_EXTRA_OPTS", Value: getJvmExtraOpts(dc)})
 	}
 
+envLoop:
 	for _, envDefault := range envDefaults {
-		found := false
 		for _, envOverride := range cassContainer.Env {
 			if envDefault.Name == envOverride.Name {
-				found = true
-				break
+				continue envLoop
 			}
 		}
-		if !found {
-			cassContainer.Env = append(cassContainer.Env, envDefault)
-		}
+		cassContainer.Env = append(cassContainer.Env, envDefault)
 	}
 
 	// Combine ports
@@ -237,17 +243,14 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 		return nil, err
 	}
 
+portLoop:
 	for _, portDefault := range portDefaults {
-		found := false
 		for _, portOverride := range cassContainer.Ports {
 			if portDefault.Name == portOverride.Name {
-				found = true
-				break
+				continue portLoop
 			}
 		}
-		if !found {
-			cassContainer.Ports = append(cassContainer.Ports, portDefault)
-		}
+		cassContainer.Ports = append(cassContainer.Ports, portDefault)
 	}
 
 	// Combine volumes
@@ -270,17 +273,14 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 		MountPath: "/etc/encryption/",
 	})
 
+volumeLoop:
 	for _, volumeDefault := range volumeDefaults {
-		found := false
 		for _, volumeOverride := range cassContainer.VolumeMounts {
 			if volumeDefault.Name == volumeOverride.Name {
-				found = true
-				break
+				continue volumeLoop
 			}
 		}
-		if !found {
-			cassContainer.VolumeMounts = append(cassContainer.VolumeMounts, volumeDefault)
-		}
+		cassContainer.VolumeMounts = append(cassContainer.VolumeMounts, volumeDefault)
 	}
 
 	// server logger container
