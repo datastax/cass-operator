@@ -109,6 +109,69 @@ func getJvmExtraOpts(dc *api.CassandraDatacenter) string {
 	return flags
 }
 
+func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
+	vServerConfig := corev1.Volume{}
+	vServerConfig.Name = "server-config"
+	vServerConfig.VolumeSource = corev1.VolumeSource{
+		EmptyDir: &corev1.EmptyDirVolumeSource{},
+	}
+
+	vServerLogs := corev1.Volume{}
+	vServerLogs.Name = "server-logs"
+	vServerLogs.VolumeSource = corev1.VolumeSource{
+		EmptyDir: &corev1.EmptyDirVolumeSource{},
+	}
+
+	vServerEncryption := corev1.Volume{}
+	vServerEncryption.Name = "encryption-cred-storage"
+	vServerEncryption.VolumeSource = corev1.VolumeSource{
+		Secret: &corev1.SecretVolumeSource{
+			SecretName: fmt.Sprintf("%s-keystore", dc.Name)},
+	}
+
+	volumes := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
+	baseTemplate.Spec.Volumes = append(baseTemplate.Spec.Volumes, volumes...)
+	return volumes
+
+}
+
+func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1.Container, error) {
+	serverCfg := corev1.Container{}
+	serverCfg.Name = "server-config-init"
+	serverCfg.Image = dc.GetConfigBuilderImage()
+	serverCfgMount := corev1.VolumeMount{
+		Name:      "server-config",
+		MountPath: "/config",
+	}
+	serverCfg.VolumeMounts = []corev1.VolumeMount{serverCfgMount}
+	serverCfg.Resources = *getResourcesOrDefault(&dc.Spec.ConfigBuilderResources, &DefaultsConfigInitContainer)
+
+	// Convert the bool to a string for the env var setting
+	useHostIpForBroadcast := "false"
+	if dc.IsNodePortEnabled() {
+		useHostIpForBroadcast = "true"
+	}
+
+	configData, err := dc.GetConfigAsJSON()
+	if err != nil {
+		return nil, err
+	}
+	serverVersion := dc.Spec.ServerVersion
+	serverCfg.Env = []corev1.EnvVar{
+		{Name: "CONFIG_FILE_DATA", Value: configData},
+		{Name: "POD_IP", ValueFrom: selectorFromFieldPath("status.podIP")},
+		{Name: "HOST_IP", ValueFrom: selectorFromFieldPath("status.hostIP")},
+		{Name: "USE_HOST_IP_FOR_BROADCAST", Value: useHostIpForBroadcast},
+		{Name: "RACK_NAME", Value: rackName},
+		{Name: "PRODUCT_VERSION", Value: serverVersion},
+		{Name: "PRODUCT_NAME", Value: dc.Spec.ServerType},
+		// TODO remove this post 1.0
+		{Name: "DSE_VERSION", Value: serverVersion},
+	}
+
+	return []corev1.Container{serverCfg}, nil
+}
+
 // If values are provided in the "cassandra" container in the
 // PodTemplateSpec field of the dc, they will override defaults.
 func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.VolumeMount, cassContainer corev1.Container) ([]corev1.Container, error) {
@@ -240,43 +303,6 @@ func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.Vo
 	return containers, nil
 }
 
-func buildInitContainers(dc *api.CassandraDatacenter, rackName string) ([]corev1.Container, error) {
-	serverCfg := corev1.Container{}
-	serverCfg.Name = "server-config-init"
-	serverCfg.Image = dc.GetConfigBuilderImage()
-	serverCfgMount := corev1.VolumeMount{
-		Name:      "server-config",
-		MountPath: "/config",
-	}
-	serverCfg.VolumeMounts = []corev1.VolumeMount{serverCfgMount}
-	serverCfg.Resources = *getResourcesOrDefault(&dc.Spec.ConfigBuilderResources, &DefaultsConfigInitContainer)
-
-	// Convert the bool to a string for the env var setting
-	useHostIpForBroadcast := "false"
-	if dc.IsNodePortEnabled() {
-		useHostIpForBroadcast = "true"
-	}
-
-	configData, err := dc.GetConfigAsJSON()
-	if err != nil {
-		return nil, err
-	}
-	serverVersion := dc.Spec.ServerVersion
-	serverCfg.Env = []corev1.EnvVar{
-		{Name: "CONFIG_FILE_DATA", Value: configData},
-		{Name: "POD_IP", ValueFrom: selectorFromFieldPath("status.podIP")},
-		{Name: "HOST_IP", ValueFrom: selectorFromFieldPath("status.hostIP")},
-		{Name: "USE_HOST_IP_FOR_BROADCAST", Value: useHostIpForBroadcast},
-		{Name: "RACK_NAME", Value: rackName},
-		{Name: "PRODUCT_VERSION", Value: serverVersion},
-		{Name: "PRODUCT_NAME", Value: dc.Spec.ServerType},
-		// TODO remove this post 1.0
-		{Name: "DSE_VERSION", Value: serverVersion},
-	}
-
-	return []corev1.Container{serverCfg}, nil
-}
-
 func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName string) (*corev1.PodTemplateSpec, error) {
 	baseTemplate := dc.Spec.PodTemplateSpec.DeepCopy()
 
@@ -350,30 +376,4 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	_ = images.AddDefaultRegistryImagePullSecrets(&baseTemplate.Spec)
 
 	return baseTemplate, nil
-}
-
-func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
-	vServerConfig := corev1.Volume{}
-	vServerConfig.Name = "server-config"
-	vServerConfig.VolumeSource = corev1.VolumeSource{
-		EmptyDir: &corev1.EmptyDirVolumeSource{},
-	}
-
-	vServerLogs := corev1.Volume{}
-	vServerLogs.Name = "server-logs"
-	vServerLogs.VolumeSource = corev1.VolumeSource{
-		EmptyDir: &corev1.EmptyDirVolumeSource{},
-	}
-
-	vServerEncryption := corev1.Volume{}
-	vServerEncryption.Name = "encryption-cred-storage"
-	vServerEncryption.VolumeSource = corev1.VolumeSource{
-		Secret: &corev1.SecretVolumeSource{
-			SecretName: fmt.Sprintf("%s-keystore", dc.Name)},
-	}
-
-	volumes := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
-	baseTemplate.Spec.Volumes = append(baseTemplate.Spec.Volumes, volumes...)
-	return volumes
-
 }
