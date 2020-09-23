@@ -15,24 +15,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 )
 
-func TestCassandraDatacenter_buildLabelSelectorForSeedService(t *testing.T) {
-	dc := &api.CassandraDatacenter{
-		Spec: api.CassandraDatacenterSpec{
-			ClusterName: "bob",
-		},
-	}
-	want := map[string]string{
-		api.ClusterLabel:  "bob",
-		api.SeedNodeLabel: "true",
-	}
-
-	got := buildLabelSelectorForSeedService(dc)
-
-	if !reflect.DeepEqual(want, got) {
-		t.Errorf("buildLabelSelectorForSeedService = %v, want %v", got, want)
-	}
-}
-
 func Test_calculatePodAntiAffinity(t *testing.T) {
 	t.Run("check when we allow more than one server pod per node", func(t *testing.T) {
 		paa := calculatePodAntiAffinity(true)
