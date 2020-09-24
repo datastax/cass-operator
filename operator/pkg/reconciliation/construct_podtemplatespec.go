@@ -19,7 +19,11 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-const PvcName = "server-data"
+const (
+	CassandraContainerName    = "cassandra"
+	PvcName                   = "server-data"
+	SystemLoggerContainerName = "server-system-logger"
+)
 
 // calculateNodeAffinity provides a way to pin all pods within a statefulset to the same zone
 func calculateNodeAffinity(zone string) *corev1.NodeAffinity {
@@ -239,17 +243,29 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 // PodTemplateSpec field of the dc, they will override defaults.
 func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) error {
 
-	cassContainer := corev1.Container{}
-	for idx, c := range baseTemplate.Spec.Containers {
-		if c.Name == "cassandra" {
-			// Remove the container from the baseTemplate because we are going to customize it
-			copy(baseTemplate.Spec.Containers[idx:], baseTemplate.Spec.Containers[idx+1:])
-			baseTemplate.Spec.Containers = baseTemplate.Spec.Containers[:len(baseTemplate.Spec.Containers)-1]
+	// Create new Container structs or get references to existing ones
 
-			cassContainer = c
-			break
+	cassContainer := &corev1.Container{}
+	loggerContainer := &corev1.Container{}
+	reaperContainer := &corev1.Container{}
+
+	foundCass := false
+	foundLogger := false
+	foundReaper := false
+	for _, c := range baseTemplate.Spec.Containers {
+		if c.Name == CassandraContainerName {
+			foundCass = true
+			cassContainer = &c
+		} else if c.Name == SystemLoggerContainerName {
+			foundLogger = true
+			loggerContainer = &c
+		} else if c.Name == ReaperContainerName {
+			foundReaper = true
+			reaperContainer = &c
 		}
 	}
+
+	// Volumes
 
 	var serverVolumeMounts []corev1.VolumeMount
 	for _, c := range baseTemplate.Spec.InitContainers {
@@ -258,7 +274,7 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 
 	// Cassandra container
 
-	cassContainer.Name = "cassandra"
+	cassContainer.Name = CassandraContainerName
 	if cassContainer.Image == "" {
 		serverImage, err := dc.GetServerImage()
 		if err != nil {
@@ -338,10 +354,13 @@ portLoop:
 
 	cassContainer.VolumeMounts = combineVolumeMountSlices(volumeDefaults, cassContainer.VolumeMounts)
 
-	// server logger container
+	if !foundCass {
+		baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *cassContainer)
+	}
 
-	loggerContainer := corev1.Container{}
-	loggerContainer.Name = "server-system-logger"
+	// Server Logger Container
+
+	loggerContainer.Name = SystemLoggerContainerName
 	loggerContainer.Image = images.GetSystemLoggerImage()
 	loggerContainer.Args = []string{
 		"/bin/sh", "-c", "tail -n+1 -F /var/log/cassandra/system.log",
@@ -349,18 +368,25 @@ portLoop:
 	loggerContainer.VolumeMounts = []corev1.VolumeMount{cassServerLogsMount}
 	loggerContainer.Resources = *getResourcesOrDefault(&dc.Spec.SystemLoggerResources, &DefaultsLoggerContainer)
 
-	containers := []corev1.Container{cassContainer, loggerContainer}
-	if dc.Spec.Reaper != nil && dc.Spec.Reaper.Enabled && dc.Spec.ServerType == "cassandra" {
-		reaperContainer := buildReaperContainer(dc)
-		containers = append(containers, reaperContainer)
+	if !foundLogger {
+		baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *loggerContainer)
 	}
 
-	baseTemplate.Spec.Containers = append(containers, baseTemplate.Spec.Containers...)
+	// Reaper Container
+
+	if dc.IsReaperEnabled() {
+		buildReaperContainer(dc, reaperContainer)
+
+		if !foundReaper {
+			baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *reaperContainer)
+		}
+	}
 
 	return nil
 }
 
 func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName string) (*corev1.PodTemplateSpec, error) {
+
 	baseTemplate := dc.Spec.PodTemplateSpec.DeepCopy()
 
 	if baseTemplate == nil {

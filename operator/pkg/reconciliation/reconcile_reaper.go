@@ -15,52 +15,51 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
-	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/internal/result"
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/images"
 )
 
 const (
-	ReaperUIPort             = 7080
-	ReaperAdminPort          = 7081
-	ReaperDefaultPullPolicy  = corev1.PullIfNotPresent
-	ReaperContainerName      = "reaper"
-	ReaperHealthCheckPath    = "/healthcheck"
-	ReaperKeyspace           = "reaper_db"
-	ReaperSchemaInitJob      = "ReaperSchemaInitJob"
+	ReaperUIPort            = 7080
+	ReaperAdminPort         = 7081
+	ReaperDefaultPullPolicy = corev1.PullIfNotPresent
+	ReaperContainerName     = "reaper"
+	ReaperHealthCheckPath   = "/healthcheck"
+	ReaperKeyspace          = "reaper_db"
+	ReaperSchemaInitJob     = "ReaperSchemaInitJob"
 	// This code currently lives at https://github.com/jsanda/create_keyspace.
 	ReaperSchemaInitJobImage = "jsanda/reaper-init-keyspace:latest"
 )
 
-func buildReaperContainer(dc *api.CassandraDatacenter) corev1.Container {
+func buildReaperContainer(dc *api.CassandraDatacenter, container *corev1.Container) {
+
 	ports := []corev1.ContainerPort{
 		{Name: "ui", ContainerPort: ReaperUIPort, Protocol: "TCP"},
 		{Name: "admin", ContainerPort: ReaperAdminPort, Protocol: "TCP"},
 	}
 
-	container := corev1.Container{
-		Name: ReaperContainerName,
-		Image: getReaperImage(dc),
-		ImagePullPolicy: getReaperPullPolicy(dc),
-		Ports: ports,
-		LivenessProbe: probe(ReaperAdminPort, ReaperHealthCheckPath, int(60 * dc.Spec.Size), 10),
-		ReadinessProbe: probe(ReaperAdminPort, ReaperHealthCheckPath, 30, 15),
-		Env: []corev1.EnvVar{
-			{Name: "REAPER_STORAGE_TYPE", Value: "cassandra"},
-			{Name: "REAPER_ENABLE_DYNAMIC_SEED_LIST", Value: "false"},
-			{Name: "REAPER_DATACENTER_AVAILABILITY", Value: "SIDECAR"},
-			{Name: "REAPER_SERVER_APP_PORT", Value: strconv.Itoa(ReaperUIPort)},
-			{Name: "REAPER_SERVER_ADMIN_PORT", Value: strconv.Itoa(ReaperAdminPort)},
-			{Name: "REAPER_CASS_CLUSTER_NAME", Value: dc.ClusterName},
-			{Name: "REAPER_CASS_CONTACT_POINTS", Value: fmt.Sprintf("[%s]", dc.GetSeedServiceName())},
-			{Name: "REAPER_AUTH_ENABLED", Value: "false"},
-			{Name: "REAPER_JMX_AUTH_USERNAME", Value: ""},
-			{Name: "REAPER_JMX_AUTH_PASSWORD", Value: ""},
-		},
-		Resources: *getResourcesOrDefault(&dc.Spec.Reaper.Resources, &DefaultsReaperContainer),
+	container.Name = ReaperContainerName
+	container.Image = getReaperImage(dc)
+	container.ImagePullPolicy = getReaperPullPolicy(dc)
+	container.Ports = ports
+	container.LivenessProbe = probe(ReaperAdminPort, ReaperHealthCheckPath, int(60*dc.Spec.Size), 10)
+	container.ReadinessProbe = probe(ReaperAdminPort, ReaperHealthCheckPath, 30, 15)
+
+	container.Env = []corev1.EnvVar{
+		{Name: "REAPER_STORAGE_TYPE", Value: "cassandra"},
+		{Name: "REAPER_ENABLE_DYNAMIC_SEED_LIST", Value: "false"},
+		{Name: "REAPER_DATACENTER_AVAILABILITY", Value: "SIDECAR"},
+		{Name: "REAPER_SERVER_APP_PORT", Value: strconv.Itoa(ReaperUIPort)},
+		{Name: "REAPER_SERVER_ADMIN_PORT", Value: strconv.Itoa(ReaperAdminPort)},
+		{Name: "REAPER_CASS_CLUSTER_NAME", Value: dc.ClusterName},
+		{Name: "REAPER_CASS_CONTACT_POINTS", Value: fmt.Sprintf("[%s]", dc.GetSeedServiceName())},
+		{Name: "REAPER_AUTH_ENABLED", Value: "false"},
+		{Name: "REAPER_JMX_AUTH_USERNAME", Value: ""},
+		{Name: "REAPER_JMX_AUTH_PASSWORD", Value: ""},
 	}
 
-	return container
+	container.Resources = *getResourcesOrDefault(&dc.Spec.Reaper.Resources, &DefaultsReaperContainer)
 }
 
 func getReaperImage(dc *api.CassandraDatacenter) string {
@@ -171,7 +170,7 @@ func getReaperServiceName(dc *api.CassandraDatacenter) string {
 func newReaperService(dc *api.CassandraDatacenter) *corev1.Service {
 	return &corev1.Service{
 		TypeMeta: metav1.TypeMeta{
-			Kind: "Service",
+			Kind:       "Service",
 			APIVersion: "v1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -182,11 +181,11 @@ func newReaperService(dc *api.CassandraDatacenter) *corev1.Service {
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
-					Port: ReaperUIPort,
-					Name: "ui",
+					Port:     ReaperUIPort,
+					Name:     "ui",
 					Protocol: corev1.ProtocolTCP,
 					TargetPort: intstr.IntOrString{
-						Type: intstr.String,
+						Type:   intstr.String,
 						StrVal: "ui",
 					},
 				},

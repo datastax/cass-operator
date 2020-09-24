@@ -274,7 +274,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_containers_merge(t *testing.T)
 
 	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
 	assert.Equal(t, 3, len(got.Spec.Containers))
-	if !reflect.DeepEqual(testContainer, got.Spec.Containers[2]) {
+	if !reflect.DeepEqual(testContainer, got.Spec.Containers[0]) {
 		t.Errorf("third container = %v, want %v", got, testContainer)
 	}
 }
