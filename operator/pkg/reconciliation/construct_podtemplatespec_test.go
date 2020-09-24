@@ -122,8 +122,8 @@ func TestCassandraDatacenter_buildContainers_systemlogger_resources_set(t *testi
 	}
 
 	podTemplateSpec := &corev1.PodTemplateSpec{}
-	cassContainer := corev1.Container{}
-	containers, err := buildContainers(dc, podTemplateSpec, cassContainer)
+	err := buildContainers(dc, podTemplateSpec)
+	containers := podTemplateSpec.Spec.Containers
 	assert.NotNil(t, containers, "Unexpected containers containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
@@ -142,8 +142,8 @@ func TestCassandraDatacenter_buildContainers_systemlogger_resources_set_when_not
 	}
 
 	podTemplateSpec := &corev1.PodTemplateSpec{}
-	cassContainer := corev1.Container{}
-	containers, err := buildContainers(dc, podTemplateSpec, cassContainer)
+	err := buildContainers(dc, podTemplateSpec)
+	containers := podTemplateSpec.Spec.Containers
 	assert.NotNil(t, containers, "Unexpected containers containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
@@ -176,8 +176,8 @@ func TestCassandraDatacenter_buildContainers_reaper_resources(t *testing.T) {
 	}
 
 	podTemplateSpec := &corev1.PodTemplateSpec{}
-	cassContainer := corev1.Container{}
-	containers, err := buildContainers(dc, podTemplateSpec, cassContainer)
+	err := buildContainers(dc, podTemplateSpec)
+	containers := podTemplateSpec.Spec.Containers
 	assert.NotNil(t, containers, "Unexpected containers containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
@@ -199,8 +199,8 @@ func TestCassandraDatacenter_buildContainers_reaper_resources_set_when_not_speci
 	}
 
 	podTemplateSpec := &corev1.PodTemplateSpec{}
-	cassContainer := corev1.Container{}
-	containers, err := buildContainers(dc, podTemplateSpec, cassContainer)
+	err := buildContainers(dc, podTemplateSpec)
+	containers := podTemplateSpec.Spec.Containers
 	assert.NotNil(t, containers, "Unexpected containers containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
@@ -233,7 +233,10 @@ func TestCassandraDatacenter_buildContainers_use_cassandra_settings(t *testing.T
 	}
 
 	podTemplateSpec := &corev1.PodTemplateSpec{}
-	containers, err := buildContainers(dc, podTemplateSpec, cassContainer)
+	podTemplateSpec.Spec.Containers = append(podTemplateSpec.Spec.Containers, cassContainer)
+
+	err := buildContainers(dc, podTemplateSpec)
+	containers := podTemplateSpec.Spec.Containers
 	assert.NotNil(t, containers, "Unexpected containers containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 

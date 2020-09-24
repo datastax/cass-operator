@@ -237,7 +237,19 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 
 // If values are provided in the "cassandra" container in the
 // PodTemplateSpec field of the dc, they will override defaults.
-func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec, cassContainer corev1.Container) ([]corev1.Container, error) {
+func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) error {
+
+	cassContainer := corev1.Container{}
+	for idx, c := range baseTemplate.Spec.Containers {
+		if c.Name == "cassandra" {
+			// Remove the container from the baseTemplate because we are going to customize it
+			copy(baseTemplate.Spec.Containers[idx:], baseTemplate.Spec.Containers[idx+1:])
+			baseTemplate.Spec.Containers = baseTemplate.Spec.Containers[:len(baseTemplate.Spec.Containers)-1]
+
+			cassContainer = c
+			break
+		}
+	}
 
 	var serverVolumeMounts []corev1.VolumeMount
 	for _, c := range baseTemplate.Spec.InitContainers {
@@ -250,7 +262,7 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 	if cassContainer.Image == "" {
 		serverImage, err := dc.GetServerImage()
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		cassContainer.Image = serverImage
@@ -291,7 +303,7 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 
 	portDefaults, err := dc.GetContainerPorts()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 portLoop:
@@ -343,7 +355,9 @@ portLoop:
 		containers = append(containers, reaperContainer)
 	}
 
-	return containers, nil
+	baseTemplate.Spec.Containers = append(containers, baseTemplate.Spec.Containers...)
+
+	return nil
 }
 
 func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName string) (*corev1.PodTemplateSpec, error) {
@@ -352,6 +366,14 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	if baseTemplate == nil {
 		baseTemplate = &corev1.PodTemplateSpec{}
 	}
+
+	// Service Account
+
+	serviceAccount := "default"
+	if dc.Spec.ServiceAccount != "" {
+		serviceAccount = dc.Spec.ServiceAccount
+	}
+	baseTemplate.Spec.ServiceAccountName = serviceAccount
 
 	// Host networking
 
@@ -386,12 +408,6 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 
 	addVolumes(dc, baseTemplate)
 
-	serviceAccount := "default"
-	if dc.Spec.ServiceAccount != "" {
-		serviceAccount = dc.Spec.ServiceAccount
-	}
-	baseTemplate.Spec.ServiceAccountName = serviceAccount
-
 	// Init Containers
 
 	err := buildInitContainers(dc, rackName, baseTemplate)
@@ -401,24 +417,10 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 
 	// Containers
 
-	cassContainer := corev1.Container{}
-	for idx, c := range baseTemplate.Spec.Containers {
-		if c.Name == "cassandra" {
-			// Remove the container from the baseTemplate because we are going to customize it
-			copy(baseTemplate.Spec.Containers[idx:], baseTemplate.Spec.Containers[idx+1:])
-			baseTemplate.Spec.Containers = baseTemplate.Spec.Containers[:len(baseTemplate.Spec.Containers)-1]
-
-			cassContainer = c
-			break
-		}
-	}
-
-	containers, err := buildContainers(dc, baseTemplate, cassContainer)
+	err = buildContainers(dc, baseTemplate)
 	if err != nil {
 		return nil, err
 	}
-
-	baseTemplate.Spec.Containers = append(containers, baseTemplate.Spec.Containers...)
 
 	return baseTemplate, nil
 }
