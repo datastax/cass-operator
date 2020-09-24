@@ -373,7 +373,7 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		loggerContainer.Image = images.GetSystemLoggerImage()
 	}
 
-	if reflect.DeepEqual(loggerContainer.Args, []string{}) {
+	if len(loggerContainer.Args) == 0 {
 		loggerContainer.Args = []string{
 			"/bin/sh", "-c", "tail -n+1 -F /var/log/cassandra/system.log",
 		}
