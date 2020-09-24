@@ -42,11 +42,18 @@ func buildReaperContainer(dc *api.CassandraDatacenter, container *corev1.Contain
 	container.Name = ReaperContainerName
 	container.Image = getReaperImage(dc)
 	container.ImagePullPolicy = getReaperPullPolicy(dc)
-	container.Ports = ports
-	container.LivenessProbe = probe(ReaperAdminPort, ReaperHealthCheckPath, int(60*dc.Spec.Size), 10)
-	container.ReadinessProbe = probe(ReaperAdminPort, ReaperHealthCheckPath, 30, 15)
 
-	container.Env = []corev1.EnvVar{
+	container.Ports = combinePortSlices(ports, container.Ports)
+
+	if container.LivenessProbe == nil {
+		container.LivenessProbe = probe(ReaperAdminPort, ReaperHealthCheckPath, int(60*dc.Spec.Size), 10)
+	}
+
+	if container.ReadinessProbe == nil {
+		container.ReadinessProbe = probe(ReaperAdminPort, ReaperHealthCheckPath, 30, 15)
+	}
+
+	envDefaults := []corev1.EnvVar{
 		{Name: "REAPER_STORAGE_TYPE", Value: "cassandra"},
 		{Name: "REAPER_ENABLE_DYNAMIC_SEED_LIST", Value: "false"},
 		{Name: "REAPER_DATACENTER_AVAILABILITY", Value: "SIDECAR"},
@@ -58,6 +65,8 @@ func buildReaperContainer(dc *api.CassandraDatacenter, container *corev1.Contain
 		{Name: "REAPER_JMX_AUTH_USERNAME", Value: ""},
 		{Name: "REAPER_JMX_AUTH_PASSWORD", Value: ""},
 	}
+
+	container.Env = combineEnvSlices(envDefaults, container.Env)
 
 	container.Resources = *getResourcesOrDefault(&dc.Spec.Reaper.Resources, &DefaultsReaperContainer)
 }
