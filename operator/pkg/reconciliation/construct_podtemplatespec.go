@@ -109,6 +109,21 @@ func getJvmExtraOpts(dc *api.CassandraDatacenter) string {
 	return flags
 }
 
+func combineVolumeMountSlices(defaults []corev1.VolumeMount, overrides []corev1.VolumeMount) []corev1.VolumeMount {
+	out := append([]corev1.VolumeMount{}, overrides...)
+outerLoop:
+	// Only add the defaults that don't have an override
+	for _, volumeDefault := range defaults {
+		for _, volumeOverride := range overrides {
+			if volumeDefault.Name == volumeOverride.Name {
+				continue outerLoop
+			}
+		}
+		out = append(out, volumeDefault)
+	}
+	return out
+}
+
 func combineEnvSlices(defaults []corev1.EnvVar, overrides []corev1.EnvVar) []corev1.EnvVar {
 	out := append([]corev1.EnvVar{}, overrides...)
 outerLoop:
@@ -176,6 +191,7 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 	if serverCfg.Image == "" {
 		serverCfg.Image = dc.GetConfigBuilderImage()
 	}
+
 	serverCfgMount := corev1.VolumeMount{
 		Name:      "server-config",
 		MountPath: "/config",
@@ -303,15 +319,7 @@ portLoop:
 		MountPath: "/etc/encryption/",
 	})
 
-volumeLoop:
-	for _, volumeDefault := range volumeDefaults {
-		for _, volumeOverride := range cassContainer.VolumeMounts {
-			if volumeDefault.Name == volumeOverride.Name {
-				continue volumeLoop
-			}
-		}
-		cassContainer.VolumeMounts = append(cassContainer.VolumeMounts, volumeDefault)
-	}
+	cassContainer.VolumeMounts = combineVolumeMountSlices(volumeDefaults, cassContainer.VolumeMounts)
 
 	// server logger container
 
