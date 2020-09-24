@@ -206,7 +206,9 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 			break
 		}
 	}
+
 	serverCfg.Name = "server-config-init"
+
 	if serverCfg.Image == "" {
 		serverCfg.Image = dc.GetConfigBuilderImage()
 	}
@@ -215,7 +217,9 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 		Name:      "server-config",
 		MountPath: "/config",
 	}
-	serverCfg.VolumeMounts = []corev1.VolumeMount{serverCfgMount}
+
+	serverCfg.VolumeMounts = combineVolumeMountSlices([]corev1.VolumeMount{serverCfgMount}, serverCfg.VolumeMounts)
+
 	serverCfg.Resources = *getResourcesOrDefault(&dc.Spec.ConfigBuilderResources, &DefaultsConfigInitContainer)
 
 	// Convert the bool to a string for the env var setting
