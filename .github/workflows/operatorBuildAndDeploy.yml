@@ -75,6 +75,8 @@ jobs:
             export MO_BRANCH="master"
           fi
 
+          false
+
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export GITHUB_REPO_URL="https://github.com/${{ github.repository }}"
 

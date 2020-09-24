@@ -26,8 +26,6 @@ GH_TAGS=()
 GH_UBI_TAGS=()
 GH_ARM64_TAGS=()
 
-false
-
 for t in "${FULL_VERSION}" "${GITHUB_SHA}" "latest"; do
   ECR_TAGS+=(--tag "${ECR_REPOSITORY}:${t}")
   ECR_UBI_TAGS+=(--tag "${ECR_REPOSITORY}:${t}-ubi")
