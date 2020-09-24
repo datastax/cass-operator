@@ -237,7 +237,12 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 
 // If values are provided in the "cassandra" container in the
 // PodTemplateSpec field of the dc, they will override defaults.
-func buildContainers(dc *api.CassandraDatacenter, serverVolumeMounts []corev1.VolumeMount, cassContainer corev1.Container) ([]corev1.Container, error) {
+func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec, cassContainer corev1.Container) ([]corev1.Container, error) {
+
+	var serverVolumeMounts []corev1.VolumeMount
+	for _, c := range baseTemplate.Spec.InitContainers {
+		serverVolumeMounts = append(serverVolumeMounts, c.VolumeMounts...)
+	}
 
 	// Cassandra container
 
@@ -396,11 +401,6 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 
 	// Containers
 
-	var serverVolumeMounts []corev1.VolumeMount
-	for _, c := range baseTemplate.Spec.InitContainers {
-		serverVolumeMounts = append(serverVolumeMounts, c.VolumeMounts...)
-	}
-
 	cassContainer := corev1.Container{}
 	for idx, c := range baseTemplate.Spec.Containers {
 		if c.Name == "cassandra" {
@@ -413,7 +413,7 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 		}
 	}
 
-	containers, err := buildContainers(dc, serverVolumeMounts, cassContainer)
+	containers, err := buildContainers(dc, baseTemplate, cassContainer)
 	if err != nil {
 		return nil, err
 	}
