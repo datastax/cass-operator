@@ -348,6 +348,19 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 		baseTemplate = &corev1.PodTemplateSpec{}
 	}
 
+	// Host networking
+
+	if dc.IsHostNetworkEnabled() {
+		baseTemplate.Spec.HostNetwork = true
+		baseTemplate.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet
+	}
+
+	// Adds custom registry pull secret if needed
+
+	_ = images.AddDefaultRegistryImagePullSecrets(&baseTemplate.Spec)
+
+	// Labels
+
 	podLabels := dc.GetRackLabels(rackName)
 	oplabels.AddManagedByLabel(podLabels)
 	podLabels[api.CassNodeState] = stateReadyToStart
@@ -357,11 +370,14 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	}
 	baseTemplate.Labels = utils.MergeMap(baseTemplate.Labels, podLabels)
 
-	// affinity
+	// Affinity
+
 	affinity := &corev1.Affinity{}
 	affinity.NodeAffinity = calculateNodeAffinity(zone)
 	affinity.PodAntiAffinity = calculatePodAntiAffinity(dc.Spec.AllowMultipleNodesPerWorker)
 	baseTemplate.Spec.Affinity = affinity
+
+	// Volumes
 
 	addVolumes(dc, baseTemplate)
 
@@ -371,18 +387,19 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	}
 	baseTemplate.Spec.ServiceAccountName = serviceAccount
 
-	// init containers
+	// Init Containers
+
 	err := buildInitContainers(dc, rackName, baseTemplate)
 	if err != nil {
 		return nil, err
 	}
 
+	// Containers
+
 	var serverVolumeMounts []corev1.VolumeMount
 	for _, c := range baseTemplate.Spec.InitContainers {
 		serverVolumeMounts = append(serverVolumeMounts, c.VolumeMounts...)
 	}
-
-	// containers
 
 	cassContainer := corev1.Container{}
 	for idx, c := range baseTemplate.Spec.Containers {
@@ -402,15 +419,6 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	}
 
 	baseTemplate.Spec.Containers = append(containers, baseTemplate.Spec.Containers...)
-
-	// host networking
-	if dc.IsHostNetworkEnabled() {
-		baseTemplate.Spec.HostNetwork = true
-		baseTemplate.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet
-	}
-
-	// adds custom registry pull secret if needed
-	_ = images.AddDefaultRegistryImagePullSecrets(&baseTemplate.Spec)
 
 	return baseTemplate, nil
 }
