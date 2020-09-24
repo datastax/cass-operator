@@ -364,11 +364,20 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 	// Server Logger Container
 
 	loggerContainer.Name = SystemLoggerContainerName
-	loggerContainer.Image = images.GetSystemLoggerImage()
-	loggerContainer.Args = []string{
-		"/bin/sh", "-c", "tail -n+1 -F /var/log/cassandra/system.log",
+
+	if loggerContainer.Image == "" {
+		loggerContainer.Image = images.GetSystemLoggerImage()
 	}
-	loggerContainer.VolumeMounts = []corev1.VolumeMount{cassServerLogsMount}
+
+	if reflect.DeepEqual(loggerContainer.Args, []string{}) {
+		loggerContainer.Args = []string{
+			"/bin/sh", "-c", "tail -n+1 -F /var/log/cassandra/system.log",
+		}
+	}
+
+	loggerContainer.VolumeMounts = combineVolumeMountSlices(
+		[]corev1.VolumeMount{cassServerLogsMount}, loggerContainer.VolumeMounts)
+
 	loggerContainer.Resources = *getResourcesOrDefault(&dc.Spec.SystemLoggerResources, &DefaultsLoggerContainer)
 
 	if !foundLogger {
