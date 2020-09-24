@@ -128,6 +128,21 @@ outerLoop:
 	return out
 }
 
+func combinePortSlices(defaults []corev1.ContainerPort, overrides []corev1.ContainerPort) []corev1.ContainerPort {
+	out := append([]corev1.ContainerPort{}, overrides...)
+outerLoop:
+	// Only add the defaults that don't have an override
+	for _, portDefault := range defaults {
+		for _, portOverride := range overrides {
+			if portDefault.Name == portOverride.Name {
+				continue outerLoop
+			}
+		}
+		out = append(out, portDefault)
+	}
+	return out
+}
+
 func combineEnvSlices(defaults []corev1.EnvVar, overrides []corev1.EnvVar) []corev1.EnvVar {
 	out := append([]corev1.EnvVar{}, overrides...)
 outerLoop:
@@ -265,13 +280,6 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		}
 	}
 
-	// Volumes
-
-	var serverVolumeMounts []corev1.VolumeMount
-	for _, c := range baseTemplate.Spec.InitContainers {
-		serverVolumeMounts = append(serverVolumeMounts, c.VolumeMounts...)
-	}
-
 	// Cassandra container
 
 	cassContainer.Name = CassandraContainerName
@@ -322,19 +330,14 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		return err
 	}
 
-portLoop:
-	for _, portDefault := range portDefaults {
-		for _, portOverride := range cassContainer.Ports {
-			if portDefault.Name == portOverride.Name {
-				continue portLoop
-			}
-		}
-		cassContainer.Ports = append(cassContainer.Ports, portDefault)
-	}
+	cassContainer.Ports = combinePortSlices(portDefaults, cassContainer.Ports)
 
 	// Combine volumes
 
-	volumeDefaults := []corev1.VolumeMount{}
+	var volumeDefaults []corev1.VolumeMount
+	for _, c := range baseTemplate.Spec.InitContainers {
+		volumeDefaults = append(volumeDefaults, c.VolumeMounts...)
+	}
 
 	cassServerLogsMount := corev1.VolumeMount{
 		Name:      "server-logs",
