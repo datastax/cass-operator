@@ -19,4 +19,4 @@ dev:
   images:
     - datastax/dse-server:6.8.3
     - datastax/cass-config-builder:1.0.3
-    - datastax/cassandra-mgmtapi-3_11_7:v0.1.12
+    - datastax/cassandra-mgmtapi-3_11_7:v0.1.13
