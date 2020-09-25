@@ -286,7 +286,8 @@ spec:
       initContainers:
         - name: "server-config-init"
           env:
-          - foo: bar          
+          - name: "EXTRA_PARAM"
+            value: "123"
       containers:
         - name: "cassandra"
           terminationMessagePath: "/dev/other-termination-log"
