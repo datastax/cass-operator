@@ -20,6 +20,7 @@ import (
 )
 
 const (
+	ServerConfigContainerName = "server-config-init"
 	CassandraContainerName    = "cassandra"
 	PvcName                   = "server-data"
 	SystemLoggerContainerName = "server-system-logger"
@@ -198,16 +199,17 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 
 	serverCfg := &corev1.Container{}
 	foundOverrides := false
-	for _, c := range baseTemplate.Spec.InitContainers {
-		if c.Name == "server-config-init" {
+
+	for i, c := range baseTemplate.Spec.InitContainers {
+		if c.Name == ServerConfigContainerName {
 			// Modify the existing container
 			foundOverrides = true
-			serverCfg = &c
+			serverCfg = &baseTemplate.Spec.InitContainers[i]
 			break
 		}
 	}
 
-	serverCfg.Name = "server-config-init"
+	serverCfg.Name = ServerConfigContainerName
 
 	if serverCfg.Image == "" {
 		serverCfg.Image = dc.GetConfigBuilderImage()

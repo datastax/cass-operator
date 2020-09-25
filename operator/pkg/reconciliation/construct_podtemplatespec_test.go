@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
-	"github.com/datastax/cass-operator/operator/pkg/oplabels"
+	//	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -102,6 +102,57 @@ func TestCassandraDatacenter_buildInitContainer_resources_set_when_not_specified
 	}
 }
 
+func TestCassandraDatacenter_buildInitContainer_with_overrides(t *testing.T) {
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName:   "bob",
+			ServerType:    "cassandra",
+			ServerVersion: "3.11.7",
+		},
+	}
+
+	podTemplateSpec := &corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{
+			InitContainers: []corev1.Container{
+				corev1.Container{
+					Name: ServerConfigContainerName,
+					Env: []corev1.EnvVar{
+						corev1.EnvVar{
+							Name:  "k1",
+							Value: "v1",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := buildInitContainers(dc, "testRack", podTemplateSpec)
+	initContainers := podTemplateSpec.Spec.InitContainers
+	assert.NotNil(t, initContainers, "Unexpected init containers received")
+	assert.Nil(t, err, "Unexpected error encountered")
+
+	assert.Len(t, initContainers, 1, "Unexpected number of init containers returned")
+	if !reflect.DeepEqual(initContainers[0].Resources, DefaultsConfigInitContainer) {
+		t.Error("Unexpected default resources allocated for the init container.")
+	}
+	if !reflect.DeepEqual(initContainers[0].Env[0],
+		corev1.EnvVar{
+			Name:  "k1",
+			Value: "v1",
+		}) {
+		t.Errorf("Unexpected env vars allocated for the init container: %v", initContainers[0].Env)
+	}
+	if !reflect.DeepEqual(initContainers[0].Env[4],
+		corev1.EnvVar{
+			Name:  "USE_HOST_IP_FOR_BROADCAST",
+			Value: "false",
+		}) {
+		t.Errorf("Unexpected env vars allocated for the init container: %v", initContainers[0].Env)
+	}
+}
+
+/*
 func TestCassandraDatacenter_buildContainers_systemlogger_resources_set(t *testing.T) {
 	dc := &api.CassandraDatacenter{
 		Spec: api.CassandraDatacenterSpec{
@@ -332,3 +383,4 @@ func TestCassandraDatacenter_buildPodTemplateSpec_labels_merge(t *testing.T) {
 		t.Errorf("labels = %v, want %v", got, expected)
 	}
 }
+*/
