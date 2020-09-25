@@ -129,6 +129,21 @@ outerLoop:
 	return out
 }
 
+func combineVolumeSlices(defaults []corev1.Volume, overrides []corev1.Volume) []corev1.Volume {
+	out := append([]corev1.Volume{}, overrides...)
+outerLoop:
+	// Only add the defaults that don't have an override
+	for _, volumeDefault := range defaults {
+		for _, volumeOverride := range overrides {
+			if volumeDefault.Name == volumeOverride.Name {
+				continue outerLoop
+			}
+		}
+		out = append(out, volumeDefault)
+	}
+	return out
+}
+
 func combinePortSlices(defaults []corev1.ContainerPort, overrides []corev1.ContainerPort) []corev1.ContainerPort {
 	out := append([]corev1.ContainerPort{}, overrides...)
 outerLoop:
@@ -159,7 +174,7 @@ outerLoop:
 	return out
 }
 
-func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) []corev1.Volume {
+func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) {
 	vServerConfig := corev1.Volume{}
 	vServerConfig.Name = "server-config"
 	vServerConfig.VolumeSource = corev1.VolumeSource{
@@ -181,17 +196,8 @@ func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpe
 
 	volumes := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
 
-volLoop:
-	for _, volumeDefault := range volumes {
-		for _, volumeOverride := range baseTemplate.Spec.Volumes {
-			if volumeDefault.Name == volumeOverride.Name {
-				continue volLoop
-			}
-		}
-		baseTemplate.Spec.Volumes = append(baseTemplate.Spec.Volumes, volumeDefault)
-	}
-
-	return volumes
+	baseTemplate.Spec.Volumes = combineVolumeSlices(
+		volumes, baseTemplate.Spec.Volumes)
 }
 
 // This ensure that the server-config-builder init container is properly configured.
@@ -342,7 +348,7 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 
 	var volumeDefaults []corev1.VolumeMount
 	for _, c := range baseTemplate.Spec.InitContainers {
-		volumeDefaults = append(volumeDefaults, c.VolumeMounts...)
+		volumeDefaults = combineVolumeMountSlices(volumeDefaults, c.VolumeMounts)
 	}
 
 	cassServerLogsMount := corev1.VolumeMount{
@@ -363,10 +369,6 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 
 	cassContainer.VolumeMounts = combineVolumeMountSlices(volumeDefaults, cassContainer.VolumeMounts)
 
-	if !foundCass {
-		baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *cassContainer)
-	}
-
 	// Server Logger Container
 
 	loggerContainer.Name = SystemLoggerContainerName
@@ -385,16 +387,24 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		[]corev1.VolumeMount{cassServerLogsMount}, loggerContainer.VolumeMounts)
 
 	loggerContainer.Resources = *getResourcesOrDefault(&dc.Spec.SystemLoggerResources, &DefaultsLoggerContainer)
+	// Reaper Container
+
+	if dc.IsReaperEnabled() {
+		buildReaperContainer(dc, reaperContainer)
+	}
+
+	// Note that append() can make copies of each element,
+	// so we call it after modifying any existing elements.
+
+	if !foundCass {
+		baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *cassContainer)
+	}
 
 	if !foundLogger {
 		baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *loggerContainer)
 	}
 
-	// Reaper Container
-
 	if dc.IsReaperEnabled() {
-		buildReaperContainer(dc, reaperContainer)
-
 		if !foundReaper {
 			baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *reaperContainer)
 		}

@@ -296,8 +296,61 @@ func TestCassandraDatacenter_buildContainers_use_cassandra_settings(t *testing.T
 	}
 
 	if !reflect.DeepEqual(containers[0].Env[0].Name, "k1") {
-		t.Errorf("container env var = %v", containers[0].Env)
-		t.Error("environment variables for cassandra container are not being merged properly.")
+		t.Errorf("Unexpected env vars allocated for the cassandra container: %v", containers[0].Env)
+	}
+}
+
+func TestCassandraDatacenter_buildContainers_override_other_containers(t *testing.T) {
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName:   "bob",
+			ServerType:    "cassandra",
+			ServerVersion: "3.11.7",
+			Reaper: &api.ReaperConfig{
+				Enabled: true,
+			},
+		},
+	}
+
+	podTemplateSpec := &corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				corev1.Container{
+					Name: SystemLoggerContainerName,
+					VolumeMounts: []corev1.VolumeMount{
+						corev1.VolumeMount{
+							Name:      "extra",
+							MountPath: "/extra",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	err := buildContainers(dc, podTemplateSpec)
+	containers := podTemplateSpec.Spec.Containers
+	assert.NotNil(t, containers, "Unexpected containers containers received")
+	assert.Nil(t, err, "Unexpected error encountered")
+
+	assert.Len(t, containers, 3, "Unexpected number of containers containers returned")
+	if !reflect.DeepEqual(containers[2].Resources, DefaultsReaperContainer) {
+		t.Error("reaper container resources are not set to the default values.")
+	}
+
+	if !reflect.DeepEqual(containers[0].VolumeMounts,
+		[]corev1.VolumeMount{
+			corev1.VolumeMount{
+				Name:      "extra",
+				MountPath: "/extra",
+			},
+			corev1.VolumeMount{
+				Name:      "server-logs",
+				MountPath: "/var/log/cassandra",
+			},
+		}) {
+		t.Errorf("Unexpected volume mounts for the logger container: %v", containers[0].VolumeMounts)
+		t.Errorf("Unexpected volume mounts for the logger container: %v", containers[0])
 	}
 }
 
