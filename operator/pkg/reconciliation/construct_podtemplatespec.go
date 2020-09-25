@@ -266,7 +266,7 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 	return nil
 }
 
-// If values are provided in the "cassandra" container in the
+// If values are provided in the matching containers in the
 // PodTemplateSpec field of the dc, they will override defaults.
 func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) error {
 
