@@ -273,16 +273,16 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 	foundCass := false
 	foundLogger := false
 	foundReaper := false
-	for _, c := range baseTemplate.Spec.Containers {
+	for i, c := range baseTemplate.Spec.Containers {
 		if c.Name == CassandraContainerName {
 			foundCass = true
-			cassContainer = &c
+			cassContainer = &baseTemplate.Spec.Containers[i]
 		} else if c.Name == SystemLoggerContainerName {
 			foundLogger = true
-			loggerContainer = &c
+			loggerContainer = &baseTemplate.Spec.Containers[i]
 		} else if c.Name == ReaperContainerName {
 			foundReaper = true
-			reaperContainer = &c
+			reaperContainer = &baseTemplate.Spec.Containers[i]
 		}
 	}
 

@@ -10,7 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
-	//	"github.com/datastax/cass-operator/operator/pkg/oplabels"
+	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 )
@@ -152,7 +152,6 @@ func TestCassandraDatacenter_buildInitContainer_with_overrides(t *testing.T) {
 	}
 }
 
-/*
 func TestCassandraDatacenter_buildContainers_systemlogger_resources_set(t *testing.T) {
 	dc := &api.CassandraDatacenter{
 		Spec: api.CassandraDatacenterSpec{
@@ -383,4 +382,3 @@ func TestCassandraDatacenter_buildPodTemplateSpec_labels_merge(t *testing.T) {
 		t.Errorf("labels = %v, want %v", got, expected)
 	}
 }
-*/
