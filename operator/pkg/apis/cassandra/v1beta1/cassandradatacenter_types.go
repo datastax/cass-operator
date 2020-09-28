@@ -13,9 +13,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/datastax/cass-operator/operator/pkg/images"
 	"github.com/datastax/cass-operator/operator/pkg/serverconfig"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
-	"github.com/datastax/cass-operator/operator/pkg/images"
 )
 
 const (
@@ -234,7 +234,7 @@ const (
 	DatacenterStopped        DatacenterConditionType = "Stopped"
 	DatacenterResuming       DatacenterConditionType = "Resuming"
 	DatacenterRollingRestart DatacenterConditionType = "RollingRestart"
-	DatacenterConditionValid DatacenterConditionType = "DatacenterConditionValid"
+	DatacenterValid          DatacenterConditionType = "Valid"
 )
 
 type DatacenterCondition struct {

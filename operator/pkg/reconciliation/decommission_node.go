@@ -330,7 +330,7 @@ func (rc *ReconciliationContext) EnsurePodsCanAbsorbDecommData(decommPod *v1.Pod
 
 			dcPatch := client.MergeFrom(rc.Datacenter.DeepCopy())
 			updated := rc.setCondition(
-				api.NewDatacenterConditionWithReason(api.DatacenterConditionValid,
+				api.NewDatacenterConditionWithReason(api.DatacenterValid,
 					corev1.ConditionFalse, "notEnoughSpaceToScaleDown", msg,
 				),
 			)
@@ -338,7 +338,7 @@ func (rc *ReconciliationContext) EnsurePodsCanAbsorbDecommData(decommPod *v1.Pod
 			if updated {
 				patchErr := rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, dcPatch)
 				if patchErr != nil {
-					msg := "error patching condition datacenterConditionValid for failed scale down."
+					msg := "error patching condition DatacenterValid for failed scale down."
 					rc.ReqLogger.Error(patchErr, msg)
 					return patchErr
 				}
