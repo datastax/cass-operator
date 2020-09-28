@@ -350,7 +350,6 @@ func TestCassandraDatacenter_buildContainers_override_other_containers(t *testin
 			},
 		}) {
 		t.Errorf("Unexpected volume mounts for the logger container: %v", containers[0].VolumeMounts)
-		t.Errorf("Unexpected volume mounts for the logger container: %v", containers[0])
 	}
 }
 
@@ -433,5 +432,85 @@ func TestCassandraDatacenter_buildPodTemplateSpec_labels_merge(t *testing.T) {
 	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
 	if !reflect.DeepEqual(expected, got) {
 		t.Errorf("labels = %v, want %v", got, expected)
+	}
+}
+
+// A volume added to ServerConfigContainerName should be added to all built-in containers
+func TestCassandraDatacenter_buildPodTemplateSpec_propagate_volumes(t *testing.T) {
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName:   "bob",
+			ServerType:    "cassandra",
+			ServerVersion: "3.11.7",
+			PodTemplateSpec: &corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{
+						corev1.Container{
+							Name: ServerConfigContainerName,
+							VolumeMounts: []corev1.VolumeMount{
+								corev1.VolumeMount{
+									Name:      "extra",
+									MountPath: "/extra",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	spec, err := buildPodTemplateSpec(dc, "testzone", "testrack")
+	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
+
+	if !reflect.DeepEqual(spec.Spec.InitContainers[0].VolumeMounts,
+		[]corev1.VolumeMount{
+			corev1.VolumeMount{
+				Name:      "extra",
+				MountPath: "/extra",
+			},
+			corev1.VolumeMount{
+				Name:      "server-config",
+				MountPath: "/config",
+			},
+		}) {
+		t.Errorf("Unexpected volume mounts for the init config container: %v", spec.Spec.InitContainers[0].VolumeMounts)
+	}
+
+	if !reflect.DeepEqual(spec.Spec.Containers[0].VolumeMounts,
+		[]corev1.VolumeMount{
+			corev1.VolumeMount{
+				Name:      "extra",
+				MountPath: "/extra",
+			},
+			corev1.VolumeMount{
+				Name:      "server-config",
+				MountPath: "/config",
+			},
+			corev1.VolumeMount{
+				Name:      "server-logs",
+				MountPath: "/var/log/cassandra",
+			},
+			corev1.VolumeMount{
+				Name:      "server-data",
+				MountPath: "/var/lib/cassandra",
+			},
+			corev1.VolumeMount{
+				Name:      "encryption-cred-storage",
+				MountPath: "/etc/encryption/",
+			},
+		}) {
+		t.Errorf("Unexpected volume mounts for the cassandra container: %v", spec.Spec.Containers[0].VolumeMounts)
+	}
+
+	// Logger just gets the logs
+	if !reflect.DeepEqual(spec.Spec.Containers[1].VolumeMounts,
+		[]corev1.VolumeMount{
+			corev1.VolumeMount{
+				Name:      "server-logs",
+				MountPath: "/var/log/cassandra",
+			},
+		}) {
+		t.Errorf("Unexpected volume mounts for the logger container: %v", spec.Spec.Containers[1].VolumeMounts)
 	}
 }

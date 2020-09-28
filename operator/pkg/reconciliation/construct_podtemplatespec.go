@@ -387,6 +387,7 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		[]corev1.VolumeMount{cassServerLogsMount}, loggerContainer.VolumeMounts)
 
 	loggerContainer.Resources = *getResourcesOrDefault(&dc.Spec.SystemLoggerResources, &DefaultsLoggerContainer)
+
 	// Reaper Container
 
 	if dc.IsReaperEnabled() {
