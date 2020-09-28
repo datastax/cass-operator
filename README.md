@@ -261,7 +261,7 @@ The operator is comprised of the following container images working in concert:
 
 ### Overriding properties of cass-operator created Containers
 
-If the CassandraDatacenter specifies a podTemplateSpec field, then conatiners with specific names can be used to override default settings in containers that will be created by cass-operator.
+If the CassandraDatacenter specifies a podTemplateSpec field, then containers with specific names can be used to override default settings in containers that will be created by cass-operator.
 
 Currently cass-operator will create an InitContainer with the name of "server-config-init". Normal Containers that will be created have the names "cassandra", "server-system-logger", and optionally "reaper". 
 
