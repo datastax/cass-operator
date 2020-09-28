@@ -17,11 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-func (rc *ReconciliationContext) CalculateRackInfoForDecomm() ([]*RackInformation, error) {
-	currentSize := 0
-	for _, sts := range rc.statefulSets {
-		currentSize += int(*sts.Spec.Replicas)
-	}
+func (rc *ReconciliationContext) CalculateRackInfoForDecomm(currentSize int) ([]*RackInformation, error) {
 	racks := rc.Datacenter.GetRacks()
 	rackCount := len(racks)
 
@@ -51,7 +47,16 @@ func (rc *ReconciliationContext) DecommissionNodes(epData httphelper.CassMetadat
 	logger.Info("reconcile_racks::DecommissionNodes")
 	dc := rc.Datacenter
 
-	decommRackInfo, err := rc.CalculateRackInfoForDecomm()
+	var currentSize int32
+	for _, sts := range rc.statefulSets {
+		currentSize += *sts.Spec.Replicas
+	}
+
+	if currentSize <= dc.Spec.Size {
+		return result.Continue()
+	}
+
+	decommRackInfo, err := rc.CalculateRackInfoForDecomm(int(currentSize))
 	if err != nil {
 		logger.Error(err, "error calculating rack info for decommissioning nodes")
 		return result.Error(err)
@@ -122,7 +127,7 @@ func (rc *ReconciliationContext) DecommissionNodeOnRack(rackName string, epData 
 			if err := rc.NodeMgmtClient.CallDecommissionNodeEndpoint(pod); err != nil {
 				// TODO this returns a 500 when it works
 				// We are waiting for a new version of mgmt api with a fix for this
-				// return false, err
+				// return err
 			}
 
 			rc.ReqLogger.Info("Marking node as decommissioning")
