@@ -5,7 +5,7 @@ metadata:
 spec:
   clusterName: cluster1
   serverType: dse
-  serverVersion: "6.8.3"
+  serverVersion: "6.8.4"
   managementApiAuth:
     insecure: {}
   size: 4

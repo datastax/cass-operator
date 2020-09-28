@@ -48,11 +48,13 @@ const (
 	DSE_6_8_1
 	DSE_6_8_2
 	DSE_6_8_3
+	DSE_6_8_4
 
 	UBIDSE_6_8_0
 	UBIDSE_6_8_1
 	UBIDSE_6_8_2
 	UBIDSE_6_8_3
+	UBIDSE_6_8_4
 
 	ConfigBuilder
 	UBIConfigBuilder
@@ -79,11 +81,13 @@ var imageLookupMap map[Image]string = map[Image]string {
 	DSE_6_8_1: "datastax/dse-server:6.8.1",
 	DSE_6_8_2: "datastax/dse-server:6.8.2",
 	DSE_6_8_3: "datastax/dse-server:6.8.3",
+	DSE_6_8_4: "datastax/dse-server:6.8.4",
 
 	UBIDSE_6_8_0: "datastax/dse-server:6.8.0-ubi7",
 	UBIDSE_6_8_1: "datastax/dse-server:6.8.1-ubi7",
 	UBIDSE_6_8_2: "datastax/dse-server:6.8.2-ubi7",
 	UBIDSE_6_8_3: "datastax/dse-server:6.8.3-ubi7",
+	UBIDSE_6_8_4: "datastax/dse-server:6.8.4-ubi7",
 
 	ConfigBuilder:    "datastax/cass-config-builder:1.0.3",
 	UBIConfigBuilder: "datastax/cass-config-builder:1.0.3-ubi7",
@@ -109,6 +113,7 @@ var versionToDSE map[string]Image = map[string]Image {
 	"6.8.1": DSE_6_8_1,
 	"6.8.2": DSE_6_8_2,
 	"6.8.3": DSE_6_8_3,
+	"6.8.4": DSE_6_8_4,
 }
 
 var versionToUBIDSE map[string]Image = map[string]Image {
@@ -116,6 +121,7 @@ var versionToUBIDSE map[string]Image = map[string]Image {
 	"6.8.1": UBIDSE_6_8_1,
 	"6.8.2": UBIDSE_6_8_2,
 	"6.8.3": UBIDSE_6_8_3,
+	"6.8.4": UBIDSE_6_8_4,
 }
 
 var log = logf.Log.WithName("images")
