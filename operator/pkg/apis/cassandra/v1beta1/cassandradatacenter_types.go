@@ -122,6 +122,10 @@ type CassandraDatacenterSpec struct {
 	// the first rack of the datacenter
 	CanaryUpgrade bool `json:"canaryUpgrade,omitempty"`
 
+	// The number of nodes that will be updated when CanaryUpgrade is true. Note that the value is
+	// either 0 or greater than the rack size, then all nodes in the rack will get updated.
+	CanaryUpgradeCount int32 `json:"canaryUpgradeCount,omitempty"`
+
 	// Turning this option on allows multiple server pods to be created on a k8s worker node.
 	// By default the operator creates just one server pod per k8s worker node using k8s
 	// podAntiAffinity and requiredDuringSchedulingIgnoredDuringExecution.

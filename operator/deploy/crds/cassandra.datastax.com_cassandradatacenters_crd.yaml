@@ -48,6 +48,12 @@ spec:
               description: Indicates that configuration and container image changes
                 should only be pushed to the first rack of the datacenter
               type: boolean
+            canaryUpgradeCount:
+              description: The number of nodes that will be updated when CanaryUpgrade
+                is true. Note that the value is either 0 or greater than the rack
+                size, then all nodes in the rack will get updated.
+              format: int32
+              type: integer
             clusterName:
               description: The name by which CQL clients and instances will know the
                 cluster. If the same cluster name is shared by multiple Datacenters

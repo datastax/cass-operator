@@ -316,6 +316,16 @@ func (ns *NsWrapper) WaitForPodStarted(podName string) {
 	ns.WaitForOutputAndLog(step, k, podName, 60)
 }
 
+func (ns *NsWrapper) WaitForCassandraImages(dcName string, expectedImages []string, timeout int) {
+	step := "verify cassandra image updates"
+	images := strings.Join(expectedImages, " ")
+	json := "jsonpath={.items[*].spec.containers[?(@.name == 'cassandra')].image}"
+	k := kubectl.Get("pods").
+		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, images, timeout)
+}
+
 func (ns *NsWrapper) DisableGossipWaitNotReady(podName string) {
 	ns.DisableGossip(podName)
 	ns.WaitForPodNotStarted(podName)
@@ -368,6 +378,19 @@ func (ns *NsWrapper) GetDatacenterReadyPodNames(dcName string) []string {
 	sort.Strings(podNames)
 
 	return podNames
+}
+
+func (ns *NsWrapper) GetCassandraContainerImages(dcName string) []string {
+	json := "jsonpath={.items[*].spec.containers[?(@.name == 'cassandra')].image}"
+	k := kubectl.Get("pods").
+		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		FormatOutput(json)
+
+	output := ns.OutputPanic(k)
+	images := strings.Split(output, " ")
+	sort.Strings(images)
+
+	return images
 }
 
 func (ns *NsWrapper) WaitForOperatorReady() {
