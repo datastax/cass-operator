@@ -1998,6 +1998,7 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 		api.DatacenterUpdating,
 		api.DatacenterRollingRestart,
 		api.DatacenterResuming,
+		api.DatacenterStopped,
 		api.DatacenterScalingDown,
 	}
 	conditionsThatShouldBeTrue := []api.DatacenterConditionType{
