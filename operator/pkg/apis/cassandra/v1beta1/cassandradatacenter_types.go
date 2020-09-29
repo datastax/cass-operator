@@ -13,9 +13,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	"github.com/datastax/cass-operator/operator/pkg/images"
 	"github.com/datastax/cass-operator/operator/pkg/serverconfig"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
-	"github.com/datastax/cass-operator/operator/pkg/images"
 )
 
 const (
@@ -398,6 +398,13 @@ func (dc *CassandraDatacenter) GetRackLabels(rackName string) map[string]string 
 	utils.MergeMap(labels, dc.GetDatacenterLabels())
 
 	return labels
+}
+
+func (dc *CassandraDatacenter) IsReaperEnabled() bool {
+	if dc.Spec.Reaper != nil && dc.Spec.Reaper.Enabled && dc.Spec.ServerType == "cassandra" {
+		return true
+	}
+	return false
 }
 
 func (status *CassandraDatacenterStatus) GetConditionStatus(conditionType DatacenterConditionType) corev1.ConditionStatus {
