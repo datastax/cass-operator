@@ -318,7 +318,7 @@ for your `CassandraDatacenter` resource, you can use the `serverType`, `serverVe
 spec properties.
 
 `serverType` is required and must be either `dse` or `cassandra`. `serverVersion` is also required,
-and the supported versions for DSE are `6.8.0` through `6.8.3`, and for Cassandra it is `3.11.6` through `3.11.7`. More versions
+and the supported versions for DSE are `6.8.0` through `6.8.4`, and for Cassandra it is `3.11.6` through `3.11.7`. More versions
 will be supported in the future.
 
 If `serverImage` is not specified, a default image for the provided `serverType` and
@@ -333,7 +333,7 @@ metadata:
   name: dtcntr
 spec:
   serverType: dse
-  serverVersion: 6.8.3
+  serverVersion: 6.8.4
 
 ```
 
@@ -359,7 +359,7 @@ metadata:
   name: dtcntr
 spec:
   serverType: dse
-  serverVersion: 6.8.3
+  serverVersion: 6.8.4
   serverImage: private-docker-registry.example.com/dse-img/dse:5f6e7d8c
 ```
 

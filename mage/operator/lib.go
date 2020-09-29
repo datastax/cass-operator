@@ -24,6 +24,8 @@ import (
 
 const (
 	dockerBase                 = "./operator/docker/base/Dockerfile"
+	cassOperatorTarget         = "cass-operator"
+	cassOperatorUbiTarget      = "cass-operator-ubi"
 	dockerUbi                  = "./operator/docker/ubi/Dockerfile"
 	rootBuildDir               = "./build"
 	sdkBuildDir                = "operator/build"
@@ -376,10 +378,10 @@ func calcVersionAndTags(version FullVersion, ubiBase bool) (string, []string) {
 	return versionedTag, tagsToPush
 }
 
-func runDockerBuild(versionedTag string, dockerTags []string, extraBuildArgs []string, dockerfile string) {
+func runDockerBuild(versionedTag string, dockerTags []string, extraBuildArgs []string, target string) {
 	buildArgs := []string{fmt.Sprintf("VERSION_STAMP=%s", versionedTag)}
 	buildArgs = append(buildArgs, extraBuildArgs...)
-	dockerutil.Build(".", "", dockerfile, dockerTags, buildArgs).ExecVPanic()
+	dockerutil.Build(".", target, dockerBase, dockerTags, buildArgs).ExecVPanic()
 }
 
 func runGoBuild(version string) {
@@ -393,6 +395,18 @@ func runGoBuild(version string) {
 	}
 	shutil.RunVPanic("go", goArgs...)
 	os.Chdir("..")
+}
+
+func PrintVersion() {
+	settings := cfgutil.ReadBuildSettings()
+	fmt.Printf("%v\n", settings.Version)
+}
+
+func PrintFullVersion() {
+	settings := cfgutil.ReadBuildSettings()
+	git := getGitData()
+	version := calcFullVersion(settings, git)
+	fmt.Printf("%v\n", version)
 }
 
 // Builds operator go code.
@@ -446,13 +460,13 @@ func BuildDocker() {
 
 	//build regular docker image
 	versionedTag, dockerTags := calcVersionAndTags(version, false)
-	runDockerBuild(versionedTag, dockerTags, nil, dockerBase)
+	runDockerBuild(versionedTag, dockerTags, nil, cassOperatorTarget)
 
 	if baseOs := os.Getenv(EnvBaseOs); baseOs != "" {
 		//build ubi docker image
 		args := []string{fmt.Sprintf("BASE_OS=%s", baseOs)}
 		ubiVersionedTag, ubiDockerTags := calcVersionAndTags(version, true)
-		runDockerBuild(ubiVersionedTag, ubiDockerTags, args, dockerUbi)
+		runDockerBuild(ubiVersionedTag, ubiDockerTags, args, cassOperatorUbiTarget)
 		dockerTags = append(dockerTags, ubiDockerTags...)
 	}
 

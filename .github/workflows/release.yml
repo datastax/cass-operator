@@ -1,0 +1,25 @@
+name: Docker Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release_cass_operator:
+    name: Release Cass Operator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Login Skopeo DockerHub
+        run: echo "${{ secrets.DOCKERHUB_PASS }}" | skopeo login -u "${{ secrets.DOCKERHUB_USER }}" --password-stdin docker.io
+      - name: Login Skopeo ECR
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.ECR_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.ECR_SECRET }}
+        run: aws ecr get-login-password --region us-east-1 | skopeo login -u AWS --password-stdin ${ECR_REPO}
+      - name: Publish to Dockerhub
+        env:
+          ECR_REPO: ${{ secrets.ECR_REPO }}
+        run: |
+          ./scripts/push-release.sh
