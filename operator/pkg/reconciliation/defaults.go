@@ -5,7 +5,7 @@ var (
 	DefaultsLoggerContainer = buildResourceRequirements(100, 64)
 
 	// Provides reasonable defaults for the configuration container.
-	DefaultsConfigInitContainer = buildResourceRequirements(256, 256)
+	DefaultsConfigInitContainer = buildResourceRequirements(1000, 256)
 
 	// Provides reasonable defaults for the reaper sidecar container.
 	DefaultsReaperContainer = buildResourceRequirements(2000, 512)
