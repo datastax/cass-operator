@@ -20,10 +20,11 @@ import (
 )
 
 const (
-	ServerConfigContainerName = "server-config-init"
-	CassandraContainerName    = "cassandra"
-	PvcName                   = "server-data"
-	SystemLoggerContainerName = "server-system-logger"
+	DefaultTerminationGracePeriodSeconds = 120
+	ServerConfigContainerName            = "server-config-init"
+	CassandraContainerName               = "cassandra"
+	PvcName                              = "server-data"
+	SystemLoggerContainerName            = "server-system-logger"
 )
 
 // calculateNodeAffinity provides a way to pin all pods within a statefulset to the same zone
@@ -435,6 +436,12 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	if dc.IsHostNetworkEnabled() {
 		baseTemplate.Spec.HostNetwork = true
 		baseTemplate.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet
+	}
+
+	if baseTemplate.Spec.TerminationGracePeriodSeconds == nil {
+		// Note: we cannot take the address of a constant
+		gracePeriodSeconds := int64(DefaultTerminationGracePeriodSeconds)
+		baseTemplate.Spec.TerminationGracePeriodSeconds = &gracePeriodSeconds
 	}
 
 	// Adds custom registry pull secret if needed
