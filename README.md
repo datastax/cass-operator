@@ -243,6 +243,7 @@ helm install --set image=docker.pkg.github.com/datastax/cass-operator/operator:l
 - Rolling reboot nodes by changing the CRD
 - Store data in a rack-safe way - one replica per cloud AZ
 - Scale up racks evenly with new nodes
+- Scale down racks evenly by decommissioning existing nodes
 - Replace dead/unrecoverable nodes
 - Multi DC clusters (limited to one Kubernetes namespace)
 
@@ -337,7 +338,6 @@ Kubernetes distribution you're using to do so.
 
 ## Not (Yet) Supported Features
 
-- Scaling down / reducing the number of database nodes in a DC
 - Cassandra:
   - Integrated data repair solution
   - Integrated backup and restore solution
