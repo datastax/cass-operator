@@ -32,6 +32,10 @@ const (
 	ReaperSchemaInitJobImage = "jsanda/reaper-init-keyspace:latest"
 )
 
+// We are passing in container by reference because the user may have already provided a
+// reaper container with desired settings in CassandraDatacenter.Spec.PodTemplateSpec.
+// Therefore we will simply fill-in any missing defaults inside of buildReaperContainer.
+// TODO: provide more unit testing for building reaper containers.
 func buildReaperContainer(dc *api.CassandraDatacenter, container *corev1.Container) {
 
 	ports := []corev1.ContainerPort{
