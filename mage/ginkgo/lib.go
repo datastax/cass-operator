@@ -400,7 +400,7 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 		WithLabel("name=cass-operator").
 		WithFlag("field-selector", "status.phase=Running").
 		FormatOutput(json)
-	ns.WaitForOutputAndLog(step, k, "true", 240)
+	ns.WaitForOutputAndLog(step, k, "true", 360)
 }
 
 // kubectl create secret docker-registry github-docker-registry --docker-username=USER --docker-password=PASS --docker-server docker.pkg.github.com
@@ -417,7 +417,7 @@ func CreateDockerRegistrySecret(name string, namespace string) {
 
 func (ns NsWrapper) HelmInstall(chartPath string, overrides ...string) {
 	overridesMap := map[string]string{}
-	for i := 0; i < len(overrides) - 1; i = i+2 {
+	for i := 0; i < len(overrides)-1; i = i + 2 {
 		overridesMap[overrides[i]] = overrides[i+1]
 	}
 	HelmInstallWithOverrides(chartPath, ns.Namespace, overridesMap)

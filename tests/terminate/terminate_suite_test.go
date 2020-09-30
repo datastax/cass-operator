@@ -53,7 +53,7 @@ var _ = Describe(testName, func() {
 				WithLabel("name=cass-operator").
 				WithFlag("field-selector", "status.phase=Running").
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true", 120)
+			ns.WaitForOutputAndLog(step, k, "true", 360)
 
 			step = "creating a datacenter resource with 1 racks/1 nodes"
 			k = kubectl.ApplyFiles(dcYaml)
@@ -71,7 +71,7 @@ var _ = Describe(testName, func() {
 			json = "jsonpath={.status.cassandraOperatorProgress}"
 			k = kubectl.Get(dcResource).
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "Ready", 30)
+			ns.WaitForOutputAndLog(step, k, "Ready", 60)
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
