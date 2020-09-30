@@ -10,6 +10,7 @@ import (
 	"reflect"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/images"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
@@ -315,6 +316,16 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 
 	if cassContainer.ReadinessProbe == nil {
 		cassContainer.ReadinessProbe = probe(8080, "/api/v0/probes/readiness", 20, 10)
+	}
+
+	if cassContainer.Lifecycle == nil {
+		cassContainer.Lifecycle = &corev1.Lifecycle{}
+	}
+
+	if cassContainer.Lifecycle.PreStop == nil {
+		cassContainer.Lifecycle.PreStop = &corev1.Handler{
+			Exec: httphelper.BuildMgmtApiWgetAction(httphelper.WgetNodeDrainEndpoint),
+		}
 	}
 
 	// Combine env vars
