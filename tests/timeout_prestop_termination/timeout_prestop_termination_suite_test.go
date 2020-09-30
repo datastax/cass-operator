@@ -1,6 +1,9 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
+// This test ensures that the timeout grace period of 120 seconds correctly fires.
+// Note that it overrides the default prestop hook in order to force the termination to take too long.
+
 package timeout_prestop_termination
 
 import (
@@ -16,8 +19,8 @@ import (
 )
 
 var (
-	testName     = "Cluster resource cleanup after termination"
-	namespace    = "test-terminate-cleanup"
+	testName     = "Test termination timeout"
+	namespace    = "test-terminate-timeout"
 	dcName       = "dc2"
 	dcYaml       = "../testdata/default-single-rack-single-node-prestop-dc.yaml"
 	operatorYaml = "../testdata/operator.yaml"
@@ -40,7 +43,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator destroys resources after the datacenter is deleted", func() {
+		Specify("the operator times out cluster termination after 120 seconds", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
