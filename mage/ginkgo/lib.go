@@ -162,7 +162,7 @@ func sanitizeForLogDirs(s string) string {
 }
 
 func genSuiteLogDir(suiteName string) string {
-	datetime := time.Now().Format("2006.01.02_15:04:05")
+	datetime := time.Now().Format("2006-01-02_15-04-05")
 	return fmt.Sprintf("../../build/kubectl_dump/%s/%s",
 		sanitizeForLogDirs(suiteName), datetime)
 }

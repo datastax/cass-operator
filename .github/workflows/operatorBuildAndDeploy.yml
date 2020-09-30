@@ -83,8 +83,7 @@ jobs:
     strategy:
       matrix:
         integration_test:
-        - terminate
-        - scale_up
+        - simple_smoke_test
     name: Integration tests (${{ matrix.integration_test }})
     runs-on: ubuntu-latest
     env:
