@@ -16,7 +16,7 @@ spec:
           lifecycle:
             preStop:
               exec:
-                command: ["/bin/sleep", "200s"]
+                command: ["/bin/sleep", "6000s"]
   storageConfig:
       cassandraDataVolumeClaimSpec:
         storageClassName: server-storage

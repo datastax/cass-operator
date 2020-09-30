@@ -6,6 +6,7 @@ package timeout_prestop_termination
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -73,6 +74,11 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
 
+			// The dc has a prestop hook to wait for 100 minutes,
+			// but the termination grace period of 120 seconds should override it
+
+			startTime := time.Now()
+
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
 			ns.ExecAndLog(step, k)
@@ -83,6 +89,10 @@ var _ = Describe(testName, func() {
 				WithLabel(dcLabel).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "[]", 300)
+
+			elapsedTime := startTime.Sub(time.Now())
+
+			Expect(elapsedTime.Minutes() <= 3).To(BeTrue(), "Stop should have completed in under 3 minutes")
 
 			step = "checking that no dc pods remain"
 			json = "jsonpath={.items}"
