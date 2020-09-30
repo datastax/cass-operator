@@ -2190,6 +2190,13 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		}
 	}
 
+	if err := rc.enableQuietPeriod(5); err != nil {
+		logger.Error(
+			err,
+			"Error when enabling quiet period")
+		return result.Error(err).Output()
+	}
+
 	rc.ReqLogger.Info("All StatefulSets should now be reconciled.")
 
 	return result.Done().Output()
