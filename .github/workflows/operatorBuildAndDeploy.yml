@@ -79,3 +79,31 @@ jobs:
           export GITHUB_REPO_URL="https://github.com/${{ github.repository }}"
 
           ./scripts/build-push-images.sh
+  kind_integration_tests:
+    strategy:
+      matrix:
+        integration_test:
+        - scale_up
+        - scale_down
+    needs: [build_operator_docker]
+    name: Integration tests (${{ matrix.integration_test }})
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Checkout code
+        # actions/checkout@v2
+        uses: actions/checkout@722adc6
+      - name: Install Mage
+        run: |
+          cd /tmp
+          wget https://github.com/magefile/mage/releases/download/v1.9.0/mage_1.9.0_Linux-64bit.tar.gz
+          tar -xvf mage_1.9.0_Linux-64bit.tar.gz
+          mkdir -p $GOPATH/bin
+          mv mage $GOPATH/bin/mage
+          sudo chmod +x $GOPATH/bin/mage
+      - name: Install Kind
+        run: |
+          M_K8S_FLAVOR=kind mage k8s:installTool
+      - name: Run integration tests
+        run: |
+          export M_OPERATOR_IMAGE=docker.pkg.github.com/datastax/cass-operator/operator:$(git rev-parse HEAD)
+          M_INTEG_DIR=${{ matrix.integration_test }} mage k8s:runIntegTests 
