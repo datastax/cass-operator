@@ -41,6 +41,7 @@ const (
 	stateStartedNotReady = "Started-not-Ready"
 	stateStarted         = "Started"
 	stateStarting        = "Starting"
+	stateDecommissioning = "Decommissioning"
 )
 
 // CalculateRackInformation determine how many nodes per rack are needed
@@ -227,6 +228,22 @@ func (rc *ReconciliationContext) CheckRackPodTemplate() result.ReconcileResult {
 			desiredSts.Spec.Replicas = statefulSet.Spec.Replicas
 			desiredSts.Labels = utils.MergeMap(map[string]string{}, statefulSet.Labels, desiredSts.Labels)
 			desiredSts.Annotations = utils.MergeMap(map[string]string{}, statefulSet.Annotations, desiredSts.Annotations)
+
+			if dc.Spec.CanaryUpgrade {
+				var partition int32
+				if dc.Spec.CanaryUpgradeCount == 0 || dc.Spec.CanaryUpgradeCount > int32(rc.desiredRackInformation[idx].NodeCount) {
+					partition = int32(rc.desiredRackInformation[idx].NodeCount)
+				} else {
+					partition = int32(rc.desiredRackInformation[idx].NodeCount) - dc.Spec.CanaryUpgradeCount
+				}
+				strategy := appsv1.StatefulSetUpdateStrategy{
+					Type: appsv1.RollingUpdateStatefulSetStrategyType,
+					RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
+						Partition: &partition,
+					},
+				}
+				desiredSts.Spec.UpdateStrategy = strategy
+			}
 
 			desiredSts.DeepCopyInto(statefulSet)
 		}
@@ -618,7 +635,7 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 	readyPodCount, startedLabelCount := rc.countReadyAndStarted()
 	desiredSize := int(rc.Datacenter.Spec.Size)
 
-	if desiredSize == readyPodCount && desiredSize == startedLabelCount {
+	if desiredSize <= readyPodCount && desiredSize <= startedLabelCount {
 		return result.Continue()
 	} else {
 		err := fmt.Errorf("checks failed desired:%d, ready:%d, started:%d", desiredSize, readyPodCount, startedLabelCount)
@@ -686,17 +703,6 @@ func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
 			if err != nil {
 				return result.Error(err)
 			}
-		}
-
-		currentReplicas := statefulSet.Status.CurrentReplicas
-		if currentReplicas > desiredNodeCount {
-			// too many ready replicas, how did this happen?
-			rc.ReqLogger.Info(
-				"Too many replicas for StatefulSet",
-				"desiredCount", desiredNodeCount,
-				"currentCount", currentReplicas)
-			err := fmt.Errorf("too many replicas")
-			return result.Error(err)
 		}
 	}
 
@@ -913,10 +919,10 @@ func (rc *ReconciliationContext) updateCurrentReplacePodsProgress() error {
 			// Since pod is labeled as started, it should be done being replaced
 			if utils.IndexOfString(dc.Status.NodeReplacements, pod.Name) > -1 {
 
-				// Ensure the pod is not only started but created _after_ we 
+				// Ensure the pod is not only started but created _after_ we
 				// started replacing nodes. This is because the Pod may have
 				// been ready, marked for replacement, and then deleted, so we
-				// have to make sure this is the incarnation of the Pod from 
+				// have to make sure this is the incarnation of the Pod from
 				// after the pod was deleted to be replaced.
 				timeStartedReplacing, isReplacing := getTimeStartedReplacingNodes(dc)
 				if isReplacing {
@@ -1361,9 +1367,8 @@ func (rc *ReconciliationContext) CheckDcPodDisruptionBudget() result.ReconcileRe
 	return result.Continue()
 }
 
-// UpdateRackNodeCount ...
+// Updates the node count on a rack (statefulset)
 func (rc *ReconciliationContext) UpdateRackNodeCount(statefulSet *appsv1.StatefulSet, newNodeCount int32) error {
-
 	rc.ReqLogger.Info("reconcile_racks::updateRack")
 
 	rc.ReqLogger.Info(
@@ -1803,6 +1808,10 @@ func isMgmtApiRunning(pod *corev1.Pod) bool {
 	return false
 }
 
+func isNodeDecommissioning(pod *corev1.Pod) bool {
+	return pod.Labels[api.CassNodeState] == stateDecommissioning
+}
+
 func isServerStarting(pod *corev1.Pod) bool {
 	return pod.Labels[api.CassNodeState] == stateStarting
 }
@@ -2000,11 +2009,16 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 
 	// If we are here, any action that was in progress should now be completed, so start
 	// clearing conditions
-	actionConditionTypes := []api.DatacenterConditionType{
+	conditionsThatShouldBeFalse := []api.DatacenterConditionType{
 		api.DatacenterReplacingNodes,
 		api.DatacenterUpdating,
 		api.DatacenterRollingRestart,
 		api.DatacenterResuming,
+		api.DatacenterStopped,
+		api.DatacenterScalingDown,
+	}
+	conditionsThatShouldBeTrue := []api.DatacenterConditionType{
+		api.DatacenterConditionValid,
 	}
 	updated := false
 
@@ -2020,10 +2034,14 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 			api.NewDatacenterCondition(api.DatacenterScalingUp, corev1.ConditionFalse)) || updated
 	}
 
-	for _, conditionType := range actionConditionTypes {
-
+	for _, conditionType := range conditionsThatShouldBeFalse {
 		updated = rc.setCondition(
 			api.NewDatacenterCondition(conditionType, corev1.ConditionFalse)) || updated
+	}
+
+	for _, conditionType := range conditionsThatShouldBeTrue {
+		updated = rc.setCondition(
+			api.NewDatacenterCondition(conditionType, corev1.ConditionTrue)) || updated
 	}
 
 	if updated {
@@ -2045,8 +2063,22 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 	return result.Continue()
 }
 
+func (rc *ReconciliationContext) CheckForInvalidState() result.ReconcileResult {
+	cond, isSet := rc.Datacenter.GetCondition(api.DatacenterConditionValid)
+	if isSet && cond.Status == corev1.ConditionFalse {
+		err := fmt.Errorf("Datacenter %s is not in a valid state: %s", rc.Datacenter.Name, cond.Message)
+		return result.Error(err)
+	}
+
+	return result.Continue()
+}
+
 // ReconcileAllRacks determines if a rack needs to be reconciled.
 func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
+	if recResult := rc.CheckForInvalidState(); recResult.Completed() {
+		return recResult.Output()
+	}
+
 	logger := rc.ReqLogger
 
 	podList, err := rc.listPods(rc.Datacenter.GetClusterLabels())
@@ -2078,6 +2110,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	}
 
 	if recResult := rc.CheckRackLabels(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.CheckDecommissioningNodes(endpointData); recResult.Completed() {
 		return recResult.Output()
 	}
 
@@ -2114,6 +2150,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	}
 
 	if recResult := rc.CheckDcPodDisruptionBudget(); recResult.Completed() {
+		return recResult.Output()
+	}
+
+	if recResult := rc.DecommissionNodes(endpointData); recResult.Completed() {
 		return recResult.Output()
 	}
 

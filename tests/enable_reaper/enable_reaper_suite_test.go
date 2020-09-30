@@ -70,8 +70,8 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
-			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 600)
+			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 120)
+			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 1200)
 
 			step = "check that Reaper container is deployed"
 			json = `jsonpath={.items[*].spec.containers[?(@.name=="reaper")].name}`
@@ -84,8 +84,8 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 30)
-			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 600)
+			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 120)
+			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 1200)
 
 			step = "check that Reaper container is not deployed"
 			json = `jsonpath={.items[*].spec.containers[?(@.name=="reaper")]}`

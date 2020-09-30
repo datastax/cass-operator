@@ -7,7 +7,7 @@ metadata:
 spec:
   clusterName: cluster2
   serverType: dse
-  serverVersion: "6.8.3"
+  serverVersion: "6.8.4"
   managementApiAuth:
     insecure: {}
   size: 3
@@ -23,3 +23,7 @@ spec:
     jvm-server-options:
       initial_heap_size: "800M"
       max_heap_size: "800M"
+      additional-jvm-opts:
+        # As the database comes up for the first time, set system keyspaces to RF=3
+        - "-Ddse.system_distributed_replication_dc_names=dc1"
+        - "-Ddse.system_distributed_replication_per_dc=3"

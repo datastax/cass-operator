@@ -8,6 +8,7 @@ import (
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 func mapContains(base map[string]string, submap map[string]string) bool {
@@ -78,4 +79,19 @@ func PodPtrsFromPodList(podList *corev1.PodList) []*corev1.Pod {
 		pods = append(pods, pod)
 	}
 	return pods
+}
+
+func MapPodsToEndpointDataByName(pods []*v1.Pod, epData httphelper.CassMetadataEndpoints) map[string]httphelper.EndpointState {
+	result := make(map[string]httphelper.EndpointState)
+	for idx := range pods {
+		pod := pods[idx]
+		for _, data := range epData.Entity {
+			if data.GetRpcAddress() == pod.Status.PodIP {
+				result[pod.Name] = data
+				continue
+			}
+		}
+	}
+
+	return result
 }

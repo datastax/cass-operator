@@ -146,12 +146,36 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			return requests
 		})
 
+	nodeTaintsChangedPredicate := predicate.Funcs{
+		UpdateFunc: func(e event.UpdateEvent) bool {
+			nodeOld, ok1 := e.ObjectOld.(*corev1.Node)
+			nodeNew, ok2 := e.ObjectNew.(*corev1.Node)
+
+			if !ok1 || !ok2 {
+				log.Error(nil, "Failed to cast update.Event objects to type Node", "objectOld", e.ObjectOld, "objectNew", e.ObjectNew)
+				return true
+			}
+
+			if nodeOld == nil && nodeNew == nil {
+				return false
+			}
+
+			if (nodeOld == nil && nodeNew != nil) || (nodeOld != nil && nodeNew == nil) {
+				return true
+			}
+
+			return !utils.ElementsMatch(
+				nodeOld.Spec.Taints, nodeNew.Spec.Taints)
+		},
+	}
+
 	if utils.IsPSPEnabled() {
 		err = c.Watch(
 			&source.Kind{Type: &corev1.Node{}},
 			&handler.EnqueueRequestsFromMapFunc{
 				ToRequests: nodeMapFn,
 			},
+			nodeTaintsChangedPredicate,
 		)
 		if err != nil {
 			return err

@@ -232,6 +232,58 @@ func TestCheckRackPodTemplate_SetControllerRefOnStatefulSet(t *testing.T) {
 	assert.Equal(t, rc.statefulSets[0].Name, actualObject.GetName())
 }
 
+func TestCheckRackPodTemplate_CanaryUpgrade(t *testing.T) {
+	rc, _, cleanpMockSrc := setupTest()
+	defer cleanpMockSrc()
+
+	rc.Datacenter.Spec.ServerVersion = "6.8.2"
+	rc.Datacenter.Spec.Racks = []api.Rack{
+		{Name: "rack1", Zone: "zone-1"},
+	}
+
+	if err := rc.CalculateRackInformation(); err != nil {
+		t.Fatalf("failed to calculate rack information: %s", err)
+	}
+
+	result := rc.CheckRackCreation()
+	assert.False(t, result.Completed(), "CheckRackCreation did not complete as expected")
+
+	if err := rc.Client.Update(rc.Ctx, rc.Datacenter); err != nil {
+		t.Fatalf("failed to add rack to cassandradatacenter: %s", err)
+	}
+
+	rc.Datacenter.Spec.CanaryUpgrade = true
+	rc.Datacenter.Spec.CanaryUpgradeCount = 1
+	rc.Datacenter.Spec.ServerVersion = "6.8.3"
+
+	result = rc.CheckRackPodTemplate()
+	_, err := result.Output()
+
+	assert.True(t, result.Completed())
+	assert.Nil(t, err)
+
+	assert.Equal(t, rc.Datacenter.Status.CassandraOperatorProgress, api.ProgressUpdating)
+
+	partition := &rc.Datacenter.Spec.CanaryUpgradeCount
+	expectedStrategy := appsv1.StatefulSetUpdateStrategy{
+		Type: appsv1.RollingUpdateStatefulSetStrategyType,
+		RollingUpdate: &appsv1.RollingUpdateStatefulSetStrategy{
+			Partition: partition,
+		},
+	}
+
+	assert.Equal(t, expectedStrategy, rc.statefulSets[0].Spec.UpdateStrategy)
+
+	rc.statefulSets[0].Status.Replicas = 2
+	rc.statefulSets[0].Status.ReadyReplicas = 2
+	rc.statefulSets[0].Status.CurrentReplicas = 1
+	rc.statefulSets[0].Status.UpdatedReplicas = 1
+
+	result = rc.CheckRackPodTemplate()
+
+	assert.True(t, result.Completed())
+}
+
 func TestReconcilePods(t *testing.T) {
 	t.Skip()
 	rc, _, cleanupMockScr := setupTest()

@@ -34,14 +34,14 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 			errString: "",
 		},
 		{
-			name: "Dse 6.8.3 Valid",
+			name: "Dse 6.8.4 Valid",
 			dc: &CassandraDatacenter{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "exampleDC",
 				},
 				Spec: CassandraDatacenterSpec{
 					ServerType:    "dse",
-					ServerVersion: "6.8.3",
+					ServerVersion: "6.8.4",
 				},
 			},
 			errString: "",
@@ -122,7 +122,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 				},
 				Spec: CassandraDatacenterSpec{
 					ServerType:    "dse",
-					ServerVersion: "6.8.3",
+					ServerVersion: "6.8.4",
 					DseWorkloads: &DseWorkloads{
 						AnalyticsEnabled: true,
 					},
@@ -180,7 +180,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 				},
 				Spec: CassandraDatacenterSpec{
 					ServerType:    "dse",
-					ServerVersion: "6.8.3",
+					ServerVersion: "6.8.4",
 					Config: json.RawMessage(`
 					{
 						"cassandra-yaml": {},
@@ -191,7 +191,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 					`),
 				},
 			},
-			errString: "attempted to define config jvm-options with dse-6.8.3",
+			errString: "attempted to define config jvm-options with dse-6.8.4",
 		},
 		{
 			name: "Allow multiple nodes per worker requires resource requests",
@@ -201,7 +201,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 				},
 				Spec: CassandraDatacenterSpec{
 					ServerType:                  "dse",
-					ServerVersion:               "6.8.3",
+					ServerVersion:               "6.8.4",
 					Config:                      json.RawMessage(`{}`),
 					AllowMultipleNodesPerWorker: true,
 					Resources: corev1.ResourceRequirements{
@@ -226,7 +226,7 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 				},
 				Spec: CassandraDatacenterSpec{
 					ServerType:                  "dse",
-					ServerVersion:               "6.8.3",
+					ServerVersion:               "6.8.4",
 					Config:                      json.RawMessage(`{}`),
 					AllowMultipleNodesPerWorker: true,
 				},
@@ -502,7 +502,7 @@ func Test_ValidateDatacenterFieldChanges(t *testing.T) {
 					Size: 3,
 				},
 			},
-			errString: "decrease size",
+			errString: "",
 		},
 		{
 			name: "Changed a rack name",

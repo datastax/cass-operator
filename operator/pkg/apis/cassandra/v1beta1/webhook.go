@@ -42,6 +42,8 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 			err = nil
 		case "6.8.3":
 			err = nil
+		case "6.8.4":
+			err = nil
 		default:
 			err = attemptedTo("use unsupported DSE version '%s'", dc.Spec.ServerVersion)
 		}
@@ -131,10 +133,6 @@ func ValidateDatacenterFieldChanges(oldDc CassandraDatacenter, newDc CassandraDa
 	// StorageConfig changes are disallowed
 	if !reflect.DeepEqual(oldDc.Spec.StorageConfig, newDc.Spec.StorageConfig) {
 		return attemptedTo("change storageConfig")
-	}
-
-	if oldDc.Spec.Size > newDc.Spec.Size {
-		return attemptedTo("decrease size")
 	}
 
 	// Topology changes - Racks

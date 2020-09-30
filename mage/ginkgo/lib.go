@@ -4,6 +4,7 @@
 package ginkgo_util
 
 import (
+	"encoding/base64"
 	"fmt"
 	"os"
 	"regexp"
@@ -223,6 +224,14 @@ func (ns *NsWrapper) WaitForDatacenterCondition(dcName string, conditionType str
 	ns.WaitForOutputAndLog(step, k, value, 600)
 }
 
+func (ns *NsWrapper) WaitForDatacenterConditionWithReason(dcName string, conditionType string, value string, reason string) {
+	step := fmt.Sprintf("checking that dc condition %s has value %s", conditionType, value)
+	json := fmt.Sprintf("jsonpath={.status.conditions[?(.type=='%s')].status}", conditionType)
+	k := kubectl.Get("cassandradatacenter", dcName).
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, value, 600)
+}
+
 func (ns *NsWrapper) WaitForDatacenterToHaveNoPods(dcName string) {
 	step := "checking that no dc pods remain"
 	json := "jsonpath={.items}"
@@ -307,6 +316,16 @@ func (ns *NsWrapper) WaitForPodStarted(podName string) {
 	ns.WaitForOutputAndLog(step, k, podName, 60)
 }
 
+func (ns *NsWrapper) WaitForCassandraImages(dcName string, expectedImages []string, timeout int) {
+	step := "verify cassandra image updates"
+	images := strings.Join(expectedImages, " ")
+	json := "jsonpath={.items[*].spec.containers[?(@.name == 'cassandra')].image}"
+	k := kubectl.Get("pods").
+		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, images, timeout)
+}
+
 func (ns *NsWrapper) DisableGossipWaitNotReady(podName string) {
 	ns.DisableGossip(podName)
 	ns.WaitForPodNotStarted(podName)
@@ -361,6 +380,19 @@ func (ns *NsWrapper) GetDatacenterReadyPodNames(dcName string) []string {
 	return podNames
 }
 
+func (ns *NsWrapper) GetCassandraContainerImages(dcName string) []string {
+	json := "jsonpath={.items[*].spec.containers[?(@.name == 'cassandra')].image}"
+	k := kubectl.Get("pods").
+		WithFlag("selector", fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)).
+		FormatOutput(json)
+
+	output := ns.OutputPanic(k)
+	images := strings.Split(output, " ")
+	sort.Strings(images)
+
+	return images
+}
+
 func (ns *NsWrapper) WaitForOperatorReady() {
 	step := "waiting for the operator to become ready"
 	json := "jsonpath={.items[0].status.containerStatuses[0].ready}"
@@ -383,8 +415,12 @@ func CreateDockerRegistrySecret(name string, namespace string) {
 	k.InNamespace(namespace).ExecVCapture()
 }
 
-func (ns NsWrapper) HelmInstall(chartPath string) {
-	HelmInstallWithOverrides(chartPath, ns.Namespace, map[string]string{})
+func (ns NsWrapper) HelmInstall(chartPath string, overrides ...string) {
+	overridesMap := map[string]string{}
+	for i := 0; i < len(overrides) - 1; i = i+2 {
+		overridesMap[overrides[i]] = overrides[i+1]
+	}
+	HelmInstallWithOverrides(chartPath, ns.Namespace, overridesMap)
 }
 
 func (ns NsWrapper) HelmInstallWithPSPEnabled(chartPath string) {
@@ -507,4 +543,38 @@ func (ns NsWrapper) RetrieveStatusFromNodetool(podName string) []NodetoolNodeInf
 			})
 	}
 	return nodeInfo
+}
+
+func (ns NsWrapper) RetrieveSuperuserCreds(clusterName string) (string, string) {
+	secretName := fmt.Sprintf("%s-superuser", clusterName)
+	secretResource := fmt.Sprintf("secret/%s", secretName)
+
+	ginkgo.By("get superuser username")
+	json := "jsonpath={.data.username}"
+	k := kubectl.Get(secretResource).FormatOutput(json)
+	usernameBase64 := ns.OutputPanic(k)
+	Expect(usernameBase64).ToNot(Equal(""), "Expected secret to specify a username")
+	usernameDecoded, err := base64.StdEncoding.DecodeString(usernameBase64)
+	Expect(err).ToNot(HaveOccurred())
+
+	ginkgo.By("get superuser password")
+	json = "jsonpath={.data.password}"
+	k = kubectl.Get(secretResource).FormatOutput(json)
+	passwordBase64 := ns.OutputPanic(k)
+	Expect(passwordBase64).ToNot(Equal(""), "Expected secret to specify a password")
+	passwordDecoded, err := base64.StdEncoding.DecodeString(passwordBase64)
+	Expect(err).ToNot(HaveOccurred())
+
+	return string(usernameDecoded), string(passwordDecoded)
+}
+
+func (ns NsWrapper) CqlExecute(podName string, stepDesc string, cql string, user string, pw string) {
+	k := kubectl.ExecOnPod(
+		podName, "--", "cqlsh",
+		"--user", user,
+		"--password", pw,
+		"-e", cql).
+		WithFlag("container", "cassandra")
+	ginkgo.By(stepDesc)
+	ns.ExecVPanic(k)
 }
