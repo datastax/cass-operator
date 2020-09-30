@@ -19,6 +19,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const (
+	WgetNodeDrainEndpoint = "https://localhost:8080/api/v0/ops/node/drain"
+
+	caCertPath = "/management-api-certs/ca.crt"
+	tlsCrt     = "/management-api-certs/tls.crt"
+	tlsKey     = "/management-api-certs/tls.key"
+)
+
 // API for Node Management mAuth Config
 func GetManagementApiProtocol(dc *api.CassandraDatacenter) (string, error) {
 	provider, err := BuildManagmenetApiSecurityProvider(dc)
@@ -134,10 +142,21 @@ func (provider *ManualManagementApiSecurityProvider) GetProtocol() string {
 	return "https"
 }
 
+func BuildMgmtApiWgetAction(endpoint string) *corev1.ExecAction {
+	return &corev1.ExecAction{
+		Command: []string{
+			"wget",
+			"--output-document", "/dev/null",
+			"--no-check-certificate",
+			"--certificate", tlsCrt,
+			"--private-key", tlsKey,
+			"--ca-certificate", caCertPath,
+			endpoint,
+		},
+	}
+}
+
 func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(pod *corev1.PodTemplateSpec) error {
-	caCertPath := "/management-api-certs/ca.crt"
-	tlsCrt := "/management-api-certs/tls.crt"
-	tlsKey := "/management-api-certs/tls.key"
 
 	// find the container
 	var container *corev1.Container = nil
@@ -226,17 +245,7 @@ func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(pod *core
 	}
 	container.LivenessProbe.Handler.HTTPGet = nil
 	container.LivenessProbe.Handler.TCPSocket = nil
-	container.LivenessProbe.Handler.Exec = &corev1.ExecAction{
-		Command: []string{
-			"wget",
-			"--output-document", "/dev/null",
-			"--no-check-certificate",
-			"--certificate", tlsCrt,
-			"--private-key", tlsKey,
-			"--ca-certificate", caCertPath,
-			livenessEndpoint,
-		},
-	}
+	container.LivenessProbe.Handler.Exec = BuildMgmtApiWgetAction(livenessEndpoint)
 
 	// Update Readiness probe to account for mutual auth (can't just use HTTP probe now)
 	// TODO: Get endpoint from configured HTTPGet probe
@@ -248,17 +257,7 @@ func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(pod *core
 	}
 	container.ReadinessProbe.Handler.HTTPGet = nil
 	container.ReadinessProbe.Handler.TCPSocket = nil
-	container.ReadinessProbe.Handler.Exec = &corev1.ExecAction{
-		Command: []string{
-			"wget",
-			"--output-document", "/dev/null",
-			"--no-check-certificate",
-			"--certificate", tlsCrt,
-			"--private-key", tlsKey,
-			"--ca-certificate", caCertPath,
-			readinessEndpoint,
-		},
-	}
+	container.ReadinessProbe.Handler.Exec = BuildMgmtApiWgetAction(readinessEndpoint)
 
 	return nil
 }
