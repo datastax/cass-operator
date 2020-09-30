@@ -87,6 +87,9 @@ jobs:
         - scale_down
     name: Integration tests (${{ matrix.integration_test }})
     runs-on: ubuntu-latest
+    env:
+      GOPATH: /home/runner/go
+      GOROOT: /usr/local/go1.13
     steps:
       - name: Checkout code
         # actions/checkout@v2
