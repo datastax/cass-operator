@@ -124,7 +124,7 @@ jobs:
           M_K8S_FLAVOR=kind mage k8s:installTool
 
           kind create cluster --config "tests/testdata/kind/kind_config_6_workers.yaml" --image "kindest/node:v1.17.5@sha256:ab3f9e6ec5ad8840eeb1f76c89bb7948c77bbf76bcebe1a8b59790b8ae9a283a"
-          kind load --docker-image docker.pkg.github.com/datastax/cass-operator/operator:$(git rev-parse HEAD)
+          kind load docker-image docker.pkg.github.com/datastax/cass-operator/operator:$(git rev-parse HEAD)
           kubectl cluster-info --context kind-kind 
       - name: Run integration tests ( ${{ matrix.integration_test }} )
         run: |
