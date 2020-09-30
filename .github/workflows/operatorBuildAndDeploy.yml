@@ -85,6 +85,7 @@ jobs:
         integration_test:
         - scale_up
         - scale_down
+    needs: [build_operator_docker]
     name: Integration tests (${{ matrix.integration_test }})
     runs-on: ubuntu-latest
     env:
@@ -106,12 +107,16 @@ jobs:
           mkdir -p $GOPATH/bin
           mv mage $GOPATH/bin/mage
           chmod +x $GOPATH/bin/mage
-      - name: Install Kind
+      - name: Install & Setup Kind
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           M_K8S_FLAVOR=kind mage k8s:installTool
+
+          kind create cluster --config "tests/testdata/kind/kind_config_6_workers.yaml" --image "kindest/node:v1.17.5@sha256:ab3f9e6ec5ad8840eeb1f76c89bb7948c77bbf76bcebe1a8b59790b8ae9a283a"
+
+          kubectl cluster-info --context kind-kind
       - name: Run integration tests
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           export M_OPERATOR_IMAGE=docker.pkg.github.com/datastax/cass-operator/operator:$(git rev-parse HEAD)
-          M_INTEG_DIR=${{ matrix.integration_test }} mage k8s:runIntegTests 
+          M_INTEG_DIR=${{ matrix.integration_test }} mage integ:run
