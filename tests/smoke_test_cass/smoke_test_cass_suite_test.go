@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package simple_smoke_test
+package smoke_test_cass
 
 import (
 	"fmt"
@@ -16,9 +16,9 @@ import (
 
 var (
 	testName     = "Cluster resource cleanup after termination"
-	namespace    = "test-simple-smoke-test"
+	namespace    = "test-smoke-test-cass"
 	dcName       = "dc2"
-	dcYaml       = "../testdata/default-single-rack-single-node-dc.yaml"
+	dcYaml       = "../testdata/smoke-test-cass.yaml"
 	operatorYaml = "../testdata/operator.yaml"
 	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
@@ -55,7 +55,7 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true", 360)
 
-			step = "creating a datacenter resource with 1 racks/1 nodes"
+			step = "creating a datacenter resource with 1 rack/2 nodes"
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
