@@ -55,7 +55,7 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "true", 360)
 
-			step = "creating a datacenter resource with 1 rack/2 nodes"
+			step = "creating a datacenter resource with 1 rack/1 node"
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 

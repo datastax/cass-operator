@@ -8,7 +8,7 @@ spec:
   serverVersion: "4.0.0"
   managementApiAuth:
     insecure: {}
-  size: 2
+  size: 1
   storageConfig:
       cassandraDataVolumeClaimSpec:
         storageClassName: server-storage
