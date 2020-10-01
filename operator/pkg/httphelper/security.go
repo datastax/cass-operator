@@ -156,7 +156,7 @@ func (provider *InsecureManagementApiSecurityProvider) BuildMgmtApiWgetAction(en
 	return &corev1.ExecAction{
 		Command: []string{
 			"wget",
-			//			"--output-document", "/dev/null",
+			"--output-document", "/dev/null",
 			"--no-check-certificate",
 			"--post-data=''",
 			fmt.Sprintf("http://%s", endpoint),
