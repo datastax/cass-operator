@@ -65,7 +65,7 @@ jobs:
           mage k8s:setupEmptyCluster
       - name: Docker prune
         run: |
-          docker builder prune --all
+          docker builder prune --all --force
       - name: Run integration test ( ${{ matrix.integration_test }} )
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
