@@ -163,6 +163,10 @@ func CreateFromFiles(paths ...string) KCmd {
 	return KCmd{Command: "create", Args: args}
 }
 
+func Logs(args ...string) KCmd {
+	return KCmd{Command: "logs", Args: args}
+}
+
 func Get(args ...string) KCmd {
 	return KCmd{Command: "get", Args: args}
 }
