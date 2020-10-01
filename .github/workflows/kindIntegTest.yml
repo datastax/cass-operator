@@ -59,7 +59,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           M_LOAD_DEV_IMAGES: true
           M_K8S_FLAVOR: kind
-          M_KIND_CONFIG: tests/testdata/kind/kind_config_1_worker.yaml
+          M_KIND_CONFIG: tests/testdata/kind/kind_config_2_workers.yaml
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage k8s:setupEmptyCluster
