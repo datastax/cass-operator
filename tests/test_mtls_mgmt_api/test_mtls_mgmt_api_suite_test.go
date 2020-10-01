@@ -61,7 +61,8 @@ var _ = Describe(testName, func() {
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterReady(dcName)
+			// This takes a while sometimes in my dev environment
+			ns.WaitForDatacenterReadyWithTimeouts(dcName, 600, 120)
 
 			step = "scale up to 2 nodes"
 			json := "{\"spec\": {\"size\": 2}}"
@@ -74,6 +75,11 @@ var _ = Describe(testName, func() {
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
 			ns.ExecAndLog(step, k)
+
+			k = kubectl.Logs().
+				WithLabel("statefulset.kubernetes.io/pod-name=cluster1-dc1-r1-sts-0").
+				WithFlag("container", "cassandra")
+			ns.WaitForOutputContainsAndLog(step, k, "node/drain status=200 OK", 30)
 
 			step = "checking that the dc no longer exists"
 			json = "jsonpath={.items}"
