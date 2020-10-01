@@ -27,6 +27,10 @@ var ClusterActions = cfgutil.NewClusterActions(
 	describeEnv,
 )
 
+const (
+	kindConfigPath = "M_KIND_CONFIG"
+)
+
 func describeEnv() map[string]string {
 	return make(map[string]string)
 }
@@ -50,6 +54,8 @@ func clusterExists() bool {
 }
 
 func createCluster() {
+	config := mageutil.FromEnvOrDefault(kindConfigPath, "tests/testdata/kind/kind_config_6_workers.yaml")
+
 	// Kind can be flaky when starting up a new cluster
 	// so let's give it a few chances to redeem itself
 	// after failing
@@ -62,7 +68,7 @@ func createCluster() {
 			"create",
 			"cluster",
 			"--config",
-			"tests/testdata/kind/kind_config_6_workers.yaml",
+			config,
 			"--image",
 			"kindest/node:v1.17.11@sha256:5240a7a2c34bf241afb54ac05669f8a46661912eab05705d660971eeb12f6555",
 			"--wait", "600s",
