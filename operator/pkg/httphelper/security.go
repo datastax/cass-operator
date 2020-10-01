@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	WgetNodeDrainEndpoint = "https://localhost:8080/api/v0/ops/node/drain"
+	WgetNodeDrainEndpoint = "localhost:8080/api/v0/ops/node/drain"
 
 	caCertPath = "/management-api-certs/ca.crt"
 	tlsCrt     = "/management-api-certs/tls.crt"
@@ -156,9 +156,10 @@ func (provider *InsecureManagementApiSecurityProvider) BuildMgmtApiWgetAction(en
 	return &corev1.ExecAction{
 		Command: []string{
 			"wget",
-			"--output-document", "/dev/null",
+			//			"--output-document", "/dev/null",
 			"--no-check-certificate",
-			endpoint,
+			"--post-data=''",
+			fmt.Sprintf("http://%s", endpoint),
 		},
 	}
 }
@@ -172,7 +173,7 @@ func (provider *ManualManagementApiSecurityProvider) BuildMgmtApiWgetAction(endp
 			"--certificate", tlsCrt,
 			"--private-key", tlsKey,
 			"--ca-certificate", caCertPath,
-			endpoint,
+			fmt.Sprintf("https://%s", endpoint),
 		},
 	}
 }
