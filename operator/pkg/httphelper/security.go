@@ -102,7 +102,8 @@ type InsecureManagementApiSecurityProvider struct {
 }
 
 func buildInsecureManagementApiSecurityProvider(dc *api.CassandraDatacenter) (ManagementApiSecurityProvider, error) {
-	if dc.Spec.ManagementApiAuth.Insecure != nil {
+	// If both are nil, then default to insecure
+	if dc.Spec.ManagementApiAuth.Insecure != nil || (dc.Spec.ManagementApiAuth.Manual == nil && dc.Spec.ManagementApiAuth.Insecure == nil) {
 		return &InsecureManagementApiSecurityProvider{}, nil
 	}
 	return nil, nil
