@@ -61,7 +61,6 @@ func createCluster() {
 			"-s", "6",
 			"--image",
 			"rancher/k3s:v1.17.6-k3s1",
-			"--wait",
 		)
 		if err != nil {
 			fmt.Printf("k3d failed to create the cluster. %v retries left.\n", retries)

@@ -116,17 +116,17 @@ jobs:
           key: ${{ runner.os }}-buildx-${{ github.sha }}
           restore-keys: |
             ${{ runner.os }}-buildx-
-      - name: Install Kind
+      - name: Install kind
         env:
-          M_K8S_FLAVOR: k3d
+          M_K8S_FLAVOR: kind
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage k8s:installTool
-      - name: Setup Kind Cluster, build and load operator image
+      - name: Setup cluster, build and load operator image
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           M_LOAD_DEV_IMAGES: true
-          M_K8S_FLAVOR: k3d
+          M_K8S_FLAVOR: kind
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
           mage k8s:setupEmptyCluster
