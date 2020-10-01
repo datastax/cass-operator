@@ -92,6 +92,7 @@ func ValidateManagementApiConfig(dc *api.CassandraDatacenter, client client.Clie
 // SPI for adding new mechanisms for securing the management API
 type ManagementApiSecurityProvider interface {
 	BuildHttpClient(client client.Client, ctx context.Context) (HttpClient, error)
+	BuildMgmtApiWgetAction(endpoint string) *corev1.ExecAction
 	AddServerSecurity(pod *corev1.PodTemplateSpec) error
 	GetProtocol() string
 	ValidateConfig(client client.Client, ctx context.Context) []error
@@ -142,7 +143,26 @@ func (provider *ManualManagementApiSecurityProvider) GetProtocol() string {
 	return "https"
 }
 
-func BuildMgmtApiWgetAction(endpoint string) *corev1.ExecAction {
+func GetMgmtApiWgetAction(dc *api.CassandraDatacenter, endpoint string) (*corev1.ExecAction, error) {
+	provider, err := BuildManagmenetApiSecurityProvider(dc)
+	if err != nil {
+		return nil, err
+	}
+	return provider.BuildMgmtApiWgetAction(endpoint), nil
+}
+
+func (provider *InsecureManagementApiSecurityProvider) BuildMgmtApiWgetAction(endpoint string) *corev1.ExecAction {
+	return &corev1.ExecAction{
+		Command: []string{
+			"wget",
+			"--output-document", "/dev/null",
+			"--no-check-certificate",
+			endpoint,
+		},
+	}
+}
+
+func (provider *ManualManagementApiSecurityProvider) BuildMgmtApiWgetAction(endpoint string) *corev1.ExecAction {
 	return &corev1.ExecAction{
 		Command: []string{
 			"wget",
@@ -245,7 +265,7 @@ func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(pod *core
 	}
 	container.LivenessProbe.Handler.HTTPGet = nil
 	container.LivenessProbe.Handler.TCPSocket = nil
-	container.LivenessProbe.Handler.Exec = BuildMgmtApiWgetAction(livenessEndpoint)
+	container.LivenessProbe.Handler.Exec = provider.BuildMgmtApiWgetAction(livenessEndpoint)
 
 	// Update Readiness probe to account for mutual auth (can't just use HTTP probe now)
 	// TODO: Get endpoint from configured HTTPGet probe
@@ -257,7 +277,7 @@ func (provider *ManualManagementApiSecurityProvider) AddServerSecurity(pod *core
 	}
 	container.ReadinessProbe.Handler.HTTPGet = nil
 	container.ReadinessProbe.Handler.TCPSocket = nil
-	container.ReadinessProbe.Handler.Exec = BuildMgmtApiWgetAction(readinessEndpoint)
+	container.ReadinessProbe.Handler.Exec = provider.BuildMgmtApiWgetAction(readinessEndpoint)
 
 	return nil
 }
