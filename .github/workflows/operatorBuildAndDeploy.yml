@@ -123,15 +123,11 @@ jobs:
       - name: Setup Kind Cluster, build and load operator image
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          M_LOAD_DEV_IMAGES: true
+          M_K8S_FLAVOR: k3d
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          # export M_LOAD_DEV_IMAGES=true
-          # export M_K8S_FLAVOR=kind
-          # mage k8s:setupEmptyCluster
-          kind create cluster --config "tests/testdata/kind/kind_config_6_workers.yaml" --image "kindest/node:v1.17.5@sha256:ab3f9e6ec5ad8840eeb1f76c89bb7948c77bbf76bcebe1a8b59790b8ae9a283a"
-          docker pull datastax/dse-server:6.8.4
-          kind load docker-image datastax/dse-server:6.8.4
-          kubectl cluster-info --context kind-kind 
+          mage k8s:setupEmptyCluster
       - name: Run integration test ( ${{ matrix.integration_test }} )
         run: |
           export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
