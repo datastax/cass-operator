@@ -37,9 +37,6 @@ jobs:
           mkdir -p $GOPATH/bin
           mv mage $GOPATH/bin/mage
           chmod +x $GOPATH/bin/mage
-      - name: Setup Buildx
-        id: buildx
-        uses: crazy-max/ghaction-docker-buildx@v3
       - name: Install kind
         env:
           M_K8S_FLAVOR: kind
