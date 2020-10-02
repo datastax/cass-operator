@@ -114,13 +114,13 @@ func loadImagesFromBuildSettings(ca cfgutil.ClusterActions, bs cfgutil.BuildSett
 	// also load specific images based on test type
 	switch testType {
 	case DSE:
-		images = append(dev.DseImages)
+		images = append(images, dev.DseImages...)
 	case UBI_DSE:
-		images = append(dev.UbiDseImages)
+		images = append(images, dev.UbiDseImages...)
 	case OSS:
-		images = append(dev.OssImages)
+		images = append(images, dev.OssImages...)
 	case UBI_OSS:
-		images = append(dev.UbiOssImages)
+		images = append(images, dev.UbiOssImages...)
 
 	}
 
