@@ -76,10 +76,12 @@ var _ = Describe(testName, func() {
 			k = kubectl.DeleteFromFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			k = kubectl.Logs().
-				WithLabel("statefulset.kubernetes.io/pod-name=cluster1-dc1-r1-sts-0").
-				WithFlag("container", "cassandra")
-			ns.WaitForOutputContainsAndLog(step, k, "node/drain status=200 OK", 30)
+			// TODO FIXME: re-enable this when the following issue is fixed:
+			// https://github.com/datastax/management-api-for-apache-cassandra/issues/42
+			// k = kubectl.Logs().
+			//         WithLabel("statefulset.kubernetes.io/pod-name=cluster1-dc1-r1-sts-0").
+			//         WithFlag("container", "cassandra")
+			// ns.WaitForOutputContainsAndLog(step, k, "node/drain status=200 OK", 30)
 
 			step = "checking that the dc no longer exists"
 			json = "jsonpath={.items}"
