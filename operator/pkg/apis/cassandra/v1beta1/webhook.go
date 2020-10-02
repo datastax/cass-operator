@@ -8,11 +8,17 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
+)
+
+const (
+	ValidDseVersionRegexp = "6\\.8\\.\\d"
+	ValidOssVersionRegexp = "(3\\.11\\.\\d)|(4\\.0\\.\\d)"
 )
 
 var log = logf.Log.WithName("api")
@@ -31,25 +37,12 @@ func attemptedTo(action string, actionStrArgs ...interface{}) error {
 func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 	// Ensure serverVersion and serverType are compatible
 
-	var err error
 	if dc.Spec.ServerType == "dse" {
-		switch dc.Spec.ServerVersion {
-		case "6.8.0":
-			err = nil
-		case "6.8.1":
-			err = nil
-		case "6.8.2":
-			err = nil
-		case "6.8.3":
-			err = nil
-		case "6.8.4":
-			err = nil
-		default:
-			err = attemptedTo("use unsupported DSE version '%s'", dc.Spec.ServerVersion)
+		validVersions := regexp.MustCompile(ValidDseVersionRegexp)
+
+		if !validVersions.MatchString(dc.Spec.ServerVersion) {
+			return attemptedTo("use unsupported DSE version '%s'", dc.Spec.ServerVersion)
 		}
-	}
-	if err != nil {
-		return err
 	}
 
 	if dc.Spec.ServerType == "cassandra" && dc.Spec.DseWorkloads != nil {
@@ -59,19 +52,11 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 	}
 
 	if dc.Spec.ServerType == "cassandra" {
-		switch dc.Spec.ServerVersion {
-		case "3.11.6":
-			err = nil
-		case "3.11.7":
-			err = nil
-		case "4.0.0":
-			err = nil
-		default:
-			err = attemptedTo("use unsupported Cassandra version '%s'", dc.Spec.ServerVersion)
+		validVersions := regexp.MustCompile(ValidOssVersionRegexp)
+
+		if !validVersions.MatchString(dc.Spec.ServerVersion) {
+			return attemptedTo("use unsupported Cassandra version '%s'", dc.Spec.ServerVersion)
 		}
-	}
-	if err != nil {
-		return err
 	}
 
 	isDse := dc.Spec.ServerType == "dse"
