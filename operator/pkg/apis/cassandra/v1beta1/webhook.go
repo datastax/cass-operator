@@ -8,17 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"regexp"
 	"strings"
 
+	"github.com/datastax/cass-operator/operator/pkg/images"
 	"k8s.io/apimachinery/pkg/runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
-)
-
-const (
-	ValidDseVersionRegexp = "6\\.8\\.\\d"
-	ValidOssVersionRegexp = "(3\\.11\\.\\d)|(4\\.0\\.\\d)"
 )
 
 var log = logf.Log.WithName("api")
@@ -38,9 +33,7 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 	// Ensure serverVersion and serverType are compatible
 
 	if dc.Spec.ServerType == "dse" {
-		validVersions := regexp.MustCompile(ValidDseVersionRegexp)
-
-		if !validVersions.MatchString(dc.Spec.ServerVersion) {
+		if !images.IsDseVersionSupported(dc.Spec.ServerVersion) {
 			return attemptedTo("use unsupported DSE version '%s'", dc.Spec.ServerVersion)
 		}
 	}
@@ -52,9 +45,7 @@ func ValidateSingleDatacenter(dc CassandraDatacenter) error {
 	}
 
 	if dc.Spec.ServerType == "cassandra" {
-		validVersions := regexp.MustCompile(ValidOssVersionRegexp)
-
-		if !validVersions.MatchString(dc.Spec.ServerVersion) {
+		if !images.IsOssVersionSupported(dc.Spec.ServerVersion) {
 			return attemptedTo("use unsupported Cassandra version '%s'", dc.Spec.ServerVersion)
 		}
 	}

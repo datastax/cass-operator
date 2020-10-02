@@ -4,18 +4,24 @@
 package images
 
 import (
-	"os"
-	"strings"
 	"fmt"
+	"os"
+	"regexp"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+var ValidDsePrefixes = []string{"6.8"}
+var ValidOssPrefixes = []string{"3.11", "4.0"}
+
 const (
 	envDefaultRegistryOverride            = "DEFAULT_CONTAINER_REGISTRY_OVERRIDE"
 	envDefaultRegistryOverridePullSecrets = "DEFAULT_CONTAINER_REGISTRY_OVERRIDE_PULL_SECRETS"
 	EnvBaseImageOS                        = "BASE_IMAGE_OS"
+	ValidDseVersionRegexp                 = "6\\.8\\.\\d"
+	ValidOssVersionRegexp                 = "(3\\.11\\.\\d)|(4\\.0\\.\\d)"
 )
 
 // How to add new images:
@@ -67,7 +73,7 @@ const (
 	ImageEnumLength int = iota
 )
 
-var imageLookupMap map[Image]string = map[Image]string {
+var imageLookupMap map[Image]string = map[Image]string{
 
 	Cassandra_3_11_6: "datastax/cassandra-mgmtapi-3_11_6:v0.1.5",
 	Cassandra_3_11_7: "datastax/cassandra-mgmtapi-3_11_7:v0.1.13",
@@ -96,19 +102,19 @@ var imageLookupMap map[Image]string = map[Image]string {
 	Reaper:  "thelastpickle/cassandra-reaper:2.0.5",
 }
 
-var versionToOSSCassandra map[string]Image = map[string]Image {
+var versionToOSSCassandra map[string]Image = map[string]Image{
 	"3.11.6": Cassandra_3_11_6,
 	"3.11.7": Cassandra_3_11_7,
 	"4.0.0":  Cassandra_4_0_0,
 }
 
-var versionToUBIOSSCassandra map[string]Image = map[string]Image {
+var versionToUBIOSSCassandra map[string]Image = map[string]Image{
 	"3.11.6": UBICassandra_3_11_6,
 	"3.11.7": UBICassandra_3_11_7,
 	"4.0.0":  UBICassandra_4_0_0,
 }
 
-var versionToDSE map[string]Image = map[string]Image {
+var versionToDSE map[string]Image = map[string]Image{
 	"6.8.0": DSE_6_8_0,
 	"6.8.1": DSE_6_8_1,
 	"6.8.2": DSE_6_8_2,
@@ -116,7 +122,7 @@ var versionToDSE map[string]Image = map[string]Image {
 	"6.8.4": DSE_6_8_4,
 }
 
-var versionToUBIDSE map[string]Image = map[string]Image {
+var versionToUBIDSE map[string]Image = map[string]Image{
 	"6.8.0": UBIDSE_6_8_0,
 	"6.8.1": UBIDSE_6_8_1,
 	"6.8.2": UBIDSE_6_8_2,
@@ -125,6 +131,16 @@ var versionToUBIDSE map[string]Image = map[string]Image {
 }
 
 var log = logf.Log.WithName("images")
+
+func IsDseVersionSupported(version string) bool {
+	validVersions := regexp.MustCompile(ValidDseVersionRegexp)
+	return validVersions.MatchString(version)
+}
+
+func IsOssVersionSupported(version string) bool {
+	validVersions := regexp.MustCompile(ValidOssVersionRegexp)
+	return validVersions.MatchString(version)
+}
 
 func stripRegistry(image string) string {
 	comps := strings.Split(image, "/")
@@ -192,6 +208,9 @@ func GetCassandraImage(serverType, version string) (string, error) {
 	switch serverType {
 	case "dse":
 		imageKey, found = dseMap[version]
+		if !found {
+
+		}
 	case "cassandra":
 		imageKey, found = cassandraMap[version]
 	default:
@@ -229,7 +248,7 @@ func AddDefaultRegistryImagePullSecrets(podSpec *corev1.PodSpec) bool {
 	secretName := os.Getenv(envDefaultRegistryOverridePullSecrets)
 	if secretName != "" {
 		podSpec.ImagePullSecrets = append(
-			podSpec.ImagePullSecrets, 
+			podSpec.ImagePullSecrets,
 			corev1.LocalObjectReference{Name: secretName})
 		return true
 	}
