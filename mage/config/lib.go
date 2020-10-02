@@ -5,8 +5,8 @@ package cfgutil
 
 import (
 	"fmt"
-	"os"
 	"io/ioutil"
+	"os"
 	"regexp"
 
 	mageutil "github.com/datastax/cass-operator/mage/util"
@@ -57,7 +57,11 @@ type Jenkins struct {
 }
 
 type Dev struct {
-	Images []string `yaml:"images"`
+	DseImages    []string `yaml:"dseImages"`
+	UbiDseImages []string `yaml:"ubiDseImages"`
+	OssImages    []string `yaml:"ossImages"`
+	UbiOssImages []string `yaml:"ubiOssImages"`
+	SharedImages []string `yaml:"sharedImages"`
 }
 
 type BuildSettings struct {
