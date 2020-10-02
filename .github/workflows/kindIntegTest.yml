@@ -13,7 +13,7 @@ jobs:
         integration_test:
         - smoke_test_dse
         - smoke_test_cass
-    name: Integration tests (${{ matrix.integration_test }})
+    name: Integration test (${{ matrix.integration_test }})
     runs-on: ubuntu-latest
     env:
       GOPATH: /home/runner/go
