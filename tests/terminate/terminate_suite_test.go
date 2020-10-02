@@ -17,8 +17,8 @@ import (
 var (
 	testName     = "Cluster resource cleanup after termination"
 	namespace    = "test-terminate-cleanup"
-	dcName       = "dc2"
-	dcYaml       = "../testdata/default-single-rack-single-node-dc.yaml"
+	dcName       = "dc1"
+	dcYaml       = "../testdata/oss-one-node-dc-without-mtls.yaml"
 	operatorYaml = "../testdata/operator.yaml"
 	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
@@ -78,7 +78,7 @@ var _ = Describe(testName, func() {
 			ns.ExecAndLog(step, k)
 
 			k = kubectl.Logs().
-				WithLabel("statefulset.kubernetes.io/pod-name=cluster2-dc2-r1-sts-0").
+				WithLabel("statefulset.kubernetes.io/pod-name=cluster1-dc1-r1-sts-0").
 				WithFlag("container", "cassandra")
 			ns.WaitForOutputContainsAndLog(step, k, "node/drain status=200 OK", 30)
 
