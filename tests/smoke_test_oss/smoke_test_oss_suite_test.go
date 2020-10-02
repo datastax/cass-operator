@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package smoke_test_cass
+package smoke_test_oss
 
 import (
 	"fmt"
@@ -16,9 +16,9 @@ import (
 
 var (
 	testName     = "Cluster resource cleanup after termination"
-	namespace    = "test-smoke-test-cass"
+	namespace    = "test-smoke-test-oss"
 	dcName       = "dc2"
-	dcYaml       = "../testdata/smoke-test-cass.yaml"
+	dcYaml       = "../testdata/smoke-test-oss.yaml"
 	operatorYaml = "../testdata/operator.yaml"
 	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
