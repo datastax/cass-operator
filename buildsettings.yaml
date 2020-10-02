@@ -18,11 +18,11 @@ jenkins:
 dev:
   dseImages:
     - datastax/dse-server:6.8.4
+  ossImages:
+    - datastax/cassandra-mgmtapi-3_11_7:v0.1.13
   ubiDseImages:
     - datastax/dse-server:6.8.4-ubi7
-  ossImages:
-    - datastax/cassandra:3.11.7-ubi7
   ubiOssImages:
-    - datastax/cassandra-mgmtapi-3_11_7:v0.1.13
+    - datastax/cassandra:3.11.7-ubi7
   sharedImages:
     - datastax/cass-config-builder:1.0.3

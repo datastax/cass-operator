@@ -13,7 +13,10 @@ jobs:
         integration_test:
         - smoke_test_dse
         - smoke_test_oss
-    name: (${{ matrix.integration_test }})
+      # let other tests continue to run
+      # even if one fails
+      fail-fast: false
+    name: ${{ matrix.integration_test }}
     runs-on: ubuntu-latest
     env:
       GOPATH: /home/runner/go
