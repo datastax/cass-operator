@@ -2,18 +2,20 @@ package utils
 
 import (
 	"crypto/rsa"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"testing"
 	"io/ioutil"
+	"os"
+	"testing"
+
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_newCA(t *testing.T) {
 	var verify_key *rsa.PrivateKey
-	pem_key, cert, err := GetNewCAandKey("cassandradatacenter-webhook-service","somenamespace")
+	pem_key, cert, err := GetNewCAandKey("cassandradatacenter-webhook-service", "somenamespace")
 	certpool := x509.NewCertPool()
 	key, _ := pem.Decode([]byte(pem_key))
 	if block, _ := pem.Decode([]byte(cert)); block != nil {
@@ -41,7 +43,6 @@ func Test_newCA(t *testing.T) {
 			}
 			if verify_cert_key, ok := cert.PublicKey.(*rsa.PublicKey); !ok {
 				t.Errorf("Error: couldn't typecast cert key")
-
 
 			} else {
 				verify_key_public, _ := verify_key.Public().(*rsa.PublicKey)
@@ -79,6 +80,10 @@ func Test_GetJKS(t *testing.T) {
 	if len(jks) == 0 {
 		t.Errorf("JKS blob too small")
 	}
-	ioutil.WriteFile("test-jks", jks, 0644)
 
+	defer func() {
+		_ = os.Remove("test-jks")
+	}()
+
+	ioutil.WriteFile("test-jks", jks, 0644)
 }

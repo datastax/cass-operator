@@ -1,11 +1,15 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package terminate
+// This test ensures that the timeout grace period of 120 seconds correctly fires.
+// Note that it overrides the default prestop hook in order to force the termination to take too long.
+
+package timeout_prestop_termination
 
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -15,10 +19,10 @@ import (
 )
 
 var (
-	testName     = "Cluster resource cleanup after termination"
-	namespace    = "test-terminate-cleanup"
-	dcName       = "dc1"
-	dcYaml       = "../testdata/oss-one-node-dc-without-mtls.yaml"
+	testName     = "Test termination timeout"
+	namespace    = "test-terminate-timeout"
+	dcName       = "dc2"
+	dcYaml       = "../testdata/default-single-rack-single-node-prestop-dc.yaml"
 	operatorYaml = "../testdata/operator.yaml"
 	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
@@ -39,7 +43,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator destroys resources after the datacenter is deleted", func() {
+		Specify("the operator times out cluster termination after 120 seconds", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
@@ -73,14 +77,14 @@ var _ = Describe(testName, func() {
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "Ready", 30)
 
+			// The dc has a prestop hook to wait for 100 minutes,
+			// but the termination grace period of 120 seconds should override it
+
+			startTime := time.Now()
+
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
 			ns.ExecAndLog(step, k)
-
-			k = kubectl.Logs().
-				WithLabel("statefulset.kubernetes.io/pod-name=cluster1-dc1-r1-sts-0").
-				WithFlag("container", "cassandra")
-			ns.WaitForOutputContainsAndLog(step, k, "node/drain status=200 OK", 30)
 
 			step = "checking that the dc no longer exists"
 			json = "jsonpath={.items}"
@@ -88,6 +92,10 @@ var _ = Describe(testName, func() {
 				WithLabel(dcLabel).
 				FormatOutput(json)
 			ns.WaitForOutputAndLog(step, k, "[]", 300)
+
+			elapsedTime := startTime.Sub(time.Now())
+
+			Expect(elapsedTime.Minutes() <= 3).To(BeTrue(), "Stop should have completed in under 3 minutes")
 
 			step = "checking that no dc pods remain"
 			json = "jsonpath={.items}"
