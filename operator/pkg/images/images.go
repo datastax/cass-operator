@@ -209,9 +209,6 @@ func GetCassandraImage(serverType, version string) (string, error) {
 	switch serverType {
 	case "dse":
 		imageKey, found = dseMap[version]
-		if !found {
-
-		}
 	case "cassandra":
 		imageKey, found = cassandraMap[version]
 	default:
