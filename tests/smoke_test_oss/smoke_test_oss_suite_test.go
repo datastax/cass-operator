@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	testName     = "Cluster resource cleanup after termination"
+	testName     = "Smoke test of basic functionality for one-node OSS Cassandra cluster."
 	namespace    = "test-smoke-test-oss"
 	dcName       = "dc2"
 	dcYaml       = "../testdata/smoke-test-oss.yaml"

@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	testName     = "Cluster resource cleanup after termination"
+	testName     = "Smoke test of basic functionality for one-node DSE cluster."
 	namespace    = "test-smoke-test-dse"
 	dcName       = "dc2"
 	dcYaml       = "../testdata/smoke-test-dse.yaml"

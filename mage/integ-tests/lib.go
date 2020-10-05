@@ -121,7 +121,6 @@ func loadImagesFromBuildSettings(ca cfgutil.ClusterActions, bs cfgutil.BuildSett
 		images = append(images, dev.OssImages...)
 	case UBI_OSS:
 		images = append(images, dev.UbiOssImages...)
-
 	}
 
 	for _, image := range images {
