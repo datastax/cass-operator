@@ -22,6 +22,7 @@ const (
 	EnvBaseImageOS                        = "BASE_IMAGE_OS"
 	ValidDseVersionRegexp                 = "6\\.8\\.\\d"
 	ValidOssVersionRegexp                 = "(3\\.11\\.\\d)|(4\\.0\\.\\d)"
+	UbiImageSuffix                        = "-ubi7"
 )
 
 // How to add new images:
@@ -218,7 +219,21 @@ func GetCassandraImage(serverType, version string) (string, error) {
 	}
 
 	if !found {
-		return "", fmt.Errorf("server '%s' and version '%s' do not work together", serverType, version)
+		// For fallback images, just return the image name directly
+		fallbackImageName := ""
+
+		if serverType == "dse" {
+			fallbackImageName = fmt.Sprintf("datastax/dse-server:%s", version)
+		} else {
+			versionWithUnderscores := strings.Replace(version, ".", "_", -1)
+			fallbackImageName = fmt.Sprintf("datastax/cassandra-mgmtapi-%s:v0.0.1", versionWithUnderscores)
+		}
+
+		if shouldUseUBI() {
+			return fmt.Sprintf("%s%s", fallbackImageName, UbiImageSuffix), nil
+		}
+
+		return fallbackImageName, nil
 	}
 
 	return GetImage(imageKey), nil
