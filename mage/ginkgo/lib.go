@@ -162,7 +162,7 @@ func sanitizeForLogDirs(s string) string {
 }
 
 func genSuiteLogDir(suiteName string) string {
-	datetime := time.Now().Format("2006.01.02_15:04:05")
+	datetime := time.Now().Format("2006-01-02_15-04-05")
 	return fmt.Sprintf("../../build/kubectl_dump/%s/%s",
 		sanitizeForLogDirs(suiteName), datetime)
 }
@@ -417,7 +417,7 @@ func CreateDockerRegistrySecret(name string, namespace string) {
 
 func (ns NsWrapper) HelmInstall(chartPath string, overrides ...string) {
 	overridesMap := map[string]string{}
-	for i := 0; i < len(overrides) - 1; i = i+2 {
+	for i := 0; i < len(overrides)-1; i = i + 2 {
 		overridesMap[overrides[i]] = overrides[i+1]
 	}
 	HelmInstallWithOverrides(chartPath, ns.Namespace, overridesMap)

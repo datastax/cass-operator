@@ -49,7 +49,14 @@ func getOperatorImage() string {
 }
 
 func loadImagesFromBuildSettings(cfg cfgutil.ClusterActions, settings cfgutil.BuildSettings) {
-	for _, image := range settings.Dev.Images {
+	// load all images regardless of if they are dse or oss specific
+	dev := settings.Dev
+	images := dev.DseImages
+	images = append(dev.UbiDseImages)
+	images = append(dev.OssImages)
+	images = append(dev.UbiOssImages)
+	images = append(dev.SharedImages)
+	for _, image := range images {
 		// we likely don't always care if we fail to pull
 		// because we could be testing local images
 		_ = shutil.RunV("docker", "pull", image)
