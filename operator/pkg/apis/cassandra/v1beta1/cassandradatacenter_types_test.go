@@ -4,8 +4,10 @@
 package v1beta1
 
 import (
+	"os"
 	"testing"
 
+	"github.com/datastax/cass-operator/operator/pkg/images"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -100,6 +102,61 @@ func Test_makeImage(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func Test_makeUbiImage(t *testing.T) {
+	type args struct {
+		serverType    string
+		serverImage   string
+		serverVersion string
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      string
+		errString string
+	}{
+		{
+			name: "test fallback",
+			args: args{
+				serverImage:   "",
+				serverType:    "dse",
+				serverVersion: "6.8.1234",
+			},
+			want:      "datastax/dse-server:6.8.1234-ubi7",
+			errString: "",
+		},
+		{
+			name: "test cassandra fallback",
+			args: args{
+				serverImage:   "",
+				serverType:    "cassandra",
+				serverVersion: "6.8.1234",
+			},
+			want:      "datastax/cassandra-mgmtapi-6_8_1234:v0.0.1-ubi7",
+			errString: "",
+		},
+	}
+	for _, tt := range tests {
+		os.Setenv(images.EnvBaseImageOS, "example")
+
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := makeImage(tt.args.serverType, tt.args.serverVersion, tt.args.serverImage)
+			if got != tt.want {
+				t.Errorf("makeImage() = %v, want %v", got, tt.want)
+			}
+			if err == nil {
+				if tt.errString != "" {
+					t.Errorf("makeImage() err = %v, want %v", err, tt.errString)
+				}
+			} else {
+				if err.Error() != tt.errString {
+					t.Errorf("makeImage() err = %v, want %v", err, tt.errString)
+				}
+			}
+		})
+		os.Unsetenv(images.EnvBaseImageOS)
 	}
 }
 
