@@ -54,14 +54,24 @@ func Test_makeImage(t *testing.T) {
 			errString: "",
 		},
 		{
-			name: "test unknown version",
+			name: "test fallback",
 			args: args{
 				serverImage:   "",
 				serverType:    "dse",
-				serverVersion: "6.7.0",
+				serverVersion: "6.8.1234",
 			},
-			want:      "",
-			errString: "server 'dse' and version '6.7.0' do not work together",
+			want:      "datastax/dse-server:6.8.1234",
+			errString: "",
+		},
+		{
+			name: "test cassandra fallback",
+			args: args{
+				serverImage:   "",
+				serverType:    "cassandra",
+				serverVersion: "6.8.1234",
+			},
+			want:      "datastax/cassandra-mgmtapi-6_8_1234:v0.0.1",
+			errString: "",
 		},
 		{
 			name: "test 6.8.4",
