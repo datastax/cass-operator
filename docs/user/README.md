@@ -437,6 +437,22 @@ Kubernetes worker nodes available.
 For racks to act effectively as a fault-containment zone, each rack in the
 cluster must contain the same number of instances.
 
+## Scale down
+
+The `size` parameter on the `CassandraDatacenter` resource can
+also be decreased to scale down the datacenter by decommissioning nodes
+evenly on racks. The `size` parameter cannot be smaller than the number of racks.
+
+For a scale down to be successful, the remaining nodes in the cluster must
+have enough storage capacity to absorb the data from the decommissioned nodes.
+If this requirement is not met, the operator will log error messages displaying
+the storage capacity requirements. The `Valid` condition on the datacenter will
+be set to `FALSE` in the event of a failed scale down.
+
+Just like with scaling up, the size should be reduced to a number that can be
+divided evenly into the number of racks so that they can act effectively as a
+fault-containment zone.
+
 ## Change server configuration
 
 To change the database configuration, update the `CassandraDatacenter` and edit the

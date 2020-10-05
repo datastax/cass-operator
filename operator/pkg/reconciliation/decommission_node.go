@@ -17,13 +17,55 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+func (rc *ReconciliationContext) CalculateRackInfoForDecomm(currentSize int) ([]*RackInformation, error) {
+	racks := rc.Datacenter.GetRacks()
+	rackCount := len(racks)
+
+	// only worry about scaling 1 node at a time
+	desiredSize := currentSize - 1
+
+	if desiredSize < rackCount {
+		return nil, fmt.Errorf("the number of nodes cannot be smaller than the number of racks")
+	}
+
+	var decommRackInfo []*RackInformation
+	rackNodeCounts := api.SplitRacks(desiredSize, rackCount)
+
+	for rackIndex, currentRack := range racks {
+		nextRack := &RackInformation{}
+		nextRack.RackName = currentRack.Name
+		nextRack.NodeCount = rackNodeCounts[rackIndex]
+
+		decommRackInfo = append(decommRackInfo, nextRack)
+	}
+
+	return decommRackInfo, nil
+}
+
 func (rc *ReconciliationContext) DecommissionNodes(epData httphelper.CassMetadataEndpoints) result.ReconcileResult {
 	logger := rc.ReqLogger
 	logger.Info("reconcile_racks::DecommissionNodes")
 	dc := rc.Datacenter
 
-	for idx := range rc.desiredRackInformation {
-		rackInfo := rc.desiredRackInformation[idx]
+	var currentSize int32
+	for _, sts := range rc.statefulSets {
+		if sts != nil {
+			currentSize += *sts.Spec.Replicas
+		}
+	}
+
+	if currentSize <= dc.Spec.Size {
+		return result.Continue()
+	}
+
+	decommRackInfo, err := rc.CalculateRackInfoForDecomm(int(currentSize))
+	if err != nil {
+		logger.Error(err, "error calculating rack info for decommissioning nodes")
+		return result.Error(err)
+	}
+
+	for idx := range decommRackInfo {
+		rackInfo := decommRackInfo[idx]
 		statefulSet := rc.statefulSets[idx]
 		desiredNodeCount := int32(rackInfo.NodeCount)
 		maxReplicas := *statefulSet.Spec.Replicas
@@ -87,7 +129,7 @@ func (rc *ReconciliationContext) DecommissionNodeOnRack(rackName string, epData 
 			if err := rc.NodeMgmtClient.CallDecommissionNodeEndpoint(pod); err != nil {
 				// TODO this returns a 500 when it works
 				// We are waiting for a new version of mgmt api with a fix for this
-				// return false, err
+				// return err
 			}
 
 			rc.ReqLogger.Info("Marking node as decommissioning")
@@ -290,7 +332,7 @@ func (rc *ReconciliationContext) EnsurePodsCanAbsorbDecommData(decommPod *v1.Pod
 
 			dcPatch := client.MergeFrom(rc.Datacenter.DeepCopy())
 			updated := rc.setCondition(
-				api.NewDatacenterConditionWithReason(api.DatacenterConditionValid,
+				api.NewDatacenterConditionWithReason(api.DatacenterValid,
 					corev1.ConditionFalse, "notEnoughSpaceToScaleDown", msg,
 				),
 			)
@@ -298,7 +340,7 @@ func (rc *ReconciliationContext) EnsurePodsCanAbsorbDecommData(decommPod *v1.Pod
 			if updated {
 				patchErr := rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, dcPatch)
 				if patchErr != nil {
-					msg := "error patching condition datacenterConditionValid for failed scale down."
+					msg := "error patching condition Valid for failed scale down."
 					rc.ReqLogger.Error(patchErr, msg)
 					return patchErr
 				}
