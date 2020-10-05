@@ -49,7 +49,9 @@ func (rc *ReconciliationContext) DecommissionNodes(epData httphelper.CassMetadat
 
 	var currentSize int32
 	for _, sts := range rc.statefulSets {
-		currentSize += *sts.Spec.Replicas
+		if sts != nil {
+			currentSize += *sts.Spec.Replicas
+		}
 	}
 
 	if currentSize <= dc.Spec.Size {
@@ -338,7 +340,7 @@ func (rc *ReconciliationContext) EnsurePodsCanAbsorbDecommData(decommPod *v1.Pod
 			if updated {
 				patchErr := rc.Client.Status().Patch(rc.Ctx, rc.Datacenter, dcPatch)
 				if patchErr != nil {
-					msg := "error patching condition DatacenterValid for failed scale down."
+					msg := "error patching condition Valid for failed scale down."
 					rc.ReqLogger.Error(patchErr, msg)
 					return patchErr
 				}
