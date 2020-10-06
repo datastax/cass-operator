@@ -23,6 +23,6 @@ dev:
   ubiDseImages:
     - datastax/dse-server:6.8.4-ubi7
   ubiOssImages:
-    - datastax/cassandra:3.11.7-ubi7
+    - datastax/cassandra:3.11.6-ubi7
   sharedImages:
     - datastax/cass-config-builder:1.0.3
