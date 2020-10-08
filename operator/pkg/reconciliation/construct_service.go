@@ -155,6 +155,7 @@ func newNodePortServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *core
 func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Service {
 	service := makeGenericHeadlessService(dc)
 	service.ObjectMeta.Name = dc.GetAllPodsServiceName()
+	service.ObjectMeta.Labels[api.PromMetricsLabel] = "true"
 	service.Spec.PublishNotReadyAddresses = true
 
 	nativePort := api.DefaultNativePort
