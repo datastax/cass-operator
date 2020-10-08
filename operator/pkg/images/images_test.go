@@ -4,11 +4,12 @@
 package images
 
 import (
+	"fmt"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"os"
 	"strings"
 	"testing"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func tempSetEnv(name, value string) (func(), error) {
@@ -26,7 +27,7 @@ func tempSetEnv(name, value string) (func(), error) {
 }
 
 func Test_AllImageEnumValuesHaveImageDefined(t *testing.T) {
-	for i :=0; i < ImageEnumLength; i++ {
+	for i := 0; i < ImageEnumLength; i++ {
 		if Image(i) == BaseImageOS {
 			// the BaseImageOS is unique in that we get it's value from an
 			// environment variable, so if the environment variable is not
@@ -53,4 +54,22 @@ func Test_DefaultRegistryOverride(t *testing.T) {
 
 	image := GetConfigBuilderImage()
 	assert.True(t, strings.HasPrefix(image, "localhost:5000/"))
+}
+
+func Test_DockerImageRunsAsCassandra(t *testing.T) {
+	tests := []struct {
+		version string
+		image   string
+		want    bool
+	}{
+		{
+			version: "3.11.6",
+			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.5",
+			want:    false,
+		},
+	}
+	for _, tt := range tests {
+		got := DockerImageRunsAsCassandra(tt.version, tt.image)
+		assert.Equal(t, got, tt.want, fmt.Sprintf("Version: %s and Image: %s should not have returned %v", tt.version, tt.image, got))
+	}
 }

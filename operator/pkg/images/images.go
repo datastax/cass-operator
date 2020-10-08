@@ -4,9 +4,11 @@
 package images
 
 import (
-	"os"
-	"strings"
 	"fmt"
+	"os"
+	"regexp"
+	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -67,7 +69,7 @@ const (
 	ImageEnumLength int = iota
 )
 
-var imageLookupMap map[Image]string = map[Image]string {
+var imageLookupMap map[Image]string = map[Image]string{
 
 	Cassandra_3_11_6: "datastax/cassandra-mgmtapi-3_11_6:v0.1.5",
 	Cassandra_3_11_7: "datastax/cassandra-mgmtapi-3_11_7:v0.1.13",
@@ -96,19 +98,19 @@ var imageLookupMap map[Image]string = map[Image]string {
 	Reaper:  "thelastpickle/cassandra-reaper:2.0.5",
 }
 
-var versionToOSSCassandra map[string]Image = map[string]Image {
+var versionToOSSCassandra map[string]Image = map[string]Image{
 	"3.11.6": Cassandra_3_11_6,
 	"3.11.7": Cassandra_3_11_7,
 	"4.0.0":  Cassandra_4_0_0,
 }
 
-var versionToUBIOSSCassandra map[string]Image = map[string]Image {
+var versionToUBIOSSCassandra map[string]Image = map[string]Image{
 	"3.11.6": UBICassandra_3_11_6,
 	"3.11.7": UBICassandra_3_11_7,
 	"4.0.0":  UBICassandra_4_0_0,
 }
 
-var versionToDSE map[string]Image = map[string]Image {
+var versionToDSE map[string]Image = map[string]Image{
 	"6.8.0": DSE_6_8_0,
 	"6.8.1": DSE_6_8_1,
 	"6.8.2": DSE_6_8_2,
@@ -116,7 +118,7 @@ var versionToDSE map[string]Image = map[string]Image {
 	"6.8.4": DSE_6_8_4,
 }
 
-var versionToUBIDSE map[string]Image = map[string]Image {
+var versionToUBIDSE map[string]Image = map[string]Image{
 	"6.8.0": UBIDSE_6_8_0,
 	"6.8.1": UBIDSE_6_8_1,
 	"6.8.2": UBIDSE_6_8_2,
@@ -146,6 +148,30 @@ func applyDefaultRegistryOverride(image string) string {
 		imageNoRegistry := stripRegistry(image)
 		return fmt.Sprintf("%s/%s", customRegistry, imageNoRegistry)
 	}
+}
+
+// Does this Docker Image run as the cassandra user?
+func DockerImageRunsAsCassandra(version string, image string) bool {
+	if shouldUseUBI() && (version == "3.11.6" || version == "3.11.7" || version == "4.0.0") {
+		return true
+	}
+
+	// Any version of the management api that would be too old is going to start with 0.1
+	// Therefore we can simply examine the patch version of the mgmt api
+
+	re := regexp.MustCompile(`:v0.1.(.*)$`)
+	matches := re.FindSubmatch([]byte(image))
+	patchVersion, _ := strconv.Atoi(string(matches[1]))
+
+	if version == "3.11.6" && patchVersion > 5 {
+		return true
+	} else if version == "3.11.7" && patchVersion > 13 {
+		return true
+	} else if version == "4.0.0" && patchVersion > 12 {
+		return true
+	}
+
+	return false
 }
 
 func GetImage(name Image) string {
@@ -229,7 +255,7 @@ func AddDefaultRegistryImagePullSecrets(podSpec *corev1.PodSpec) bool {
 	secretName := os.Getenv(envDefaultRegistryOverridePullSecrets)
 	if secretName != "" {
 		podSpec.ImagePullSecrets = append(
-			podSpec.ImagePullSecrets, 
+			podSpec.ImagePullSecrets,
 			corev1.LocalObjectReference{Name: secretName})
 		return true
 	}
