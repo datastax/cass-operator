@@ -103,19 +103,19 @@ func Test_DockerImageRunsAsCassandra(t *testing.T) {
 		{
 			version: "3.11.6",
 			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.500",
-			want:    true,
+			want:    false,
 			ubi:     true,
 		},
 		{
 			version: "3.11.7",
 			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.130",
-			want:    true,
+			want:    false,
 			ubi:     true,
 		},
 		{
 			version: "4.0.0",
 			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.120",
-			want:    true,
+			want:    false,
 			ubi:     true,
 		},
 	}

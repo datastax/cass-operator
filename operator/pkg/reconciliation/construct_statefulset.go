@@ -10,6 +10,7 @@ import (
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
+	"github.com/datastax/cass-operator/operator/pkg/images"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
 
@@ -125,11 +126,21 @@ func newStatefulSetForCassandraDatacenterHelper(
 	}
 
 	// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
-	var userID int64 = 999
-	template.Spec.SecurityContext = &corev1.PodSecurityContext{
-		RunAsUser:  &userID,
-		RunAsGroup: &userID,
-		FSGroup:    &userID,
+
+	serverImage := ""
+	for _, c := range template.Spec.Containers {
+		if c.Name == CassandraContainerName {
+			serverImage = c.Image
+		}
+	}
+
+	if dc.Spec.ServerType == "dse" || images.DockerImageRunsAsCassandra(dc.Spec.ServerVersion, serverImage) {
+		var userID int64 = 999
+		template.Spec.SecurityContext = &corev1.PodSecurityContext{
+			RunAsUser:  &userID,
+			RunAsGroup: &userID,
+			FSGroup:    &userID,
+		}
 	}
 
 	_ = httphelper.AddManagementApiServerSecurity(dc, template)

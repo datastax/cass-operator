@@ -152,8 +152,11 @@ func applyDefaultRegistryOverride(image string) string {
 
 // Does this Docker Image run as the cassandra user?
 func DockerImageRunsAsCassandra(version string, image string) bool {
+
+	// The ubi versions of these images are assumed to always run as root,
+	// because we cannot see the mgmt api version
 	if shouldUseUBI() && (version == "3.11.6" || version == "3.11.7" || version == "4.0.0") {
-		return true
+		return false
 	}
 
 	// Any version of the management api that would be too old is going to start with 0.1
