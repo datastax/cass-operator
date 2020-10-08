@@ -61,15 +61,75 @@ func Test_DockerImageRunsAsCassandra(t *testing.T) {
 		version string
 		image   string
 		want    bool
+		ubi     bool
 	}{
 		{
 			version: "3.11.6",
 			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.5",
 			want:    false,
+			ubi:     false,
+		},
+		{
+			version: "3.11.7",
+			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.13",
+			want:    false,
+			ubi:     false,
+		},
+		{
+			version: "4.0.0",
+			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.12",
+			want:    false,
+			ubi:     false,
+		},
+		{
+			version: "3.11.6",
+			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.6",
+			want:    true,
+			ubi:     false,
+		},
+		{
+			version: "3.11.7",
+			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.14",
+			want:    true,
+			ubi:     false,
+		},
+		{
+			version: "4.0.0",
+			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.13",
+			want:    true,
+			ubi:     false,
+		},
+		// Ubi skips the image check
+		{
+			version: "3.11.6",
+			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.500",
+			want:    true,
+			ubi:     true,
+		},
+		{
+			version: "3.11.7",
+			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.130",
+			want:    true,
+			ubi:     true,
+		},
+		{
+			version: "4.0.0",
+			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.120",
+			want:    true,
+			ubi:     true,
 		},
 	}
 	for _, tt := range tests {
-		got := DockerImageRunsAsCassandra(tt.version, tt.image)
+		got := false
+		if tt.ubi {
+			restore, err := tempSetEnv(EnvBaseImageOS, "something")
+			require.NoError(t, err)
+			got = DockerImageRunsAsCassandra(tt.version, tt.image)
+			restore()
+		} else {
+			got = DockerImageRunsAsCassandra(tt.version, tt.image)
+		}
+
 		assert.Equal(t, got, tt.want, fmt.Sprintf("Version: %s and Image: %s should not have returned %v", tt.version, tt.image, got))
 	}
 }
