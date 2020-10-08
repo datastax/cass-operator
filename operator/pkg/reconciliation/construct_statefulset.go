@@ -125,13 +125,11 @@ func newStatefulSetForCassandraDatacenterHelper(
 	}
 
 	// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
-	if dc.Spec.ServerType == "dse" {
-		var userID int64 = 999
-		template.Spec.SecurityContext = &corev1.PodSecurityContext{
-			RunAsUser:  &userID,
-			RunAsGroup: &userID,
-			FSGroup:    &userID,
-		}
+	var userID int64 = 999
+	template.Spec.SecurityContext = &corev1.PodSecurityContext{
+		RunAsUser:  &userID,
+		RunAsGroup: &userID,
+		FSGroup:    &userID,
 	}
 
 	_ = httphelper.AddManagementApiServerSecurity(dc, template)
