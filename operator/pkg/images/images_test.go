@@ -118,6 +118,12 @@ func Test_DockerImageRunsAsCassandra(t *testing.T) {
 			want:    false,
 			ubi:     true,
 		},
+		{
+			version: "4.0.0",
+			image:   "elsewhere/cassandra:latest",
+			want:    false,
+			ubi:     false,
+		},
 	}
 	for _, tt := range tests {
 		got := false

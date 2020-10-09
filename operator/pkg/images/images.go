@@ -164,6 +164,12 @@ func DockerImageRunsAsCassandra(version string, image string) bool {
 
 	re := regexp.MustCompile(`:v0.1.(.*)$`)
 	matches := re.FindSubmatch([]byte(image))
+
+	// Default to false if the image name is not parseable
+	if len(matches) < 2 {
+		return false
+	}
+
 	patchVersion, _ := strconv.Atoi(string(matches[1]))
 
 	if version == "3.11.6" && patchVersion > 5 {
