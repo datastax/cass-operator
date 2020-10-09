@@ -20,8 +20,8 @@ const (
 	envDefaultRegistryOverride            = "DEFAULT_CONTAINER_REGISTRY_OVERRIDE"
 	envDefaultRegistryOverridePullSecrets = "DEFAULT_CONTAINER_REGISTRY_OVERRIDE_PULL_SECRETS"
 	EnvBaseImageOS                        = "BASE_IMAGE_OS"
-	ValidDseVersionRegexp                 = "6\\.8\\.\\d"
-	ValidOssVersionRegexp                 = "(3\\.11\\.\\d)|(4\\.0\\.\\d)"
+	ValidDseVersionRegexp                 = "6\\.8\\.\\d+"
+	ValidOssVersionRegexp                 = "(3\\.11\\.\\d+)|(4\\.0\\.\\d+)"
 	UbiImageSuffix                        = "-ubi7"
 )
 
@@ -220,8 +220,14 @@ func GetCassandraImage(serverType, version string) (string, error) {
 		fallbackImageName := ""
 
 		if serverType == "dse" {
+			if !IsDseVersionSupported(version) {
+				return "", fmt.Errorf("server 'dse' and version '%s' do not work together", version)
+			}
 			fallbackImageName = fmt.Sprintf("datastax/dse-server:%s", version)
 		} else {
+			if !IsOssVersionSupported(version) {
+				return "", fmt.Errorf("server 'cassandra' and version '%s' do not work together", version)
+			}
 			versionWithUnderscores := strings.Replace(version, ".", "_", -1)
 			fallbackImageName = fmt.Sprintf("datastax/cassandra-mgmtapi-%s:v0.0.1", versionWithUnderscores)
 		}

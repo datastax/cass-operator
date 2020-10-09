@@ -56,6 +56,26 @@ func Test_makeImage(t *testing.T) {
 			errString: "",
 		},
 		{
+			name: "test unknown dse version",
+			args: args{
+				serverImage:   "",
+				serverType:    "dse",
+				serverVersion: "6.7.0",
+			},
+			want:      "",
+			errString: "server 'dse' and version '6.7.0' do not work together",
+		},
+		{
+			name: "test unknown cassandra version",
+			args: args{
+				serverImage:   "",
+				serverType:    "cassandra",
+				serverVersion: "3.10.0",
+			},
+			want:      "",
+			errString: "server 'cassandra' and version '3.10.0' do not work together",
+		},
+		{
 			name: "test fallback",
 			args: args{
 				serverImage:   "",
@@ -70,9 +90,9 @@ func Test_makeImage(t *testing.T) {
 			args: args{
 				serverImage:   "",
 				serverType:    "cassandra",
-				serverVersion: "6.8.1234",
+				serverVersion: "3.11.1234",
 			},
-			want:      "datastax/cassandra-mgmtapi-6_8_1234:v0.0.1",
+			want:      "datastax/cassandra-mgmtapi-3_11_1234:v0.0.1",
 			errString: "",
 		},
 		{
@@ -132,10 +152,30 @@ func Test_makeUbiImage(t *testing.T) {
 			args: args{
 				serverImage:   "",
 				serverType:    "cassandra",
-				serverVersion: "6.8.1234",
+				serverVersion: "4.0.1234",
 			},
-			want:      "datastax/cassandra-mgmtapi-6_8_1234:v0.0.1-ubi7",
+			want:      "datastax/cassandra-mgmtapi-4_0_1234:v0.0.1-ubi7",
 			errString: "",
+		},
+		{
+			name: "test unknown dse version",
+			args: args{
+				serverImage:   "",
+				serverType:    "dse",
+				serverVersion: "6.7.0",
+			},
+			want:      "",
+			errString: "server 'dse' and version '6.7.0' do not work together",
+		},
+		{
+			name: "test unknown cassandra version",
+			args: args{
+				serverImage:   "",
+				serverType:    "cassandra",
+				serverVersion: "3.10.0",
+			},
+			want:      "",
+			errString: "server 'cassandra' and version '3.10.0' do not work together",
 		},
 	}
 	for _, tt := range tests {
