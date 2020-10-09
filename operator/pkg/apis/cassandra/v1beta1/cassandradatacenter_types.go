@@ -67,7 +67,7 @@ type CassandraDatacenterSpec struct {
 
 	// Version string for config builder,
 	// used to generate Cassandra server configuration
-	// +kubebuilder:validation:Pattern=(6\.8\.\d)|(3\.11\.\d)|(4\.0\.\d)
+	// +kubebuilder:validation:Pattern=(6\.8\.\d+)|(3\.11\.\d+)|(4\.0\.\d+)
 	ServerVersion string `json:"serverVersion"`
 
 	// Cassandra server image name.
