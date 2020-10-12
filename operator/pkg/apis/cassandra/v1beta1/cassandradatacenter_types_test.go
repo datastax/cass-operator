@@ -92,7 +92,7 @@ func Test_makeImage(t *testing.T) {
 				serverType:    "cassandra",
 				serverVersion: "3.11.1234",
 			},
-			want:      "datastax/cassandra-mgmtapi-3_11_1234:v0.0.1",
+			want:      "datastax/cassandra-mgmtapi:3.11.1234",
 			errString: "",
 		},
 		{
@@ -154,7 +154,7 @@ func Test_makeUbiImage(t *testing.T) {
 				serverType:    "cassandra",
 				serverVersion: "4.0.1234",
 			},
-			want:      "datastax/cassandra-mgmtapi-4_0_1234:v0.0.1-ubi7",
+			want:      "datastax/cassandra-mgmtapi:4.0.1234-ubi7",
 			errString: "",
 		},
 		{

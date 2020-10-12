@@ -228,8 +228,8 @@ func GetCassandraImage(serverType, version string) (string, error) {
 			if !IsOssVersionSupported(version) {
 				return "", fmt.Errorf("server 'cassandra' and version '%s' do not work together", version)
 			}
-			versionWithUnderscores := strings.Replace(version, ".", "_", -1)
-			fallbackImageName = fmt.Sprintf("datastax/cassandra-mgmtapi-%s:v0.0.1", versionWithUnderscores)
+			// We will fall back to the "mutable" cassandra image without the explicit mgmt-api version
+			fallbackImageName = fmt.Sprintf("datastax/cassandra-mgmtapi:%s", version)
 		}
 
 		if shouldUseUBI() {
