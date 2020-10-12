@@ -79,6 +79,7 @@ type CassandraDatacenterSpec struct {
 	ServerType string `json:"serverType"`
 
 	// Config for the server, in YAML format
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Config json.RawMessage `json:"config,omitempty"`
 
 	// Config for the Management API certificates
