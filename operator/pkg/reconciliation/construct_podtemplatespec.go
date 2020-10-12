@@ -10,6 +10,7 @@ import (
 	"reflect"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/images"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
@@ -20,10 +21,11 @@ import (
 )
 
 const (
-	ServerConfigContainerName = "server-config-init"
-	CassandraContainerName    = "cassandra"
-	PvcName                   = "server-data"
-	SystemLoggerContainerName = "server-system-logger"
+	DefaultTerminationGracePeriodSeconds = 120
+	ServerConfigContainerName            = "server-config-init"
+	CassandraContainerName               = "cassandra"
+	PvcName                              = "server-data"
+	SystemLoggerContainerName            = "server-system-logger"
 )
 
 // calculateNodeAffinity provides a way to pin all pods within a statefulset to the same zone
@@ -316,6 +318,20 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		cassContainer.ReadinessProbe = probe(8080, "/api/v0/probes/readiness", 20, 10)
 	}
 
+	if cassContainer.Lifecycle == nil {
+		cassContainer.Lifecycle = &corev1.Lifecycle{}
+	}
+
+	if cassContainer.Lifecycle.PreStop == nil {
+		action, err := httphelper.GetMgmtApiWgetPostAction(dc, httphelper.WgetNodeDrainEndpoint, "")
+		if err != nil {
+			return err
+		}
+		cassContainer.Lifecycle.PreStop = &corev1.Handler{
+			Exec: action,
+		}
+	}
+
 	// Combine env vars
 
 	envDefaults := []corev1.EnvVar{
@@ -435,6 +451,12 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	if dc.IsHostNetworkEnabled() {
 		baseTemplate.Spec.HostNetwork = true
 		baseTemplate.Spec.DNSPolicy = corev1.DNSClusterFirstWithHostNet
+	}
+
+	if baseTemplate.Spec.TerminationGracePeriodSeconds == nil {
+		// Note: we cannot take the address of a constant
+		gracePeriodSeconds := int64(DefaultTerminationGracePeriodSeconds)
+		baseTemplate.Spec.TerminationGracePeriodSeconds = &gracePeriodSeconds
 	}
 
 	// Adds custom registry pull secret if needed

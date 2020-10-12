@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package terminate
+package smoke_test_dse
 
 import (
 	"fmt"
@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	testName     = "Cluster resource cleanup after termination"
-	namespace    = "test-terminate-cleanup"
-	dcName       = "dc1"
-	dcYaml       = "../testdata/oss-one-node-dc-without-mtls.yaml"
+	testName     = "Smoke test of basic functionality for one-node DSE cluster."
+	namespace    = "test-smoke-test-dse"
+	dcName       = "dc2"
+	dcYaml       = "../testdata/smoke-test-dse.yaml"
 	operatorYaml = "../testdata/operator.yaml"
 	dcResource   = fmt.Sprintf("CassandraDatacenter/%s", dcName)
 	dcLabel      = fmt.Sprintf("cassandra.datastax.com/datacenter=%s", dcName)
@@ -39,7 +39,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator destroys resources after the datacenter is deleted", func() {
+		Specify("the operator can stand up a one node cluster", func() {
 			By("creating a namespace")
 			err := kubectl.CreateNamespace(namespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
@@ -53,62 +53,45 @@ var _ = Describe(testName, func() {
 				WithLabel("name=cass-operator").
 				WithFlag("field-selector", "status.phase=Running").
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true", 120)
+			ns.WaitForOutputAndLog(step, k, "true", 360)
 
-			step = "creating a datacenter resource with 1 racks/1 nodes"
+			step = "creating a datacenter resource with 1 rack/1 node"
 			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			step = "waiting for the node to become ready"
-			json = "jsonpath={.items[*].status.containerStatuses[0].ready}"
-			k = kubectl.Get("pods").
-				WithLabel(dcLabel).
-				WithFlag("field-selector", "status.phase=Running").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "true", 1200)
-
-			step = "checking the cassandra operator progress status is set to Ready"
-			json = "jsonpath={.status.cassandraOperatorProgress}"
-			k = kubectl.Get(dcResource).
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "Ready", 30)
+			ns.WaitForDatacenterReady(dcName)
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
 			ns.ExecAndLog(step, k)
-
-			k = kubectl.Logs().
-				WithLabel("statefulset.kubernetes.io/pod-name=cluster1-dc1-r1-sts-0").
-				WithFlag("container", "cassandra")
-			ns.WaitForOutputContainsAndLog(step, k, "node/drain status=200 OK", 30)
 
 			step = "checking that the dc no longer exists"
 			json = "jsonpath={.items}"
 			k = kubectl.Get("CassandraDatacenter").
 				WithLabel(dcLabel).
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "[]", 300)
+			ns.WaitForOutputAndLog(step, k, "[]", 600)
 
 			step = "checking that no dc pods remain"
 			json = "jsonpath={.items}"
 			k = kubectl.Get("pods").
 				WithLabel(dcLabel).
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "[]", 300)
+			ns.WaitForOutputAndLog(step, k, "[]", 600)
 
 			step = "checking that no dc services remain"
 			json = "jsonpath={.items}"
 			k = kubectl.Get("services").
 				WithLabel(dcLabel).
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "[]", 300)
+			ns.WaitForOutputAndLog(step, k, "[]", 600)
 
 			step = "checking that no dc stateful sets remain"
 			json = "jsonpath={.items}"
 			k = kubectl.Get("statefulsets").
 				WithLabel(dcLabel).
 				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "[]", 300)
+			ns.WaitForOutputAndLog(step, k, "[]", 600)
 		})
 	})
 })

@@ -2018,7 +2018,7 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 		api.DatacenterScalingDown,
 	}
 	conditionsThatShouldBeTrue := []api.DatacenterConditionType{
-		api.DatacenterConditionValid,
+		api.DatacenterValid,
 	}
 	updated := false
 
@@ -2064,7 +2064,7 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 }
 
 func (rc *ReconciliationContext) CheckForInvalidState() result.ReconcileResult {
-	cond, isSet := rc.Datacenter.GetCondition(api.DatacenterConditionValid)
+	cond, isSet := rc.Datacenter.GetCondition(api.DatacenterValid)
 	if isSet && cond.Status == corev1.ConditionFalse {
 		err := fmt.Errorf("Datacenter %s is not in a valid state: %s", rc.Datacenter.Name, cond.Message)
 		return result.Error(err)

@@ -79,7 +79,7 @@ var _ = Describe(testName, func() {
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterConditionWithReason(dcName, "DatacenterConditionValid", string(corev1.ConditionFalse), "notEnoughSpaceToScaleDown")
+			ns.WaitForDatacenterConditionWithReason(dcName, "Valid", string(corev1.ConditionFalse), "notEnoughSpaceToScaleDown")
 
 			step = "check node status is not set to decommissioning"
 			json = "jsonpath={.items}"

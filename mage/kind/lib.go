@@ -27,6 +27,10 @@ var ClusterActions = cfgutil.NewClusterActions(
 	describeEnv,
 )
 
+const (
+	kindConfigPath = "M_KIND_CONFIG"
+)
+
 func describeEnv() map[string]string {
 	return make(map[string]string)
 }
@@ -50,6 +54,8 @@ func clusterExists() bool {
 }
 
 func createCluster() {
+	config := mageutil.FromEnvOrDefault(kindConfigPath, "tests/testdata/kind/kind_config_6_workers.yaml")
+
 	// Kind can be flaky when starting up a new cluster
 	// so let's give it a few chances to redeem itself
 	// after failing
@@ -62,9 +68,12 @@ func createCluster() {
 			"create",
 			"cluster",
 			"--config",
-			"tests/testdata/kind/kind_config_6_workers.yaml",
+			config,
 			"--image",
-			"kindest/node:v1.17.5@sha256:ab3f9e6ec5ad8840eeb1f76c89bb7948c77bbf76bcebe1a8b59790b8ae9a283a")
+			"kindest/node:v1.17.11@sha256:5240a7a2c34bf241afb54ac05669f8a46661912eab05705d660971eeb12f6555",
+			"--wait", "600s",
+		)
+
 		if err != nil {
 			fmt.Printf("KIND failed to create the cluster. %v retries left.\n", retries)
 			retries--
@@ -92,7 +101,7 @@ func install() {
 	mageutil.PanicOnError(err)
 	os.Chdir("/tmp")
 	os.Setenv("GO111MODULE", "on")
-	shutil.RunVPanic("go", "get", "sigs.k8s.io/kind@v0.7.0")
+	shutil.RunVPanic("go", "get", "sigs.k8s.io/kind@v0.9.0")
 	os.Chdir(cwd)
 }
 

@@ -238,7 +238,7 @@ const (
 	DatacenterStopped        DatacenterConditionType = "Stopped"
 	DatacenterResuming       DatacenterConditionType = "Resuming"
 	DatacenterRollingRestart DatacenterConditionType = "RollingRestart"
-	DatacenterConditionValid DatacenterConditionType = "DatacenterConditionValid"
+	DatacenterValid          DatacenterConditionType = "Valid"
 )
 
 type DatacenterCondition struct {
