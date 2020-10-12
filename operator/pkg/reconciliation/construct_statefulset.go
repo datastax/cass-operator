@@ -65,6 +65,20 @@ func newStatefulSetForCassandraDatacenter(
 	return newStatefulSetForCassandraDatacenterHelper(rackName, dc, replicaCount, false)
 }
 
+// Check if we need to define a SecurityContext.
+// If the user defines the DockerImageRunsAsCassandra field, we trust that.
+// Otherwise if ServerType is "dse", the answer is true.
+// Otherwise we use the logic in CalculateDockerImageRunsAsCassandra
+// to calculate a reasonable answer.
+func shouldDefineSecurityContext(dc *api.CassandraDatacenter, serverImage string) bool {
+	// The override field always wins
+	if dc.Spec.DockerImageRunsAsCassandra != nil {
+		return *dc.Spec.DockerImageRunsAsCassandra
+	}
+
+	return dc.Spec.ServerType == "dse" || images.CalculateDockerImageRunsAsCassandra(dc.Spec.ServerVersion, serverImage)
+}
+
 // Create a statefulset object for the Datacenter.
 func newStatefulSetForCassandraDatacenterHelper(
 	rackName string,
@@ -134,7 +148,7 @@ func newStatefulSetForCassandraDatacenterHelper(
 		}
 	}
 
-	if dc.Spec.ServerType == "dse" || images.DockerImageRunsAsCassandra(dc.Spec.ServerVersion, serverImage) {
+	if shouldDefineSecurityContext(dc, serverImage) {
 		var userID int64 = 999
 		template.Spec.SecurityContext = &corev1.PodSecurityContext{
 			RunAsUser:  &userID,

@@ -56,7 +56,7 @@ func Test_DefaultRegistryOverride(t *testing.T) {
 	assert.True(t, strings.HasPrefix(image, "localhost:5000/"))
 }
 
-func Test_DockerImageRunsAsCassandra(t *testing.T) {
+func Test_CalculateDockerImageRunsAsCassandra(t *testing.T) {
 	tests := []struct {
 		version string
 		image   string
@@ -118,10 +118,11 @@ func Test_DockerImageRunsAsCassandra(t *testing.T) {
 			want:    false,
 			ubi:     true,
 		},
+		// We default to true
 		{
 			version: "4.0.0",
 			image:   "elsewhere/cassandra:latest",
-			want:    false,
+			want:    true,
 			ubi:     false,
 		},
 	}
@@ -130,10 +131,10 @@ func Test_DockerImageRunsAsCassandra(t *testing.T) {
 		if tt.ubi {
 			restore, err := tempSetEnv(EnvBaseImageOS, "something")
 			require.NoError(t, err)
-			got = DockerImageRunsAsCassandra(tt.version, tt.image)
+			got = CalculateDockerImageRunsAsCassandra(tt.version, tt.image)
 			restore()
 		} else {
-			got = DockerImageRunsAsCassandra(tt.version, tt.image)
+			got = CalculateDockerImageRunsAsCassandra(tt.version, tt.image)
 		}
 
 		assert.Equal(t, got, tt.want, fmt.Sprintf("Version: %s and Image: %s should not have returned %v", tt.version, tt.image, got))

@@ -150,8 +150,10 @@ func applyDefaultRegistryOverride(image string) string {
 	}
 }
 
-// Does this Docker Image run as the cassandra user?
-func DockerImageRunsAsCassandra(version string, image string) bool {
+// Calculate if this Docker Image run as the cassandra user?
+// This is meant to be used when the CassandraDatacenter does not
+// explicitly set the DockerImageRunsAsCassandra field.
+func CalculateDockerImageRunsAsCassandra(version string, image string) bool {
 
 	// The ubi versions of these images are assumed to always run as root,
 	// because we cannot see the mgmt api version
@@ -165,9 +167,9 @@ func DockerImageRunsAsCassandra(version string, image string) bool {
 	re := regexp.MustCompile(`:v0.1.(.*)$`)
 	matches := re.FindSubmatch([]byte(image))
 
-	// Default to false if the image name is not parseable
+	// Default to true if the image name is not parseable
 	if len(matches) < 2 {
-		return false
+		return true
 	}
 
 	patchVersion, _ := strconv.Atoi(string(matches[1]))
