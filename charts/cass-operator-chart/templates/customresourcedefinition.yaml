@@ -6307,7 +6307,9 @@ spec:
               type: string
           type: object
       type: object
+      {{- if semverCompare ">= 1.15-0" .Capabilities.KubeVersion.GitVersion }}
       x-kubernetes-preserve-unknown-fields: true
+      {{- end }}
   version: v1beta1
   versions:
   - name: v1beta1
