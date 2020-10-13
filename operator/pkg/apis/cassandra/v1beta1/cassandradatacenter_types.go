@@ -78,6 +78,9 @@ type CassandraDatacenterSpec struct {
 	// +kubebuilder:validation:Enum=cassandra;dse
 	ServerType string `json:"serverType"`
 
+	// Does the Server Docker image run as the Cassandra user?
+	DockerImageRunsAsCassandra *bool `json:"dockerImageRunsAsCassandra,omitempty"`
+
 	// Config for the server, in YAML format
 	// +kubebuilder:pruning:PreserveUnknownFields
 	Config json.RawMessage `json:"config,omitempty"`
