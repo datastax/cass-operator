@@ -59,84 +59,29 @@ func Test_DefaultRegistryOverride(t *testing.T) {
 func Test_CalculateDockerImageRunsAsCassandra(t *testing.T) {
 	tests := []struct {
 		version string
-		image   string
 		want    bool
-		ubi     bool
 	}{
 		{
 			version: "3.11.6",
-			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.5",
 			want:    false,
-			ubi:     false,
 		},
 		{
 			version: "3.11.7",
-			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.13",
 			want:    false,
-			ubi:     false,
 		},
 		{
 			version: "4.0.0",
-			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.12",
 			want:    false,
-			ubi:     false,
-		},
-		{
-			version: "3.11.6",
-			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.6",
-			want:    true,
-			ubi:     false,
-		},
-		{
-			version: "3.11.7",
-			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.14",
-			want:    true,
-			ubi:     false,
-		},
-		{
-			version: "4.0.0",
-			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.13",
-			want:    true,
-			ubi:     false,
-		},
-		// Ubi skips the image check
-		{
-			version: "3.11.6",
-			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.500",
-			want:    false,
-			ubi:     true,
-		},
-		{
-			version: "3.11.7",
-			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.130",
-			want:    false,
-			ubi:     true,
-		},
-		{
-			version: "4.0.0",
-			image:   "datastax/cassandra-mgmtapi-3_11_6:v0.1.120",
-			want:    false,
-			ubi:     true,
 		},
 		// We default to true
 		{
-			version: "4.0.0",
-			image:   "elsewhere/cassandra:latest",
+			version: "4.0.1",
 			want:    true,
-			ubi:     false,
 		},
 	}
 	for _, tt := range tests {
-		got := false
-		if tt.ubi {
-			restore, err := tempSetEnv(EnvBaseImageOS, "something")
-			require.NoError(t, err)
-			got = CalculateDockerImageRunsAsCassandra(tt.version, tt.image)
-			restore()
-		} else {
-			got = CalculateDockerImageRunsAsCassandra(tt.version, tt.image)
-		}
+		got := CalculateDockerImageRunsAsCassandra(tt.version)
 
-		assert.Equal(t, got, tt.want, fmt.Sprintf("Version: %s and Image: %s should not have returned %v", tt.version, tt.image, got))
+		assert.Equal(t, got, tt.want, fmt.Sprintf("Version: %s should not have returned %v", tt.version, got))
 	}
 }

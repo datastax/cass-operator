@@ -70,13 +70,13 @@ func newStatefulSetForCassandraDatacenter(
 // Otherwise if ServerType is "dse", the answer is true.
 // Otherwise we use the logic in CalculateDockerImageRunsAsCassandra
 // to calculate a reasonable answer.
-func shouldDefineSecurityContext(dc *api.CassandraDatacenter, serverImage string) bool {
+func shouldDefineSecurityContext(dc *api.CassandraDatacenter) bool {
 	// The override field always wins
 	if dc.Spec.DockerImageRunsAsCassandra != nil {
 		return *dc.Spec.DockerImageRunsAsCassandra
 	}
 
-	return dc.Spec.ServerType == "dse" || images.CalculateDockerImageRunsAsCassandra(dc.Spec.ServerVersion, serverImage)
+	return dc.Spec.ServerType == "dse" || images.CalculateDockerImageRunsAsCassandra(dc.Spec.ServerVersion)
 }
 
 // Create a statefulset object for the Datacenter.
@@ -141,14 +141,7 @@ func newStatefulSetForCassandraDatacenterHelper(
 
 	// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
 
-	serverImage := ""
-	for _, c := range template.Spec.Containers {
-		if c.Name == CassandraContainerName {
-			serverImage = c.Image
-		}
-	}
-
-	if shouldDefineSecurityContext(dc, serverImage) {
+	if shouldDefineSecurityContext(dc) {
 		var userID int64 = 999
 		template.Spec.SecurityContext = &corev1.PodSecurityContext{
 			RunAsUser:  &userID,

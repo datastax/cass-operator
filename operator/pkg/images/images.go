@@ -6,8 +6,6 @@ package images
 import (
 	"fmt"
 	"os"
-	"regexp"
-	"strconv"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
@@ -153,36 +151,14 @@ func applyDefaultRegistryOverride(image string) string {
 // Calculate if this Docker Image run as the cassandra user?
 // This is meant to be used when the CassandraDatacenter does not
 // explicitly set the DockerImageRunsAsCassandra field.
-func CalculateDockerImageRunsAsCassandra(version string, image string) bool {
-
-	// The ubi versions of these images are assumed to always run as root,
-	// because we cannot see the mgmt api version
-	if shouldUseUBI() && (version == "3.11.6" || version == "3.11.7" || version == "4.0.0") {
+func CalculateDockerImageRunsAsCassandra(version string) bool {
+	if version == "3.11.6" || version == "3.11.7" || version == "4.0.0" {
 		return false
 	}
 
-	// Any version of the management api that would be too old is going to start with 0.1
-	// Therefore we can simply examine the patch version of the mgmt api
+	// Otherwise, we assume the image is running as the "cassandra" user
 
-	re := regexp.MustCompile(`:v0.1.(.*)$`)
-	matches := re.FindSubmatch([]byte(image))
-
-	// Default to true if the image name is not parseable
-	if len(matches) < 2 {
-		return true
-	}
-
-	patchVersion, _ := strconv.Atoi(string(matches[1]))
-
-	if version == "3.11.6" && patchVersion > 5 {
-		return true
-	} else if version == "3.11.7" && patchVersion > 13 {
-		return true
-	} else if version == "4.0.0" && patchVersion > 12 {
-		return true
-	}
-
-	return false
+	return true
 }
 
 func GetImage(name Image) string {
