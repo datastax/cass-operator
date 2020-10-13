@@ -222,9 +222,9 @@ parameter to `true`.
 
 ## The server image user
 
-If the server image runs as the "cassandra" user, then a PodSecurityContext for that user will be defined by cass-operator. Otherwise the server image is assumed to be running as the "root" user and a PodSecurityContext is not defined.
+If the server image runs as the "cassandra" or "dse" user, then a PodSecurityContext for that user will be defined by cass-operator. Otherwise the server image is assumed to be running as the "root" user and a PodSecurityContext is not defined.
 
-For serverType="dse", the server images run as the "cassandra" user.
+For serverType="dse", the server images run as the "dse" user.
 
 For serverType="cassandra", the cass-operator follows these steps in order to determine which user the docker image is run as:
 

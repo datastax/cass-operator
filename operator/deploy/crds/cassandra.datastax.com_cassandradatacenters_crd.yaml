@@ -6032,15 +6032,7 @@ spec:
             serverVersion:
               description: Version string for config builder, used to generate Cassandra
                 server configuration
-              enum:
-              - 6.8.0
-              - 6.8.1
-              - 6.8.2
-              - 6.8.3
-              - 6.8.4
-              - 3.11.6
-              - 3.11.7
-              - 4.0.0
+              pattern: (6\.8\.\d+)|(3\.11\.\d+)|(4\.0\.\d+)
               type: string
             serviceAccount:
               description: The k8s service account to use for the server pods

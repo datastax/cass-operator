@@ -6,16 +6,23 @@ package images
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
+var ValidDsePrefixes = []string{"6.8"}
+var ValidOssPrefixes = []string{"3.11", "4.0"}
+
 const (
 	envDefaultRegistryOverride            = "DEFAULT_CONTAINER_REGISTRY_OVERRIDE"
 	envDefaultRegistryOverridePullSecrets = "DEFAULT_CONTAINER_REGISTRY_OVERRIDE_PULL_SECRETS"
 	EnvBaseImageOS                        = "BASE_IMAGE_OS"
+	ValidDseVersionRegexp                 = "6\\.8\\.\\d+"
+	ValidOssVersionRegexp                 = "(3\\.11\\.\\d+)|(4\\.0\\.\\d+)"
+	UbiImageSuffix                        = "-ubi7"
 )
 
 // How to add new images:
@@ -126,6 +133,16 @@ var versionToUBIDSE map[string]Image = map[string]Image{
 
 var log = logf.Log.WithName("images")
 
+func IsDseVersionSupported(version string) bool {
+	validVersions := regexp.MustCompile(ValidDseVersionRegexp)
+	return validVersions.MatchString(version)
+}
+
+func IsOssVersionSupported(version string) bool {
+	validVersions := regexp.MustCompile(ValidOssVersionRegexp)
+	return validVersions.MatchString(version)
+}
+
 func stripRegistry(image string) string {
 	comps := strings.Split(image, "/")
 
@@ -212,7 +229,27 @@ func GetCassandraImage(serverType, version string) (string, error) {
 	}
 
 	if !found {
-		return "", fmt.Errorf("server '%s' and version '%s' do not work together", serverType, version)
+		// For fallback images, just return the image name directly
+		fallbackImageName := ""
+
+		if serverType == "dse" {
+			if !IsDseVersionSupported(version) {
+				return "", fmt.Errorf("server 'dse' and version '%s' do not work together", version)
+			}
+			fallbackImageName = fmt.Sprintf("datastax/dse-server:%s", version)
+		} else {
+			if !IsOssVersionSupported(version) {
+				return "", fmt.Errorf("server 'cassandra' and version '%s' do not work together", version)
+			}
+			// We will fall back to the "mutable" cassandra image without the explicit mgmt-api version
+			fallbackImageName = fmt.Sprintf("datastax/cassandra-mgmtapi:%s", version)
+		}
+
+		if shouldUseUBI() {
+			return fmt.Sprintf("%s%s", fallbackImageName, UbiImageSuffix), nil
+		}
+
+		return fallbackImageName, nil
 	}
 
 	return GetImage(imageKey), nil
