@@ -1,0 +1,300 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cass-operator-cr
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - persistentvolumes
+  verbs:
+  - get
+  - list
+  - watch
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cass-operator-crb
+subjects:
+- kind: ServiceAccount
+  name: cass-operator
+  namespace: {{ .service.namespace }}
+roleRef:
+  kind: ClusterRole
+  name: cass-operator-cr
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cass-operator
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  - services
+  - endpoints
+  - persistentvolumeclaims
+  - events
+  - configmaps
+  - secrets
+  verbs:
+  - '*'
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  - replicasets
+  - statefulsets
+  verbs:
+  - '*'
+- apiGroups:
+  - monitoring.coreos.com
+  resources:
+  - servicemonitors
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - apps
+  resourceNames:
+  - cass-operator
+  resources:
+  - deployments/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - datastax.com
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - policy
+  resources:
+  - poddisruptionbudgets
+  verbs:
+  - '*'
+- apiGroups:
+  - cassandra.datastax.com
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+    - batch
+  resources:
+    - '*'
+  verbs:
+    - '*'
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cass-operator
+subjects:
+- kind: ServiceAccount
+  name: cass-operator
+  namespace: {{ .service.namespace }}
+roleRef:
+  kind: ClusterRole
+  name: cass-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cass-operator
+  namespace: {{ .service.namespace }}
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: "cassandradatacenter-webhook-registration"
+webhooks:
+- name: "cassandradatacenter-webhook.cassandra.datastax.com"
+  rules:
+  - apiGroups: ["cassandra.datastax.com"]
+    apiVersions: ["v1beta1"]
+    operations: ["CREATE", "UPDATE"]
+    resources: ["cassandradatacenters"]
+    scope: "*"
+  clientConfig:
+    service:
+      name: "cassandradatacenter-webhook-service"
+      namespace: {{ .service.namespace }}
+      path: /validate-cassandra-datastax-com-v1beta1-cassandradatacenter
+  admissionReviewVersions: ["v1beta1"]
+  timeoutSeconds: 10
+  failurePolicy: "Ignore"
+  matchPolicy: "Equivalent"
+  sideEffects: None
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  creationTimestamp: null
+  name: cass-operator-webhook
+rules:
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - validatingwebhookconfigurations
+  verbs:
+  - create
+  - get
+  - update
+  resourceNames:
+  - "cassandradatacenter-webhook-registration"
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: cass-operator-webhook
+subjects:
+- kind: ServiceAccount
+  name: cass-operator
+  namespace: {{ .service.namespace }}
+roleRef:
+  kind: ClusterRole
+  name: cass-operator-webhook
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cass-operator-webhook-config
+  namespace: {{ .service.namespace }}
+data:
+  tls.crt: ""
+  tls.key: ""
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cassandradatacenter-webhook-service
+  namespace: {{ .service.namespace }}
+  labels:
+    name: cass-operator-webhook
+spec:
+  ports:
+  - port: 443
+    targetPort: 8443
+  selector:
+    name: cass-operator
+---  
+{{ if .Values.registryUsername }}
+apiVersion: v1
+kind: Secret
+type: kubernetes.io/dockerconfigjson
+metadata:
+  name: cass-operator-registry-override-regcred
+  namespace: {{ .service.namespace }}
+data:
+  .dockerconfigjson: {{ printf "{\"auths\": {\"%s\": {\"auth\": \"%s\"}}}" .Values.registryName (printf "%s:%s" .Values.registryUsername .Values.registryPasswd | b64enc) | b64enc }}
+{{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cass-operator
+  namespace: {{ .service.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: cass-operator
+  template:
+    metadata:
+      labels:
+        name: cass-operator
+    spec:
+      serviceAccountName: cass-operator
+      {{- $imagePullSecrets := list -}}
+      {{- if .Values.registryUsername }}
+        {{- $imagePullSecrets = append $imagePullSecrets "cass-operator-registry-override-regcred" }}
+      {{- end }}
+      {{- if empty $imagePullSecrets | not }}
+      imagePullSecrets:
+      {{- range $imagePullSecrets }}
+        - name: {{ . | quote }}
+      {{- end }}
+      {{- end }}
+      volumes:
+      - name: tmpconfig-volume
+        emptyDir:
+            medium: "Memory"
+      - name: cass-operator-certs-volume
+        secret:
+          secretName: cass-operator-webhook-config
+      containers:
+      - name: cass-operator
+        {{- $imageRegistry := "docker.pkg.github.com" -}}
+        {{- $image := "datastax/cass-operator/operator:73b010dfce267e289166ee8119431c96f7741774" -}}
+        {{- if .Values.registryName }}
+          {{- $imageRegistry = .Values.registryName }}
+        {{- end }}
+        image: {{ printf "%s/%s" $imageRegistry $image }}
+        imagePullPolicy: "IfNotPresent"
+        volumeMounts:
+        - mountPath: /tmp/k8s-webhook-server/serving-certs
+          name: cass-operator-certs-volume
+          readOnly: false
+        - mountPath: /tmp/
+          name: tmpconfig-volume
+          readOnly: false
+        securityContext:
+          runAsUser: 65534
+          runAsGroup: 65534
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+        livenessProbe:
+          exec:
+            command:
+            - pgrep
+            - ".*operator"
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          exec:
+            command:
+            - stat
+            - "/tmp/operator-sdk-ready"
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 5
+          failureThreshold: 1
+        env:
+        - name: ENABLE_VMWARE_PSP
+          value: "true"
+        {{- if .Values.registryName }}
+        - name: DEFAULT_CONTAINER_REGISTRY_OVERRIDE
+          value: {{ .Values.registryName }}
+        {{- end }}
+        {{- if .Values.registryUsername }}
+        - name: DEFAULT_CONTAINER_REGISTRY_OVERRIDE_PULL_SECRETS
+          value: cass-operator-registry-override-regcred
+        {{- end }}
+        - name: WATCH_NAMESPACE
+          value: ""
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: OPERATOR_NAME
+          value: "cass-operator"
+        - name: SKIP_VALIDATING_WEBHOOK
+          value: "FALSE"
+  

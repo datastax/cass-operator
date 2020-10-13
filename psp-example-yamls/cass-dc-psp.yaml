@@ -1,0 +1,33 @@
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: john-test-dc
+  namespace: ds-operator
+spec:
+  clusterName: john-test-cluster
+  serverType: dse
+  serverVersion: "6.8.3"
+  managementApiAuth:
+    insecure: {}
+  size: 1
+  storageConfig:
+    cassandraDataVolumeClaimSpec:
+      storageClassName: vsan-default-storage-policy
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
+  resources:
+    limits:
+      memory: 3072Mi
+      cpu: "1000m"
+    requests:
+      memory: 3072Mi
+      cpu: "1000m"
+  racks:
+    - name: r1
+  config:
+    jvm-server-options:
+      initial_heap_size: "2048m"
+      max_heap_size: "2048m"
