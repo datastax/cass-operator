@@ -229,9 +229,8 @@ For serverType="dse", the server images run as the "cassandra" user.
 For serverType="cassandra", the cass-operator follows these steps in order to determine which user the docker image is run as:
 
 1. If the CassandraDatacenter.Spec.DockerImageRunsAsCassandra field is set, then that "true" or "false" value will be used.
-2. If the image is a "UBI" image, then cass-operator assumes that the image runs as the "cassandra" user.
-3. If the serverVersion field is set to "3.11.6", "3.11.7", or "4.0.0", cass-operator assumes the image runs as the "root" user.
-4. Otherwise, cass-operator assumes that the server is running as the "cassandra" user.
+2. If the serverVersion field is set to "3.11.6", "3.11.7", or "4.0.0", cass-operator assumes the image runs as the "root" user.
+3. Otherwise, cass-operator assumes that the server is running as the "cassandra" user.
 
 ## Storage
 
