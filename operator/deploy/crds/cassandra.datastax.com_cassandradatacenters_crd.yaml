@@ -91,6 +91,9 @@ spec:
                     value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                   type: object
               type: object
+            dockerImageRunsAsCassandra:
+              description: Does the Server Docker image run as the Cassandra user?
+              type: boolean
             dseWorkloads:
               properties:
                 analyticsEnabled:

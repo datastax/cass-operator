@@ -4,11 +4,12 @@
 package images
 
 import (
+	"fmt"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"os"
 	"strings"
 	"testing"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func tempSetEnv(name, value string) (func(), error) {
@@ -26,7 +27,7 @@ func tempSetEnv(name, value string) (func(), error) {
 }
 
 func Test_AllImageEnumValuesHaveImageDefined(t *testing.T) {
-	for i :=0; i < ImageEnumLength; i++ {
+	for i := 0; i < ImageEnumLength; i++ {
 		if Image(i) == BaseImageOS {
 			// the BaseImageOS is unique in that we get it's value from an
 			// environment variable, so if the environment variable is not
@@ -53,4 +54,34 @@ func Test_DefaultRegistryOverride(t *testing.T) {
 
 	image := GetConfigBuilderImage()
 	assert.True(t, strings.HasPrefix(image, "localhost:5000/"))
+}
+
+func Test_CalculateDockerImageRunsAsCassandra(t *testing.T) {
+	tests := []struct {
+		version string
+		want    bool
+	}{
+		{
+			version: "3.11.6",
+			want:    false,
+		},
+		{
+			version: "3.11.7",
+			want:    false,
+		},
+		{
+			version: "4.0.0",
+			want:    false,
+		},
+		// We default to true
+		{
+			version: "4.0.1",
+			want:    true,
+		},
+	}
+	for _, tt := range tests {
+		got := CalculateDockerImageRunsAsCassandra(tt.version)
+
+		assert.Equal(t, got, tt.want, fmt.Sprintf("Version: %s should not have returned %v", tt.version, got))
+	}
 }
