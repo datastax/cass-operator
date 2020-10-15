@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/user"
 	"regexp"
+	"runtime"
 	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
@@ -43,11 +44,27 @@ func GetKubeconfig(createDefault bool) string {
 }
 
 func WatchPods() {
-	shutil.RunVPanic("watch", "-n1", "kubectl", "get", "pods")
+
+	switch runtime.GOOS {
+	case "windows":
+		kubeCommand := "kubectl get pods"
+		winWatch := "for /L %G in () do @(" + fmt.Sprintf("%s & timeout 3)", kubeCommand)
+		shutil.RunVPanic("cmd.exe", "/c", winWatch)
+	default:
+		shutil.RunVPanic("watch", "-n1", "kube_ctl", "get", "pods")
+	}
 }
 
 func WatchPodsInNs(namespace string) {
-	shutil.RunVPanic("watch", "-n1", "kubectl", "get", "pods", fmt.Sprintf("--namespace=%s", namespace))
+
+	switch runtime.GOOS {
+	case "windows":
+		kubeCommand := "kubectl get pods " + fmt.Sprintf("--namespace=%s", namespace)
+		winWatch := "for /L %G in () do @(" + fmt.Sprintf("%s & timeout 3)", kubeCommand)
+		shutil.RunVPanic("cmd.exe", "/c", winWatch)
+	default:
+		shutil.RunVPanic("watch", "-n1", "kube_ctl", "get", "pods", fmt.Sprintf("--namespace=%s", namespace))
+	}
 }
 
 //==============================================
