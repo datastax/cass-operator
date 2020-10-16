@@ -67,6 +67,17 @@ func printVersion() {
 }
 
 func main() {
+
+	// workaround for cases where the empty string can't come through
+	// environment variable values - we'll use star to mean all namespaces
+	{
+		env := "WATCH_NAMESPACE"
+		v, ok := os.LookupEnv(env)
+		if ok && v == "*" {
+			os.Setenv(env, "")
+		}
+	}
+
 	// Add the zap logger flag set to the CLI. The flag set must
 	// be added before calling pflag.Parse().
 	pflag.CommandLine.AddFlagSet(zap.FlagSet())
