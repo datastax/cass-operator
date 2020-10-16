@@ -169,6 +169,11 @@ type CassandraDatacenterSpec struct {
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 
 	Reaper *ReaperConfig `json:"reaper,omitempty"`
+
+	DisableSystemLoggerSidecar bool `json:"disableSystemLoggerSidecar,omitempty"`
+
+	// Container image for the sidecar container that tails Cassandra's system.log
+	SystemLoggerImage string `json:"systemLoggerImage,omitempty"`
 }
 
 type NetworkingConfig struct {
