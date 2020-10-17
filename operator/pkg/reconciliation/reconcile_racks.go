@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1" 
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -643,6 +643,126 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 	}
 }
 
+func hasPodPotentiallyJoinedCluster(pod *corev1.Pod, nodeStatuses api.CassandraStatusMap) bool {
+	// In effect, we want to know if 'nodetool status' would indicate the relevant cassandra node
+	// is part of the cluster
+
+	// Case 1: If we have a host ID for the pod, then we know it must be a member of the cluster 
+	// (even if the pod does not exist)
+	nodeStatus, ok := nodeStatuses[pod.Name]
+	if ok {
+		if nodeStatus.HostID != "" {
+			return true
+		}
+	}
+
+	// Case 2: Pod has node state label of anything other Ready-to-Start. If a pod is decommissioning,
+	// started, starting, etc. it is potentially a current member of the cluster.
+	if pod.Labels != nil {
+		state, ok := pod.Labels[api.CassNodeState]
+		if ok && state != stateReadyToStart {
+			return true
+		} 
+	}
+
+	return false
+}
+
+func findAllPodsNotReadyAndPotentiallyJoined(dcPods []*corev1.Pod, nodeStatuses api.CassandraStatusMap) []*corev1.Pod {
+	downPods := []*corev1.Pod{}
+	for _, pod := range dcPods {
+		if !isServerReady(pod) && hasPodPotentiallyJoinedCluster(pod, nodeStatuses) {
+			downPods = append(downPods, pod)
+		}
+	}
+	return downPods
+}
+
+func findAllPodsNotReady(dcPods []*corev1.Pod) []*corev1.Pod {
+	downPods := []*corev1.Pod{}
+	for _, pod := range dcPods {
+		if !isServerReady(pod) {
+			downPods = append(downPods, pod)
+		}
+	}
+	return downPods
+}
+
+func getStatefulSetPodNameForIdx(sts *appsv1.StatefulSet, idx int32) string {
+	return fmt.Sprintf("%s-%v", sts.Name, idx)
+}
+
+func getStatefulSetPodNames(sts *appsv1.StatefulSet) map[string]bool {
+	status := sts.Status
+	podNames := map[string]bool{}
+	for i := int32(0); i < status.Replicas; i++ {
+		podNames[getStatefulSetPodNameForIdx(sts, i)] = true
+	}
+	return podNames
+}
+
+func getPodNamesFromPods(pods []*corev1.Pod) map[string]bool {
+	podNames := map[string]bool{}
+	for _, pod := range pods {
+		podNames[pod.Name] = true
+	}
+	return podNames
+}
+
+func subtractStringSet(a, b map[string]bool) map[string]bool {
+	result := map[string]bool{}
+	for k, _ := range a {
+		if !b[k] {
+			result[k] = true
+		}
+	}
+	return result
+}
+
+func hasStatefulSetControllerCaughtUp(statefulSets []*appsv1.StatefulSet, dcPods []*corev1.Pod) bool {
+	for _, statefulSet := range statefulSets {
+		// Has the statefulset controller seen the latest spec
+		if statefulSet.Generation != statefulSet.Status.ObservedGeneration {
+			return false
+		}
+
+		// Has the statefulset controller gotten around to creating the pods
+		podsThatShouldExist := getStatefulSetPodNames(statefulSet)
+		dcPodNames := getPodNamesFromPods(dcPods)
+		delta := subtractStringSet(podsThatShouldExist, dcPodNames)
+		if len(delta) > 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+func allPodsBelongToSameNodeOrHaveNoNode(pods []*corev1.Pod) (nodeName, bool) {
+	nodeName := ""
+	for _, pod := range pods {
+		name := pod.Spec.NodeName
+		if name != "" {
+			if nodeName == "" {
+				nodeName = name
+			}
+			if nodeName != name {
+				return nodeName, false
+			}
+		}
+	}
+
+	return nodeName, true	
+}
+
+func (rc *ReconciliationContext) CheckTaints() {
+	if hasStatefulSetControllerCaughtUp(rc.statefulSets, rc.dcPods) {
+		podsNotReady := findAllPodsNotReadyAndPotentiallyJoined(rc.dcPods, rc.Datacenter.Status.NodeStatuses)
+		nodeName := ""
+		
+	}
+}
+
 // CheckRackScale loops over each statefulset and makes sure that it has the right
 // amount of desired replicas. At this time we can only increase the amount of replicas.
 func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
@@ -1126,10 +1246,13 @@ func (rc *ReconciliationContext) getCassMetadataEndpoints() httphelper.CassMetad
 func (rc *ReconciliationContext) isNodeStuckWithoutPVC(pod *corev1.Pod) bool {
 	_, err := rc.GetPVCForPod(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
 	if err != nil {
-		rc.ReqLogger.Info(
-			"Unable to get PersistentVolumeClaim",
-			"error", err.Error())
-		return true
+		if errors.IsNotFound(err) {
+			return true
+		} else {
+			rc.ReqLogger.Info(
+				"Unable to get PersistentVolumeClaim",
+				"error", err.Error())
+		}
 	}
 
 	return false
@@ -1395,7 +1518,7 @@ func (rc *ReconciliationContext) ReconcilePods(statefulSet *appsv1.StatefulSet) 
 	rc.ReqLogger.Info("reconcile_racks::ReconcilePods")
 
 	for i := int32(0); i < statefulSet.Status.Replicas; i++ {
-		podName := fmt.Sprintf("%s-%v", statefulSet.Name, i)
+		podName := getStatefulSetPodNameForIdx(statefulSet, i)
 
 		pod := &corev1.Pod{}
 		err := rc.Client.Get(
@@ -2125,9 +2248,18 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
+	// Generally we don't start a new operation before CheckPodsReady() which
+	// ensures all pods are up and running, but scaling up is okay because 
+	// CheckRackScale() will not actually start cassandra, it will just spin
+	// up the pods on which cassandra will then be subsequently started in 
+	// CheckPodsReady().
 	if recResult := rc.CheckRackScale(); recResult.Completed() {
 		return recResult.Output()
 	}
+
+	// At this point, the only pods not ready all belong to the same rack and the
+	// same k8s node. This is an appropriate place to peform tasks related to bringing
+	// the impacted rack back online.
 
 	if recResult := rc.CheckPodsReady(endpointData); recResult.Completed() {
 		return recResult.Output()
@@ -2136,6 +2268,11 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	if recResult := rc.CheckCassandraNodeStatuses(); recResult.Completed() {
 		return recResult.Output()
 	}
+
+	// At this point, all pods of all of our statefulsets should be up, running
+	// and ready. After this point is an appropriate time to either take the next
+	// step in an ongoing operation (such as a rolling restart) or start a new
+	// operation (like a node replace).
 
 	if recResult := rc.CheckReaperService(); recResult.Completed() {
 		return recResult.Output()
@@ -2184,10 +2321,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	// We do the node and pvc taint checks here
 	// with the assumption that the cluster is healthy
 
-	if utils.IsPSPEnabled() {
-		if err := rc.checkNodeAndPvcTaints(); err != nil {
-			return result.Error(err).Output()
-		}
+	// if utils.IsPSPEnabled() {
+	// 	if err := rc.checkNodeAndPvcTaints(); err != nil {
+	// 		return result.Error(err).Output()
+	// 	}
 	}
 
 	if err := rc.enableQuietPeriod(5); err != nil {
