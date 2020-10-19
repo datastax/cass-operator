@@ -136,3 +136,7 @@ func retrieveDatacenter(rc *ReconciliationContext, request *reconcile.Request, d
 		dc)
 	return err
 }
+
+func (rc *ReconciliationContext) getLogger() logr.Logger {
+	return rc.ReqLogger
+}

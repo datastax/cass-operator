@@ -27,6 +27,7 @@ import (
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
+	"github.com/datastax/cass-operator/operator/pkg/psp"
 )
 
 var (
@@ -738,7 +739,7 @@ func hasStatefulSetControllerCaughtUp(statefulSets []*appsv1.StatefulSet, dcPods
 	return true
 }
 
-func allPodsBelongToSameNodeOrHaveNoNode(pods []*corev1.Pod) (nodeName, bool) {
+func allPodsBelongToSameNodeOrHaveNoNode(pods []*corev1.Pod) (string, bool) {
 	nodeName := ""
 	for _, pod := range pods {
 		name := pod.Spec.NodeName
@@ -753,14 +754,6 @@ func allPodsBelongToSameNodeOrHaveNoNode(pods []*corev1.Pod) (nodeName, bool) {
 	}
 
 	return nodeName, true	
-}
-
-func (rc *ReconciliationContext) CheckTaints() {
-	if hasStatefulSetControllerCaughtUp(rc.statefulSets, rc.dcPods) {
-		podsNotReady := findAllPodsNotReadyAndPotentiallyJoined(rc.dcPods, rc.Datacenter.Status.NodeStatuses)
-		nodeName := ""
-		
-	}
 }
 
 // CheckRackScale loops over each statefulset and makes sure that it has the right
@@ -2248,6 +2241,17 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
+
+	if utils.IsPSPEnabled() {
+		if recResult := psp.CheckEMM(rc); recResult.Completed() {
+			return recResult.Output()
+		}
+
+		if recResult := psp.CheckPVCHealth(rc); recResult.Completed() {
+			return recResult.Output()
+		}
+	}
+
 	// Generally we don't start a new operation before CheckPodsReady() which
 	// ensures all pods are up and running, but scaling up is okay because 
 	// CheckRackScale() will not actually start cassandra, it will just spin
@@ -2316,15 +2320,6 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 
 	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
 		return result.Error(err).Output()
-	}
-
-	// We do the node and pvc taint checks here
-	// with the assumption that the cluster is healthy
-
-	// if utils.IsPSPEnabled() {
-	// 	if err := rc.checkNodeAndPvcTaints(); err != nil {
-	// 		return result.Error(err).Output()
-	// 	}
 	}
 
 	if err := rc.enableQuietPeriod(5); err != nil {
