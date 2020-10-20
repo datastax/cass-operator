@@ -148,7 +148,7 @@ spec:
               additionalProperties:
                 type: string
               description: 'A map of label keys and values to restrict Cassandra node
-                scheduling to k8s worker with matchiing labels. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector'
+                scheduling to k8s workers with matchiing labels. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector'
               type: object
             podTemplateSpec:
               description: PodTemplate provides customisation options (labels, annotations,
