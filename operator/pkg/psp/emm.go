@@ -519,17 +519,22 @@ func (impl *EMMServiceImpl) removePodAnnotation(pod *corev1.Pod, key string) err
 // Check nodes for vmware PSP draining taints. This function embodies the 
 // business logic around when EMM operations are executed.
 func checkNodeEMM(provider EMMService) result.ReconcileResult {
+	logger := provider.getLogger()
+
 	// Strip EMM failure annotation from pods where node is no longer tainted
 	didUpdate, err := provider.cleanupEMMAnnotations()
 	if err != nil {
+		logger.Error(err, "Encountered an error while cleaning up defunct EMM failure annotations")
 		return result.Error(err)
 	}
 	if didUpdate {
+		logger.Info("Cleaned up defunct EMM failure annotations")
 		return result.RequeueSoon(2)
 	}
 
 	// Do not perform EMM operations while the datacenter is initializing
 	if !provider.IsInitialized() {
+		logger.Info("Skipping EMM check as the cluster is not yet initialized")
 		return result.Continue()
 	}
 
@@ -558,6 +563,7 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 			if err != nil {
 				return result.Error(err)
 			}
+			logger.Info("Failed EMM operation for evacuate all data as the datacenter is currently stopped", "node", nodeName)
 			didUpdate = didUpdate || podsUpdated
 		}
 
@@ -587,6 +593,7 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 			if err != nil {
 				return result.Error(err)
 			}
+			logger.Info("Failed EMM operation as availability is already compromised due to multiple racks having not ready pods", "node", nodeName)
 			didUpdate = didUpdate || didUpdatePods
 		}
 		if didUpdate {
@@ -620,6 +627,7 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 				if err != nil {
 					return result.Error(err)
 				}
+				logger.Info("Failed EMM operation as it did not contain any pods for the currently down rack", "node", nodeName)
 				didUpdate = didUpdate || podsUpdated
 			}
 			if didUpdate {
@@ -789,10 +797,14 @@ func checkPVCHealth(provider EMMService) result.ReconcileResult {
 
 func CheckPVCHealth(spi EMMSPI) result.ReconcileResult {
 	service := &EMMServiceImpl{EMMSPI: spi}
+	logger := service.getLogger()
+	logger.Info("psp::CheckPVCHealth")
 	return checkPVCHealth(service)
 }
 
 func CheckEMM(spi EMMSPI) result.ReconcileResult {
 	service := &EMMServiceImpl{EMMSPI: spi}
+	logger := service.getLogger()
+	logger.Info("psp::CheckEMM")
 	return checkNodeEMM(service)
 }
