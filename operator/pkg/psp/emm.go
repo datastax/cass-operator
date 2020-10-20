@@ -177,7 +177,9 @@ func getNodeNameSetForPods(pods []*corev1.Pod) map[string]bool {
 func filterPodsWithFn(pods []*corev1.Pod, fn func(*corev1.Pod)bool) []*corev1.Pod {
 	result := []*corev1.Pod{}
 	for _, pod := range pods {
-		result = append(result, pod)
+		if fn(pod) {
+			result = append(result, pod)
+		}
 	}
 	return result
 }
