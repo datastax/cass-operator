@@ -182,11 +182,13 @@ func (rc *ReconciliationContext) GetPVCForPod(podNamespace string, podName strin
 func (rc *ReconciliationContext) getNodesForNameSet(nodeNameSet map[string]bool) ([]*corev1.Node, error) {
 	nodes := []*corev1.Node{}
 	for nodeName, _ := range nodeNameSet {
-		node, err := rc.getNode(nodeName)
-		if err != nil {
-			return nil, err
+		if nodeName != "" {
+			node, err := rc.getNode(nodeName)
+			if err != nil {
+				return nil, err
+			}
+			nodes = append(nodes, node)
 		}
-		nodes = append(nodes, node)
 	}
 
 	return nodes, nil
@@ -233,7 +235,9 @@ func getNodeNameSetForPVCs(pvcs []*corev1.PersistentVolumeClaim) map[string]bool
 func getNodeNameSetForPods(pods []*corev1.Pod) map[string]bool {
 	names := map[string]bool{}
 	for _, pod := range pods {
-		names[pod.Spec.NodeName] = true
+		if pod.Spec.NodeName != "" {
+			names[pod.Spec.NodeName] = true
+		}
 	}
 	return names
 }

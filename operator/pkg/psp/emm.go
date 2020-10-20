@@ -368,7 +368,7 @@ func (impl *EMMServiceImpl) performPodReplaceForEvacuateData() (bool, error) {
 				if err != nil {
 					return false, err
 				}
-				if pvcNode != "" && pod.Spec.NodeName != pvcNode{
+				if pvcNode != "" && pod.Spec.NodeName != pvcNode {
 					if evacuateAllDataNameSet[pvcNode] {
 						deletedPodsOrPVCs = true
 
