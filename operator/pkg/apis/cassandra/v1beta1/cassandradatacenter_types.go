@@ -34,6 +34,9 @@ const (
 	// RackLabel is the operator's label for the rack name
 	CassOperatorProgressLabel = "cassandra.datastax.com/operator-progress"
 
+	// PromMetricsLabel is a service label that can be selected for prometheus metrics scraping
+	PromMetricsLabel = "cassandra.datastax.com/prom-metrics"
+
 	// CassNodeState
 	CassNodeState = "cassandra.datastax.com/node-state"
 
