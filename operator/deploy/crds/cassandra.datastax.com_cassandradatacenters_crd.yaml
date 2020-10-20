@@ -148,7 +148,7 @@ spec:
               additionalProperties:
                 type: string
               description: 'A map of label keys and values to restrict Cassandra node
-                scheduling to k8s workers with matchiing labels. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector'
+                scheduling to k8s worker with matchiing labels. More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector'
               type: object
             podTemplateSpec:
               description: PodTemplate provides customisation options (labels, annotations,
@@ -6207,6 +6207,11 @@ spec:
                     value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                   type: object
               type: object
+            terminateStuckPodsAfterMinutes:
+              description: Determines how many minutes a pod is allowed to exist after
+                losing readiness before it will automatically be terminated and replaced.
+                Default is 10 minutes. Set to 0 to disable
+              type: integer
             users:
               description: Cassandra users to bootstrap
               items:

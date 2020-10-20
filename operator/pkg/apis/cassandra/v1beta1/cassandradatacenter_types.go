@@ -146,7 +146,7 @@ type CassandraDatacenterSpec struct {
 	// to false once the restart is in progress.
 	RollingRestartRequested bool `json:"rollingRestartRequested,omitempty"`
 
-	// A map of label keys and values to restrict Cassandra node scheduling to k8s workers
+	// A map of label keys and values to restrict Cassandra node scheduling to k8s worker
 	// with matchiing labels.
 	// More info: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
 	NodeSelector map[string]string `json:"nodeSelector,omitempty"`
@@ -169,6 +169,12 @@ type CassandraDatacenterSpec struct {
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 
 	Reaper *ReaperConfig `json:"reaper,omitempty"`
+
+	// Determines how many minutes a pod is allowed to exist after
+	// losing readiness before it will automatically be terminated
+	// and replaced.
+	// Default is 10 minutes. Set to 0 to disable
+	TerminateStuckPodsAfterMinutes *int `json:"terminateStuckPodsAfterMinutes,omitempty"`
 }
 
 type NetworkingConfig struct {
@@ -201,6 +207,14 @@ type DseWorkloads struct {
 
 type StorageConfig struct {
 	CassandraDataVolumeClaimSpec *corev1.PersistentVolumeClaimSpec `json:"cassandraDataVolumeClaimSpec,omitempty"`
+}
+
+func (dc *CassandraDatacenter) GetPodTerminationTimeout() int {
+	if dc.Spec.TerminateStuckPodsAfterMinutes == nil {
+		return 10
+	}
+
+	return *dc.Spec.TerminateStuckPodsAfterMinutes
 }
 
 // GetRacks is a getter for the Rack slice in the spec
