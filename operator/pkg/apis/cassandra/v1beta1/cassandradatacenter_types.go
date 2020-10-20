@@ -677,7 +677,7 @@ func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, erro
 				namedPort("dsefs-internode", 5599),
 				namedPort("spark-internode", 7077),
 				namedPort("spark-master", 7080),
-				namedPort("spark-workder", 7081),
+				namedPort("spark-worker", 7081),
 				namedPort("jobserver", 8090),
 				namedPort("always-on-sql", 9077),
 				namedPort("jobserver-jmx", 9999),
