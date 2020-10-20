@@ -142,6 +142,11 @@ func (in *CassandraDatacenterSpec) DeepCopyInto(out *CassandraDatacenterSpec) {
 		*out = new(ReaperConfig)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.TerminateStuckPodsAfterMinutes != nil {
+		in, out := &in.TerminateStuckPodsAfterMinutes, &out.TerminateStuckPodsAfterMinutes
+		*out = new(int)
+		**out = **in
+	}
 	return
 }
 

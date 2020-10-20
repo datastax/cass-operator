@@ -1080,19 +1080,19 @@ func getCassContainerStatus(pod *corev1.Pod) *corev1.ContainerStatus {
 	return nil
 }
 
-func isNodeStuckAfterTerminating(pod *corev1.Pod) bool {
+func isNodeStuckAfterTerminating(pod *corev1.Pod, timeout int) bool {
 	if isServerReady(pod) || isServerReadyToStart(pod) {
 		return false
 	}
 
-	return hasBeenXMinutesSinceTerminated(10, pod)
+	return hasBeenXMinutesSinceTerminated(timeout, pod)
 }
 
-func isNodeStuckAfterLosingReadiness(pod *corev1.Pod) bool {
+func isNodeStuckAfterLosingReadiness(pod *corev1.Pod, timeout int) bool {
 	if !isServerStartedNotReady(pod) || isServerReadyToStart(pod) {
 		return false
 	}
-	return hasBeenXMinutesSinceReady(10, pod)
+	return hasBeenXMinutesSinceReady(timeout, pod)
 }
 
 func (rc *ReconciliationContext) getCassMetadataEndpoints() httphelper.CassMetadataEndpoints {
@@ -1137,13 +1137,18 @@ func (rc *ReconciliationContext) isNodeStuckWithoutPVC(pod *corev1.Pod) bool {
 
 func (rc *ReconciliationContext) deleteStuckNodes() (bool, error) {
 	rc.ReqLogger.Info("reconcile_racks::deleteStuckNodes")
+	timeout := rc.Datacenter.GetPodTerminationTimeout()
+	if timeout == 0 {
+		return false, nil
+	}
+
 	for _, pod := range rc.dcPods {
 		shouldDelete := false
 		reason := ""
-		if isNodeStuckAfterTerminating(pod) {
+		if isNodeStuckAfterTerminating(pod, timeout) {
 			reason = "Pod got stuck after Cassandra container terminated"
 			shouldDelete = true
-		} else if isNodeStuckAfterLosingReadiness(pod) {
+		} else if isNodeStuckAfterLosingReadiness(pod, timeout) {
 			reason = "Pod got stuck after losing readiness"
 			shouldDelete = true
 		} else if utils.IsPSPEnabled() && rc.isNodeStuckWithoutPVC(pod) {

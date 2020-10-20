@@ -6217,6 +6217,11 @@ spec:
                     value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                   type: object
               type: object
+            terminateStuckPodsAfterMinutes:
+              description: Determines how many minutes a pod is allowed to exist after
+                losing readiness before it will automatically be terminated and replaced.
+                Default is 10 minutes. Set to 0 to disable
+              type: integer
             users:
               description: Cassandra users to bootstrap
               items:
