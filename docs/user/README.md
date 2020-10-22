@@ -7,10 +7,8 @@ and managing Cassandra or DSE in a Kubernetes cluster.
 
 ## Prerequisites
 
-1. A Kubernetes cluster. Kubernetes v1.15 is recommended, but Kubernetes
-   v1.13 has been tested and works provided the line containing
-   `x-kubernetes-preserve-unknown-fields: true` is deleted from
-   `cass-operator-manifests.yaml`.
+1. A Kubernetes cluster. Kubernetes v1.18 is recommended, but Kubernetes
+   v1.15 has been tested.
 2. The ability to download images from Docker Hub from within the Kubernetes
    cluster.
 
