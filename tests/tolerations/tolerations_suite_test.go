@@ -29,6 +29,23 @@ var (
 )
 
 func TestLifecycle(t *testing.T) {
+	BeforeSuite(func() {
+		By("creating a namespace for the cass-operator")
+		err := kubectl.CreateNamespace(opNamespace).ExecV()
+		Expect(err).ToNot(HaveOccurred())
+
+		step := "setting up cass-operator resources via helm chart"
+		ns.HelmInstallWithPSPEnabled("../../charts/cass-operator-chart")
+
+		ns.WaitForOperatorReady()
+
+		step = "creating first datacenter resource"
+		k := kubectl.ApplyFiles(dc1Yaml)
+		ns.ExecAndLog(step, k)
+
+		ns.WaitForDatacenterReady(dc1Name)
+	})
+
 	AfterSuite(func() {
 		logPath := fmt.Sprintf("%s/aftersuite", ns.LogDir)
 		err := kubectl.DumpAllLogs(logPath).ExecV()
@@ -45,54 +62,30 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator can respond to PSP node taints", func() {
-
-			By("creating a namespace for the cass-operator")
-			err := kubectl.CreateNamespace(opNamespace).ExecV()
-			Expect(err).ToNot(HaveOccurred())
-
-			step := "setting up cass-operator resources via helm chart"
-			ns.HelmInstallWithPSPEnabled("../../charts/cass-operator-chart")
-
-			ns.WaitForOperatorReady()
-
-			step = "creating first datacenter resource"
-			k := kubectl.ApplyFiles(dc1Yaml)
-			ns.ExecAndLog(step, k)
-
-			ns.WaitForDatacenterReady(dc1Name)
-
+		Specify("when a node has an evacuate data taint, deletes pods and PVCs on that node", func() {
 			// Add a taint to the node for the first pod
 
-			k = kubectl.GetNodeNameForPod(pod1Name)
+			k := kubectl.GetNodeNameForPod(pod1Name)
 			node1Name, _, err := ns.ExecVCapture(k)
 			if err != nil {
 				panic(err)
 			}
 
-			node1Resource := fmt.Sprintf("node/%s", node1Name)
-
 			// Cleanup: Remove the taint
 			defer func() {
-				json := `
-						{
-							"spec": {
-								"taints": null
-							}
-						}`
-				k = kubectl.PatchMerge(node1Resource, json)
-				err = k.ExecV()
-				if err != nil {
-					panic(err)
-				}
+				k := kubectl.Taint(
+					node1Name,
+					"node.vmware.com/drain",
+					"",
+					"NoSchedule-")
+				k.ExecVPanic()
 			}()
 
-			// node.vmware.com/drain=planned-downtime:NoSchedule
-			step = fmt.Sprintf("tainting node: %s", node1Name)
+			step := fmt.Sprintf("tainting node: %s", node1Name)
 			k = kubectl.Taint(
 				node1Name,
 				"node.vmware.com/drain",
-				"planned-downtime",
+				"drain",
 				"NoSchedule")
 			ns.ExecAndLog(step, k)
 
@@ -108,6 +101,8 @@ var _ = Describe(testName, func() {
 					break
 				}
 			}
+
+			ns.WaitForDatacenterReadyPodCount(dc1Name, 2)
 
 			// In my environment, I have to add a wait here
 
