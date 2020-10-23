@@ -1,3 +1,4 @@
+{{- if .Values.webhook.enabled }}
 apiVersion: admissionregistration.k8s.io/v1beta1
 kind: ValidatingWebhookConfiguration
 metadata:
@@ -26,3 +27,4 @@ webhooks:
   matchPolicy: "Equivalent"
   {{- end }}
   sideEffects: None
+  {{- end}}
