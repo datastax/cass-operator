@@ -96,7 +96,7 @@ var _ = Describe(testName, func() {
 			podNames := ns.GetDatacenterReadyPodNames(dc1Name)
 			for _, podName := range podNames {
 				nodeInfos := ns.RetrieveStatusFromNodetool(podName)
-				Expect(len(nodeInfos)).To(Equal(len(podNames)), "Expect nodetool to return info on exactly %d nodes", nodeCount)
+				Expect(len(nodeInfos)).To(Equal(len(podNames)), "Expect nodetool to return info on exactly %d nodes", len(podNames))
 				for _, nodeInfo := range nodeInfos {
 					Expect(nodeInfo.Status).To(Equal("up"), "Expected all nodes to be up, but node %s was down", nodeInfo.HostId)
 					Expect(nodeInfo.State).To(Equal("normal"), "Expected all nodes to have a state of normal, but node %s was %s", nodeInfo.HostId, nodeInfo.State)

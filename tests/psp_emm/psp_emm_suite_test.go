@@ -16,11 +16,11 @@ import (
 )
 
 var (
-	testName    = "Tolerations"
-	opNamespace = "test-tolerations"
+	testName    = "PSP EMM"
+	opNamespace = "test-psp-emm"
 	dc1Name     = "dc1"
 	// This scenario requires RF greater than 2
-	dc1Yaml      = "../testdata/tolerations-dc.yaml"
+	dc1Yaml      = "../testdata/psp-emm-dc.yaml"
 	dc1Resource  = fmt.Sprintf("CassandraDatacenter/%s", dc1Name)
 	pod1Name     = "cluster1-dc1-r1-sts-0"
 	pod1Resource = fmt.Sprintf("pod/%s", pod1Name)
