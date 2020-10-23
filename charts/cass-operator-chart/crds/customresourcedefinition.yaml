@@ -1378,14 +1378,6 @@ spec:
                               - containerPort
                               type: object
                             type: array
-                            {{- if semverCompare ">= 1.16-0" .Capabilities.KubeVersion.GitVersion }}
-                            x-kubernetes-list-map-keys:
-                            - containerPort
-                            {{- if semverCompare "< 1.18-0" .Capabilities.KubeVersion.GitVersion }}
-                            - protocol
-                            {{- end }}
-                            x-kubernetes-list-type: map
-                            {{- end }}
                           readinessProbe:
                             description: 'Periodic probe of container service readiness.
                               Container will be removed from service endpoints if
@@ -3714,14 +3706,6 @@ spec:
                               - containerPort
                               type: object
                             type: array
-                            {{- if semverCompare ">= 1.16-0" .Capabilities.KubeVersion.GitVersion }}
-                            x-kubernetes-list-map-keys:
-                            - containerPort
-                            {{- if semverCompare "< 1.18-0" .Capabilities.KubeVersion.GitVersion }}
-                            - protocol
-                            {{- end }}
-                            x-kubernetes-list-type: map
-                            {{- end }}
                           readinessProbe:
                             description: 'Periodic probe of container service readiness.
                               Container will be removed from service endpoints if
@@ -4652,12 +4636,6 @@ spec:
                         - whenUnsatisfiable
                         type: object
                       type: array
-                      {{- if semverCompare ">= 1.16-0" .Capabilities.KubeVersion.GitVersion }}
-                      x-kubernetes-list-map-keys:
-                      - topologyKey
-                      - whenUnsatisfiable
-                      x-kubernetes-list-type: map
-                      {{- end }}
                     volumes:
                       description: 'List of volumes that can be mounted by containers
                         belonging to the pod. More info: https://kubernetes.io/docs/concepts/storage/volumes'
@@ -6302,9 +6280,7 @@ spec:
               type: string
           type: object
       type: object
-      {{- if semverCompare ">= 1.15-0" .Capabilities.KubeVersion.GitVersion }}
       x-kubernetes-preserve-unknown-fields: true
-      {{- end }}
   version: v1beta1
   versions:
   - name: v1beta1

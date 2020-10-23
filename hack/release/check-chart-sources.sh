@@ -7,6 +7,7 @@ set -x
 
 opDeploy="operator/deploy"
 chartTmpl="charts/cass-operator-chart/templates"
+chartCrd="charts/cass-operator-chart/crds"
 crdFilename="cassandra.datastax.com_cassandradatacenters_crd.yaml"
 
 diff -u $opDeploy/role.yaml                   $chartTmpl/role.yaml | diff-so-fancy || true
@@ -18,4 +19,4 @@ diff -u $opDeploy/webhook_configuration.yaml  $chartTmpl/validatingwebhookconfig
 diff -u $opDeploy/operator.yaml               $chartTmpl/deployment.yaml | diff-so-fancy || true
 diff -u $opDeploy/webhook_service.yaml        $chartTmpl/service.yaml | diff-so-fancy || true
 diff -u $opDeploy/webhook_secret.yaml         $chartTmpl/secret.yaml | diff-so-fancy || true
-diff -u $opDeploy/crds/$crdFilename           $chartTmpl/customresourcedefinition.yaml | diff-so-fancy || true
+diff -u $opDeploy/crds/$crdFilename           $chartCrd/customresourcedefinition.yaml | diff-so-fancy || true
