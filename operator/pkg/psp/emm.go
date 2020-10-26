@@ -33,11 +33,11 @@ const (
 // implement. Its intention is to keep coupling with the reconciliation package
 // low and also to keep this package relatively sheltered from certain thorny
 // details, like determining which pods represent cassandra nodes that have 
-// joined the cluster at some point.
+// bootstrapped at some point.
 type EMMSPI interface {
 	GetAllNodesInDC() ([]*corev1.Node, error)
 	GetDCPods() []*corev1.Pod
-	GetNotReadyPodsJoinedInDC() []*corev1.Pod
+	GetNotReadyPodsBootstrappedInDC() []*corev1.Pod
 	GetAllPodsNotReadyInDC() []*corev1.Pod
 	GetPVCsForPod(pod *corev1.Pod) ([]*corev1.PersistentVolumeClaim, error)
 	StartNodeReplace(podName string) error
@@ -52,7 +52,7 @@ type EMMSPI interface {
 type EMMChecks interface {
 	getSelectedNodeNameForPodPVC(podName string) (string, error)
 	getPodNameSetWithVolumeHealthInaccessiblePVC(rackName string) (map[string]bool, error)
-	getRacksWithNotReadyPodsJoined() []string
+	getRacksWithNotReadyPodsBootstrapped() []string
 	getNodeNameSetForRack(rackName string) map[string]bool
 	getInProgressNodeReplacements() []string
 	IsStopped() bool
@@ -213,7 +213,7 @@ func (impl *EMMServiceImpl) failEMM(nodeName string, failure EMMFailure) (bool, 
 }
 
 func (impl *EMMServiceImpl) performPodReplaceForEvacuateData() (bool, error) {
-	downPods := impl.GetNotReadyPodsJoinedInDC()
+	downPods := impl.GetNotReadyPodsBootstrappedInDC()
 	if len(downPods) > 0 {
 		evacuateAllDataNameSet, err := impl.getNodeNameSetForEvacuateAllData()
 		if err != nil {
@@ -336,8 +336,8 @@ func (impl *EMMServiceImpl) getPodNameSetWithVolumeHealthInaccessiblePVC(rackNam
 	}
 }
 
-func (impl *EMMServiceImpl) getRacksWithNotReadyPodsJoined() []string {
-	pods := impl.GetNotReadyPodsJoinedInDC()
+func (impl *EMMServiceImpl) getRacksWithNotReadyPodsBootstrapped() []string {
+	pods := impl.GetNotReadyPodsBootstrappedInDC()
 	rackNameSet := getRackNameSetForPods(pods)
 	rackNames := []string{}
 	for rackName, _ := range rackNameSet {
@@ -452,14 +452,15 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 
 	// NOTE: There might be pods that aren't ready for a variety of reasons,
 	// however, with respect to data availability, we really only care if a
-	// pod representing a cassandra node that is _currently_ joined to the 
-	// cluster is down. We do not care if a pod is down for a cassandra node
-    // that was never joined (for example, maybe we are in the middle of scaling
-	// up), as such pods are not part of the cluster presently and their being
-	// down has no impact on data availability. Also, simply looking at the pod
-	// state label is insufficient here. The pod might be brand new, but 
-	// represents a cassandra node that is already part of the cluster.
-	racksWithDownPods := provider.getRacksWithNotReadyPodsJoined()
+	// pod representing a cassandra node that is _currently_ bootstrapped to 
+	// the is down. We do not care if a pod is down for a cassandra node
+	// that was never bootstrapped (for example, maybe we are in the middle of 
+	// scaling up), as such pods are not part of the cluster presently and 
+	// their being down has no impact on data availability. Also, simply
+	// looking at the pod state label is insufficient here. The pod might be
+	// brand new, but represents a cassandra node that is already part of the
+	// cluster.
+	racksWithDownPods := provider.getRacksWithNotReadyPodsBootstrapped()
 
 	// If we have multipe racks with down pods we will need to fail any
 	// EMM operation as cluster availability is already compromised.
@@ -526,10 +527,10 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	// so we just delete all the errored pods.
 	//
 	// Note that, due to earlier checks, we know the only not-ready pods
-	// are those that have not joined the cluster (so it doesn't matter
-	// if we delete them) or pods that all belong to the same rack. 
-	// Consequently, we can delete all such pods on the tainted node without
-	// impacting availability.
+	// are those that have not bootstrapped (so it doesn't matter if we delete
+	// them) or pods that all belong to the same rack. Consequently, we can 
+	// delete all such pods on the tainted node without impacting 
+	// availability.
 	didUpdate, err = provider.removeAllNotReadyPodsOnEMMNodes()
 	if err != nil {
 		return result.Error(err)
@@ -544,9 +545,9 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 
 	// Wait for pods not on tainted nodes to become ready
 	//
-	// If we have pods down (for cassandra nodes that have potentially joined
-	// the cluster) that are not on the tainted nodes, these are likely pods 
-	// we previously deleted due to the taints. We try to move these pods 
+	// If we have pods down (for cassandra nodes that have potentially 
+	// bootstrapped) that are not on the tainted nodes, these are likely pods
+	// we previously deleted due to the taints. We try to move these pods
 	// one-at-a-time to spare ourselves unnecessary rebuilds if
 	// the EMM operation should fail, so we wait for them to become ready.
 	if downRack != "" {
@@ -576,9 +577,8 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	}
 
 	// At this point, we know there are no not-ready pods on the tainted 
-	// nodes and we know there are no down pods that are joined to the 
-	// cluster, so we can delete any pod we like without impacting
-	// availability.
+	// nodes and we know there are no down pods that are bootstrapped, so we
+	// can delete any pod we like without impacting availability.
 
 	// Sanity check that we do not have a down rack
 	if downRack != "" {
@@ -636,7 +636,7 @@ func checkPVCHealth(provider EMMService) result.ReconcileResult {
 		return result.Continue()
 	}
 	
-	racksWithDownPods := provider.getRacksWithNotReadyPodsJoined()
+	racksWithDownPods := provider.getRacksWithNotReadyPodsBootstrapped()
 
 	if len(racksWithDownPods) > 1 {
 		logger.Info("Found PVCs marked inaccessible but ignoring due to availability compromised by multiple racks having pods not ready", "racks", racksWithDownPods)

@@ -136,8 +136,8 @@ func (rc *ReconciliationContext) GetDCPods() []*corev1.Pod {
 	return rc.dcPods
 }
 
-func (rc *ReconciliationContext) GetNotReadyPodsJoinedInDC() []*corev1.Pod {
-	return findAllPodsNotReadyAndPotentiallyJoined(rc.dcPods, rc.Datacenter.Status.NodeStatuses)
+func (rc *ReconciliationContext) GetNotReadyPodsBootstrappedInDC() []*corev1.Pod {
+	return findAllPodsNotReadyAndPotentiallyBootstrapped(rc.dcPods, rc.Datacenter.Status.NodeStatuses)
 }
 
 func (rc *ReconciliationContext) GetAllPodsNotReadyInDC() []*corev1.Pod {

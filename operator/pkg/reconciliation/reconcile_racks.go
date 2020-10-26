@@ -644,7 +644,7 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 	}
 }
 
-func hasPodPotentiallyJoinedCluster(pod *corev1.Pod, nodeStatuses api.CassandraStatusMap) bool {
+func hasPodPotentiallyBootstrapped(pod *corev1.Pod, nodeStatuses api.CassandraStatusMap) bool {
 	// In effect, we want to know if 'nodetool status' would indicate the relevant cassandra node
 	// is part of the cluster
 
@@ -669,10 +669,10 @@ func hasPodPotentiallyJoinedCluster(pod *corev1.Pod, nodeStatuses api.CassandraS
 	return false
 }
 
-func findAllPodsNotReadyAndPotentiallyJoined(dcPods []*corev1.Pod, nodeStatuses api.CassandraStatusMap) []*corev1.Pod {
+func findAllPodsNotReadyAndPotentiallyBootstrapped(dcPods []*corev1.Pod, nodeStatuses api.CassandraStatusMap) []*corev1.Pod {
 	downPods := []*corev1.Pod{}
 	for _, pod := range dcPods {
-		if !isServerReady(pod) && hasPodPotentiallyJoinedCluster(pod, nodeStatuses) {
+		if !isServerReady(pod) && hasPodPotentiallyBootstrapped(pod, nodeStatuses) {
 			downPods = append(downPods, pod)
 		}
 	}

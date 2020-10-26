@@ -35,7 +35,7 @@ type MockEMMService struct {
 	mock.Mock
 }
 
-func (m *MockEMMService) getRacksWithNotReadyPodsJoined() []string {
+func (m *MockEMMService) getRacksWithNotReadyPodsBootstrapped() []string {
 	args := m.Called()
 	return args.Get(0).([]string)
 }
@@ -163,7 +163,7 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
-	testObj.On("getRacksWithNotReadyPodsJoined").Return([]string{"rack1", "rack2"})
+	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{"rack1", "rack2"})
 	testObj.On("getNodeNameSetForPlannedDownTime").Return(map[string]bool{"node1": true, "node2": true}, nil)
 	testObj.On("getNodeNameSetForEvacuateAllData").Return(map[string]bool{"node3": true}, nil)
 	testObj.On("failEMM", "node1", TooManyExistingFailures).Return(true, nil)
@@ -182,7 +182,7 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
-	testObj.On("getRacksWithNotReadyPodsJoined").Return([]string{"rack1"})
+	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{"rack1"})
 	testObj.On("getNodeNameSetForPlannedDownTime").Return(map[string]bool{"node1": true, "node2": true}, nil)
 	testObj.On("getNodeNameSetForEvacuateAllData").Return(map[string]bool{"node3": true}, nil)
 	testObj.On("getNodeNameSetForRack", "rack1").Return(map[string]bool{"node2": true})
@@ -202,7 +202,7 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
-	testObj.On("getRacksWithNotReadyPodsJoined").Return([]string{"rack1"})
+	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{"rack1"})
 	testObj.On("getNodeNameSetForPlannedDownTime").Return(map[string]bool{"node1": true, "node2": true}, nil)
 	testObj.On("getNodeNameSetForEvacuateAllData").Return(map[string]bool{}, nil)
 	testObj.On("getNodeNameSetForRack", "rack1").Return(map[string]bool{"node1": true, "node2": true})
@@ -221,7 +221,7 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
-	testObj.On("getRacksWithNotReadyPodsJoined").Return([]string{"rack1"})
+	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{"rack1"})
 	testObj.On("getNodeNameSetForPlannedDownTime").Return(map[string]bool{}, nil)
 	testObj.On("getNodeNameSetForEvacuateAllData").Return(map[string]bool{"node2": true}, nil)
 	testObj.On("getNodeNameSetForRack", "rack1").Return(map[string]bool{"node1": true, "node2": true})
@@ -243,7 +243,7 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
-	testObj.On("getRacksWithNotReadyPodsJoined").Return([]string{"rack1"})
+	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{"rack1"})
 	testObj.On("getNodeNameSetForPlannedDownTime").Return(map[string]bool{}, nil)
 	testObj.On("getNodeNameSetForEvacuateAllData").Return(map[string]bool{"node2": true}, nil)
 	testObj.On("getNodeNameSetForRack", "rack1").Return(map[string]bool{"node1": true, "node2": true})
@@ -261,7 +261,7 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
-	testObj.On("getRacksWithNotReadyPodsJoined").Return([]string{})
+	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{})
 	testObj.On("getNodeNameSetForPlannedDownTime").Return(map[string]bool{}, nil)
 	testObj.On("getNodeNameSetForEvacuateAllData").Return(map[string]bool{"node2": true}, nil)
 	testObj.On("removeAllNotReadyPodsOnEMMNodes").Return(false, nil)
@@ -278,7 +278,7 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
-	testObj.On("getRacksWithNotReadyPodsJoined").Return([]string{})
+	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{})
 	testObj.On("getNodeNameSetForPlannedDownTime").Return(map[string]bool{}, nil)
 	testObj.On("getNodeNameSetForEvacuateAllData").Return(map[string]bool{"node2": true}, nil)
 	testObj.On("removeAllNotReadyPodsOnEMMNodes").Return(false, nil)
@@ -303,7 +303,7 @@ func Test_checkPVCHealth(t *testing.T) {
 	// When pods not ready on more than one rack, do nothing and continue
 	testObj = &MockEMMService{}
 	testObj.On("getPodNameSetWithVolumeHealthInaccessiblePVC", "").Return(map[string]bool{}, nil)
-	testObj.On("getRacksWithNotReadyPodsJoined").Return([]string{"rack1", "rack2"})
+	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{"rack1", "rack2"})
 
 	r = checkPVCHealth(testObj)
 	IsContinue(t, r, "")
@@ -312,7 +312,7 @@ func Test_checkPVCHealth(t *testing.T) {
 	// to those on the impacted rack
 	testObj = &MockEMMService{}
 	testObj.On("getPodNameSetWithVolumeHealthInaccessiblePVC", "").Return(map[string]bool{"pod-1": true}, nil)
-	testObj.On("getRacksWithNotReadyPodsJoined").Return([]string{"rack1"})
+	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{"rack1"})
 	testObj.On("getPodNameSetWithVolumeHealthInaccessiblePVC", "rack1").Return(map[string]bool{"pod-1": true}, nil)
 	testObj.On("getInProgressNodeReplacements").Return([]string{})
 	testObj.On("startNodeReplace", "pod-1").Return(nil)
