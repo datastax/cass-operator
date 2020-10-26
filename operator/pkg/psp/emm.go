@@ -3,10 +3,8 @@ package psp
 import (
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
-	// "k8s.io/apimachinery/pkg/types"
-	// volumeutil "k8s.io/kubernetes/pkg/controller/volume/persistentvolume/util"
-	// "k8s.io/apimachinery/pkg/api/errors"
-	// "github.com/datastax/cass-operator/operator/internal/result"
+
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 
 	"github.com/datastax/cass-operator/operator/internal/result"
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
@@ -41,7 +39,6 @@ type EMMSPI interface {
 	GetDCPods() []*corev1.Pod
 	GetNotReadyPodsJoinedInDC() []*corev1.Pod
 	GetAllPodsNotReadyInDC() []*corev1.Pod
-	GetSelectedNodeNameForPodPVC(pod *corev1.Pod) (string, error)
 	GetPVCsForPod(pod *corev1.Pod) ([]*corev1.PersistentVolumeClaim, error)
 	StartNodeReplace(podName string) error
 	GetInProgressNodeReplacements() []string
@@ -53,6 +50,7 @@ type EMMSPI interface {
 }
 
 type EMMChecks interface {
+	getSelectedNodeNameForPodPVC(podName string) (string, error)
 	getPodNameSetWithVolumeHealthInaccessiblePVC(rackName string) (map[string]bool, error)
 	getRacksWithNotReadyPodsJoined() []string
 	getNodeNameSetForRack(rackName string) map[string]bool
@@ -79,153 +77,6 @@ type EMMService interface {
 	getLogger() logr.Logger
 }
 
-
-//
-// StringSet helper functions
-//
-func unionStringSet(a, b map[string]bool) map[string]bool {
-	result := map[string]bool{}
-	for _, m := range []map[string]bool{a, b} {
-		for k := range m {
-			result[k] = true
-		}
-	}
-	return result
-}
-
-func subtractStringSet(a, b map[string]bool) map[string]bool {
-	result := map[string]bool{}
-	for k, _ := range a {
-		if !b[k] {
-			result[k] = true
-		}
-	}
-	return result
-}
-
-
-//
-// k8s Node helper functions
-//
-func getNameSetForNodes(nodes []*corev1.Node) map[string]bool {
-	result := map[string]bool{}
-	for _, node := range nodes {
-		result[node.Name] = true
-	}
-	return result
-}
-
-func hasTaint(node *corev1.Node, taintKey, value string, effect corev1.TaintEffect) bool {
-	for _, taint := range node.Spec.Taints {
-		if taint.Key == taintKey && taint.Effect == effect {
-			if taint.Value == value {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func filterNodesWithFn(nodes []*corev1.Node, fn func(*corev1.Node) bool) []*corev1.Node {
-	result := []*corev1.Node{}
-	for _, node := range nodes {
-		if fn(node) {
-			result = append(result, node)
-		}
-	}
-	return result
-}
-
-func filterNodesWithTaintKeyValueEffect(nodes []*corev1.Node, taintKey, value string, effect corev1.TaintEffect) []*corev1.Node {
-	return filterNodesWithFn(nodes, func(node *corev1.Node) bool {
-		return hasTaint(node, taintKey, value, effect)
-	})
-}
-
-
-//
-// k8s Pod helper functions 
-//
-func isPodUnschedulable(pod *corev1.Pod) bool {
-	for _, condition := range pod.Status.Conditions {
-		if condition.Reason == corev1.PodReasonUnschedulable && 
-			condition.Type == corev1.PodScheduled &&
-			condition.Status == corev1.ConditionFalse {
-				return true
-			}
-	}
-	return false
-}
-
-func getPodNameSet(pods []*corev1.Pod) map[string]bool {
-	names := map[string]bool{}
-	for _, pod := range pods {
-		names[pod.Name] = true
-	}
-
-	return names
-}
-
-func getNodeNameSetForPods(pods []*corev1.Pod) map[string]bool {
-	names := map[string]bool{}
-	for _, pod := range pods {
-		names[pod.Spec.NodeName] = true
-	}
-	return names
-}
-
-func filterPodsWithFn(pods []*corev1.Pod, fn func(*corev1.Pod)bool) []*corev1.Pod {
-	result := []*corev1.Pod{}
-	for _, pod := range pods {
-		if fn(pod) {
-			result = append(result, pod)
-		}
-	}
-	return result
-}
-
-func filterPodsWithNodeInNameSet(pods []*corev1.Pod, nameSet map[string]bool) []*corev1.Pod {
-	return filterPodsWithFn(pods, func(pod *corev1.Pod) bool {
-		return nameSet[pod.Spec.NodeName]
-	})
-}
-
-func filterPodsWithAnnotationKey(pods []*corev1.Pod, key string) []*corev1.Pod {
-	return filterPodsWithFn(pods, func(pod *corev1.Pod) bool {
-		annos := pod.ObjectMeta.Annotations
-		if annos != nil {
-			_, ok := annos[key]
-			return ok
-		}
-		return false
-	})
-}
-
-func filterPodsWithLabel(pods []*corev1.Pod, label, value string) []*corev1.Pod {
-	return filterPodsWithFn(pods, func(pod *corev1.Pod) bool {
-		labels := pod.Labels
-		if labels != nil {
-			labelValue, ok := labels[label]
-			return ok && labelValue == value
-		}
-		return false
-	})
-}
-
-//
-// k8s PVC helpers
-//
-func filterPVCsWithFn(pvcs []*corev1.PersistentVolumeClaim, fn func(*corev1.PersistentVolumeClaim) bool) []*corev1.PersistentVolumeClaim {
-	result := []*corev1.PersistentVolumeClaim{}
-	for _, pvc := range pvcs {
-		if fn(pvc) {
-			result = append(result, pvc)
-		}
-	}
-	return result
-}
-
-
 //
 // Util
 //
@@ -238,15 +89,40 @@ func getRackNameSetForPods(pods []*corev1.Pod) map[string]bool {
 }
 
 func filterPodsByRackName(pods []*corev1.Pod, rackName string) []*corev1.Pod {
-	return filterPodsWithLabel(pods, api.RackLabel, rackName)
+	return utils.FilterPodsWithLabel(pods, api.RackLabel, rackName)
 }
-
 
 //
 // EMMOperations impl
 //
 type EMMServiceImpl struct {
 	EMMSPI
+}
+
+func (impl *EMMServiceImpl) getSelectedNodeNameForPodPVC(podName string) (string, error) {
+	matchingPods := utils.FilterPodsWithFn(impl.GetDCPods(), func(pod *corev1.Pod) bool {
+		return pod != nil && pod.Name == podName
+	})
+
+	if len(matchingPods) == 0 {
+		return "", nil
+	}
+
+	pod := matchingPods[0]
+
+	pvcs, err := impl.GetPVCsForPod(pod)
+	if err != nil {
+		return "", err
+	}
+
+	for _, pvc := range pvcs {
+		nodeName := utils.GetSelectedNodeNameForPVC(pvc)
+		if nodeName != "" {
+			return nodeName, nil
+		}
+	}
+
+	return "", nil
 }
 
 func (impl *EMMServiceImpl) cleanupEMMAnnotations() (bool, error) {
@@ -258,16 +134,16 @@ func (impl *EMMServiceImpl) cleanupEMMAnnotations() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	nodes = unionStringSet(nodes, nodes2)
+	nodes = utils.UnionStringSet(nodes, nodes2)
 
 	// Strip EMM failure annotation from pods where node is no longer tainted
 	podsFailedEmm := impl.getPodsWithAnnotationKey(EMMFailureAnnotation)
-	nodesWithPodsFailedEMM := getNodeNameSetForPods(podsFailedEmm)
-	nodesNoLongerEMM := subtractStringSet(
+	nodesWithPodsFailedEMM := utils.GetNodeNameSetForPods(podsFailedEmm)
+	nodesNoLongerEMM := utils.SubtractStringSet(
 		nodesWithPodsFailedEMM,
 		nodes)
 	
-	podsNoLongerFailed := filterPodsWithNodeInNameSet(podsFailedEmm, nodesNoLongerEMM)
+	podsNoLongerFailed := utils.FilterPodsWithNodeInNameSet(podsFailedEmm, nodesNoLongerEMM)
 	didUpdate := false
 	for _, pod := range podsNoLongerFailed {
 		err := impl.removePodAnnotation(pod, EMMFailureAnnotation)
@@ -285,7 +161,7 @@ func (impl *EMMServiceImpl) getNodeNameSetForPlannedDownTime() (map[string]bool,
 	if err != nil {
 		return nil, err
 	}
-	return getNameSetForNodes(nodes), nil
+	return utils.GetNameSetForNodes(nodes), nil
 }
 
 func (impl *EMMServiceImpl) getNodeNameSetForEvacuateAllData() (map[string]bool, error) {
@@ -293,7 +169,7 @@ func (impl *EMMServiceImpl) getNodeNameSetForEvacuateAllData() (map[string]bool,
 	if err != nil {
 		return nil, err
 	}
-	return getNameSetForNodes(nodes), nil
+	return utils.GetNameSetForNodes(nodes), nil
 }
 
 func (impl *EMMServiceImpl) removeAllNotReadyPodsOnEMMNodes() (bool, error) {
@@ -308,8 +184,8 @@ func (impl *EMMServiceImpl) removeAllNotReadyPodsOnEMMNodes() (bool, error) {
 		return false, err
 	}
 
-	taintedNodesNameSet := unionStringSet(plannedDownNameSet, evacuateDataNameSet)
-	podsNotReadyOnTaintedNodes := filterPodsWithNodeInNameSet(podsNotReady, taintedNodesNameSet)
+	taintedNodesNameSet := utils.UnionStringSet(plannedDownNameSet, evacuateDataNameSet)
+	podsNotReadyOnTaintedNodes := utils.FilterPodsWithNodeInNameSet(podsNotReady, taintedNodesNameSet)
 	
 	if len(podsNotReadyOnTaintedNodes) > 1 {
 		for _, pod := range podsNotReadyOnTaintedNodes {
@@ -354,7 +230,7 @@ func (impl *EMMServiceImpl) performPodReplaceForEvacuateData() (bool, error) {
 		// time being since it is all pretty specific to PSP at the moment.
 		deletedPodsOrPVCs := false
 		for _, pod := range downPods {
-			if isPodUnschedulable(pod) {
+			if utils.IsPodUnschedulable(pod) {
 
 				// NOTE: There isn't a great machine readable way to know why
 				// the pod is unschedulable. The reasons are, unfortunately,
@@ -364,7 +240,7 @@ func (impl *EMMServiceImpl) performPodReplaceForEvacuateData() (bool, error) {
 				// the PVC was causing scheduling to fail even though it 
 				// wasn't.
 				
-				pvcNode, err := impl.GetSelectedNodeNameForPodPVC(pod)
+				pvcNode, err := impl.getSelectedNodeNameForPodPVC(pod.Name)
 				if err != nil {
 					return false, err
 				}
@@ -444,7 +320,7 @@ func (impl *EMMServiceImpl) getPodNameSetWithVolumeHealthInaccessiblePVC(rackNam
 			return nil, err
 		}
 		
-		pvcs = filterPVCsWithFn(pvcs, func(pvc *corev1.PersistentVolumeClaim) bool {
+		pvcs = utils.FilterPVCsWithFn(pvcs, func(pvc *corev1.PersistentVolumeClaim) bool {
 			return pvc.Annotations != nil && pvc.Annotations[VolumeHealthAnnotation] == string(VolumeHealthInaccessible)
 		})
 
@@ -454,9 +330,9 @@ func (impl *EMMServiceImpl) getPodNameSetWithVolumeHealthInaccessiblePVC(rackNam
 	}
 
 	if rackName != "" {
-		return getPodNameSet(filterPodsByRackName(result, rackName)), nil
+		return utils.GetPodNameSet(filterPodsByRackName(result, rackName)), nil
 	} else {
-		return getPodNameSet(result), nil
+		return utils.GetPodNameSet(result), nil
 	}
 }
 
@@ -471,8 +347,8 @@ func (impl *EMMServiceImpl) getRacksWithNotReadyPodsJoined() []string {
 }
 
 func (impl *EMMServiceImpl) getNodeNameSetForRack(rackName string) map[string]bool {
-	podsForDownRack := filterPodsWithLabel(impl.GetDCPods(), api.RackLabel, rackName)
-	nodeNameSetForRack := getNodeNameSetForPods(podsForDownRack)
+	podsForDownRack := utils.FilterPodsWithLabel(impl.GetDCPods(), api.RackLabel, rackName)
+	nodeNameSetForRack := utils.GetNodeNameSetForPods(podsForDownRack)
 	return nodeNameSetForRack
 }
 
@@ -489,16 +365,16 @@ func (impl *EMMServiceImpl) getNodesWithTaintKeyValueEffect(taintKey, value stri
 	if err != nil {
 		return nil, err
 	}
-	return filterNodesWithTaintKeyValueEffect(nodes, taintKey, value, effect), nil
+	return utils.FilterNodesWithTaintKeyValueEffect(nodes, taintKey, value, effect), nil
 }
 
 func (impl *EMMServiceImpl) getPodsForNodeName(nodeName string) []*corev1.Pod {
-	return filterPodsWithNodeInNameSet(impl.GetDCPods(), map[string]bool{nodeName: true})
+	return utils.FilterPodsWithNodeInNameSet(impl.GetDCPods(), map[string]bool{nodeName: true})
 }
 
 func (impl *EMMServiceImpl) getPodsWithAnnotationKey(key string) []*corev1.Pod {
 	pods := impl.GetDCPods()
-	return filterPodsWithAnnotationKey(pods, key)
+	return utils.FilterPodsWithAnnotationKey(pods, key)
 }
 
 func (impl *EMMServiceImpl) addPodAnnotation(pod *corev1.Pod, key, value string) error {
@@ -588,7 +464,7 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	// If we have multipe racks with down pods we will need to fail any
 	// EMM operation as cluster availability is already compromised.
 	if len(racksWithDownPods) > 1 {
-		allTaintedNameSet := unionStringSet(plannedDownNodeNameSet, evacuateDataNodeNameSet)
+		allTaintedNameSet := utils.UnionStringSet(plannedDownNodeNameSet, evacuateDataNodeNameSet)
 		didUpdate := false
 		for nodeName, _ := range allTaintedNameSet {
 			didUpdatePods, err := provider.failEMM(nodeName, TooManyExistingFailures)
@@ -616,8 +492,8 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	if downRack != "" {
 		nodeNameSetForDownRack := provider.getNodeNameSetForRack(downRack)
 
-		nodeNameSetForNoPodsInRack := subtractStringSet(
-			unionStringSet(
+		nodeNameSetForNoPodsInRack := utils.SubtractStringSet(
+			utils.UnionStringSet(
 				plannedDownNodeNameSet, 
 				evacuateDataNodeNameSet),
 			nodeNameSetForDownRack)

@@ -5,7 +5,6 @@ package psp
 
 import (
 	"testing"
-	// "fmt"
 
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -104,6 +103,11 @@ func (m *MockEMMService) startNodeReplace(podName string) error {
 func (m *MockEMMService) getInProgressNodeReplacements() []string {
 	args := m.Called()
 	return args.Get(0).([]string)
+}
+
+func (m *MockEMMService) getSelectedNodeNameForPodPVC(podName string) (string, error) {
+	args := m.Called(podName)
+	return args.String(0), args.Error(1)
 }
 
 func (m *MockEMMService) getPodNameSetWithVolumeHealthInaccessiblePVC(rackName string) (map[string]bool, error) {
