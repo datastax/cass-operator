@@ -187,7 +187,7 @@ func (impl *EMMServiceImpl) removeAllNotReadyPodsOnEMMNodes() (bool, error) {
 	taintedNodesNameSet := utils.UnionStringSet(plannedDownNameSet, evacuateDataNameSet)
 	podsNotReadyOnTaintedNodes := utils.FilterPodsWithNodeInNameSet(podsNotReady, taintedNodesNameSet)
 	
-	if len(podsNotReadyOnTaintedNodes) > 1 {
+	if len(podsNotReadyOnTaintedNodes) > 0 {
 		for _, pod := range podsNotReadyOnTaintedNodes {
 			err := impl.RemovePod(pod)
 			if err != nil {
@@ -514,6 +514,9 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 			}
 		}
 	}
+
+	// TODO: If we do not have a downRack, we should still make sure all of
+	// our EMM operations pertain to the same rack.
 
 	// Delete any not ready pods from the tainted nodes
 	//

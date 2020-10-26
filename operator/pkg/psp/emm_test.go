@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"github.com/go-logr/logr"
 	logrtesting "github.com/go-logr/logr/testing"
 	
@@ -319,4 +321,108 @@ func Test_checkPVCHealth(t *testing.T) {
 
 	r = checkPVCHealth(testObj)
 	IsRequeue(t, r, "")
+}
+
+type MockEMMSPI struct {
+	mock.Mock
+}
+
+func (m *MockEMMSPI) GetAllNodesInDC() ([]*corev1.Node, error) {
+	args := m.Called()
+	return args.Get(0).([]*corev1.Node), args.Error(1)
+}
+
+func (m *MockEMMSPI) GetDCPods() []*corev1.Pod {
+	args := m.Called()
+	return args.Get(0).([]*corev1.Pod)
+}
+
+func (m *MockEMMSPI) GetNotReadyPodsBootstrappedInDC() []*corev1.Pod {
+	args := m.Called()
+	return args.Get(0).([]*corev1.Pod)
+}
+
+func (m *MockEMMSPI) GetAllPodsNotReadyInDC() []*corev1.Pod {
+	args := m.Called()
+	return args.Get(0).([]*corev1.Pod)
+}
+
+func (m *MockEMMSPI) GetPVCsForPod(pod *corev1.Pod) ([]*corev1.PersistentVolumeClaim, error) {
+	args := m.Called(pod)
+	return args.Get(0).([]*corev1.PersistentVolumeClaim), args.Error(1)
+}
+
+func (m *MockEMMSPI) StartNodeReplace(podName string) error {
+	args := m.Called(podName)
+	return args.Error(0)
+}
+
+func (m *MockEMMSPI) GetInProgressNodeReplacements() []string {
+	args := m.Called()
+	return args.Get(0).([]string)
+}
+
+func (m *MockEMMSPI) RemovePod(pod *corev1.Pod) error {
+	args := m.Called(pod)
+	return args.Error(0)
+}
+
+func (m *MockEMMSPI) UpdatePod(pod *corev1.Pod) error {
+	args := m.Called(pod)
+	return args.Error(0)
+}
+
+func (m *MockEMMSPI) IsStopped() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockEMMSPI) IsInitialized() bool {
+	args := m.Called()
+	return args.Bool(0)
+}
+
+func (m *MockEMMSPI) GetLogger() logr.Logger {
+	return logrtesting.NullLogger{}
+}
+
+func pod(name string, nodeName string) *corev1.Pod {
+	pod := &corev1.Pod{}
+	pod.Name = name
+	pod.Spec.NodeName = nodeName
+
+	return pod
+}
+
+func evacuateDataNode(name string) *corev1.Node {
+	node := &corev1.Node{}
+	node.Name = name
+	node.Spec.Taints = []corev1.Taint{
+		corev1.Taint{
+			Key: "node.vmware.com/drain",
+			Value: "drain",
+			Effect: corev1.TaintEffectNoSchedule,
+		},
+	}
+	return node
+}
+
+func Test_removeAllNotReadyPodsOnEMMNodes(t *testing.T) {
+	var service *EMMServiceImpl
+	var testObj *MockEMMSPI
+
+	testObj = &MockEMMSPI{}
+	service = &EMMServiceImpl {
+		EMMSPI: testObj,
+	}
+
+	pod := pod("pod1", "node1")
+	testObj.On("GetAllPodsNotReadyInDC").Return([]*corev1.Pod{pod})
+	testObj.On("GetAllNodesInDC").Return([]*corev1.Node{evacuateDataNode("node1")}, nil)
+	testObj.On("RemovePod", pod).Return(nil)
+
+	changed, err := service.removeAllNotReadyPodsOnEMMNodes()
+	testObj.AssertExpectations(t)
+	require.True(t, changed, "should have removed a not ready pod")
+	require.Nil(t, err, "should not have encountered an error")
 }
