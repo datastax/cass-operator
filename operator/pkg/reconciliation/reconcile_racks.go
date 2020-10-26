@@ -710,16 +710,6 @@ func getPodNamesFromPods(pods []*corev1.Pod) map[string]bool {
 	return podNames
 }
 
-func subtractStringSet(a, b map[string]bool) map[string]bool {
-	result := map[string]bool{}
-	for k, _ := range a {
-		if !b[k] {
-			result[k] = true
-		}
-	}
-	return result
-}
-
 func hasStatefulSetControllerCaughtUp(statefulSets []*appsv1.StatefulSet, dcPods []*corev1.Pod) bool {
 	for _, statefulSet := range statefulSets {
 		if statefulSet == nil {
@@ -734,7 +724,7 @@ func hasStatefulSetControllerCaughtUp(statefulSets []*appsv1.StatefulSet, dcPods
 		// Has the statefulset controller gotten around to creating the pods
 		podsThatShouldExist := getStatefulSetPodNames(statefulSet)
 		dcPodNames := getPodNamesFromPods(dcPods)
-		delta := subtractStringSet(podsThatShouldExist, dcPodNames)
+		delta := utils.SubtractStringSet(podsThatShouldExist, dcPodNames)
 		if len(delta) > 0 {
 			return false
 		}

@@ -72,16 +72,6 @@ func (rc *ReconciliationContext) removePVC(pvc *corev1.PersistentVolumeClaim) er
 	return nil
 }
 
-func unionStringSet(a, b map[string]bool) map[string]bool {
-	result := map[string]bool{}
-	for _, m := range []map[string]bool{a, b} {
-		for k := range m {
-			result[k] = true
-		}
-	}
-	return result
-}
-
 func getNodeNameSetForPVCs(pvcs []*corev1.PersistentVolumeClaim) map[string]bool {
 	nodeNameSet := map[string]bool{}
 	for _, pvc := range pvcs {
@@ -128,7 +118,7 @@ func (rc *ReconciliationContext) GetAllNodesInDC() ([]*corev1.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	nodeNameSet := unionStringSet(getNodeNameSetForPVCs(pvcs), getNodeNameSetForPods(rc.dcPods))
+	nodeNameSet := utils.UnionStringSet(getNodeNameSetForPVCs(pvcs), getNodeNameSetForPods(rc.dcPods))
 	return rc.getNodesForNameSet(nodeNameSet)
 }
 
