@@ -524,7 +524,7 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	// resolved. Admittedly, CheckPodsReady() will permit some pods to be
 	// not ready before starting, but we don't want these two functions 
 	// to become deeply coupled as it makes testing nightmarishly difficult,
-	// so we just delete all the errored pods.
+	// so we just delete all the not ready pods.
 	//
 	// Note that, due to earlier checks, we know the only not-ready pods
 	// are those that have not bootstrapped (so it doesn't matter if we delete
@@ -579,13 +579,6 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	// At this point, we know there are no not-ready pods on the tainted 
 	// nodes and we know there are no down pods that are bootstrapped, so we
 	// can delete any pod we like without impacting availability.
-
-	// Sanity check that we do not have a down rack
-	if downRack != "" {
-		// log an error
-		// and requeue
-		// return nil
-	}
 
 	// Delete a pod for an evacuate data tainted node
 	//

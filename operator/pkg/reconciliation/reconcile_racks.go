@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	appsv1 "k8s.io/api/apps/v1" 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -2296,18 +2296,9 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		}
 	}
 
-	// Generally we don't start a new operation before CheckPodsReady() which
-	// ensures all pods are up and running, but scaling up is okay because 
-	// CheckRackScale() will not actually start cassandra, it will just spin
-	// up the pods on which cassandra will then be subsequently started in 
-	// CheckPodsReady().
 	if recResult := rc.CheckRackScale(); recResult.Completed() {
 		return recResult.Output()
 	}
-
-	// At this point, the only pods not ready all belong to the same rack and the
-	// same k8s node. This is an appropriate place to peform tasks related to bringing
-	// the impacted rack back online.
 
 	if recResult := rc.CheckPodsReady(endpointData); recResult.Completed() {
 		return recResult.Output()
@@ -2316,11 +2307,6 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	if recResult := rc.CheckCassandraNodeStatuses(); recResult.Completed() {
 		return recResult.Output()
 	}
-
-	// At this point, all pods of all of our statefulsets should be up, running
-	// and ready. After this point is an appropriate time to either take the next
-	// step in an ongoing operation (such as a rolling restart) or start a new
-	// operation (like a node replace).
 
 	if recResult := rc.CheckReaperService(); recResult.Completed() {
 		return recResult.Output()
