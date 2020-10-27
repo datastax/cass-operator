@@ -477,9 +477,6 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	// Annotations
 
 	podAnnotations := map[string]string{}
-	if utils.IsPSPEnabled() {
-		podAnnotations["vsphere-emm-integrated"] = "true"
-	}
 
 	if baseTemplate.Annotations == nil {
 		baseTemplate.Annotations = make(map[string]string)

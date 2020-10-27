@@ -12,6 +12,7 @@ import (
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
+	"github.com/datastax/cass-operator/operator/pkg/psp"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -154,6 +155,10 @@ func newStatefulSetForCassandraDatacenterHelper(
 		},
 	}
 	result.Annotations = map[string]string{}
+
+	if utils.IsPSPEnabled() {
+		result = psp.AddStatefulSetChanges(dc, result)
+	}
 
 	// add a hash here to facilitate checking if updates are needed
 	utils.AddHashAnnotation(result)
