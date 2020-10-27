@@ -10,6 +10,7 @@ import (
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
+	"github.com/datastax/cass-operator/operator/pkg/images"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
 	"github.com/datastax/cass-operator/operator/pkg/psp"
@@ -63,6 +64,20 @@ func newStatefulSetForCassandraDatacenter(
 	replicaCount int) (*appsv1.StatefulSet, error) {
 
 	return newStatefulSetForCassandraDatacenterHelper(rackName, dc, replicaCount, false)
+}
+
+// Check if we need to define a SecurityContext.
+// If the user defines the DockerImageRunsAsCassandra field, we trust that.
+// Otherwise if ServerType is "dse", the answer is true.
+// Otherwise we use the logic in CalculateDockerImageRunsAsCassandra
+// to calculate a reasonable answer.
+func shouldDefineSecurityContext(dc *api.CassandraDatacenter) bool {
+	// The override field always wins
+	if dc.Spec.DockerImageRunsAsCassandra != nil {
+		return *dc.Spec.DockerImageRunsAsCassandra
+	}
+
+	return dc.Spec.ServerType == "dse" || images.CalculateDockerImageRunsAsCassandra(dc.Spec.ServerVersion)
 }
 
 // Create a statefulset object for the Datacenter.
@@ -126,7 +141,8 @@ func newStatefulSetForCassandraDatacenterHelper(
 	}
 
 	// workaround for https://cloud.google.com/kubernetes-engine/docs/security-bulletins#may-31-2019
-	if dc.Spec.ServerType == "dse" {
+
+	if shouldDefineSecurityContext(dc) {
 		var userID int64 = 999
 		template.Spec.SecurityContext = &corev1.PodSecurityContext{
 			RunAsUser:  &userID,

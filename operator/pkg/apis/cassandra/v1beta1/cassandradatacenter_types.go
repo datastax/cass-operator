@@ -34,6 +34,9 @@ const (
 	// RackLabel is the operator's label for the rack name
 	CassOperatorProgressLabel = "cassandra.datastax.com/operator-progress"
 
+	// PromMetricsLabel is a service label that can be selected for prometheus metrics scraping
+	PromMetricsLabel = "cassandra.datastax.com/prom-metrics"
+
 	// CassNodeState
 	CassNodeState = "cassandra.datastax.com/node-state"
 
@@ -67,7 +70,7 @@ type CassandraDatacenterSpec struct {
 
 	// Version string for config builder,
 	// used to generate Cassandra server configuration
-	// +kubebuilder:validation:Enum="6.8.0";"6.8.1";"6.8.2";"6.8.3";"6.8.4";"3.11.6";"3.11.7";"4.0.0"
+	// +kubebuilder:validation:Pattern=(6\.8\.\d+)|(3\.11\.\d+)|(4\.0\.\d+)
 	ServerVersion string `json:"serverVersion"`
 
 	// Cassandra server image name.
@@ -78,7 +81,11 @@ type CassandraDatacenterSpec struct {
 	// +kubebuilder:validation:Enum=cassandra;dse
 	ServerType string `json:"serverType"`
 
+	// Does the Server Docker image run as the Cassandra user?
+	DockerImageRunsAsCassandra *bool `json:"dockerImageRunsAsCassandra,omitempty"`
+
 	// Config for the server, in YAML format
+	// +kubebuilder:pruning:PreserveUnknownFields
 	Config json.RawMessage `json:"config,omitempty"`
 
 	// Config for the Management API certificates
@@ -645,6 +652,56 @@ func (dc *CassandraDatacenter) GetContainerPorts() ([]corev1.ContainerPort, erro
 		namedPort("mgmt-api-http", 8080),
 		namedPort("prometheus", 9103),
 		namedPort("thrift", 9160),
+	}
+
+	if dc.Spec.ServerType == "dse" {
+		ports = append(
+			ports,
+			namedPort("internode-msg", 8609),
+		)
+	}
+
+	if dc.Spec.DseWorkloads != nil {
+		if dc.Spec.DseWorkloads.AnalyticsEnabled {
+			ports = append(
+				ports,
+				namedPort("spark-app-4040", 4040),
+				namedPort("spark-app-4041", 4041),
+				namedPort("spark-app-4042", 4042),
+				namedPort("spark-app-4043", 4043),
+				namedPort("spark-app-4044", 4044),
+				namedPort("spark-app-4045", 4045),
+				namedPort("spark-app-4046", 4046),
+				namedPort("spark-app-4047", 4047),
+				namedPort("spark-app-4048", 4048),
+				namedPort("spark-app-4049", 4049),
+				namedPort("spark-app-4050", 4050),
+				namedPort("dsefs-public", 5598),
+				namedPort("dsefs-internode", 5599),
+				namedPort("spark-internode", 7077),
+				namedPort("spark-master", 7080),
+				namedPort("spark-worker", 7081),
+				namedPort("jobserver", 8090),
+				namedPort("always-on-sql", 9077),
+				namedPort("jobserver-jmx", 9999),
+				namedPort("sql-thrift", 10000),
+				namedPort("spark-history", 18080),
+			)
+		}
+
+		if dc.Spec.DseWorkloads.GraphEnabled {
+			ports = append(
+				ports,
+				namedPort("gremlin", 8182),
+			)
+		}
+
+		if dc.Spec.DseWorkloads.SearchEnabled {
+			ports = append(
+				ports,
+				namedPort("solr", 8983),
+			)
+		}
 	}
 
 	return ports, nil

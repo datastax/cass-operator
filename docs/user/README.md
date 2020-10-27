@@ -7,10 +7,8 @@ and managing Cassandra or DSE in a Kubernetes cluster.
 
 ## Prerequisites
 
-1. A Kubernetes cluster. Kubernetes v1.15 is recommended, but Kubernetes
-   v1.13 has been tested and works provided the line containing
-   `x-kubernetes-preserve-unknown-fields: true` is deleted from
-   `cass-operator-manifests.yaml`.
+1. A Kubernetes cluster. Kubernetes v1.18 is recommended, but Kubernetes
+   v1.15 has been tested.
 2. The ability to download images from Docker Hub from within the Kubernetes
    cluster.
 
@@ -219,6 +217,18 @@ We'll assume you have at least three worker nodes available. If you're working
 locally with minikube or another setup with a single Kubernetes worker node, you must
 reduce the `size` value accordingly, or set the `allowMultipleNodesPerWorker`
 parameter to `true`.
+
+## The server image user
+
+If the server image runs as the "cassandra" or "dse" user, then a PodSecurityContext for that user will be defined by cass-operator. Otherwise the server image is assumed to be running as the "root" user and a PodSecurityContext is not defined.
+
+For serverType="dse", the server images run as the "dse" user.
+
+For serverType="cassandra", the cass-operator follows these steps in order to determine which user the docker image is run as:
+
+1. If the CassandraDatacenter.Spec.DockerImageRunsAsCassandra field is set, then that "true" or "false" value will be used.
+2. If the serverVersion field is set to "3.11.6", "3.11.7", or "4.0.0", cass-operator assumes the image runs as the "root" user.
+3. Otherwise, cass-operator assumes that the server is running as the "cassandra" user.
 
 ## Storage
 

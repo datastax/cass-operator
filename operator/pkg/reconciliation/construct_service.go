@@ -29,21 +29,51 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 		nativePort = dc.GetNodePortNativePort()
 	}
 
-	service.Spec.Ports = []corev1.ServicePort{
-		{
-			Name: "native", Port: int32(nativePort), TargetPort: intstr.FromInt(nativePort),
-		},
-		{
-			Name: "mgmt-api", Port: 8080, TargetPort: intstr.FromInt(8080),
-		},
-		{
-			Name: "prometheus", Port: 9103, TargetPort: intstr.FromInt(9103),
-		},
+	ports := []corev1.ServicePort{
+		namedServicePort("native", nativePort, nativePort),
+		namedServicePort("tls-native", 9142, 9142),
+		namedServicePort("mgmt-api", 8080, 8080),
+		namedServicePort("prometheus", 9103, 9103),
+		namedServicePort("thrift", 9160, 9160),
 	}
+
+	if dc.Spec.DseWorkloads != nil {
+		if dc.Spec.DseWorkloads.AnalyticsEnabled {
+			ports = append(
+				ports,
+				namedServicePort("dsefs-public", 5598, 5598),
+				namedServicePort("spark-worker", 7081, 7081),
+				namedServicePort("jobserver", 8090, 8090),
+				namedServicePort("always-on-sql", 9077, 9077),
+				namedServicePort("sql-thrift", 10000, 10000),
+				namedServicePort("spark-history", 18080, 18080),
+			)
+		}
+
+		if dc.Spec.DseWorkloads.GraphEnabled {
+			ports = append(
+				ports,
+				namedServicePort("gremlin", 8182, 8182),
+			)
+		}
+
+		if dc.Spec.DseWorkloads.SearchEnabled {
+			ports = append(
+				ports,
+				namedServicePort("solr", 8983, 8983),
+			)
+		}
+	}
+
+	service.Spec.Ports = ports
 
 	utils.AddHashAnnotation(service)
 
 	return service
+}
+
+func namedServicePort(name string, port int, targetPort int) corev1.ServicePort {
+	return corev1.ServicePort{Name: name, Port: int32(port), TargetPort: intstr.FromInt(targetPort)}
 }
 
 func buildLabelSelectorForSeedService(dc *api.CassandraDatacenter) map[string]string {
@@ -159,6 +189,7 @@ func newNodePortServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *core
 func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Service {
 	service := makeGenericHeadlessService(dc)
 	service.ObjectMeta.Name = dc.GetAllPodsServiceName()
+	service.ObjectMeta.Labels[api.PromMetricsLabel] = "true"
 	service.Spec.PublishNotReadyAddresses = true
 
 	nativePort := api.DefaultNativePort

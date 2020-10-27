@@ -2123,7 +2123,6 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 		api.DatacenterUpdating,
 		api.DatacenterRollingRestart,
 		api.DatacenterResuming,
-		api.DatacenterStopped,
 		api.DatacenterScalingDown,
 	}
 	conditionsThatShouldBeTrue := []api.DatacenterConditionType{
@@ -2141,6 +2140,17 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 
 		updated = rc.setCondition(
 			api.NewDatacenterCondition(api.DatacenterScalingUp, corev1.ConditionFalse)) || updated
+	}
+
+	// Make sure that the stopped condition matches the spec, because logically
+	// we can make it through a reconcile loop while the dc is in a stopped state
+	// and we don't want to reset the stopped condition prematurely
+	if dc.Spec.Stopped {
+		updated = rc.setCondition(
+			api.NewDatacenterCondition(api.DatacenterStopped, corev1.ConditionTrue)) || updated
+	} else {
+		updated = rc.setCondition(
+			api.NewDatacenterCondition(api.DatacenterStopped, corev1.ConditionFalse)) || updated
 	}
 
 	for _, conditionType := range conditionsThatShouldBeFalse {

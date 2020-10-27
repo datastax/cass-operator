@@ -9,20 +9,14 @@ webhooks:
     apiVersions: ["v1beta1"]
     operations: ["CREATE", "UPDATE"]
     resources: ["cassandradatacenters"]
-    {{- if semverCompare ">= 1.14-0" .Capabilities.KubeVersion.GitVersion }}
     scope: "*"
-    {{- end }}
   clientConfig:
     service:
       name: "cassandradatacenter-webhook-service"
       namespace: {{ .Release.Namespace }}
       path: /validate-cassandra-datastax-com-v1beta1-cassandradatacenter
-  {{- if semverCompare ">= 1.14-0" .Capabilities.KubeVersion.GitVersion }}
   admissionReviewVersions: ["v1beta1"]
   timeoutSeconds: 10
-  {{- end }}
   failurePolicy: "Ignore"
-  {{- if semverCompare ">= 1.15-0" .Capabilities.KubeVersion.GitVersion }}
   matchPolicy: "Equivalent"
-  {{- end }}
   sideEffects: None
