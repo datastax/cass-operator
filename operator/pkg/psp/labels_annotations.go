@@ -28,11 +28,6 @@ func AddStatefulSetChanges(dc *api.CassandraDatacenter, statefulSet *appsv1.Stat
 	for i, _ := range statefulSet.Spec.VolumeClaimTemplates {
 		cvt := &statefulSet.Spec.VolumeClaimTemplates[i]
 		addLabels(dc.Name, cvt)
-		if cvt.Name == "server-data" {
-			annos := cvt.GetAnnotations()
-			annos[EMMIntegratedAnnotation] = "true"
-			cvt.SetAnnotations(annos)
-		}
 	}
 	
 	podTemplate := &statefulSet.Spec.Template
@@ -44,6 +39,9 @@ func AddStatefulSetChanges(dc *api.CassandraDatacenter, statefulSet *appsv1.Stat
 
 func addAnnotations(obj metav1.Object) {
 	annos := obj.GetAnnotations()
+	if annos == nil {
+		annos = map[string]string{}
+	}
 	annos[EMMIntegratedAnnotation] = "true"
 	obj.SetAnnotations(annos)
 }
