@@ -67,7 +67,7 @@ type EMMOperations interface {
 	failEMM(nodeName string, failure EMMFailure) (bool, error)
 	performPodReplaceForEvacuateData() (bool, error)
 	removeNextPodFromEvacuateDataNode() (bool, error)
-	removeAllPodsFromPlannedDowntimeNode() (bool, error)
+	removeAllPodsFromOnePlannedDowntimeNode() (bool, error)
 	startNodeReplace(podName string) error
 }
 
@@ -282,7 +282,7 @@ func (impl *EMMServiceImpl) removeNextPodFromEvacuateDataNode() (bool, error) {
 	return false, nil
 }
 
-func (impl *EMMServiceImpl) removeAllPodsFromPlannedDowntimeNode() (bool, error) {
+func (impl *EMMServiceImpl) removeAllPodsFromOnePlannedDowntimeNode() (bool, error) {
 	nodeNameSet, err := impl.getNodeNameSetForPlannedDownTime()
 	for nodeName, _ := range nodeNameSet {
 		pods := impl.getPodsForNodeName(nodeName)
@@ -515,9 +515,6 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 		}
 	}
 
-	// TODO: If we do not have a downRack, we should still make sure all of
-	// our EMM operations pertain to the same rack.
-
 	// Delete any not ready pods from the tainted nodes
 	//
 	// This is necessary as CheckPodsReady() might not start Cassandra on
@@ -604,7 +601,7 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	//
 	// For planned-downtime we will not migrate data to new volumes, so we
 	// just delete the pods and leave it at that.
-	didUpdate, err = provider.removeAllPodsFromPlannedDowntimeNode()
+	didUpdate, err = provider.removeAllPodsFromOnePlannedDowntimeNode()
 	if err != nil {
 		return result.Error(err)
 	}

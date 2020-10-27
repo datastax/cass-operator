@@ -82,7 +82,7 @@ func (m *MockEMMService) removeNextPodFromEvacuateDataNode() (bool, error) {
 	return args.Bool(0), args.Error(1)
 }
 
-func (m *MockEMMService) removeAllPodsFromPlannedDowntimeNode() (bool, error) {
+func (m *MockEMMService) removeAllPodsFromOnePlannedDowntimeNode() (bool, error) {
 	args := m.Called()
 	return args.Bool(0), args.Error(1)
 }
@@ -159,7 +159,7 @@ func Test_checkNodeEMM(t *testing.T) {
 
 
 	// When there are no extraneous EMM failure annotations, and there are 
-	// pods not ready on multiple nodes, fail EMM for all nodes tainted for
+	// pods not ready on multiple racks, fail EMM for all nodes tainted for
 	// EMM
 	testObj = &MockEMMService{}
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
@@ -285,7 +285,7 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.On("getNodeNameSetForEvacuateAllData").Return(map[string]bool{"node2": true}, nil)
 	testObj.On("removeAllNotReadyPodsOnEMMNodes").Return(false, nil)
 	testObj.On("removeNextPodFromEvacuateDataNode").Return(false, nil)
-	testObj.On("removeAllPodsFromPlannedDowntimeNode").Return(true, nil)
+	testObj.On("removeAllPodsFromOnePlannedDowntimeNode").Return(true, nil)
 
 	r = checkNodeEMM(testObj)
 	testObj.AssertExpectations(t)
