@@ -5,11 +5,15 @@ package reconciliation
 
 // This file defines constructors for k8s service-related objects
 import (
+	"fmt"
+
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
 
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
+	
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
@@ -194,4 +198,23 @@ func makeGenericHeadlessService(dc *api.CassandraDatacenter) *corev1.Service {
 	service.Spec.Type = "ClusterIP"
 	service.Spec.ClusterIP = "None"
 	return &service
+}
+
+func newNetworkPolicyForCassandraDatacenter(dc *api.CassandraDatacenter) *networkingv1.NetworkPolicy {
+	labels := dc.GetDatacenterLabels()
+	oplabels.AddManagedByLabel(labels)
+	selector := dc.GetDatacenterLabels()
+
+	ingressRule := networkingv1.NetworkPolicyIngressRule{}
+
+	policy := &networkingv1.NetworkPolicy{}
+	policy.ObjectMeta.Name = fmt.Sprintf("%s-management-api-ingress", dc.Name)
+	policy.ObjectMeta.Namespace = dc.Namespace
+	policy.ObjectMeta.Labels = labels
+	policy.Spec.PodSelector.MatchLabels = selector
+	policy.Spec.PolicyTypes = []networkingv1.PolicyType{networkingv1.PolicyTypeIngress}
+	policy.Spec.Ingress = []networkingv1.NetworkPolicyIngressRule{ingressRule}
+
+	utils.AddHashAnnotation(policy)
+	return policy
 }

@@ -9,6 +9,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
+	networkingv1 "k8s.io/api/networking/v1"
 
 	"github.com/datastax/cass-operator/operator/pkg/utils"
 )
@@ -134,5 +135,66 @@ func (rc *ReconciliationContext) CheckHeadlessServices() result.ReconcileResult 
 		return rc.CreateHeadlessServices()
 	}
 
+	return result.Continue()
+}
+
+func (rc *ReconciliationContext) CheckNetworkPolicies() result.ReconcileResult {
+	logger := rc.ReqLogger
+	dc := rc.Datacenter
+	client := rc.Client
+
+	logger.Info("reconcile_services::CheckNetworkPolicies")
+
+	desiredPolicy := newNetworkPolicyForCassandraDatacenter(dc)
+
+	// Set CassandraDatacenter dc as the owner and controller
+	err := setControllerReference(dc, desiredPolicy, rc.Scheme)
+	if err != nil {
+		logger.Error(err, "Could not set controller reference for network policy")
+		return result.Error(err)
+	}
+
+	// See if the service already exists
+	nsName := types.NamespacedName{Name: desiredPolicy.Name, Namespace: desiredPolicy.Namespace}
+	currentPolicy := &networkingv1.NetworkPolicy{}
+	err = client.Get(rc.Ctx, nsName, currentPolicy)
+
+	if err != nil && errors.IsNotFound(err) {
+		if err := client.Create(rc.Ctx, desiredPolicy); err != nil {
+			logger.Error(err, "Could not create network policy")
+
+			return result.Error(err)
+		}
+	} else if err != nil {
+		// if we hit a k8s error, log it and error out
+		logger.Error(err, "Could not get network policy",
+			"name", nsName,
+		)
+		return result.Error(err)
+
+	} else {
+		// if we found the service already, check if they need updating
+		if !utils.ResourcesHaveSameHash(currentPolicy, desiredPolicy) {
+			resourceVersion := currentPolicy.GetResourceVersion()
+			// preserve any labels and annotations that were added to the service post-creation
+			desiredPolicy.Labels = utils.MergeMap(map[string]string{}, currentPolicy.Labels, desiredPolicy.Labels)
+			desiredPolicy.Annotations = utils.MergeMap(map[string]string{}, currentPolicy.Annotations, desiredPolicy.Annotations)
+
+			logger.Info("Updating network policy",
+				"policy", currentPolicy,
+				"desired", desiredPolicy)
+
+			desiredPolicy.DeepCopyInto(currentPolicy)
+
+			currentPolicy.SetResourceVersion(resourceVersion)
+
+			if err := client.Update(rc.Ctx, currentPolicy); err != nil {
+				logger.Error(err, "Unable to update network policy",
+					"policy", currentPolicy)
+				return result.Error(err)
+			}
+		}
+	}
+	
 	return result.Continue()
 }

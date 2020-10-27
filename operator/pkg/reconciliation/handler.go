@@ -152,6 +152,12 @@ func (rc *ReconciliationContext) calculateReconciliationActions() (reconcile.Res
 		return result.Output()
 	}
 
+	if utils.IsPSPEnabled() {
+		if result := rc.CheckNetworkPolicies(); result.Completed() {
+			return result.Output()
+		}
+	}
+
 	if err := rc.CalculateRackInformation(); err != nil {
 		return result.Error(err).Output()
 	}
