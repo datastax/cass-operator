@@ -2301,9 +2301,9 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 			return recResult.Output()
 		}
 
-		if recResult := psp.CheckPVCHealth(rc); recResult.Completed() {
-			return recResult.Output()
-		}
+		// if recResult := psp.CheckPVCHealth(rc); recResult.Completed() {
+		// 	return recResult.Output()
+		// }
 	}
 
 	if recResult := rc.CheckRackScale(); recResult.Completed() {
