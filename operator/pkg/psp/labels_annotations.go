@@ -16,10 +16,27 @@ const (
 	ExtensionIDEnv string          = "PSP_EXTENSION_ID"
 )
 
+// The return value here _should_ be the same as `vSphereExtensionKey` in the
+// VCUIPlugin resource:
+//
+//   apiVersion: appplatform.wcp.vmware.com/v1beta1
+//   kind: VCUIPlugin
+//   metadata:
+//     labels:
+//       controller-tools.k8s.io: "1.0"
+//     name: datastax-vulcan
+//     namespace: {{ .service.namespace }}
+//   spec:
+//     name: datastax-vulcan
+//     uiBackendSecret: datastax-vulcan-tls
+//     uiBackendService: datastax-vulcan
+//     vSphereUiPluginUrl: plugin.json
+//     vSphereExtensionKey: com.datastax.vulcan
+//
 func GetExtensionID() string {
 	value := os.Getenv(ExtensionIDEnv)
 	if value == "" {
-		value = "datastax-vulcan"
+		value = "com.datastax.vulcan"
 	}
 	return value
 }
