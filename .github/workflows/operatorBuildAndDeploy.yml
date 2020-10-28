@@ -32,18 +32,18 @@ jobs:
           mkdir -p $GOPATH/bin
           mv mage $GOPATH/bin/mage
           sudo chmod +x $GOPATH/bin/mage
-      - name: Test Sdk Generate
-        run: |
-          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          mage operator:testSdkGenerate
-      - name: Test Client Generate
-        run: |
-          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          mage operator:testGenerateClient
-      - name: Unit Tests
-        run: |
-          export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
-          mage operator:testGo
+      # - name: Test Sdk Generate
+      #   run: |
+      #     export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+      #     mage operator:testSdkGenerate
+      # - name: Test Client Generate
+      #   run: |
+      #     export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+      #     mage operator:testGenerateClient
+      # - name: Unit Tests
+      #   run: |
+      #     export PATH=$GOROOT/bin:$GOPATH/bin:$PATH
+      #     mage operator:testGo
       - name: Login to GitHub Package Registry
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login docker.pkg.github.com -u "${{ github.actor }}" --password-stdin
       - name: Login to ECR
