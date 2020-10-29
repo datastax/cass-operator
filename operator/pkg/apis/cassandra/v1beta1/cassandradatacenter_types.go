@@ -349,6 +349,10 @@ type ManagementApiAuthConfig struct {
 type ReaperConfig struct {
 	Enabled bool `json:"enabled,omitempty"`
 
+	JmxSecretName string `json:"jmxSecretName,omitempty"`
+
+	Service string `json:"service,omitempty"`
+
 	Image string `json:"image,omitempty"`
 
 	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`

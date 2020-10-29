@@ -7,6 +7,7 @@ require (
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.4
 	github.com/google/uuid v1.1.1
+	github.com/jsanda/reaper-client-go v0.2.1-0.20201028215315-d21f37ea9dfe
 	github.com/magefile/mage v1.9.0
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
@@ -14,7 +15,7 @@ require (
 	github.com/pavel-v-chernykh/keystore-go v2.1.0+incompatible
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.5.1
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
 	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/api v0.17.4

@@ -265,6 +265,44 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 		baseTemplate.Spec.InitContainers = append(baseTemplate.Spec.InitContainers, *serverCfg)
 	}
 
+	if dc.IsReaperEnabled() {
+		initJmxCredentials := &corev1.Container{
+			Name: "jmx-credentials",
+			Image: images.GetJmxCredentialsImage(),
+			Args: []string{
+				"/bin/sh",
+				"-c",
+				"echo -n \"$JMX_USERNAME $JMX_PASSWORD\" > /config/jmxremote.password",
+			},
+			Env: []corev1.EnvVar{
+				{
+					Name: "JMX_USERNAME",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: dc.Spec.Reaper.JmxSecretName,
+							},
+							Key: "username",
+						},
+					},
+				},
+				{
+					Name: "JMX_PASSWORD",
+					ValueFrom: &corev1.EnvVarSource{
+						SecretKeyRef: &corev1.SecretKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: dc.Spec.Reaper.JmxSecretName,
+							},
+							Key: "password",
+						},
+					},
+				},
+			},
+			VolumeMounts: []corev1.VolumeMount{serverCfgMount},
+		}
+		baseTemplate.Spec.InitContainers = append(baseTemplate.Spec.InitContainers, *initJmxCredentials)
+	}
+
 	return nil
 }
 
@@ -347,6 +385,10 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		envDefaults = append(
 			envDefaults,
 			corev1.EnvVar{Name: "JVM_EXTRA_OPTS", Value: getJvmExtraOpts(dc)})
+	}
+
+	if dc.IsReaperEnabled() {
+		envDefaults = append(envDefaults, corev1.EnvVar{Name: "LOCAL_JMX", Value: "no"})
 	}
 
 	cassContainer.Env = combineEnvSlices(envDefaults, cassContainer.Env)

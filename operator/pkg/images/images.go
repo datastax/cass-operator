@@ -275,6 +275,10 @@ func GetSystemLoggerImage() string {
 	}
 }
 
+func GetJmxCredentialsImage() string {
+	return GetImage(BusyBox)
+}
+
 func AddDefaultRegistryImagePullSecrets(podSpec *corev1.PodSpec) bool {
 	secretName := os.Getenv(envDefaultRegistryOverridePullSecrets)
 	if secretName != "" {

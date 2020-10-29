@@ -18,6 +18,7 @@ import (
 	"github.com/datastax/cass-operator/operator/internal/result"
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/images"
+	reapergo "github.com/jsanda/reaper-client-go/reaper"
 )
 
 const (
@@ -174,6 +175,28 @@ func (rc *ReconciliationContext) CheckReaperService() result.ReconcileResult {
 		}
 	}
 	return result.Continue()
+}
+
+func (rc *ReconciliationContext) CheckRegisteredWithReaper() result.ReconcileResult {
+	rc.ReqLogger.Info("reconcile_reaper::CheckRegisteredWithReaper")
+
+	if !rc.Datacenter.IsReaperEnabled() {
+		return result.Continue()
+	}
+
+	// TODO Do not hard code the port
+	restClient, err := reapergo.NewReaperClient(fmt.Sprintf("http://%s:8080", rc.Datacenter.Spec.Reaper.Service))
+	if err != nil {
+		rc.ReqLogger.Error(err, "failed to create Reaper REST client", "ReaperService", rc.Datacenter.Spec.Reaper.Service)
+		return result.Error(err)
+	}
+
+	if err := restClient.AddCluster(rc.Ctx, rc.Datacenter.Spec.ClusterName,rc.Datacenter.GetDatacenterServiceName()); err == nil {
+		result.Continue()
+	} else {
+		rc.ReqLogger.Error(err,"failed to register cluster with Reaper")
+		return result.Error(err)
+	}
 }
 
 func getReaperServiceName(dc *api.CassandraDatacenter) string {
