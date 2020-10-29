@@ -314,11 +314,11 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 
 	cassContainer := &corev1.Container{}
 	loggerContainer := &corev1.Container{}
-	reaperContainer := &corev1.Container{}
+	//reaperContainer := &corev1.Container{}
 
 	foundCass := false
 	foundLogger := false
-	foundReaper := false
+	//foundReaper := false
 	for i, c := range baseTemplate.Spec.Containers {
 		if c.Name == CassandraContainerName {
 			foundCass = true
@@ -327,8 +327,8 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 			foundLogger = true
 			loggerContainer = &baseTemplate.Spec.Containers[i]
 		} else if c.Name == ReaperContainerName {
-			foundReaper = true
-			reaperContainer = &baseTemplate.Spec.Containers[i]
+			//foundReaper = true
+			//reaperContainer = &baseTemplate.Spec.Containers[i]
 		}
 	}
 
@@ -448,9 +448,9 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 
 	// Reaper Container
 
-	if dc.IsReaperEnabled() {
-		buildReaperContainer(dc, reaperContainer)
-	}
+	//if dc.IsReaperEnabled() {
+	//	buildReaperContainer(dc, reaperContainer)
+	//}
 
 	// Note that append() can make copies of each element,
 	// so we call it after modifying any existing elements.
@@ -463,11 +463,11 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *loggerContainer)
 	}
 
-	if dc.IsReaperEnabled() {
-		if !foundReaper {
-			baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *reaperContainer)
-		}
-	}
+	//if dc.IsReaperEnabled() {
+	//	if !foundReaper {
+	//		baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *reaperContainer)
+	//	}
+	//}
 
 	return nil
 }

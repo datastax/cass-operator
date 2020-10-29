@@ -5945,6 +5945,8 @@ spec:
                   description: PullPolicy describes a policy for if/when to pull a
                     container image
                   type: string
+                jmxSecretName:
+                  type: string
                 resources:
                   description: Kubernetes resource requests and limits per reaper
                     container.
@@ -5972,6 +5974,8 @@ spec:
                         to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                       type: object
                   type: object
+                service:
+                  type: string
               type: object
             replaceNodes:
               description: A list of pod names that need to be replaced.
