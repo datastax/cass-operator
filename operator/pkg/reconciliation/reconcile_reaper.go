@@ -177,6 +177,11 @@ func (rc *ReconciliationContext) CheckReaperService() result.ReconcileResult {
 	return result.Continue()
 }
 
+// Makes sure that the cluster is registered with Reaper. It is assumed that this cluster
+// is also the backend storage for Reaper. Reaper won't be ready and won't be able to serve
+// REST api calls until schema initialization in its backend storage is complete (chicken
+// meet egg). To avoid a lot of thrashing this function first checks that Reaper is ready.
+// It will requeue the reconciliation request until Reaper is ready.
 func (rc *ReconciliationContext) CheckRegisteredWithReaper() result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_reaper::CheckRegisteredWithReaper")
 
@@ -191,8 +196,21 @@ func (rc *ReconciliationContext) CheckRegisteredWithReaper() result.ReconcileRes
 		return result.Error(err)
 	}
 
+	if isReady, err := restClient.IsReaperUp(rc.Ctx); err == nil {
+		if !isReady {
+			rc.ReqLogger.Info("waiting for reaper to become ready")
+			return result.RequeueSoon(10)
+		}
+	} else {
+		rc.ReqLogger.Error(err, "reaper readiness check failed")
+		// We return result.RequestSoon here instead of result.Error because Reaper does not
+		// start serving requests, including for its health check point, until schema
+		// initialization has completed.
+		return result.RequeueSoon(30)
+	}
+
 	if err := restClient.AddCluster(rc.Ctx, rc.Datacenter.Spec.ClusterName,rc.Datacenter.GetDatacenterServiceName()); err == nil {
-		result.Continue()
+		return result.Continue()
 	} else {
 		rc.ReqLogger.Error(err,"failed to register cluster with Reaper")
 		return result.Error(err)
