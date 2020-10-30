@@ -33,8 +33,16 @@ import (
 )
 
 const (
-	EMMFailureAnnotation string    = "appplatform.vmware.com/emm-failure"
-	VolumeHealthAnnotation string  = "volumehealth.storage.kubernetes.io/health"
+	EMMFailureAnnotation   = "appplatform.vmware.com/emm-failure"
+	VolumeHealthAnnotation = "volumehealth.storage.kubernetes.io/health"
+	EMMTaintKey            = "node.vmware.com/drain"
+)
+
+type EMMTaintValue string
+
+const (
+	EvacuateAllData EMMTaintValue = "drain"
+	PlannedDowntime               = "planned-downtime"
 )
 
 type VolumeHealth string
@@ -179,7 +187,7 @@ func (impl *EMMServiceImpl) cleanupEMMAnnotations() (bool, error) {
 }
 
 func (impl *EMMServiceImpl) getPlannedDownTimeNodeNameSet() (utils.StringSet, error) {
-	nodes, err := impl.getNodesWithTaintKeyValueEffect("node.vmware.com/drain", "planned-downtime", corev1.TaintEffectNoSchedule)
+	nodes, err := impl.getNodesWithTaintKeyValueEffect(EMMTaintKey, string(PlannedDowntime), corev1.TaintEffectNoSchedule)
 	if err != nil {
 		return nil, err
 	}
@@ -187,7 +195,7 @@ func (impl *EMMServiceImpl) getPlannedDownTimeNodeNameSet() (utils.StringSet, er
 }
 
 func (impl *EMMServiceImpl) getEvacuateAllDataNodeNameSet() (utils.StringSet, error) {
-	nodes, err := impl.getNodesWithTaintKeyValueEffect("node.vmware.com/drain", "drain", corev1.TaintEffectNoSchedule)
+	nodes, err := impl.getNodesWithTaintKeyValueEffect(EMMTaintKey, string(EvacuateAllData), corev1.TaintEffectNoSchedule)
 	if err != nil {
 		return nil, err
 	}
