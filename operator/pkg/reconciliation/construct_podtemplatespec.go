@@ -26,6 +26,7 @@ const (
 	CassandraContainerName               = "cassandra"
 	PvcName                              = "server-data"
 	SystemLoggerContainerName            = "server-system-logger"
+	JmxCredentialsContainerName          = "jmx-credentials"
 )
 
 // calculateNodeAffinity provides a way to pin all pods within a statefulset to the same zone
@@ -267,7 +268,7 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 
 	if dc.IsReaperEnabled() {
 		initJmxCredentials := &corev1.Container{
-			Name: "jmx-credentials",
+			Name: JmxCredentialsContainerName,
 			Image: images.GetJmxCredentialsImage(),
 			Args: []string{
 				"/bin/sh",

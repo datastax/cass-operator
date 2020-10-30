@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/datastax/cass-operator/operator/pkg/images"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
@@ -46,6 +47,64 @@ func Test_calculateNodeAffinity(t *testing.T) {
 			na.RequiredDuringSchedulingIgnoredDuringExecution == nil {
 			t.Errorf("calculateNodeAffinity() = %v, and we want a non-nil RequiredDuringSchedulingIgnoredDuringExecution", na)
 		}
+	})
+}
+
+func TestCassandraDatacenter_buildInitContainers_reaperEnabled(t *testing.T) {
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName: "reaper-test",
+			ServerType: "cassandra",
+			ServerVersion: "3.11.7",
+			Reaper: &api.ReaperConfig{
+				Enabled: true,
+				JmxSecretName: "reaper-jmx",
+				Service: "test-reaper-service",
+			},
+		},
+	}
+	podTemplateSpec := corev1.PodTemplateSpec{}
+	err := buildInitContainers(dc, "reaper-test", &podTemplateSpec)
+
+	assert.NoError(t, err)
+
+	initContainers := podTemplateSpec.Spec.InitContainers
+
+	assert.Len(t, initContainers, 2)
+	assert.Equal(t, initContainers[1].Name, JmxCredentialsContainerName)
+	assert.Equal(t, initContainers[1].Image, images.GetJmxCredentialsImage())
+	assert.Equal(t, initContainers[1].Args, []string{
+		"/bin/sh",
+		"-c",
+		"echo -n \"$JMX_USERNAME $JMX_PASSWORD\" > /config/jmxremote.password",
+	})
+	assert.Len(t, initContainers[1].VolumeMounts, 1)
+	assert.Equal(t, initContainers[1].VolumeMounts[0], corev1.VolumeMount{
+		Name:      "server-config",
+		MountPath: "/config",
+	})
+	assert.Len(t, initContainers[1].Env, 2)
+	assert.Contains(t, initContainers[1].Env, corev1.EnvVar{
+		Name: "JMX_USERNAME",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: dc.Spec.Reaper.JmxSecretName,
+				},
+				Key: "username",
+			},
+		},
+	})
+	assert.Contains(t, initContainers[1].Env, corev1.EnvVar{
+		Name: "JMX_PASSWORD",
+		ValueFrom: &corev1.EnvVarSource{
+			SecretKeyRef: &corev1.SecretKeySelector{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: dc.Spec.Reaper.JmxSecretName,
+				},
+				Key: "password",
+			},
+		},
 	})
 }
 
@@ -203,63 +262,6 @@ func TestCassandraDatacenter_buildContainers_systemlogger_resources_set_when_not
 	}
 }
 
-func TestCassandraDatacenter_buildContainers_reaper_resources(t *testing.T) {
-	dc := &api.CassandraDatacenter{
-		Spec: api.CassandraDatacenterSpec{
-			ClusterName:   "bob",
-			ServerType:    "cassandra",
-			ServerVersion: "3.11.7",
-			Reaper: &api.ReaperConfig{
-				Enabled: true,
-				Resources: corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						"cpu":    *resource.NewMilliQuantity(1, resource.DecimalSI),
-						"memory": *resource.NewScaledQuantity(1, resource.Giga),
-					},
-					Requests: corev1.ResourceList{
-						"cpu":    *resource.NewMilliQuantity(1, resource.DecimalSI),
-						"memory": *resource.NewScaledQuantity(1, resource.Giga),
-					},
-				},
-			},
-		},
-	}
-
-	podTemplateSpec := &corev1.PodTemplateSpec{}
-	err := buildContainers(dc, podTemplateSpec)
-	containers := podTemplateSpec.Spec.Containers
-	assert.NotNil(t, containers, "Unexpected containers containers received")
-	assert.Nil(t, err, "Unexpected error encountered")
-
-	assert.Len(t, containers, 3, "Unexpected number of containers containers returned")
-	assert.Equal(t, containers[2].Resources, dc.Spec.Reaper.Resources,
-		"reaper container resources have unexpected values.")
-}
-
-func TestCassandraDatacenter_buildContainers_reaper_resources_set_when_not_specified(t *testing.T) {
-	dc := &api.CassandraDatacenter{
-		Spec: api.CassandraDatacenterSpec{
-			ClusterName:   "bob",
-			ServerType:    "cassandra",
-			ServerVersion: "3.11.7",
-			Reaper: &api.ReaperConfig{
-				Enabled: true,
-			},
-		},
-	}
-
-	podTemplateSpec := &corev1.PodTemplateSpec{}
-	err := buildContainers(dc, podTemplateSpec)
-	containers := podTemplateSpec.Spec.Containers
-	assert.NotNil(t, containers, "Unexpected containers containers received")
-	assert.Nil(t, err, "Unexpected error encountered")
-
-	assert.Len(t, containers, 3, "Unexpected number of containers containers returned")
-	if !reflect.DeepEqual(containers[2].Resources, DefaultsReaperContainer) {
-		t.Error("reaper container resources are not set to the default values.")
-	}
-}
-
 func TestCassandraDatacenter_buildContainers_use_cassandra_settings(t *testing.T) {
 	dc := &api.CassandraDatacenter{
 		Spec: api.CassandraDatacenterSpec{
@@ -290,14 +292,13 @@ func TestCassandraDatacenter_buildContainers_use_cassandra_settings(t *testing.T
 	assert.NotNil(t, containers, "Unexpected containers containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
-	assert.Len(t, containers, 3, "Unexpected number of containers containers returned")
-	if !reflect.DeepEqual(containers[2].Resources, DefaultsReaperContainer) {
-		t.Error("reaper container resources are not set to the default values.")
-	}
+	assert.Len(t, containers, 2, "Unexpected number of containers containers returned")
 
 	if !reflect.DeepEqual(containers[0].Env[0].Name, "k1") {
 		t.Errorf("Unexpected env vars allocated for the cassandra container: %v", containers[0].Env)
 	}
+
+	assert.Contains(t, containers[0].Env, corev1.EnvVar{Name: "LOCAL_JMX", Value: "no"})
 }
 
 func TestCassandraDatacenter_buildContainers_override_other_containers(t *testing.T) {
@@ -333,10 +334,7 @@ func TestCassandraDatacenter_buildContainers_override_other_containers(t *testin
 	assert.NotNil(t, containers, "Unexpected containers containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
-	assert.Len(t, containers, 3, "Unexpected number of containers containers returned")
-	if !reflect.DeepEqual(containers[2].Resources, DefaultsReaperContainer) {
-		t.Error("reaper container resources are not set to the default values.")
-	}
+	assert.Len(t, containers, 2, "Unexpected number of containers containers returned")
 
 	if !reflect.DeepEqual(containers[0].VolumeMounts,
 		[]corev1.VolumeMount{
