@@ -34,7 +34,7 @@ func SubtractStringSet(a, b StringSet) StringSet {
 //
 // k8s Node helper functions
 //
-func GetNameSetForNodes(nodes []*corev1.Node) StringSet {
+func GetNodeNameSet(nodes []*corev1.Node) StringSet {
 	result := StringSet{}
 	for _, node := range nodes {
 		result[node.Name] = true
@@ -93,7 +93,7 @@ func GetPodNameSet(pods []*corev1.Pod) StringSet {
 	return names
 }
 
-func GetNodeNameSetForPods(pods []*corev1.Pod) StringSet {
+func GetPodNodeNameSet(pods []*corev1.Pod) StringSet {
 	names := StringSet{}
 	for _, pod := range pods {
 		names[pod.Spec.NodeName] = true
@@ -152,7 +152,7 @@ func FilterPVCsWithFn(pvcs []*corev1.PersistentVolumeClaim, fn func(*corev1.Pers
 	return result
 }
 
-func GetSelectedNodeNameForPVC(pvc *corev1.PersistentVolumeClaim) string {
+func GetPVCSelectedNodeName(pvc *corev1.PersistentVolumeClaim) string {
 	annos := pvc.Annotations
 	if annos == nil {
 		annos = map[string]string{}

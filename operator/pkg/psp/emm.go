@@ -39,7 +39,7 @@ type EMMSPI interface {
 	GetDCPods() []*corev1.Pod
 	GetNotReadyPodsBootstrappedInDC() []*corev1.Pod
 	GetAllPodsNotReadyInDC() []*corev1.Pod
-	GetPVCsForPod(pod *corev1.Pod) ([]*corev1.PersistentVolumeClaim, error)
+	GetPodPVCs(pod *corev1.Pod) ([]*corev1.PersistentVolumeClaim, error)
 	StartNodeReplace(podName string) error
 	GetInProgressNodeReplacements() []string
 	RemovePod(pod *corev1.Pod) error
@@ -50,10 +50,10 @@ type EMMSPI interface {
 }
 
 type EMMChecks interface {
-	getSelectedNodeNameForPodPVC(podName string) (string, error)
+	getPodPVCSelectedNodeName(podName string) (string, error)
 	getPodNameSetWithVolumeHealthInaccessiblePVC(rackName string) (utils.StringSet, error)
 	getRacksWithNotReadyPodsBootstrapped() []string
-	getNodeNameSetForRack(rackName string) utils.StringSet
+	getRackNodeNameSet(rackName string) utils.StringSet
 	getInProgressNodeReplacements() []string
 	IsStopped() bool
 	IsInitialized() bool
@@ -61,11 +61,11 @@ type EMMChecks interface {
 
 type EMMOperations interface {
 	cleanupEMMAnnotations() (bool, error)
-	getNodeNameSetForPlannedDownTime() (utils.StringSet, error)
-	getNodeNameSetForEvacuateAllData() (utils.StringSet, error)
+	getPlannedDownTimeNodeNameSet() (utils.StringSet, error)
+	getEvacuateAllDataNodeNameSet() (utils.StringSet, error)
 	removeAllNotReadyPodsOnEMMNodes() (bool, error)
 	failEMM(nodeName string, failure EMMFailure) (bool, error)
-	performPodReplaceForEvacuateData() (bool, error)
+	performEvacuateDataPodReplace() (bool, error)
 	removeNextPodFromEvacuateDataNode() (bool, error)
 	removeAllPodsFromOnePlannedDowntimeNode() (bool, error)
 	startNodeReplace(podName string) error
@@ -80,7 +80,7 @@ type EMMService interface {
 //
 // Util
 //
-func getRackNameSetForPods(pods []*corev1.Pod) utils.StringSet {
+func getPodsRackNameSet(pods []*corev1.Pod) utils.StringSet {
 	names := utils.StringSet{}
 	for _, pod := range pods {
 		names[pod.Labels[api.RackLabel]] = true
@@ -99,7 +99,7 @@ type EMMServiceImpl struct {
 	EMMSPI
 }
 
-func (impl *EMMServiceImpl) getSelectedNodeNameForPodPVC(podName string) (string, error) {
+func (impl *EMMServiceImpl) getPodPVCSelectedNodeName(podName string) (string, error) {
 	matchingPods := utils.FilterPodsWithFn(impl.GetDCPods(), func(pod *corev1.Pod) bool {
 		return pod != nil && pod.Name == podName
 	})
@@ -110,13 +110,13 @@ func (impl *EMMServiceImpl) getSelectedNodeNameForPodPVC(podName string) (string
 
 	pod := matchingPods[0]
 
-	pvcs, err := impl.GetPVCsForPod(pod)
+	pvcs, err := impl.GetPodPVCs(pod)
 	if err != nil {
 		return "", err
 	}
 
 	for _, pvc := range pvcs {
-		nodeName := utils.GetSelectedNodeNameForPVC(pvc)
+		nodeName := utils.GetPVCSelectedNodeName(pvc)
 		if nodeName != "" {
 			return nodeName, nil
 		}
@@ -126,11 +126,11 @@ func (impl *EMMServiceImpl) getSelectedNodeNameForPodPVC(podName string) (string
 }
 
 func (impl *EMMServiceImpl) cleanupEMMAnnotations() (bool, error) {
-	nodes, err := impl.getNodeNameSetForEvacuateAllData()
+	nodes, err := impl.getEvacuateAllDataNodeNameSet()
 	if err != nil {
 		return false, err
 	}
-	nodes2, err := impl.getNodeNameSetForPlannedDownTime()
+	nodes2, err := impl.getPlannedDownTimeNodeNameSet()
 	if err != nil {
 		return false, err
 	}
@@ -138,7 +138,7 @@ func (impl *EMMServiceImpl) cleanupEMMAnnotations() (bool, error) {
 
 	// Strip EMM failure annotation from pods where node is no longer tainted
 	podsFailedEmm := impl.getPodsWithAnnotationKey(EMMFailureAnnotation)
-	nodesWithPodsFailedEMM := utils.GetNodeNameSetForPods(podsFailedEmm)
+	nodesWithPodsFailedEMM := utils.GetPodNodeNameSet(podsFailedEmm)
 	nodesNoLongerEMM := utils.SubtractStringSet(
 		nodesWithPodsFailedEMM,
 		nodes)
@@ -156,30 +156,30 @@ func (impl *EMMServiceImpl) cleanupEMMAnnotations() (bool, error) {
 	return didUpdate, nil
 }
 
-func (impl *EMMServiceImpl) getNodeNameSetForPlannedDownTime() (utils.StringSet, error) {
+func (impl *EMMServiceImpl) getPlannedDownTimeNodeNameSet() (utils.StringSet, error) {
 	nodes, err := impl.getNodesWithTaintKeyValueEffect("node.vmware.com/drain", "planned-downtime", corev1.TaintEffectNoSchedule)
 	if err != nil {
 		return nil, err
 	}
-	return utils.GetNameSetForNodes(nodes), nil
+	return utils.GetNodeNameSet(nodes), nil
 }
 
-func (impl *EMMServiceImpl) getNodeNameSetForEvacuateAllData() (utils.StringSet, error) {
+func (impl *EMMServiceImpl) getEvacuateAllDataNodeNameSet() (utils.StringSet, error) {
 	nodes, err := impl.getNodesWithTaintKeyValueEffect("node.vmware.com/drain", "drain", corev1.TaintEffectNoSchedule)
 	if err != nil {
 		return nil, err
 	}
-	return utils.GetNameSetForNodes(nodes), nil
+	return utils.GetNodeNameSet(nodes), nil
 }
 
 func (impl *EMMServiceImpl) removeAllNotReadyPodsOnEMMNodes() (bool, error) {
 	podsNotReady := impl.GetAllPodsNotReadyInDC()
-	plannedDownNameSet, err := impl.getNodeNameSetForPlannedDownTime()
+	plannedDownNameSet, err := impl.getPlannedDownTimeNodeNameSet()
 	if err != nil {
 		return false, err
 	}
 
-	evacuateDataNameSet, err := impl.getNodeNameSetForEvacuateAllData()
+	evacuateDataNameSet, err := impl.getEvacuateAllDataNodeNameSet()
 	if err != nil {
 		return false, err
 	}
@@ -212,10 +212,10 @@ func (impl *EMMServiceImpl) failEMM(nodeName string, failure EMMFailure) (bool, 
 	return didUpdate, nil
 }
 
-func (impl *EMMServiceImpl) performPodReplaceForEvacuateData() (bool, error) {
+func (impl *EMMServiceImpl) performEvacuateDataPodReplace() (bool, error) {
 	downPods := impl.GetNotReadyPodsBootstrappedInDC()
 	if len(downPods) > 0 {
-		evacuateAllDataNameSet, err := impl.getNodeNameSetForEvacuateAllData()
+		evacuateAllDataNameSet, err := impl.getEvacuateAllDataNodeNameSet()
 		if err != nil {
 			return false, err
 		}
@@ -240,7 +240,7 @@ func (impl *EMMServiceImpl) performPodReplaceForEvacuateData() (bool, error) {
 				// the PVC was causing scheduling to fail even though it 
 				// wasn't.
 				
-				pvcNode, err := impl.getSelectedNodeNameForPodPVC(pod.Name)
+				pvcNode, err := impl.getPodPVCSelectedNodeName(pod.Name)
 				if err != nil {
 					return false, err
 				}
@@ -264,7 +264,7 @@ func (impl *EMMServiceImpl) performPodReplaceForEvacuateData() (bool, error) {
 }
 
 func (impl *EMMServiceImpl) removeNextPodFromEvacuateDataNode() (bool, error) {
-	nodeNameSet, err := impl.getNodeNameSetForEvacuateAllData()
+	nodeNameSet, err := impl.getEvacuateAllDataNodeNameSet()
 	if err != nil {
 		return false, err
 	}
@@ -283,7 +283,7 @@ func (impl *EMMServiceImpl) removeNextPodFromEvacuateDataNode() (bool, error) {
 }
 
 func (impl *EMMServiceImpl) removeAllPodsFromOnePlannedDowntimeNode() (bool, error) {
-	nodeNameSet, err := impl.getNodeNameSetForPlannedDownTime()
+	nodeNameSet, err := impl.getPlannedDownTimeNodeNameSet()
 	for nodeName, _ := range nodeNameSet {
 		pods := impl.getPodsForNodeName(nodeName)
 		if len(pods) > 0 {
@@ -315,7 +315,7 @@ func (impl *EMMServiceImpl) getPodNameSetWithVolumeHealthInaccessiblePVC(rackNam
 	pods := impl.GetDCPods()
 	result := []*corev1.Pod{}
 	for _, pod := range pods {
-		pvcs, err := impl.GetPVCsForPod(pod)
+		pvcs, err := impl.GetPodPVCs(pod)
 		if err != nil {
 			return nil, err
 		}
@@ -338,7 +338,7 @@ func (impl *EMMServiceImpl) getPodNameSetWithVolumeHealthInaccessiblePVC(rackNam
 
 func (impl *EMMServiceImpl) getRacksWithNotReadyPodsBootstrapped() []string {
 	pods := impl.GetNotReadyPodsBootstrappedInDC()
-	rackNameSet := getRackNameSetForPods(pods)
+	rackNameSet := getPodsRackNameSet(pods)
 	rackNames := []string{}
 	for rackName, _ := range rackNameSet {
 		rackNames = append(rackNames, rackName)
@@ -346,9 +346,9 @@ func (impl *EMMServiceImpl) getRacksWithNotReadyPodsBootstrapped() []string {
 	return rackNames
 }
 
-func (impl *EMMServiceImpl) getNodeNameSetForRack(rackName string) utils.StringSet {
+func (impl *EMMServiceImpl) getRackNodeNameSet(rackName string) utils.StringSet {
 	podsForDownRack := utils.FilterPodsWithLabel(impl.GetDCPods(), api.RackLabel, rackName)
-	nodeNameSetForRack := utils.GetNodeNameSetForPods(podsForDownRack)
+	nodeNameSetForRack := utils.GetPodNodeNameSet(podsForDownRack)
 	return nodeNameSetForRack
 }
 
@@ -420,11 +420,11 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	//
 	// We may have some tainted nodes where we had previously failed the EMM
 	// operation, so be sure to filter those out.
-	plannedDownNodeNameSet, err := provider.getNodeNameSetForPlannedDownTime()
+	plannedDownNodeNameSet, err := provider.getPlannedDownTimeNodeNameSet()
 	if err != nil {
 		return result.Error(err)
 	}
-	evacuateDataNodeNameSet, err := provider.getNodeNameSetForEvacuateAllData()
+	evacuateDataNodeNameSet, err := provider.getEvacuateAllDataNodeNameSet()
 	if err != nil {
 		return result.Error(err)
 	}
@@ -491,7 +491,7 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	// Fail EMM operations for nodes that do not have pods for the down
 	// rack
 	if downRack != "" {
-		nodeNameSetForDownRack := provider.getNodeNameSetForRack(downRack)
+		nodeNameSetForDownRack := provider.getRackNodeNameSet(downRack)
 
 		nodeNameSetForNoPodsInRack := utils.SubtractStringSet(
 			utils.UnionStringSet(
@@ -551,7 +551,7 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	// one-at-a-time to spare ourselves unnecessary rebuilds if
 	// the EMM operation should fail, so we wait for them to become ready.
 	if downRack != "" {
-		didUpdate, err = provider.performPodReplaceForEvacuateData()
+		didUpdate, err = provider.performEvacuateDataPodReplace()
 		if err != nil {
 			return result.Error(err)
 		}

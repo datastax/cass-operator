@@ -75,7 +75,7 @@ func (rc *ReconciliationContext) removePVC(pvc *corev1.PersistentVolumeClaim) er
 func getNodeNameSetForPVCs(pvcs []*corev1.PersistentVolumeClaim) map[string]bool {
 	nodeNameSet := map[string]bool{}
 	for _, pvc := range pvcs {
-		nodeName := utils.GetSelectedNodeNameForPVC(pvc)
+		nodeName := utils.GetPVCSelectedNodeName(pvc)
 		if nodeName != "" {
 			nodeNameSet[nodeName] = true
 		}
@@ -134,7 +134,7 @@ func (rc *ReconciliationContext) GetAllPodsNotReadyInDC() []*corev1.Pod {
 	return findAllPodsNotReady(rc.dcPods)
 }
 
-func (rc *ReconciliationContext) GetPVCsForPod(pod *corev1.Pod) ([]*corev1.PersistentVolumeClaim, error) {
+func (rc *ReconciliationContext) GetPodPVCs(pod *corev1.Pod) ([]*corev1.PersistentVolumeClaim, error) {
 	pvc, err := rc.GetPVCForPod(pod.Namespace, pod.Name)
 	if err != nil {
 		return nil, err
