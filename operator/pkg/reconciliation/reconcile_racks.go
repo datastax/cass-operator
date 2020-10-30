@@ -112,6 +112,19 @@ func (rc *ReconciliationContext) CheckSuperuserSecretCreation() result.Reconcile
 	return result.Continue()
 }
 
+func (rc *ReconciliationContext) CheckReaperJmxSecretCreation() result.ReconcileResult {
+	rc.ReqLogger.Info("reconcile_racks::CheckReaperJmxSecretCreation")
+
+	if rc.Datacenter.IsReaperEnabled() && len(rc.Datacenter.Spec.Reaper.JmxSecretName) == 0 {
+		if err := rc.createReaperJmxSecretIfNotExists(); err != nil {
+			rc.ReqLogger.Error(err, "failed to create reaper jmx secret")
+			return result.Error(err)
+		}
+	}
+
+	return result.Continue()
+}
+
 func (rc *ReconciliationContext) CheckInternodeCredentialCreation() result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_racks::CheckInternodeCredentialCreation")
 

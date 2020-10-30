@@ -79,6 +79,35 @@ func buildDefaultSuperuserSecret(dc *api.CassandraDatacenter) (*corev1.Secret, e
 	return secret, nil
 }
 
+func (rc *ReconciliationContext) createReaperJmxSecretIfNotExists() error {
+	dc := rc.Datacenter
+	key := types.NamespacedName{Namespace: dc.Namespace, Name: dc.Spec.ClusterName + "-reaper-jmx"}
+
+	secret := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: key.Namespace,
+			Name: key.Name,
+		},
+	}
+
+	if err := rc.Client.Get(rc.Ctx, key, secret); err != nil && !errors.IsNotFound(err) {
+		return err
+	}
+
+	username := dc.Spec.ClusterName + "-reaper"
+	password, err := generateUtf8Password()
+	if err != nil {
+		return fmt.Errorf("failed to generate password for reaper jmx secret: %w", err)
+	}
+
+	secret.Data = map[string][]byte{
+		"username": []byte(username),
+		"password": []byte(password),
+	}
+
+	return nil
+}
+
 func (rc *ReconciliationContext) retrieveSecret(secretNamespacedName types.NamespacedName) (*corev1.Secret, error) {
 	secret := &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
