@@ -2128,6 +2128,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
+	if recResult := rc.CheckReaperJmxSecretCreation(); recResult.Completed() {
+		return recResult.Output()
+	}
+
 	if recResult := rc.CheckInternodeCredentialCreation(); recResult.Completed() {
 		return recResult.Output()
 	}
