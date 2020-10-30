@@ -14,7 +14,7 @@ import (
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 )
 
-func (rc *ReconciliationContext) GetPVCForPod(podNamespace string, podName string) (*corev1.PersistentVolumeClaim, error) {
+func (rc *ReconciliationContext) GetPodPVC(podNamespace string, podName string) (*corev1.PersistentVolumeClaim, error) {
 	pvcFullName := fmt.Sprintf("%s-%s", PvcName, podName)
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -27,10 +27,10 @@ func (rc *ReconciliationContext) GetPVCForPod(podNamespace string, podName strin
 	return pvc, nil
 }
 
-func (rc *ReconciliationContext) getPVCsForPods(pods []*corev1.Pod) ([]*corev1.PersistentVolumeClaim, error) {
+func (rc *ReconciliationContext) getPodsPVCs(pods []*corev1.Pod) ([]*corev1.PersistentVolumeClaim, error) {
 	pvcs := []*corev1.PersistentVolumeClaim{}
 	for _, pod := range pods {
-		pvc, err := rc.GetPVCForPod(pod.Namespace, pod.Name)
+		pvc, err := rc.GetPodPVC(pod.Namespace, pod.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -71,7 +71,7 @@ func (rc *ReconciliationContext) removePVC(pvc *corev1.PersistentVolumeClaim) er
 	return nil
 }
 
-func getNodeNameSetForPVCs(pvcs []*corev1.PersistentVolumeClaim) map[string]bool {
+func getPVCsNodeNameSet(pvcs []*corev1.PersistentVolumeClaim) map[string]bool {
 	nodeNameSet := map[string]bool{}
 	for _, pvc := range pvcs {
 		nodeName := utils.GetPVCSelectedNodeName(pvc)
@@ -82,7 +82,7 @@ func getNodeNameSetForPVCs(pvcs []*corev1.PersistentVolumeClaim) map[string]bool
 	return nodeNameSet
 }
 
-func getNodeNameSetForPods(pods []*corev1.Pod) map[string]bool {
+func getPodsNodeNameSet(pods []*corev1.Pod) map[string]bool {
 	names := map[string]bool{}
 	for _, pod := range pods {
 		if pod.Spec.NodeName != "" {
@@ -113,11 +113,11 @@ func (rc *ReconciliationContext) GetAllNodesInDC() ([]*corev1.Node, error) {
 	// this includes not just nodes where we have dc pods, but also nodes 
 	// where we have PVCs, as PVCs might get separated from their pod when a
 	// pod is rescheduled.
-	pvcs, err := rc.getPVCsForPods(rc.dcPods)
+	pvcs, err := rc.getPodsPVCs(rc.dcPods)
 	if err != nil {
 		return nil, err
 	}
-	nodeNameSet := utils.UnionStringSet(getNodeNameSetForPVCs(pvcs), getNodeNameSetForPods(rc.dcPods))
+	nodeNameSet := utils.UnionStringSet(getPVCsNodeNameSet(pvcs), getPodsNodeNameSet(rc.dcPods))
 	return rc.getNodesForNameSet(nodeNameSet)
 }
 
@@ -134,7 +134,7 @@ func (rc *ReconciliationContext) GetAllPodsNotReadyInDC() []*corev1.Pod {
 }
 
 func (rc *ReconciliationContext) GetPodPVCs(pod *corev1.Pod) ([]*corev1.PersistentVolumeClaim, error) {
-	pvc, err := rc.GetPVCForPod(pod.Namespace, pod.Name)
+	pvc, err := rc.GetPodPVC(pod.Namespace, pod.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +147,7 @@ func (rc *ReconciliationContext) StartNodeReplace(podName string) error {
 		return fmt.Errorf("Pod with name '%s' not part of datacenter", podName)
 	}
 
-	pvc, err := rc.GetPVCForPod(pod.Namespace, pod.Name)
+	pvc, err := rc.GetPodPVC(pod.Namespace, pod.Name)
 	if err != nil {
 		return err
 	}

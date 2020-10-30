@@ -1232,7 +1232,7 @@ func (rc *ReconciliationContext) getCassMetadataEndpoints() httphelper.CassMetad
 // properly recreate a pvc, pv, and pod.
 func (rc *ReconciliationContext) isNodeStuckWithoutPVC(pod *corev1.Pod) bool {
 	if pod.Status.Phase == corev1.PodPending {
-		_, err := rc.GetPVCForPod(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
+		_, err := rc.GetPodPVC(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
 		if err != nil {
 			if errors.IsNotFound(err) {
 				return true
