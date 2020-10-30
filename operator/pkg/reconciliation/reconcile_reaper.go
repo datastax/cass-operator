@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/datastax/cass-operator/operator/internal/result"
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
@@ -177,6 +178,55 @@ func (rc *ReconciliationContext) CheckReaperService() result.ReconcileResult {
 	return result.Continue()
 }
 
+func (rc *ReconciliationContext) CheckReaperStatus() result.ReconcileResult {
+	rc.ReqLogger.Info("reconcile_reaper::CheckReaperStatus")
+	dc := rc.Datacenter
+
+	if !dc.IsReaperEnabled() {
+		result.Continue()
+	}
+
+	statusUpdated := false
+	dcPatch := client.MergeFrom(dc.DeepCopy())
+	defer func() {
+		if statusUpdated {
+			err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
+			if err != nil {
+				rc.ReqLogger.Error(err, "error patching datacenter status for Reaper check")
+			}
+		}
+	}()
+
+	if condition, found := dc.GetCondition(api.DatacenterReaperManage); found && condition.Status == corev1.ConditionTrue {
+		restClient, err := reapergo.NewReaperClient(fmt.Sprintf("http://%s:8080", dc.Spec.Reaper.Service))
+		if err != nil {
+			rc.ReqLogger.Error(err, "failed to create Reaper REST client", "ReaperService", dc.Spec.Reaper.Service)
+			statusUpdated = rc.setCondition(api.NewDatacenterConditionWithReason(
+				api.DatacenterReaperManage,
+				corev1.ConditionUnknown,
+				"",
+				"Failed to query Reaper"))
+			return result.Continue()
+		}
+
+		cluster, err := restClient.GetCluster(rc.Ctx, dc.Spec.ClusterName)
+		if err != nil {
+			rc.ReqLogger.Error(err, "failed to query Reaper for cluster status")
+			statusUpdated = rc.setCondition(api.NewDatacenterConditionWithReason(
+				api.DatacenterReaperManage,
+				corev1.ConditionUnknown,
+				"",
+				"Failed to query Reaper"))
+			return result.Continue()
+		}
+
+		if cluster == nil {
+			statusUpdated = rc.setCondition(api.NewDatacenterCondition(api.DatacenterReaperManage, corev1.ConditionFalse))
+		}
+	}
+	return result.Continue()
+}
+
 // Makes sure that the cluster is registered with Reaper. It is assumed that this cluster
 // is also the backend storage for Reaper. Reaper won't be ready and won't be able to serve
 // REST api calls until schema initialization in its backend storage is complete (chicken
@@ -185,20 +235,39 @@ func (rc *ReconciliationContext) CheckReaperService() result.ReconcileResult {
 func (rc *ReconciliationContext) CheckRegisteredWithReaper() result.ReconcileResult {
 	rc.ReqLogger.Info("reconcile_reaper::CheckRegisteredWithReaper")
 
+	dc := rc.Datacenter
+
 	if !rc.Datacenter.IsReaperEnabled() {
 		return result.Continue()
 	}
 
+	if condition, found := dc.GetCondition(api.DatacenterReaperManage); found && condition.Status == corev1.ConditionTrue {
+		return result.Continue()
+	}
+
+	statusUpdated := false
+	dcPatch := client.MergeFrom(dc.DeepCopy())
+	defer func() {
+		if statusUpdated {
+			err := rc.Client.Status().Patch(rc.Ctx, dc, dcPatch)
+			if err != nil {
+				rc.ReqLogger.Error(err, "error patching datacenter status for Reaper check")
+			}
+		}
+	}()
+
 	// TODO Do not hard code the port
-	restClient, err := reapergo.NewReaperClient(fmt.Sprintf("http://%s:8080", rc.Datacenter.Spec.Reaper.Service))
+	restClient, err := reapergo.NewReaperClient(fmt.Sprintf("http://%s:8080", dc.Spec.Reaper.Service))
 	if err != nil {
-		rc.ReqLogger.Error(err, "failed to create Reaper REST client", "ReaperService", rc.Datacenter.Spec.Reaper.Service)
+		rc.ReqLogger.Error(err, "failed to create Reaper REST client", "ReaperService", dc.Spec.Reaper.Service)
+		statusUpdated = rc.setCondition(api.NewDatacenterCondition(api.DatacenterReaperManage, corev1.ConditionFalse))
 		return result.Error(err)
 	}
 
 	if isReady, err := restClient.IsReaperUp(rc.Ctx); err == nil {
 		if !isReady {
 			rc.ReqLogger.Info("waiting for reaper to become ready")
+			statusUpdated = rc.setCondition(api.NewDatacenterCondition(api.DatacenterReaperManage, corev1.ConditionFalse))
 			return result.RequeueSoon(10)
 		}
 	} else {
@@ -206,13 +275,20 @@ func (rc *ReconciliationContext) CheckRegisteredWithReaper() result.ReconcileRes
 		// We return result.RequestSoon here instead of result.Error because Reaper does not
 		// start serving requests, including for its health check point, until schema
 		// initialization has completed.
+		statusUpdated = rc.setCondition(api.NewDatacenterCondition(api.DatacenterReaperManage, corev1.ConditionFalse))
 		return result.RequeueSoon(30)
 	}
 
 	if err := restClient.AddCluster(rc.Ctx, rc.Datacenter.Spec.ClusterName,rc.Datacenter.GetDatacenterServiceName()); err == nil {
+		statusUpdated = rc.setCondition(api.NewDatacenterCondition(api.DatacenterReaperManage, corev1.ConditionTrue))
 		return result.Continue()
 	} else {
 		rc.ReqLogger.Error(err,"failed to register cluster with Reaper")
+		statusUpdated = rc.setCondition(api.NewDatacenterConditionWithReason(
+			api.DatacenterReaperManage,
+			corev1.ConditionFalse,
+			"",
+			err.Error()))
 		return result.Error(err)
 	}
 }

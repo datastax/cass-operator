@@ -2107,6 +2107,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
+	if recResult := rc.CheckReaperStatus(); recResult.Completed() {
+		return recResult.Output()
+	}
+
 	if recResult := rc.CheckSuperuserSecretCreation(); recResult.Completed() {
 		return recResult.Output()
 	}

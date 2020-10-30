@@ -246,6 +246,7 @@ const (
 	DatacenterResuming       DatacenterConditionType = "Resuming"
 	DatacenterRollingRestart DatacenterConditionType = "RollingRestart"
 	DatacenterValid          DatacenterConditionType = "Valid"
+	DatacenterReaperManage   DatacenterConditionType = "Reaper"
 )
 
 type DatacenterCondition struct {
