@@ -693,17 +693,17 @@ func getStatefulSetPodNameForIdx(sts *appsv1.StatefulSet, idx int32) string {
 	return fmt.Sprintf("%s-%v", sts.Name, idx)
 }
 
-func getStatefulSetPodNames(sts *appsv1.StatefulSet) map[string]bool {
+func getStatefulSetPodNames(sts *appsv1.StatefulSet) utils.StringSet {
 	status := sts.Status
-	podNames := map[string]bool{}
+	podNames := utils.StringSet{}
 	for i := int32(0); i < status.Replicas; i++ {
 		podNames[getStatefulSetPodNameForIdx(sts, i)] = true
 	}
 	return podNames
 }
 
-func getPodNamesFromPods(pods []*corev1.Pod) map[string]bool {
-	podNames := map[string]bool{}
+func getPodNamesFromPods(pods []*corev1.Pod) utils.StringSet {
+	podNames := utils.StringSet{}
 	for _, pod := range pods {
 		podNames[pod.Name] = true
 	}

@@ -8,9 +8,11 @@ import (
 //
 // StringSet helper functions
 //
-func UnionStringSet(a, b map[string]bool) map[string]bool {
-	result := map[string]bool{}
-	for _, m := range []map[string]bool{a, b} {
+type StringSet map[string]bool
+
+func UnionStringSet(a, b StringSet) StringSet {
+	result := StringSet{}
+	for _, m := range []StringSet{a, b} {
 		for k := range m {
 			result[k] = true
 		}
@@ -18,8 +20,8 @@ func UnionStringSet(a, b map[string]bool) map[string]bool {
 	return result
 }
 
-func SubtractStringSet(a, b map[string]bool) map[string]bool {
-	result := map[string]bool{}
+func SubtractStringSet(a, b StringSet) StringSet {
+	result := StringSet{}
 	for k, _ := range a {
 		if !b[k] {
 			result[k] = true
@@ -32,8 +34,8 @@ func SubtractStringSet(a, b map[string]bool) map[string]bool {
 //
 // k8s Node helper functions
 //
-func GetNameSetForNodes(nodes []*corev1.Node) map[string]bool {
-	result := map[string]bool{}
+func GetNameSetForNodes(nodes []*corev1.Node) StringSet {
+	result := StringSet{}
 	for _, node := range nodes {
 		result[node.Name] = true
 	}
@@ -82,8 +84,8 @@ func IsPodUnschedulable(pod *corev1.Pod) bool {
 	return false
 }
 
-func GetPodNameSet(pods []*corev1.Pod) map[string]bool {
-	names := map[string]bool{}
+func GetPodNameSet(pods []*corev1.Pod) StringSet {
+	names := StringSet{}
 	for _, pod := range pods {
 		names[pod.Name] = true
 	}
@@ -91,8 +93,8 @@ func GetPodNameSet(pods []*corev1.Pod) map[string]bool {
 	return names
 }
 
-func GetNodeNameSetForPods(pods []*corev1.Pod) map[string]bool {
-	names := map[string]bool{}
+func GetNodeNameSetForPods(pods []*corev1.Pod) StringSet {
+	names := StringSet{}
 	for _, pod := range pods {
 		names[pod.Spec.NodeName] = true
 	}
@@ -109,7 +111,7 @@ func FilterPodsWithFn(pods []*corev1.Pod, fn func(*corev1.Pod)bool) []*corev1.Po
 	return result
 }
 
-func FilterPodsWithNodeInNameSet(pods []*corev1.Pod, nameSet map[string]bool) []*corev1.Pod {
+func FilterPodsWithNodeInNameSet(pods []*corev1.Pod, nameSet StringSet) []*corev1.Pod {
 	return FilterPodsWithFn(pods, func(pod *corev1.Pod) bool {
 		return nameSet[pod.Spec.NodeName]
 	})
