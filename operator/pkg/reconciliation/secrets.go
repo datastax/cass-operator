@@ -105,7 +105,7 @@ func (rc *ReconciliationContext) createReaperJmxSecretIfNotExists() error {
 		"password": []byte(password),
 	}
 
-	return nil
+	return rc.Client.Create(rc.Ctx, secret);
 }
 
 func (rc *ReconciliationContext) retrieveSecret(secretNamespacedName types.NamespacedName) (*corev1.Secret, error) {
