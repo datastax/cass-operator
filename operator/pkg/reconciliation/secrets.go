@@ -81,7 +81,7 @@ func buildDefaultSuperuserSecret(dc *api.CassandraDatacenter) (*corev1.Secret, e
 
 func (rc *ReconciliationContext) createReaperJmxSecretIfNotExists() error {
 	dc := rc.Datacenter
-	key := types.NamespacedName{Namespace: dc.Namespace, Name: dc.Spec.ClusterName + "-reaper-jmx"}
+	key := types.NamespacedName{Namespace: dc.Namespace, Name: dc.GetReaperJmxSecretName()}
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{

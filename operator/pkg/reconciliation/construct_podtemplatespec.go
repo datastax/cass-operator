@@ -281,7 +281,7 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 					ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
-								Name: dc.Spec.Reaper.JmxSecretName,
+								Name: dc.GetReaperJmxSecretName(),
 							},
 							Key: "username",
 						},
@@ -292,7 +292,7 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 					ValueFrom: &corev1.EnvVarSource{
 						SecretKeyRef: &corev1.SecretKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{
-								Name: dc.Spec.Reaper.JmxSecretName,
+								Name: dc.GetReaperJmxSecretName(),
 							},
 							Key: "password",
 						},

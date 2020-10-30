@@ -423,6 +423,16 @@ func (dc *CassandraDatacenter) IsReaperEnabled() bool {
 	return false
 }
 
+func (dc *CassandraDatacenter) GetReaperJmxSecretName() string {
+	if !dc.IsReaperEnabled() {
+		return ""
+	}
+	if len(dc.Spec.Reaper.JmxSecretName) > 0 {
+		return dc.Spec.Reaper.JmxSecretName
+	}
+	return dc.Spec.ClusterName + "-reaper-jmx"
+}
+
 func (status *CassandraDatacenterStatus) GetConditionStatus(conditionType DatacenterConditionType) corev1.ConditionStatus {
 	for _, condition := range status.Conditions {
 		if condition.Type == conditionType {
