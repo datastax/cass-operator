@@ -1,3 +1,25 @@
+// Copyright DataStax, Inc.
+// Please see the included license file for details.
+
+// PSP EMM operations are triggered by a user through a UI and appear to the
+// operator as taints on k8s nodes. To allow the EMM operation to proceed, all
+// pods must be removed from the tainted node. EMM can be cancelled by adding 
+// a failure annotation to pods on the node.
+//
+// The way we have implemented EMM here is to only allow an EMM operation to
+// proceed if it does not compromise availability. We assume RF of 3 with 3
+// racks, meaning we will never allow more than 1 rack to have bootstrapped
+// pods that are not ready. We effectively ignore pods that are not ready and
+// represent cassandra nodes that were never bootstrapped, since their being
+// up or down has no meaningful impact on the availability of the cassandra
+// datacenter (since they don't belong to the ring yet). We do allow an EMM
+// operation to proceed, subject to the above constraints, when there are
+// not ready bootstrapped pods on the rack the operation is being performed
+// on, as the operation might be being performed to resolve the problem
+// causing the pods to lose readiness. For example, a node might be
+// temporarily taken offline to replace defective memory which was causing
+// cassandra to crash.
+
 package psp
 
 import (
