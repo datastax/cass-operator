@@ -44,7 +44,15 @@ func newNetworkPolicyForCassandraDatacenter(dc *api.CassandraDatacenter) *networ
 	return policy
 }
 
-
+// VMWare with Kubernetes does not permit network traffic between namespaces
+// by default. This means a NetworkPolicy must be created to allow the 
+// operator to make requests to the Management API.
+//
+// NOTE: The way VMWare implements NetworkPolicy appears to be non-standard.
+// For example, typially setting the namespace selector to an empty value
+// _should_ select all namespaces, but it does not in VMWare with Kubernetes.
+// Consequently, it is important that changes here be verified in that 
+// environment.
 func CheckNetworkPolicies(spi CheckNetworkPoliciesSPI) result.ReconcileResult {
 	logger := spi.GetLogger()
 	dc := spi.GetDatacenter()
