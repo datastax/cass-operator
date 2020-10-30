@@ -28,6 +28,7 @@ import (
 	"github.com/datastax/cass-operator/operator/pkg/dynamicwatch"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
+	"github.com/datastax/cass-operator/operator/pkg/psp"
 )
 
 // Use a var so we can mock this function
@@ -153,7 +154,7 @@ func (rc *ReconciliationContext) calculateReconciliationActions() (reconcile.Res
 	}
 
 	if utils.IsPSPEnabled() {
-		if result := rc.CheckNetworkPolicies(); result.Completed() {
+		if result := psp.CheckNetworkPolicies(rc); result.Completed() {
 			return result.Output()
 		}
 	}

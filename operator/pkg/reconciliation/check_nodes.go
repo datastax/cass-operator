@@ -6,7 +6,6 @@ package reconciliation
 import (
 	"fmt"
 
-	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
@@ -213,8 +212,4 @@ func (rc *ReconciliationContext) IsStopped() bool {
 
 func (rc *ReconciliationContext) IsInitialized() bool {
 	return rc.Datacenter.GetConditionStatus(api.DatacenterInitialized) == corev1.ConditionTrue
-}
-
-func (rc *ReconciliationContext) GetLogger() logr.Logger {
-	return rc.ReqLogger
 }
