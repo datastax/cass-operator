@@ -28,6 +28,8 @@ var (
 )
 
 func TestLifecycle(t *testing.T) {
+	t.Skip("Skip pending KO-536")
+
 	AfterSuite(func() {
 		logPath := fmt.Sprintf("%s/aftersuite", ns.LogDir)
 		err := kubectl.DumpAllLogs(logPath).ExecV()
