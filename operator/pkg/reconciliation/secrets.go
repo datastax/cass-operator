@@ -83,29 +83,31 @@ func (rc *ReconciliationContext) createReaperJmxSecretIfNotExists() error {
 	dc := rc.Datacenter
 	key := types.NamespacedName{Namespace: dc.Namespace, Name: dc.GetReaperJmxSecretName()}
 
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: key.Namespace,
-			Name: key.Name,
-		},
-	}
-
-	if err := rc.Client.Get(rc.Ctx, key, secret); err != nil && !errors.IsNotFound(err) {
+	if err := rc.Client.Get(rc.Ctx, key, &corev1.Secret{}); err == nil {
+		return nil
+	} else if !errors.IsNotFound(err) {
 		return err
-	}
+	} else {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: key.Namespace,
+				Name: key.Name,
+			},
+		}
 
-	username := dc.Spec.ClusterName + "-reaper"
-	password, err := generateUtf8Password()
-	if err != nil {
-		return fmt.Errorf("failed to generate password for reaper jmx secret: %w", err)
-	}
+		username := dc.Spec.ClusterName + "-reaper"
+		password, err := generateUtf8Password()
+		if err != nil {
+			return fmt.Errorf("failed to generate password for reaper jmx secret: %w", err)
+		}
 
-	secret.Data = map[string][]byte{
-		"username": []byte(username),
-		"password": []byte(password),
-	}
+		secret.Data = map[string][]byte{
+			"username": []byte(username),
+			"password": []byte(password),
+		}
 
-	return rc.Client.Create(rc.Ctx, secret);
+		return rc.Client.Create(rc.Ctx, secret)
+	}
 }
 
 func (rc *ReconciliationContext) retrieveSecret(secretNamespacedName types.NamespacedName) (*corev1.Secret, error) {
