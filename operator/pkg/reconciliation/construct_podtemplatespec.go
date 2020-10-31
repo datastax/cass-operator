@@ -327,9 +327,6 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		} else if c.Name == SystemLoggerContainerName {
 			foundLogger = true
 			loggerContainer = &baseTemplate.Spec.Containers[i]
-		} else if c.Name == ReaperContainerName {
-			//foundReaper = true
-			//reaperContainer = &baseTemplate.Spec.Containers[i]
 		}
 	}
 

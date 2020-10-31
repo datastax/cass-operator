@@ -10,8 +10,6 @@ import (
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
 
-	batchv1 "k8s.io/api/batch/v1"
-	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -64,46 +62,4 @@ func setOperatorProgressStatus(rc *ReconciliationContext, newState api.ProgressS
 	}
 
 	return nil
-}
-
-func buildInitReaperSchemaJob(dc *api.CassandraDatacenter) *batchv1.Job {
-	return &batchv1.Job{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Job",
-			APIVersion: "batch/v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: dc.Namespace,
-			Name:      getReaperSchemaInitJobName(dc),
-			Labels:    dc.GetDatacenterLabels(),
-		},
-		Spec: batchv1.JobSpec{
-			Template: corev1.PodTemplateSpec{
-				Spec: corev1.PodSpec{
-					RestartPolicy: corev1.RestartPolicyOnFailure,
-					Containers: []corev1.Container{
-						{
-							Name:            getReaperSchemaInitJobName(dc),
-							Image:           ReaperSchemaInitJobImage,
-							ImagePullPolicy: corev1.PullIfNotPresent,
-							Env: []corev1.EnvVar{
-								{
-									Name:  "KEYSPACE",
-									Value: ReaperKeyspace,
-								},
-								{
-									Name:  "CONTACT_POINTS",
-									Value: dc.GetSeedServiceName(),
-								},
-								{
-									Name:  "REPLICATION",
-									Value: getReaperReplication(dc),
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
 }

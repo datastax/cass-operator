@@ -75,7 +75,7 @@ var _ = Describe(testName, func() {
 			// created without that secret. Alternatively, we could create the secret instead of
 			// letting cass-operator generate it. Then the order of steps is less important.
 			step = "enable Reaper"
-			json := `{"spec": {"reaper": {"enabled": true, "service": "reaper-cassdc-reaper-service"}}}`
+			json := `{"spec": {"reaper": {"enabled": true, "name": "reaper-cassdc"}}}`
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
