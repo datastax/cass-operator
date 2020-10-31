@@ -298,6 +298,13 @@ func (ns *NsWrapper) WaitForDatacenterReadyWithTimeouts(dcName string, podCountT
 	ns.WaitForDatacenterOperatorProgress(dcName, "Ready", dcReadyTimeout)
 }
 
+func (ns *NsWrapper) WaitForReaperReady(reaperName string, timeout int) {
+	step := "waiting for reaper to become ready"
+	json := "jsonpath={.status.ready}"
+	k := kubectl.Get("reaper", reaperName).FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, "true", timeout)
+}
+
 func (ns *NsWrapper) WaitForPodNotStarted(podName string) {
 	step := "verify that the pod is no longer marked as started"
 	k := kubectl.Get("pod").
@@ -398,6 +405,16 @@ func (ns *NsWrapper) WaitForOperatorReady() {
 	json := "jsonpath={.items[0].status.containerStatuses[0].ready}"
 	k := kubectl.Get("pods").
 		WithLabel("name=cass-operator").
+		WithFlag("field-selector", "status.phase=Running").
+		FormatOutput(json)
+	ns.WaitForOutputAndLog(step, k, "true", 240)
+}
+
+func (ns *NsWrapper) WaitForReaperOperatorReady() {
+	step := "waiting for reaper-operator to become ready"
+	json := "jsonpath={.items[0].status.containerStatuses[0].ready}"
+	k := kubectl.Get("pods").
+		WithLabel("control-plane=reaper-operator").
 		WithFlag("field-selector", "status.phase=Running").
 		FormatOutput(json)
 	ns.WaitForOutputAndLog(step, k, "true", 240)

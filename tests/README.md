@@ -1,4 +1,4 @@
-# cass-operator integration tests
+ # cass-operator integration tests
 
 [Ginkgo](https://onsi.github.io/ginkgo/) is used alongside kubectl
 for integration testing of the operator.

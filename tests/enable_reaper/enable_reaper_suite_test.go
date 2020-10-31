@@ -49,10 +49,15 @@ var _ = Describe(testName, func() {
 			step := "setting up cass-operator resources via helm chart"
 			ns.HelmInstall("../../charts/cass-operator-chart")
 
+			step = "setting up reaper-operator"
+			k := kubectl.ApplyFiles("../testdata/reaper-operator-bundle.yaml")
+			ns.ExecAndLog(step, k)
+
 			ns.WaitForOperatorReady()
+			ns.WaitForReaperOperatorReady()
 
 			step = "creating a datacenter resource with 3 racks/3 nodes"
-			k := kubectl.ApplyFiles(dcYaml)
+			k = kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
 			ns.WaitForSuperUserUpserted(dcName, 600)
@@ -65,33 +70,25 @@ var _ = Describe(testName, func() {
 			ns.WaitForDatacenterCondition(dcName, "Ready", string(corev1.ConditionTrue))
 			ns.WaitForDatacenterCondition(dcName, "Initialized", string(corev1.ConditionTrue))
 
+			// We need to enable reaper in the CassandraDatacenter before deploying Reaper because
+			// cass-operator creates the JMX secret that Reaper uses. The Reaper object cannot be
+			// created without that secret. Alternatively, we could create the secret instead of
+			// letting cass-operator generate it. Then the order of steps is less important.
 			step = "enable Reaper"
-			json := `{"spec": {"reaper": {"enabled": true}}}`
+			json := `{"spec": {"reaper": {"enabled": true, "service": "reaper-cassdc-reaper-service"}}}`
 			k = kubectl.PatchMerge(dcResource, json)
 			ns.ExecAndLog(step, k)
 
 			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 120)
 			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 1200)
 
-			step = "check that Reaper container is deployed"
-			json = `jsonpath={.items[*].spec.containers[?(@.name=="reaper")].name}`
-			k = kubectl.Get("pods").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "reaper reaper reaper", 20)
-
-			step = "disable Reaper"
-			json = `{"spec": {"reaper": {"enabled": false}}}`
-			k = kubectl.PatchMerge(dcResource, json)
+			step = "deploy reaper"
+			k = kubectl.ApplyFiles("../testdata/reaper.yaml")
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterOperatorProgress(dcName, "Updating", 120)
-			ns.WaitForDatacenterOperatorProgress(dcName, "Ready", 1200)
+			ns.WaitForReaperReady("reaper-cassdc", 300)
 
-			step = "check that Reaper container is not deployed"
-			json = `jsonpath={.items[*].spec.containers[?(@.name=="reaper")]}`
-			k = kubectl.Get("pods").
-				FormatOutput(json)
-			ns.WaitForOutputAndLog(step, k, "", 20)
+			ns.WaitForDatacenterCondition(dcName, "Reaper", "True")
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
