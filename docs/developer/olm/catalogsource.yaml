@@ -2,9 +2,9 @@ apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
 metadata:
   name: local
-  namespace: olm
+  namespace: openshift-marketplace
 spec:
   displayName: Local Catalog
   publisher: Developer
   sourceType: grpc
-  image: bradfordcp/catalog-index:latest
+  image: bradfordcp/catalog-index:1.2.0
