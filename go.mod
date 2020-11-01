@@ -7,7 +7,6 @@ require (
 	github.com/go-logr/logr v0.1.0
 	github.com/go-openapi/spec v0.19.4
 	github.com/google/uuid v1.1.1
-	github.com/jsanda/reaper-client-go v0.2.1-0.20201029201014-86b331710113
 	github.com/magefile/mage v1.9.0
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1

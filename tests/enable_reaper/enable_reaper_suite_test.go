@@ -36,7 +36,8 @@ func TestLifecycle(t *testing.T) {
 	})
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, testName)
+	// Disabling this test since Reaper integration is being handled in reaper-operator
+	//RunSpecs(t, testName)
 }
 
 var _ = Describe(testName, func() {

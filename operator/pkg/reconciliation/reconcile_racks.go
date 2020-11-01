@@ -2120,10 +2120,6 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		return recResult.Output()
 	}
 
-	if recResult := rc.CheckReaperStatus(); recResult.Completed() {
-		return recResult.Output()
-	}
-
 	if recResult := rc.CheckSuperuserSecretCreation(); recResult.Completed() {
 		return recResult.Output()
 	}
@@ -2219,10 +2215,6 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 		if err := rc.checkNodeAndPvcTaints(); err != nil {
 			return result.Error(err).Output()
 		}
-	}
-
-	if recResult := rc.CheckRegisteredWithReaper(); recResult.Completed() {
-		return recResult.Output()
 	}
 
 	if err := rc.enableQuietPeriod(5); err != nil {

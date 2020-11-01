@@ -246,7 +246,6 @@ const (
 	DatacenterResuming       DatacenterConditionType = "Resuming"
 	DatacenterRollingRestart DatacenterConditionType = "RollingRestart"
 	DatacenterValid          DatacenterConditionType = "Valid"
-	DatacenterReaperManage   DatacenterConditionType = "Reaper"
 )
 
 type DatacenterCondition struct {
@@ -348,23 +347,13 @@ type ManagementApiAuthConfig struct {
 }
 
 type ReaperConfig struct {
-	// Other properties in ReaperConfig are ignores unless this is set to true. When set to
-	// true, the operator will enable remote JMX in the Cassandra cluster since Reaper
-	// manages repairs via JMX. Note that setting this to true after the Cassandra cluster
-	// has been deployed will result in a rolling restart of the cluster.
+	// When set to true, cass-operator configures and enables remote JMX. Changing this
+	// after the cluster has been deployed will result in a rolling restart of the cluster.
 	Enabled bool `json:"enabled,omitempty"`
 
-	// The name of the Reaper instance. The operator will register the Cassandra cluster
-	// with this instance.
-	Name string `json:"name"`
-
-	// The namespace in which Reaper is deployed. If omitted, it is assumed that Reaper
-	// is running in the same namespace as the CassandraDatacenter.
-	Namespace string `json:"namespace,omitempty"`
-
-	// The name of the secret that stores the credentials that Reaper will use. The secret
-	// should be created in the same namespace as the CassandraDatacenter. If this property
-	// is not set, the operator will generate a default secret.
+	// The name of the secret that stores the credentials used for JMX authentication. The
+	// secret should be created in the same namespace as the CassandraDatacenter. If this
+	// property is not set, the operator will generate a default secret.
 	JmxSecretName string `json:"jmxSecretName,omitempty"`
 
 	// Deprecated - this property only applied to Reaper sidecar which is no longer used.

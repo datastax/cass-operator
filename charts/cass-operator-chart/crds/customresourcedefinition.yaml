@@ -5938,11 +5938,9 @@ spec:
             reaper:
               properties:
                 enabled:
-                  description: Other properties in ReaperConfig are ignores unless
-                    this is set to true. When set to true, the operator will enable
-                    remote JMX in the Cassandra cluster since Reaper manages repairs
-                    via JMX. Note that setting this to true after the Cassandra cluster
-                    has been deployed will result in a rolling restart of the cluster.
+                  description: When set to true, cass-operator configures and enables
+                    remote JMX. Changing this after the cluster has been deployed
+                    will result in a rolling restart of the cluster.
                   type: boolean
                 image:
                   description: Deprecated - this property only applied to Reaper sidecar
@@ -5954,18 +5952,9 @@ spec:
                   type: string
                 jmxSecretName:
                   description: The name of the secret that stores the credentials
-                    that Reaper will use. The secret should be created in the same
-                    namespace as the CassandraDatacenter. If this property is not
-                    set, the operator will generate a default secret.
-                  type: string
-                name:
-                  description: The name of the Reaper instance. The operator will
-                    register the Cassandra cluster with this instance.
-                  type: string
-                namespace:
-                  description: The namespace in which Reaper is deployed. If omitted,
-                    it is assumed that Reaper is running in the same namespace as
-                    the CassandraDatacenter.
+                    used for JMX authentication. The secret should be created in the
+                    same namespace as the CassandraDatacenter. If this property is
+                    not set, the operator will generate a default secret.
                   type: string
                 resources:
                   description: Deprecated - this property only applied to Reaper sidecar
@@ -5994,8 +5983,6 @@ spec:
                         to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                       type: object
                   type: object
-              required:
-              - name
               type: object
             replaceNodes:
               description: A list of pod names that need to be replaced.

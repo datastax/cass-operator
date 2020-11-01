@@ -59,7 +59,6 @@ func TestCassandraDatacenter_buildInitContainers_reaperEnabled(t *testing.T) {
 			Reaper: &api.ReaperConfig{
 				Enabled: true,
 				JmxSecretName: "reaper-jmx",
-				Name: "test",
 			},
 		},
 	}
