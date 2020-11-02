@@ -7,4 +7,4 @@ spec:
   channel: stable
   name: cass-operator
   source: local
-  sourceNamespace: olm
+  sourceNamespace: openshift-marketplace
