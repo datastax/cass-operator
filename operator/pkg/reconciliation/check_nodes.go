@@ -39,7 +39,7 @@ func (rc *ReconciliationContext) getPodsPVCs(pods []*corev1.Pod) ([]*corev1.Pers
 	return pvcs, nil
 }
 
-func (rc *ReconciliationContext) getNodesForNameSet(nodeNameSet map[string]bool) ([]*corev1.Node, error) {
+func (rc *ReconciliationContext) getNodesForNameSet(nodeNameSet utils.StringSet) ([]*corev1.Node, error) {
 	nodes := []*corev1.Node{}
 	for nodeName, _ := range nodeNameSet {
 		if nodeName != "" {
@@ -71,8 +71,8 @@ func (rc *ReconciliationContext) removePVC(pvc *corev1.PersistentVolumeClaim) er
 	return nil
 }
 
-func getPVCsNodeNameSet(pvcs []*corev1.PersistentVolumeClaim) map[string]bool {
-	nodeNameSet := map[string]bool{}
+func getPVCsNodeNameSet(pvcs []*corev1.PersistentVolumeClaim) utils.StringSet {
+	nodeNameSet := utils.StringSet{}
 	for _, pvc := range pvcs {
 		nodeName := utils.GetPVCSelectedNodeName(pvc)
 		if nodeName != "" {
@@ -82,8 +82,8 @@ func getPVCsNodeNameSet(pvcs []*corev1.PersistentVolumeClaim) map[string]bool {
 	return nodeNameSet
 }
 
-func getPodsNodeNameSet(pods []*corev1.Pod) map[string]bool {
-	names := map[string]bool{}
+func getPodsNodeNameSet(pods []*corev1.Pod) utils.StringSet {
+	names := utils.StringSet{}
 	for _, pod := range pods {
 		if pod.Spec.NodeName != "" {
 			names[pod.Spec.NodeName] = true
