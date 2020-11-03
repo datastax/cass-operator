@@ -507,9 +507,9 @@ spec:
                     - pgrep
                     - .*operator
                   failureThreshold: 3
-                  initialDelaySeconds: 30
-                  periodSeconds: 30
-                  timeoutSeconds: 30
+                  initialDelaySeconds: 60
+                  periodSeconds: 60
+                  timeoutSeconds: 60
                 name: cass-operator
                 readinessProbe:
                   exec:
@@ -517,9 +517,9 @@ spec:
                     - stat
                     - /tmp/operator-sdk-ready
                   failureThreshold: 1
-                  initialDelaySeconds: 30
-                  periodSeconds: 30
-                  timeoutSeconds: 30
+                  initialDelaySeconds: 60
+                  periodSeconds: 60
+                  timeoutSeconds: 60
                 resources: {}
                 securityContext:
                   allowPrivilegeEscalation: false
