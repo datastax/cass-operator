@@ -172,6 +172,8 @@ type CassandraDatacenterSpec struct {
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 
 	Reaper *ReaperConfig `json:"reaper,omitempty"`
+
+	FastResume bool `json:"fastResume,omitempty"`
 }
 
 type NetworkingConfig struct {

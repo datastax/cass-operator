@@ -548,6 +548,22 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 		return result.Continue()
 	}
 
+	if rc.Datacenter.Spec.FastResume {
+		fastResumedOne := false
+		for i := range rc.dcPods {
+			pod := rc.dcPods[i]
+			if isMgmtApiRunning(pod) && isServerReadyToStart(pod) {
+				if err := rc.startCassandra(endpointData, pod); err != nil {
+					return result.Error(err)
+				}
+				fastResumedOne = true
+			}
+		}
+		if fastResumedOne {
+			return result.RequeueSoon(10)
+		}
+	}
+
 	// all errors in this function we're going to treat as likely ephemeral problems that would resolve
 	// so we use ResultShouldRequeueSoon to check again soon
 
