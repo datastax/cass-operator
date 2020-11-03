@@ -19,4 +19,4 @@ diff -u $opDeploy/webhook_configuration.yaml  $chartTmpl/validatingwebhookconfig
 diff -u $opDeploy/operator.yaml               $chartTmpl/deployment.yaml | diff-so-fancy || true
 diff -u $opDeploy/webhook_service.yaml        $chartTmpl/service.yaml | diff-so-fancy || true
 diff -u $opDeploy/webhook_secret.yaml         $chartTmpl/secret.yaml | diff-so-fancy || true
-diff -u $opDeploy/crds/$crdFilename           $chartCrd/customresourcedefinition.yaml | diff-so-fancy || true
+diff -u $opDeploy/crds/$crdFilename           $chartTmpl/customresourcedefinition.yaml | diff-so-fancy || true
