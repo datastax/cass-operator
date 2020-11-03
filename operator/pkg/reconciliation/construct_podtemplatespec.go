@@ -474,6 +474,15 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	}
 	baseTemplate.Labels = utils.MergeMap(baseTemplate.Labels, podLabels)
 
+	// Annotations
+
+	podAnnotations := map[string]string{}
+
+	if baseTemplate.Annotations == nil {
+		baseTemplate.Annotations = make(map[string]string)
+	}
+	baseTemplate.Annotations = utils.MergeMap(baseTemplate.Annotations, podAnnotations)
+
 	// Affinity
 
 	affinity := &corev1.Affinity{}

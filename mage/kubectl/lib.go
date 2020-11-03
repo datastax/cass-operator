@@ -145,7 +145,13 @@ func CreateSecretLiteral(name string, user string, pw string) KCmd {
 }
 
 func Taint(node string, key string, value string, effect string) KCmd {
-	args := []string{"nodes", node, fmt.Sprintf("%s=%s:%s", key, value, effect)}
+	var args []string = nil
+	if value != "" {
+		args = []string{"nodes", node, fmt.Sprintf("%s=%s:%s", key, value, effect)}
+	} else {
+		args = []string{"nodes", node, fmt.Sprintf("%s:%s", key, effect)}
+	}
+
 	return KCmd{Command: "taint", Args: args}
 }
 

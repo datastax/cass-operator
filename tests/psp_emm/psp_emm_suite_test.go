@@ -16,11 +16,11 @@ import (
 )
 
 var (
-	testName    = "Tolerations"
-	opNamespace = "test-tolerations"
+	testName    = "PSP EMM"
+	opNamespace = "test-psp-emm"
 	dc1Name     = "dc1"
 	// This scenario requires RF greater than 2
-	dc1Yaml      = "../testdata/tolerations-dc.yaml"
+	dc1Yaml      = "../testdata/psp-emm-dc.yaml"
 	dc1Resource  = fmt.Sprintf("CassandraDatacenter/%s", dc1Name)
 	pod1Name     = "cluster1-dc1-r1-sts-0"
 	pod1Resource = fmt.Sprintf("pod/%s", pod1Name)
@@ -29,6 +29,7 @@ var (
 )
 
 func TestLifecycle(t *testing.T) {
+
 	AfterSuite(func() {
 		logPath := fmt.Sprintf("%s/aftersuite", ns.LogDir)
 		err := kubectl.DumpAllLogs(logPath).ExecV()
@@ -45,8 +46,7 @@ func TestLifecycle(t *testing.T) {
 
 var _ = Describe(testName, func() {
 	Context("when in a new cluster", func() {
-		Specify("the operator can respond to PSP node taints", func() {
-
+		Specify("when a node has an evacuate data taint, deletes pods and PVCs on that node", func() {
 			By("creating a namespace for the cass-operator")
 			err := kubectl.CreateNamespace(opNamespace).ExecV()
 			Expect(err).ToNot(HaveOccurred())
@@ -70,29 +70,21 @@ var _ = Describe(testName, func() {
 				panic(err)
 			}
 
-			node1Resource := fmt.Sprintf("node/%s", node1Name)
-
 			// Cleanup: Remove the taint
 			defer func() {
-				json := `
-						{
-							"spec": {
-								"taints": null
-							}
-						}`
-				k = kubectl.PatchMerge(node1Resource, json)
-				err = k.ExecV()
-				if err != nil {
-					panic(err)
-				}
+				k := kubectl.Taint(
+					node1Name,
+					"node.vmware.com/drain",
+					"",
+					"NoSchedule-")
+				k.ExecVPanic()
 			}()
 
-			// node.vmware.com/drain=planned-downtime:NoSchedule
 			step = fmt.Sprintf("tainting node: %s", node1Name)
 			k = kubectl.Taint(
 				node1Name,
 				"node.vmware.com/drain",
-				"planned-downtime",
+				"drain",
 				"NoSchedule")
 			ns.ExecAndLog(step, k)
 
@@ -108,6 +100,8 @@ var _ = Describe(testName, func() {
 					break
 				}
 			}
+
+			ns.WaitForDatacenterReadyPodCount(dc1Name, 2)
 
 			// In my environment, I have to add a wait here
 

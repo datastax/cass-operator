@@ -136,3 +136,23 @@ func retrieveDatacenter(rc *ReconciliationContext, request *reconcile.Request, d
 		dc)
 	return err
 }
+
+func (rc *ReconciliationContext) GetLogger() logr.Logger {
+	return rc.ReqLogger
+}
+
+func (rc *ReconciliationContext) GetClient() runtimeClient.Client {
+	return rc.Client
+}
+
+func (rc *ReconciliationContext) GetDatacenter() *api.CassandraDatacenter {
+	return rc.Datacenter
+}
+
+func (rc *ReconciliationContext) SetDatacenterAsOwner(controlled metav1.Object) error {
+	return setControllerReference(rc.Datacenter, controlled, rc.Scheme)
+}
+
+func (rc *ReconciliationContext) GetContext() context.Context {
+	return rc.Ctx
+}
