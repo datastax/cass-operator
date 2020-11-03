@@ -363,10 +363,6 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 	// Combine volumes
 
 	var volumeDefaults []corev1.VolumeMount
-	for _, c := range baseTemplate.Spec.InitContainers {
-		volumeDefaults = combineVolumeMountSlices(volumeDefaults, c.VolumeMounts)
-	}
-
 	cassServerLogsMount := corev1.VolumeMount{
 		Name:      "server-logs",
 		MountPath: "/var/log/cassandra",
