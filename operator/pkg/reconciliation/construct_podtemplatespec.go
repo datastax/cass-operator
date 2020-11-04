@@ -412,6 +412,12 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 	// Combine volumeMounts
 
 	var volumeDefaults []corev1.VolumeMount
+	serverCfgMount := corev1.VolumeMount{
+		Name:      "server-config",
+		MountPath: "/config",
+	}
+	volumeDefaults = append(volumeDefaults, serverCfgMount)
+
 	cassServerLogsMount := corev1.VolumeMount{
 		Name:      "server-logs",
 		MountPath: "/var/log/cassandra",
