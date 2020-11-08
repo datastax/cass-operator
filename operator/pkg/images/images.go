@@ -270,9 +270,8 @@ func GetReaperImage() string {
 func GetSystemLoggerImage() string {
 	if shouldUseUBI() {
 		return GetImage(BaseImageOS)
-	} else {
-		return GetImage(BusyBox)
 	}
+	return GetImage(BusyBox)
 }
 
 func AddDefaultRegistryImagePullSecrets(podSpec *corev1.PodSpec) bool {
