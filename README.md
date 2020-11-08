@@ -15,7 +15,7 @@ kubectl -n cass-operator create -f https://raw.githubusercontent.com/datastax/ca
 
 ### Loading the operator
 
-Installing the Cass Operator itself is straightforward. We have provided manifests for each Kubernetes version from 1.13 through 1.17. Apply the relevant manifest to your cluster as follows:
+Installing the Cass Operator itself is straightforward. We have provided manifests for each Kubernetes version from 1.15 through 1.19. Apply the relevant manifest to your cluster as follows:
 
 ```console
 K8S_VER=v1.16
@@ -313,7 +313,7 @@ spec:
 
 ## Requirements
 
-- Kubernetes cluster, 1.13 or newer.
+- Kubernetes cluster, 1.15 or newer.
 
 ## Contributing
 

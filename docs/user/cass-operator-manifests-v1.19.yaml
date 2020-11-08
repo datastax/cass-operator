@@ -69,6 +69,12 @@ spec:
               description: Indicates that configuration and container image changes
                 should only be pushed to the first rack of the datacenter
               type: boolean
+            canaryUpgradeCount:
+              description: The number of nodes that will be updated when CanaryUpgrade
+                is true. Note that the value is either 0 or greater than the rack
+                size, then all nodes in the rack will get updated.
+              format: int32
+              type: integer
             clusterName:
               description: The name by which CQL clients and instances will know the
                 cluster. If the same cluster name is shared by multiple Datacenters
@@ -106,6 +112,9 @@ spec:
                     value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                   type: object
               type: object
+            dockerImageRunsAsCassandra:
+              description: Does the Server Docker image run as the Cassandra user?
+              type: boolean
             dseWorkloads:
               properties:
                 analyticsEnabled:
@@ -6032,15 +6041,7 @@ spec:
             serverVersion:
               description: Version string for config builder, used to generate Cassandra
                 server configuration
-              enum:
-              - 6.8.0
-              - 6.8.1
-              - 6.8.2
-              - 6.8.3
-              - 6.8.4
-              - 3.11.6
-              - 3.11.7
-              - 4.0.0
+              pattern: (6\.8\.\d+)|(3\.11\.\d+)|(4\.0\.\d+)
               type: string
             serviceAccount:
               description: The k8s service account to use for the server pods
@@ -6247,11 +6248,17 @@ spec:
                   lastTransitionTime:
                     format: date-time
                     type: string
+                  message:
+                    type: string
+                  reason:
+                    type: string
                   status:
                     type: string
                   type:
                     type: string
                 required:
+                - message
+                - reason
                 - status
                 - type
                 type: object
@@ -6294,11 +6301,27 @@ spec:
               type: string
           type: object
       type: object
+      x-kubernetes-preserve-unknown-fields: true
   version: v1beta1
   versions:
   - name: v1beta1
     served: true
     storage: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: cass-operator-cr
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - persistentvolumes
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -6316,6 +6339,19 @@ rules:
   - create
   - get
   - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cass-operator-crb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cass-operator-cr
+subjects:
+- kind: ServiceAccount
+  name: cass-operator
+  namespace: cass-operator
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -6506,12 +6542,15 @@ kind: ValidatingWebhookConfiguration
 metadata:
   name: cassandradatacenter-webhook-registration
 webhooks:
-- clientConfig:
+- admissionReviewVersions:
+  - v1beta1
+  clientConfig:
     service:
       name: cassandradatacenter-webhook-service
       namespace: cass-operator
       path: /validate-cassandra-datastax-com-v1beta1-cassandradatacenter
   failurePolicy: Ignore
+  matchPolicy: Equivalent
   name: cassandradatacenter-webhook.cassandra.datastax.com
   rules:
   - apiGroups:
@@ -6523,4 +6562,6 @@ webhooks:
     - UPDATE
     resources:
     - cassandradatacenters
+    scope: '*'
   sideEffects: None
+  timeoutSeconds: 10

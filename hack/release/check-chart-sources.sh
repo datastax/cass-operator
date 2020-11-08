@@ -7,6 +7,7 @@ set -x
 
 opDeploy="operator/deploy"
 chartTmpl="charts/cass-operator-chart/templates"
+chartCrd="charts/cass-operator-chart/crds"
 crdFilename="cassandra.datastax.com_cassandradatacenters_crd.yaml"
 
 diff -u $opDeploy/role.yaml                   $chartTmpl/role.yaml | diff-so-fancy || true

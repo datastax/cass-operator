@@ -27,6 +27,7 @@ import (
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
+	"github.com/datastax/cass-operator/operator/pkg/psp"
 )
 
 var (
@@ -643,6 +644,112 @@ func (rc *ReconciliationContext) CheckPodsReady(endpointData httphelper.CassMeta
 	}
 }
 
+func hasPodPotentiallyBootstrapped(pod *corev1.Pod, nodeStatuses api.CassandraStatusMap) bool {
+	// In effect, we want to know if 'nodetool status' would indicate the relevant cassandra node
+	// is part of the cluster
+
+	// Case 1: If we have a host ID for the pod, then we know it must be a member of the cluster 
+	// (even if the pod does not exist)
+	nodeStatus, ok := nodeStatuses[pod.Name]
+	if ok {
+		if nodeStatus.HostID != "" {
+			return true
+		}
+	}
+
+	// Case 2: Pod has node state label of anything other Ready-to-Start. If a pod is decommissioning,
+	// started, starting, etc. it is potentially a current member of the cluster.
+	if pod.Labels != nil {
+		state, ok := pod.Labels[api.CassNodeState]
+		if ok && state != stateReadyToStart {
+			return true
+		} 
+	}
+
+	return false
+}
+
+func findAllPodsNotReadyAndPotentiallyBootstrapped(dcPods []*corev1.Pod, nodeStatuses api.CassandraStatusMap) []*corev1.Pod {
+	downPods := []*corev1.Pod{}
+	for _, pod := range dcPods {
+		if !isServerReady(pod) && hasPodPotentiallyBootstrapped(pod, nodeStatuses) {
+			downPods = append(downPods, pod)
+		}
+	}
+	return downPods
+}
+
+func findAllPodsNotReady(dcPods []*corev1.Pod) []*corev1.Pod {
+	downPods := []*corev1.Pod{}
+	for _, pod := range dcPods {
+		if !isServerReady(pod) {
+			downPods = append(downPods, pod)
+		}
+	}
+	return downPods
+}
+
+func getStatefulSetPodNameForIdx(sts *appsv1.StatefulSet, idx int32) string {
+	return fmt.Sprintf("%s-%v", sts.Name, idx)
+}
+
+func getStatefulSetPodNames(sts *appsv1.StatefulSet) utils.StringSet {
+	status := sts.Status
+	podNames := utils.StringSet{}
+	for i := int32(0); i < status.Replicas; i++ {
+		podNames[getStatefulSetPodNameForIdx(sts, i)] = true
+	}
+	return podNames
+}
+
+func getPodNamesFromPods(pods []*corev1.Pod) utils.StringSet {
+	podNames := utils.StringSet{}
+	for _, pod := range pods {
+		podNames[pod.Name] = true
+	}
+	return podNames
+}
+
+func hasStatefulSetControllerCaughtUp(statefulSets []*appsv1.StatefulSet, dcPods []*corev1.Pod) bool {
+	for _, statefulSet := range statefulSets {
+		if statefulSet == nil {
+			continue
+		}
+
+		// Has the statefulset controller seen the latest spec
+		if statefulSet.Generation != statefulSet.Status.ObservedGeneration {
+			return false
+		}
+
+		// Has the statefulset controller gotten around to creating the pods
+		podsThatShouldExist := getStatefulSetPodNames(statefulSet)
+		dcPodNames := getPodNamesFromPods(dcPods)
+		delta := utils.SubtractStringSet(podsThatShouldExist, dcPodNames)
+		if len(delta) > 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+func allPodsBelongToSameNodeOrHaveNoNode(pods []*corev1.Pod) (string, bool) {
+	nodeName := ""
+	for _, pod := range pods {
+		name := pod.Spec.NodeName
+		if name != "" {
+			if nodeName == "" {
+				nodeName = name
+			}
+			if nodeName != name {
+				return nodeName, false
+			}
+		}
+	}
+
+	return nodeName, true	
+}
+
 // CheckRackScale loops over each statefulset and makes sure that it has the right
 // amount of desired replicas. At this time we can only increase the amount of replicas.
 func (rc *ReconciliationContext) CheckRackScale() result.ReconcileResult {
@@ -1124,12 +1231,17 @@ func (rc *ReconciliationContext) getCassMetadataEndpoints() httphelper.CassMetad
 // If we then delete this new pod, then the stateful will
 // properly recreate a pvc, pv, and pod.
 func (rc *ReconciliationContext) isNodeStuckWithoutPVC(pod *corev1.Pod) bool {
-	_, err := rc.GetPVCForPod(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
-	if err != nil {
-		rc.ReqLogger.Info(
-			"Unable to get PersistentVolumeClaim",
-			"error", err.Error())
-		return true
+	if pod.Status.Phase == corev1.PodPending {
+		_, err := rc.GetPodPVC(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				return true
+			} else {
+				rc.ReqLogger.Info(
+					"Unable to get PersistentVolumeClaim",
+					"error", err.Error())
+			}
+		}
 	}
 
 	return false
@@ -1145,9 +1257,6 @@ func (rc *ReconciliationContext) deleteStuckNodes() (bool, error) {
 			shouldDelete = true
 		} else if isNodeStuckAfterLosingReadiness(pod) {
 			reason = "Pod got stuck after losing readiness"
-			shouldDelete = true
-		} else if utils.IsPSPEnabled() && rc.isNodeStuckWithoutPVC(pod) {
-			reason = "Pod got stuck waiting for PersistentValueClaim"
 			shouldDelete = true
 		}
 
@@ -1395,7 +1504,7 @@ func (rc *ReconciliationContext) ReconcilePods(statefulSet *appsv1.StatefulSet) 
 	rc.ReqLogger.Info("reconcile_racks::ReconcilePods")
 
 	for i := int32(0); i < statefulSet.Status.Replicas; i++ {
-		podName := fmt.Sprintf("%s-%v", statefulSet.Name, i)
+		podName := getStatefulSetPodNameForIdx(statefulSet, i)
 
 		pod := &corev1.Pod{}
 		err := rc.Client.Get(
@@ -2014,7 +2123,6 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 		api.DatacenterUpdating,
 		api.DatacenterRollingRestart,
 		api.DatacenterResuming,
-		api.DatacenterStopped,
 		api.DatacenterScalingDown,
 	}
 	conditionsThatShouldBeTrue := []api.DatacenterConditionType{
@@ -2032,6 +2140,17 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 
 		updated = rc.setCondition(
 			api.NewDatacenterCondition(api.DatacenterScalingUp, corev1.ConditionFalse)) || updated
+	}
+
+	// Make sure that the stopped condition matches the spec, because logically
+	// we can make it through a reconcile loop while the dc is in a stopped state
+	// and we don't want to reset the stopped condition prematurely
+	if dc.Spec.Stopped {
+		updated = rc.setCondition(
+			api.NewDatacenterCondition(api.DatacenterStopped, corev1.ConditionTrue)) || updated
+	} else {
+		updated = rc.setCondition(
+			api.NewDatacenterCondition(api.DatacenterStopped, corev1.ConditionFalse)) || updated
 	}
 
 	for _, conditionType := range conditionsThatShouldBeFalse {
@@ -2073,6 +2192,54 @@ func (rc *ReconciliationContext) CheckForInvalidState() result.ReconcileResult {
 	return result.Continue()
 }
 
+func (rc *ReconciliationContext) CheckStatefulSetControllerCaughtUp() result.ReconcileResult {
+	if hasStatefulSetControllerCaughtUp(rc.statefulSets, rc.dcPods) {
+		// We do this here instead of in CheckPodsReady where we fix stuck pods
+		// normally because if we were to do it there, every check we do before
+		// CheckPodsReady would have to be cognizant of this problem and not fail
+		// for ResourceNotFound errors when retrieving a PVC.
+		fixedAny, err := rc.fixMissingPVC()
+		if err != nil {
+			return result.Error(err)
+		}
+		if fixedAny {
+			return result.RequeueSoon(2)
+		}
+		return result.Continue()
+	} else {
+		// Reconcile will be called again once the observed generation of the
+		// statefulset catches up with the actual generation
+		return result.Done()
+	}
+}
+
+func (rc *ReconciliationContext) fixMissingPVC() (bool, error) {
+	// There is a bug where the statefulset does not correctly handle pod and
+	// and PVC deletion. If a PVC is deleted, deletion blocks because it is in
+	// use by the pod. When the pod is deleted, the statefulset recreates the
+	// pod. The pod is then stuck in pending because its PVC is terminating.
+	// Once the PVC finishes terminating, the pod remains in pending because
+	// the PVC doesn't exist. The statefulset controller doesn't recreate the
+	// PVC because the pod already exists.
+	//
+	// The fix is if we see a pod stuck in pending with no PVC, we just delete
+	// the pod so that the statefulset controller will do the right thing and
+	// fix it.
+	//
+	// https://github.com/kubernetes/kubernetes/issues/74374
+
+	for _, pod := range rc.dcPods {
+		if rc.isNodeStuckWithoutPVC(pod) {
+			reason := "Pod got stuck waiting for PersistentValueClaim"
+			rc.ReqLogger.Info(fmt.Sprintf("Deleting stuck pod: %s. Reason: %s", pod.Name, reason))
+			rc.Recorder.Eventf(rc.Datacenter, corev1.EventTypeWarning, events.DeletingStuckPod,
+				reason)
+			return true, rc.Client.Delete(rc.Ctx, pod)
+		}
+	}
+	return false, nil
+}
+
 // ReconcileAllRacks determines if a rack needs to be reconciled.
 func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	if recResult := rc.CheckForInvalidState(); recResult.Completed() {
@@ -2092,6 +2259,10 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 	rc.dcPods = FilterPodListByLabels(rc.clusterPods, dcSelector)
 
 	endpointData := rc.getCassMetadataEndpoints()
+
+	if recResult := rc.CheckStatefulSetControllerCaughtUp(); recResult.Completed() {
+		return recResult.Output()
+	}
 
 	if recResult := rc.UpdateStatus(); recResult.Completed() {
 		return recResult.Output()
@@ -2123,6 +2294,16 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 
 	if recResult := rc.CheckRackForceUpgrade(); recResult.Completed() {
 		return recResult.Output()
+	}
+
+	if utils.IsPSPEnabled() {
+		if recResult := psp.CheckEMM(rc); recResult.Completed() {
+			return recResult.Output()
+		}
+
+		// if recResult := psp.CheckPVCHealth(rc); recResult.Completed() {
+		// 	return recResult.Output()
+		// }
 	}
 
 	if recResult := rc.CheckRackScale(); recResult.Completed() {
@@ -2179,15 +2360,6 @@ func (rc *ReconciliationContext) ReconcileAllRacks() (reconcile.Result, error) {
 
 	if err := setOperatorProgressStatus(rc, api.ProgressReady); err != nil {
 		return result.Error(err).Output()
-	}
-
-	// We do the node and pvc taint checks here
-	// with the assumption that the cluster is healthy
-
-	if utils.IsPSPEnabled() {
-		if err := rc.checkNodeAndPvcTaints(); err != nil {
-			return result.Error(err).Output()
-		}
 	}
 
 	if err := rc.enableQuietPeriod(5); err != nil {

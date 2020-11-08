@@ -20,6 +20,12 @@ VERSION_STAMP="${GITHUB_REPO_URL}:${FULL_VERSION}"
 ECR_REPOSITORY="${ECR_REPO}/datastax/cass-operator"
 GH_REPOSITORY="docker.pkg.github.com/${GITHUB_REPO_OWNER}/cass-operator/operator"
 
+# On PRs, we often checkout the sha of the branch being merged rather than
+# a merge commit of the branch being merged and the branch being merged into.
+# It looks like github does not change GITHUB_SHA to reflect what is actually
+# checked out, so we fix that here.
+GITHUB_SHA=$(git rev-parse HEAD)
+
 ECR_TAGS=()
 ECR_UBI_TAGS=()
 GH_TAGS=()

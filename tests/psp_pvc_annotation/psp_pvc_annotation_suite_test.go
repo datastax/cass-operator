@@ -20,7 +20,7 @@ var (
 	opNamespace = "test-psp-pvc-annotation"
 	dc1Name     = "dc1"
 	// This scenario requires RF greater than 2
-	dc1Yaml      = "../testdata/tolerations-dc.yaml"
+	dc1Yaml      = "../testdata/psp-emm-dc.yaml"
 	dc1Resource  = fmt.Sprintf("CassandraDatacenter/%s", dc1Name)
 	pod1Name     = "cluster1-dc1-r1-sts-0"
 	pod1Resource = fmt.Sprintf("pod/%s", pod1Name)
@@ -28,6 +28,8 @@ var (
 )
 
 func TestLifecycle(t *testing.T) {
+	t.Skip("Skip pending KO-536")
+
 	AfterSuite(func() {
 		logPath := fmt.Sprintf("%s/aftersuite", ns.LogDir)
 		err := kubectl.DumpAllLogs(logPath).ExecV()
@@ -82,22 +84,26 @@ var _ = Describe(testName, func() {
 
 			// Wait for a pod to no longer be ready
 
-			i := 1
-			for i < 300 {
-				time.Sleep(1 * time.Second)
-				i += 1
-
-				names := ns.GetDatacenterReadyPodNames(dc1Name)
-				if len(names) < 3 {
-					break
-				}
-			}
+			ns.WaitForDatacenterReadyPodCount(dc1Name, 2)
 
 			time.Sleep(1 * time.Minute)
 
 			// Wait for the cluster to heal itself
 
 			ns.WaitForDatacenterReady(dc1Name)
+
+			// Make sure things look right in nodetool
+			step = "verify in nodetool that we still have the right number of cassandra nodes"
+			By(step)
+			podNames := ns.GetDatacenterReadyPodNames(dc1Name)
+			for _, podName := range podNames {
+				nodeInfos := ns.RetrieveStatusFromNodetool(podName)
+				Expect(len(nodeInfos)).To(Equal(len(podNames)), "Expect nodetool to return info on exactly %d nodes", len(podNames))
+				for _, nodeInfo := range nodeInfos {
+					Expect(nodeInfo.Status).To(Equal("up"), "Expected all nodes to be up, but node %s was down", nodeInfo.HostId)
+					Expect(nodeInfo.State).To(Equal("normal"), "Expected all nodes to have a state of normal, but node %s was %s", nodeInfo.HostId, nodeInfo.State)
+				}
+			}
 		})
 	})
 })
