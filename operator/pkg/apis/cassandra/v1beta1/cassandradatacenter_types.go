@@ -31,27 +31,34 @@ const (
 	// RackLabel is the operator's label for the rack name
 	RackLabel = "cassandra.datastax.com/rack"
 
-	// RackLabel is the operator's label for the rack name
+	// CassOperatorProgressLabel is the operator's label for the operator's progress on reconciling the CassandraDatacenter.
+	// Valid values include Updating and Ready.
 	CassOperatorProgressLabel = "cassandra.datastax.com/operator-progress"
 
 	// PromMetricsLabel is a service label that can be selected for prometheus metrics scraping
 	PromMetricsLabel = "cassandra.datastax.com/prom-metrics"
 
-	// CassNodeState
+	// CassNodeState is the operator's label for the state of the node.
+	// Valid values include Ready-to-Start, Starting, and Ready.
 	CassNodeState = "cassandra.datastax.com/node-state"
+)
 
-	// Progress states for status
-	ProgressUpdating ProgressState = "Updating"
-	ProgressReady    ProgressState = "Ready"
-
-	// Default port numbers
+// Default port numbers
+const (
 	DefaultNativePort    = 9042
 	DefaultInternodePort = 7000
 )
 
-// This type exists so there's no chance of pushing random strings to our progress status
+// ProgressState exists so there's no chance of pushing random strings to our progress status
 type ProgressState string
 
+// Progress states for status
+const (
+	ProgressUpdating ProgressState = "Updating"
+	ProgressReady    ProgressState = "Ready"
+)
+
+// CassandraUser defines settings for a Cassandra user
 type CassandraUser struct {
 	SecretName string `json:"secretName"`
 	Superuser  bool   `json:"superuser"`
