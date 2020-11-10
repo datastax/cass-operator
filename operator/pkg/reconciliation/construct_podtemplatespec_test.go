@@ -514,3 +514,50 @@ func TestCassandraDatacenter_buildPodTemplateSpec_propagate_volumes(t *testing.T
 		t.Errorf("Unexpected volume mounts for the logger container: %v", spec.Spec.Containers[1].VolumeMounts)
 	}
 }
+
+func TestCassandraDatacenter_buildContainers_DisableSystemLoggerSidecar(t *testing.T) {
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName:                "bob",
+			ServerType:                 "cassandra",
+			ServerVersion:              "3.11.7",
+			PodTemplateSpec:            nil,
+			DisableSystemLoggerSidecar: true,
+			SystemLoggerImage:          "alpine",
+		},
+	}
+
+	podTemplateSpec := &corev1.PodTemplateSpec{}
+
+	err := buildContainers(dc, podTemplateSpec)
+
+	assert.NoError(t, err, "should not have gotten error from calling buildContainers()")
+
+	assert.Len(t, podTemplateSpec.Spec.Containers, 1, "should have one container in the podTemplateSpec")
+	assert.Equal(t, "cassandra", podTemplateSpec.Spec.Containers[0].Name)
+}
+
+func TestCassandraDatacenter_buildContainers_EnableSystemLoggerSidecar_CustomImage(t *testing.T) {
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName:                "bob",
+			ServerType:                 "cassandra",
+			ServerVersion:              "3.11.7",
+			PodTemplateSpec:            nil,
+			DisableSystemLoggerSidecar: false,
+			SystemLoggerImage:          "alpine",
+		},
+	}
+
+	podTemplateSpec := &corev1.PodTemplateSpec{}
+
+	err := buildContainers(dc, podTemplateSpec)
+
+	assert.NoError(t, err, "should not have gotten error from calling buildContainers()")
+
+	assert.Len(t, podTemplateSpec.Spec.Containers, 2, "should have two containers in the podTemplateSpec")
+	assert.Equal(t, "cassandra", podTemplateSpec.Spec.Containers[0].Name)
+	assert.Equal(t, "server-system-logger", podTemplateSpec.Spec.Containers[1].Name)
+
+	assert.Equal(t, "alpine", podTemplateSpec.Spec.Containers[1].Image)
+}

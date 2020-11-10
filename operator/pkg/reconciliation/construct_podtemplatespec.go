@@ -390,7 +390,12 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 	loggerContainer.Name = SystemLoggerContainerName
 
 	if loggerContainer.Image == "" {
-		loggerContainer.Image = images.GetSystemLoggerImage()
+		specImage := dc.Spec.SystemLoggerImage
+		if specImage != "" {
+			loggerContainer.Image = specImage
+		} else {
+			loggerContainer.Image = images.GetSystemLoggerImage()
+		}
 	}
 
 	if len(loggerContainer.Args) == 0 {
@@ -417,8 +422,10 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *cassContainer)
 	}
 
-	if !foundLogger {
-		baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *loggerContainer)
+	if !dc.Spec.DisableSystemLoggerSidecar {
+		if !foundLogger {
+			baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *loggerContainer)
+		}
 	}
 
 	if dc.IsReaperEnabled() {

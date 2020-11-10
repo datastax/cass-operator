@@ -172,6 +172,12 @@ type CassandraDatacenterSpec struct {
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 
 	Reaper *ReaperConfig `json:"reaper,omitempty"`
+
+	// Configuration for disabling the simple log tailing sidecar container. Our default is to have it enabled.
+	DisableSystemLoggerSidecar bool `json:"disableSystemLoggerSidecar,omitempty"`
+
+	// Container image for the log tailing sidecar container.
+	SystemLoggerImage string `json:"systemLoggerImage,omitempty"`
 }
 
 type NetworkingConfig struct {
