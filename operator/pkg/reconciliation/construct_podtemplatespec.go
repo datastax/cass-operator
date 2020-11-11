@@ -263,7 +263,8 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 	if !foundOverrides {
 		// Note that append makes a copy, so we must do this after
 		// serverCfg has been properly set up.
-		baseTemplate.Spec.InitContainers = append(baseTemplate.Spec.InitContainers, *serverCfg)
+		//baseTemplate.Spec.InitContainers = append(baseTemplate.Spec.InitContainers, *serverCfg)
+		baseTemplate.Spec.InitContainers = append([]corev1.Container{*serverCfg}, baseTemplate.Spec.InitContainers...)
 	}
 
 	if dc.IsReaperEnabled() {
