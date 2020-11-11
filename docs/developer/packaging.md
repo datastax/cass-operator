@@ -55,7 +55,7 @@ _Note see Red Hat's [Gitbook](https://redhat-connect.gitbook.io/partner-guide-fo
 3. Update version numbers in ClusterServiceVersion files
     
     ```console
-    sed s/"$OLD_VERSION"/$NEW_VERSION/g $NEW_VERSION/cass-operator.v$NEW_VERSION.clusterserviceversion.yaml
+    sed s/"$OLD_VERSION"/$NEW_VERSION/g $NEW_VERSION/manifests/cass-operator.v$NEW_VERSION.clusterserviceversion.yaml
     sed s/"$OLD_VERSION"/$NEW_VERSION/g bundle-$NEW_VERSION.Dockerfile
     ```
 
@@ -65,7 +65,7 @@ _Note see Red Hat's [Gitbook](https://redhat-connect.gitbook.io/partner-guide-fo
     cp ../deploy/crds/* $NEW_VERSION/manifests/
     ```
 
-5. Compare the old and new CRDs for differences and update `$NEW_VERSION/manifests/cass-operator.v$NEW_VERSION.lusterserviceversion.yaml`
+5. Compare the old and new CSVs for differences and update `$NEW_VERSION/manifests/cass-operator.v$NEW_VERSION.lusterserviceversion.yaml`
    1. Update `metadata.annotations.containerImage` version
    2. Update `metadata.annotations.createdAt` datestamp
    3. Update `metadata.annotations.name` field
