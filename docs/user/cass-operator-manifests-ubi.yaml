@@ -441,7 +441,7 @@ spec:
       #         name: cass-operator-certs-volume
       containers:
         - name: cass-operator
-          image: datastax/cass-operator:1.0.0
+          image: datastax/cass-operator:1.0.0-ubi7
           imagePullPolicy: IfNotPresent
           # volumeMounts:
           #   - mountPath: /tmp/k8s-webhook-server/serving-certs
