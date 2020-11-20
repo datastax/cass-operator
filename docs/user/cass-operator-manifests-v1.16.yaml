@@ -112,6 +112,10 @@ spec:
                     value. More info: https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/'
                   type: object
               type: object
+            disableSystemLoggerSidecar:
+              description: Configuration for disabling the simple log tailing sidecar
+                container. Our default is to have it enabled.
+              type: boolean
             dockerImageRunsAsCassandra:
               description: Does the Server Docker image run as the Cassandra user?
               type: boolean
@@ -6189,6 +6193,9 @@ spec:
               description: This secret defines the username and password for the Cassandra
                 server superuser. If it is omitted, we will generate a secret instead.
               type: string
+            systemLoggerImage:
+              description: Container image for the log tailing sidecar container.
+              type: string
             systemLoggerResources:
               description: Kubernetes resource requests and limits per system logger
                 container.
@@ -6495,7 +6502,7 @@ spec:
           value: cass-operator
         - name: SKIP_VALIDATING_WEBHOOK
           value: "FALSE"
-        image: datastax/cass-operator:1.4.1
+        image: datastax/cass-operator:1.5.0
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
