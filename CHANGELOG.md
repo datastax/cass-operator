@@ -1,5 +1,38 @@
 # Changelog
 
+## v1.5.0
+
+Features:
+* Allow configuration of the system.log tail-er [#311](https://github.com/datastax/cass-operator/commit/14b1310164e57546cdf1995d44835b63f2dee471)
+* Update Kubernetes support to cover 1.15 to 1.19 [#296](https://github.com/datastax/cass-operator/commit/a75754989cd29a38dd6406fdb75a5bad010f782d) [#304](https://github.com/datastax/cass-operator/commit/f34593199c06bb2536d0957eaff487153e36041a)
+* Specify more named ports for advanced workloads, and additional ports for ClusterIP service [#289](https://github.com/datastax/cass-operator/commit/b0eae79dae3dc1466ace18b2008d3de81622db5d) [#291](https://github.com/datastax/cass-operator/commit/00c02be24779262a8b89f85e64eb02efb14e2d15)
+* Support WATCH_NAMESPACE=* to watch all namespaces [#286](https://github.com/datastax/cass-operator/commit/f856de1cbeafee5fe4ad7154930d20ca743bd9cc)
+* Support arbitrary Cassandra and DSE versions, using a regex for validation [#271](https://github.com/datastax/cass-operator/commit/71806eaa1c30e8555abeca9f4db12490e8658e1a)
+* Support running cassandra as a non-root cassandra user [#275](https://github.com/datastax/cass-operator/commit/4006e56f6dc2ac2b7cfc4cc7012cad5ee50dbfe8)
+* Always gracefully drain Cassandra nodes before pod termination, and make terminationGracePeriodSeconds configurable [#269](https://github.com/datastax/cass-operator/commit/3686fd112e1363b1d1160664d92c2a54b368906f)
+* Add canaryUpgradeCount to support canary upgrade of a single node [#258](https://github.com/datastax/cass-operator/commit/f73041cc6f3bb3196b49ffaa615e4d1107350330)
+* Support merging all user customizations into the Cassandra podTemplateSpec [#263](https://github.com/datastax/cass-operator/commit/b1851d9ebcd4087a210d8ee3f83b6e5a1ab49516)
+* DSE 6.8.4 support [#257](https://github.com/datastax/cass-operator/commit/d4d4e3a49ece233457e0e1deebc9153241fe97be)
+* Add arm64 support [#238](https://github.com/datastax/cass-operator/commit/f1f237ea6d3127264a014ad3df79d15964a01206)
+* Support safely scaling down a datacenter, decommissioning Cassandra nodes [#242](https://github.com/datastax/cass-operator/commit/8d0516a7b5e7d1198cf8ed2de7b3968ef9e660af) [#265](https://github.com/datastax/cass-operator/commit/e6a420cf12c9402cc038f30879bc1ee8556f487a)
+* Add support to override the default registry for all container images [#228](https://github.com/datastax/cass-operator/commit/f7ef6c81473841e42a9a581b44b1f33e1b4ab4c1)
+* Better helm chart support for branch / master builds on private Docker registries [#236](https://github.com/datastax/cass-operator/commit/3516aa1993b06b405acf51476c327bec160070a1)
+* Support for specific reconciliation logic in VMware k8s environments [#204](https://github.com/datastax/cass-operator/commit/e7d20fbb365bc7679856d2c84a1af70f73167b57) [#206](https://github.com/datastax/cass-operator/commit/a853063b9f08eb1a64cb248e23b5a4a5db92a5ac) [#203](https://github.com/datastax/cass-operator/commit/10ff0812aa0138a2eb04c588fbe625f6a69ce833) [#224](https://github.com/datastax/cass-operator/commit/b4d7ae4b0da149eb896bacfae824ed6547895dbb) [#259](https://github.com/datastax/cass-operator/commit/a90f03c17f3e9675c1ceff37a2a7c0c0c85950a1)  [#288](https://github.com/datastax/cass-operator/commit/c7c159d53d34b390e7966477b0fc2ed2f5ec333e)
+
+Bug fixes:
+* Increase default init container CPU for better startup performance [#261](https://github.com/datastax/cass-operator/commit/0eece8718b7a7a48868c260e88684c0f98cdc05b)
+* Re-enable the most common quiet period [#253](https://github.com/datastax/cass-operator/commit/67217d8fc384652753331f5a1ae9cadd45ebc0cb)
+* Added label to all-pods service to narrow metrics scrape selection [#277](https://github.com/datastax/cass-operator/commit/193afa5524e85a90cea84afe8167b356f67d365a)
+
+
+Docs/tests:
+* Add test for infinite reconcile [#220](https://github.com/datastax/cass-operator/commit/361ef2d5da59cd48fab7d4d58e3075051515b32c)
+* Added keys from datastax/charts and updated README [#221](https://github.com/datastax/cass-operator/commit/5a56e98856d0c483eb4c415bd3c8b8292ffffe4b)
+* Support integration tests with k3d v3 [#248](https://github.com/datastax/cass-operator/commit/06804bd0b3062900c10a4cad3d3124e83cf17bf0)
+* Default to KIND for integration tests [#252](https://github.com/datastax/cass-operator/commit/dcaec731c5d0aefc2d2249c32592a275c42a46f0)
+* Run oss/dse integration smoke tests in github workflow [#267](https://github.com/datastax/cass-operator/commit/08ecb0977e09b547c035e280b99f2c36fa1d5806)
+
+
 ## v1.4.1
 
 Features:
