@@ -106,10 +106,10 @@ func newStatefulSetForCassandraDatacenterHelper(
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 
 	racks := dc.GetRacks()
-	var zone string
+	var labels map[string]string
 	for _, rack := range racks {
 		if rack.Name == rackName {
-			zone = rack.Zone
+			labels = rack.Labels
 			break
 		}
 	}
@@ -130,7 +130,7 @@ func newStatefulSetForCassandraDatacenterHelper(
 
 	nsName := newNamespacedNameForStatefulSet(dc, rackName)
 
-	template, err := buildPodTemplateSpec(dc, zone, rackName)
+	template, err := buildPodTemplateSpec(dc, labels, rackName)
 	if err != nil {
 		return nil, err
 	}
