@@ -91,7 +91,7 @@ type CassandraDatacenterSpec struct {
 	// Config for the Management API certificates
 	ManagementApiAuth ManagementApiAuthConfig `json:"managementApiAuth,omitempty"`
 
-	//Labels used to target Kubernetes nodes
+	//Labels to pin the Datacenter, using node affinity
 	Labels map[string]string `json:"labels,omitempty"`
 
 	// Kubernetes resource requests and limits, per pod
@@ -232,7 +232,7 @@ type Rack struct {
 	// The rack name
 	// +kubebuilder:validation:MinLength=2
 	Name string `json:"name"`
-	//Labels used to target Kubernetes nodes
+	//Labels to pin the rack, using node affinity
 	Labels map[string]string `json:"labels,omitempty"`
 }
 
