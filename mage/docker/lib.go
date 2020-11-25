@@ -202,7 +202,7 @@ type Container struct {
 	Status       string `json:"Status"`
 	Size         string `json:"Size"`
 	Names        string `json:"Names"`
-	Labels       string `json:"Labels"`
+	Labels       string `json:"NodeAffinityLabels"`
 	Mounts       string `json:"Mounts"`
 	Networks     string `json:"Networks"`
 	Ports        string `json:"Ports"`

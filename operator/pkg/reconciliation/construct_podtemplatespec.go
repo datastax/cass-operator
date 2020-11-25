@@ -450,7 +450,7 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 	return nil
 }
 
-func buildPodTemplateSpec(dc *api.CassandraDatacenter, labels map[string]string,
+func buildPodTemplateSpec(dc *api.CassandraDatacenter, nodeAffinityLabels map[string]string,
 	rackName string) (*corev1.PodTemplateSpec, error) {
 
 	baseTemplate := dc.Spec.PodTemplateSpec.DeepCopy()
@@ -507,7 +507,7 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, labels map[string]string,
 	// Affinity
 
 	affinity := &corev1.Affinity{}
-	affinity.NodeAffinity = calculateNodeAffinity(utils.MergeMap(labels, dc.Spec.Labels))
+	affinity.NodeAffinity = calculateNodeAffinity(nodeAffinityLabels)
 	affinity.PodAntiAffinity = calculatePodAntiAffinity(dc.Spec.AllowMultipleNodesPerWorker)
 	baseTemplate.Spec.Affinity = affinity
 

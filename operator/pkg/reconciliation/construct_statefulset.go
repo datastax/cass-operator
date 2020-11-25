@@ -106,10 +106,18 @@ func newStatefulSetForCassandraDatacenterHelper(
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 
 	racks := dc.GetRacks()
-	var labels map[string]string
+	var nodeAffinityLabels map[string]string
 	for _, rack := range racks {
 		if rack.Name == rackName {
-			labels = rack.Labels
+			nodeAffinityLabels = utils.MergeMap(dc.Spec.NodeAffinityLabels, rack.NodeAffinityLabels)
+			if rack.Zone != "" {
+				if _, found := nodeAffinityLabels["zone"]; found {
+					err := fmt.Errorf("Deprecated parameter Zone is used and also defined in " +
+						"NodeAffinityLabels. You should only define it in NodeAffinityLabels")
+					return nil, err
+				}
+				nodeAffinityLabels = utils.MergeMap(nodeAffinityLabels, map[string]string{"zone": rack.Zone})
+			}
 			break
 		}
 	}
@@ -130,7 +138,7 @@ func newStatefulSetForCassandraDatacenterHelper(
 
 	nsName := newNamespacedNameForStatefulSet(dc, rackName)
 
-	template, err := buildPodTemplateSpec(dc, labels, rackName)
+	template, err := buildPodTemplateSpec(dc, nodeAffinityLabels, rackName)
 	if err != nil {
 		return nil, err
 	}
