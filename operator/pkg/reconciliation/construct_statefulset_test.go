@@ -48,3 +48,59 @@ func Test_newStatefulSetForCassandraDatacenter(t *testing.T) {
 		assert.Equal(t, map[string]string{"dedicated": "cassandra"}, got.Spec.Template.Spec.NodeSelector)
 	}
 }
+
+func Test_newStatefulSetForCassandraDatacenter_rackNodeAffinitylabels(t *testing.T) {
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName:     "bob",
+			ServerType:      "cassandra",
+			ServerVersion:   "3.11.7",
+			PodTemplateSpec: &corev1.PodTemplateSpec{},
+			NodeAffinityLabels: map[string]string{"dclabel1": "dcvalue1", "dclabel2": "dcvalue2"},
+			Racks: []api.Rack{
+				{
+					Name: "rack1",
+					Zone: "z1",
+					NodeAffinityLabels: map[string]string{"r1label1": "r1value1", "r1label2": "r1value2"},
+				},
+			},
+		},
+	}
+	var nodeAffinityLabels map[string]string
+	var nodeAffinityLabelsConfigurationError error
+
+	nodeAffinityLabels, nodeAffinityLabelsConfigurationError = rackNodeAffinitylabels(dc, "rack1")
+
+	assert.NoError(t, nodeAffinityLabelsConfigurationError,
+		"should not have gotten error when getting NodeAffinitylabels of rack rack1")
+
+	expected := map[string]string {
+		"dclabel1": "dcvalue1",
+		"dclabel2": "dcvalue2",
+		"r1label1": "r1value1",
+		"r1label2": "r1value2",
+		"zone": "z1",
+	}
+
+	assert.Equal(t, expected, nodeAffinityLabels)
+}
+
+func Test_newStatefulSetForCassandraDatacenter_rackNodeAffinitylabels_withZoneError(t *testing.T) {
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			Racks: []api.Rack{
+				{
+					Name: "rack1",
+					Zone: "z1",
+					NodeAffinityLabels: map[string]string{"zone": "z2", "r1label2": "r1value2"},
+				},
+			},
+		},
+	}
+
+	_, err := rackNodeAffinitylabels(dc, "rack1")
+	if assert.Error(t, err) {
+		assert.Contains(t, err.Error(),
+			"Deprecated parameter Zone is used and also defined in NodeAffinityLabels")
+	}
+}

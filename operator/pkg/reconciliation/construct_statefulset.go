@@ -7,13 +7,12 @@ package reconciliation
 
 import (
 	"fmt"
-
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/images"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
-	"github.com/datastax/cass-operator/operator/pkg/utils"
 	"github.com/datastax/cass-operator/operator/pkg/psp"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -80,6 +79,29 @@ func shouldDefineSecurityContext(dc *api.CassandraDatacenter) bool {
 	return dc.Spec.ServerType == "dse" || images.CalculateDockerImageRunsAsCassandra(dc.Spec.ServerVersion)
 }
 
+func rackNodeAffinitylabels(dc *api.CassandraDatacenter, rackName string) (nodeAffinityLabels map[string]string,
+	Error error) {
+	racks := dc.GetRacks()
+	for _, rack := range racks {
+		if rack.Name == rackName {
+			nodeAffinityLabels = utils.MergeMap(emptyMapIfNil(rack.NodeAffinityLabels),
+				emptyMapIfNil(dc.Spec.NodeAffinityLabels))
+			if rack.Zone != "" {
+				if _, found := nodeAffinityLabels["zone"]; found {
+					err := fmt.Errorf("Deprecated parameter Zone is used and also defined in " +
+						"NodeAffinityLabels. You should only define it in NodeAffinityLabels")
+					return nil, err
+				}
+				nodeAffinityLabels = utils.MergeMap(
+					emptyMapIfNil(nodeAffinityLabels), map[string]string{"zone": rack.Zone},
+					)
+			}
+			break
+		}
+	}
+	return
+}
+
 // Create a statefulset object for the Datacenter.
 func newStatefulSetForCassandraDatacenterHelper(
 	rackName string,
@@ -105,21 +127,9 @@ func newStatefulSetForCassandraDatacenterHelper(
 
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 
-	racks := dc.GetRacks()
-	var nodeAffinityLabels map[string]string
-	for _, rack := range racks {
-		if rack.Name == rackName {
-			nodeAffinityLabels = utils.MergeMap(dc.Spec.NodeAffinityLabels, rack.NodeAffinityLabels)
-			if rack.Zone != "" {
-				if _, found := nodeAffinityLabels["zone"]; found {
-					err := fmt.Errorf("Deprecated parameter Zone is used and also defined in " +
-						"NodeAffinityLabels. You should only define it in NodeAffinityLabels")
-					return nil, err
-				}
-				nodeAffinityLabels = utils.MergeMap(nodeAffinityLabels, map[string]string{"zone": rack.Zone})
-			}
-			break
-		}
+	nodeAffinityLabels, nodeAffinityLabelsConfigurationError := rackNodeAffinitylabels(dc, rackName)
+	if nodeAffinityLabelsConfigurationError != nil {
+		return nil, nodeAffinityLabelsConfigurationError
 	}
 
 	// Add storage

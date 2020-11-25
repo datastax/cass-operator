@@ -32,7 +32,7 @@ const (
 // calculateNodeAffinity provides a way to decide where to schedule pods within a statefulset based on labels
 func calculateNodeAffinity(labels map[string]string) *corev1.NodeAffinity {
 	if len(labels) == 0 {
-		return &corev1.NodeAffinity{}
+		return nil
 	}
 
 	var nodeSelectors []corev1.NodeSelectorRequirement
