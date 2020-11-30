@@ -84,23 +84,3 @@ func Test_newStatefulSetForCassandraDatacenter_rackNodeAffinitylabels(t *testing
 
 	assert.Equal(t, expected, nodeAffinityLabels)
 }
-
-func Test_newStatefulSetForCassandraDatacenter_rackNodeAffinitylabels_withZoneError(t *testing.T) {
-	dc := &api.CassandraDatacenter{
-		Spec: api.CassandraDatacenterSpec{
-			Racks: []api.Rack{
-				{
-					Name: "rack1",
-					Zone: "z1",
-					NodeAffinityLabels: map[string]string{ZONE_LABEL: "z2", "r1label2": "r1value2"},
-				},
-			},
-		},
-	}
-
-	_, err := rackNodeAffinitylabels(dc, "rack1")
-	if assert.Error(t, err) {
-		assert.Contains(t, err.Error(),
-			"Deprecated parameter Zone is used and also defined in NodeAffinityLabels")
-	}
-}

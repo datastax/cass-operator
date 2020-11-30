@@ -13,6 +13,7 @@ import (
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/psp"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -83,6 +84,7 @@ func shouldDefineSecurityContext(dc *api.CassandraDatacenter) bool {
 
 func rackNodeAffinitylabels(dc *api.CassandraDatacenter, rackName string) (map[string]string, error) {
 	var nodeAffinityLabels map[string]string
+	var log = logf.Log.WithName("construct_statefulset")
 	racks := dc.GetRacks()
 	for _, rack := range racks {
 		if rack.Name == rackName {
@@ -90,9 +92,9 @@ func rackNodeAffinitylabels(dc *api.CassandraDatacenter, rackName string) (map[s
 				emptyMapIfNil(dc.Spec.NodeAffinityLabels))
 			if rack.Zone != "" {
 				if _, found := nodeAffinityLabels[ZONE_LABEL]; found {
-					err := fmt.Errorf("Deprecated parameter Zone is used and also defined in " +
-						"NodeAffinityLabels. You should only define it in NodeAffinityLabels")
-					return nil, err
+					log.Error(nil,
+						"Deprecated parameter Zone is used and also defined in NodeAffinityLabels. " +
+						"You should only define it in NodeAffinityLabels")
 				}
 				nodeAffinityLabels = utils.MergeMap(
 					emptyMapIfNil(nodeAffinityLabels), map[string]string{ZONE_LABEL: rack.Zone},
