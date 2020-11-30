@@ -81,8 +81,8 @@ func shouldDefineSecurityContext(dc *api.CassandraDatacenter) bool {
 	return dc.Spec.ServerType == "dse" || images.CalculateDockerImageRunsAsCassandra(dc.Spec.ServerVersion)
 }
 
-func rackNodeAffinitylabels(dc *api.CassandraDatacenter, rackName string) (nodeAffinityLabels map[string]string,
-	Error error) {
+func rackNodeAffinitylabels(dc *api.CassandraDatacenter, rackName string) (map[string]string, error) {
+	var nodeAffinityLabels map[string]string
 	racks := dc.GetRacks()
 	for _, rack := range racks {
 		if rack.Name == rackName {
@@ -101,7 +101,7 @@ func rackNodeAffinitylabels(dc *api.CassandraDatacenter, rackName string) (nodeA
 			break
 		}
 	}
-	return
+	return nodeAffinityLabels, nil
 }
 
 // Create a statefulset object for the Datacenter.
