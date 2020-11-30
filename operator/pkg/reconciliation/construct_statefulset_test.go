@@ -79,7 +79,7 @@ func Test_newStatefulSetForCassandraDatacenter_rackNodeAffinitylabels(t *testing
 		"dclabel2": "dcvalue2",
 		"r1label1": "r1value1",
 		"r1label2": "r1value2",
-		ZONE_LABEL: "z1",
+		zoneLabel:  "z1",
 	}
 
 	assert.Equal(t, expected, nodeAffinityLabels)

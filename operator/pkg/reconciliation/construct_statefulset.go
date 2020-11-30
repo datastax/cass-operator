@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
-const ZONE_LABEL = "failure-domain.beta.kubernetes.io/zone"
+const zoneLabel = "failure-domain.beta.kubernetes.io/zone"
 
 func usesDefunctPvcManagedByLabel(sts *appsv1.StatefulSet) bool {
 	usesDefunct := false
@@ -91,13 +91,13 @@ func rackNodeAffinitylabels(dc *api.CassandraDatacenter, rackName string) (map[s
 			nodeAffinityLabels = utils.MergeMap(emptyMapIfNil(rack.NodeAffinityLabels),
 				emptyMapIfNil(dc.Spec.NodeAffinityLabels))
 			if rack.Zone != "" {
-				if _, found := nodeAffinityLabels[ZONE_LABEL]; found {
+				if _, found := nodeAffinityLabels[zoneLabel]; found {
 					log.Error(nil,
 						"Deprecated parameter Zone is used and also defined in NodeAffinityLabels. " +
 						"You should only define it in NodeAffinityLabels")
 				}
 				nodeAffinityLabels = utils.MergeMap(
-					emptyMapIfNil(nodeAffinityLabels), map[string]string{ZONE_LABEL: rack.Zone},
+					emptyMapIfNil(nodeAffinityLabels), map[string]string{zoneLabel: rack.Zone},
 					)
 			}
 			break
