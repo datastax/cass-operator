@@ -79,7 +79,7 @@ func Test_newStatefulSetForCassandraDatacenter_rackNodeAffinitylabels(t *testing
 		"dclabel2": "dcvalue2",
 		"r1label1": "r1value1",
 		"r1label2": "r1value2",
-		"zone": "z1",
+		ZONE_LABEL: "z1",
 	}
 
 	assert.Equal(t, expected, nodeAffinityLabels)
@@ -92,7 +92,7 @@ func Test_newStatefulSetForCassandraDatacenter_rackNodeAffinitylabels_withZoneEr
 				{
 					Name: "rack1",
 					Zone: "z1",
-					NodeAffinityLabels: map[string]string{"zone": "z2", "r1label2": "r1value2"},
+					NodeAffinityLabels: map[string]string{ZONE_LABEL: "z2", "r1label2": "r1value2"},
 				},
 			},
 		},
