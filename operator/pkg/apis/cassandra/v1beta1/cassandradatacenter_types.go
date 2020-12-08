@@ -211,8 +211,20 @@ type DseWorkloads struct {
 	SearchEnabled    bool `json:"searchEnabled,omitempty"`
 }
 
+// StorageConfig defines additional storage configurations
+type additionalVolumes struct {
+	// Mount path into cassandra container
+	MountPath string `json:"mountPath"`
+	// Name of the pvc
+	// +kubebuilder:validation:Pattern=[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*
+	Name string `json:"name"`
+	// Persistent volume claim spec
+	PVCSpec *corev1.PersistentVolumeClaimSpec `json:"pvcSpec"`
+}
+
 type StorageConfig struct {
 	CassandraDataVolumeClaimSpec *corev1.PersistentVolumeClaimSpec `json:"cassandraDataVolumeClaimSpec,omitempty"`
+	AdditionalVolumes            []additionalVolumes               `json:"additionalVolumes,omitempty"`
 }
 
 // GetRacks is a getter for the Rack slice in the spec

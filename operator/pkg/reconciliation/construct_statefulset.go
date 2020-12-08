@@ -150,6 +150,22 @@ func newStatefulSetForCassandraDatacenterHelper(
 		Spec: *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec,
 	}}
 
+	for _, storage := range dc.Spec.StorageConfig.AdditionalVolumes {
+		if storage.PVCSpec == nil {
+			return nil, fmt.Errorf("Can't create PVC from storageConfig named %s, with mountPath %s, " +
+				"because the PvcSpec is not specified", storage.Name, storage.MountPath)
+		}
+		pvc := corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   storage.Name,
+				Labels: pvcLabels,
+			},
+			Spec: *storage.PVCSpec,
+		}
+
+		volumeClaimTemplates = append(volumeClaimTemplates, pvc)
+	}
+
 	nsName := newNamespacedNameForStatefulSet(dc, rackName)
 
 	template, err := buildPodTemplateSpec(dc, nodeAffinityLabels, rackName)
