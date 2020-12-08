@@ -24,11 +24,14 @@ spec:
   # Each rack is pinned to a Google Cloud zone.
   racks:
     - name: rack1
-      failure-domain.beta.kubernetes.io/zone: us-central1-a
+      nodeAffinityLabels:
+        failure-domain.beta.kubernetes.io/zone: us-central1-a
     - name: rack2
-      failure-domain.beta.kubernetes.io/zone: us-central1-b
+      nodeAffinityLabels:
+        failure-domain.beta.kubernetes.io/zone: us-central1-b
     - name: rack3
-      failure-domain.beta.kubernetes.io/zone: us-central1-c
+      nodeAffinityLabels:
+        failure-domain.beta.kubernetes.io/zone: us-central1-c
 
   # Limit each pod to a fixed 6 CPU cores and 24 GB of RAM.
   resources:
