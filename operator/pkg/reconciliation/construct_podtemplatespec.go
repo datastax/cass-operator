@@ -8,6 +8,7 @@ package reconciliation
 import (
 	"fmt"
 	"reflect"
+	"sort"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
@@ -28,22 +29,34 @@ const (
 	SystemLoggerContainerName            = "server-system-logger"
 )
 
-// calculateNodeAffinity provides a way to pin all pods within a statefulset to the same zone
-func calculateNodeAffinity(zone string) *corev1.NodeAffinity {
-	if zone == "" {
+// calculateNodeAffinity provides a way to decide where to schedule pods within a statefulset based on labels
+func calculateNodeAffinity(labels map[string]string) *corev1.NodeAffinity {
+	if len(labels) == 0 {
 		return nil
 	}
+
+	var nodeSelectors []corev1.NodeSelectorRequirement
+
+	//we make a new map in order to sort because a map is random by design
+	keys := make([]string, 0, len(labels))
+	for key := range labels {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys) // Keep labels in the same order across statefulsets
+	for _, key := range keys {
+		selector := corev1.NodeSelectorRequirement{
+			Key:      key,
+			Operator: corev1.NodeSelectorOpIn,
+			Values:   []string{labels[key]},
+		}
+		nodeSelectors = append(nodeSelectors, selector)
+	}
+
 	return &corev1.NodeAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 			NodeSelectorTerms: []corev1.NodeSelectorTerm{
 				{
-					MatchExpressions: []corev1.NodeSelectorRequirement{
-						{
-							Key:      "failure-domain.beta.kubernetes.io/zone",
-							Operator: corev1.NodeSelectorOpIn,
-							Values:   []string{zone},
-						},
-					},
+					MatchExpressions: nodeSelectors,
 				},
 			},
 		},
@@ -437,7 +450,8 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 	return nil
 }
 
-func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName string) (*corev1.PodTemplateSpec, error) {
+func buildPodTemplateSpec(dc *api.CassandraDatacenter, nodeAffinityLabels map[string]string,
+	rackName string) (*corev1.PodTemplateSpec, error) {
 
 	baseTemplate := dc.Spec.PodTemplateSpec.DeepCopy()
 
@@ -493,7 +507,7 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	// Affinity
 
 	affinity := &corev1.Affinity{}
-	affinity.NodeAffinity = calculateNodeAffinity(zone)
+	affinity.NodeAffinity = calculateNodeAffinity(nodeAffinityLabels)
 	affinity.PodAntiAffinity = calculatePodAntiAffinity(dc.Spec.AllowMultipleNodesPerWorker)
 	baseTemplate.Spec.Affinity = affinity
 

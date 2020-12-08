@@ -148,6 +148,11 @@ spec:
                       type: integer
                   type: object
               type: object
+            nodeAffinityLabels:
+              additionalProperties:
+                type: string
+              description: NodeAffinityLabels to pin the Datacenter, using node affinity
+              type: object
             nodeSelector:
               additionalProperties:
                 type: string
@@ -5932,8 +5937,14 @@ spec:
                     description: The rack name
                     minLength: 2
                     type: string
+                  nodeAffinityLabels:
+                    additionalProperties:
+                      type: string
+                    description: NodeAffinityLabels to pin the rack, using node affinity
+                    type: object
                   zone:
-                    description: Zone name to pin the rack, using node affinity
+                    description: Deprecated. Use nodeAffinityLabels instead. Zone
+                      name to pin the rack, using node affinity
                     type: string
                 required:
                 - name

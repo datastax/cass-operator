@@ -37,3 +37,10 @@ func getResourcesOrDefault(res *corev1.ResourceRequirements,
 
 	return res
 }
+
+func emptyMapIfNil(m map[string]string) map[string]string {
+	if m == nil {
+		return map[string]string{}
+	}
+	return m
+}

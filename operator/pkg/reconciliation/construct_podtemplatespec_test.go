@@ -34,14 +34,14 @@ func Test_calculatePodAntiAffinity(t *testing.T) {
 
 func Test_calculateNodeAffinity(t *testing.T) {
 	t.Run("check when we dont have a zone we want to use", func(t *testing.T) {
-		na := calculateNodeAffinity("")
+		na := calculateNodeAffinity(map[string]string{})
 		if na != nil {
 			t.Errorf("calculateNodeAffinity() = %v, and we want nil", na)
 		}
 	})
 
 	t.Run("check when we do not allow more than one dse pod per node", func(t *testing.T) {
-		na := calculateNodeAffinity("thezone")
+		na := calculateNodeAffinity(map[string]string{zoneLabel: "thezone"})
 		if na == nil ||
 			na.RequiredDuringSchedulingIgnoredDuringExecution == nil {
 			t.Errorf("calculateNodeAffinity() = %v, and we want a non-nil RequiredDuringSchedulingIgnoredDuringExecution", na)
@@ -372,7 +372,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_containers_merge(t *testing.T)
 			},
 		},
 	}
-	got, err := buildPodTemplateSpec(dc, "testzone", "testrack")
+	got, err := buildPodTemplateSpec(dc, map[string]string{zoneLabel: "testzone"}, "testrack")
 
 	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
 	assert.Equal(t, 3, len(got.Spec.Containers))
@@ -401,7 +401,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_initcontainers_merge(t *testin
 			ConfigBuilderResources: testContainer.Resources,
 		},
 	}
-	got, err := buildPodTemplateSpec(dc, "testzone", "testrack")
+	got, err := buildPodTemplateSpec(dc, map[string]string{zoneLabel: "testzone"}, "testrack")
 
 	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
 	assert.Equal(t, 2, len(got.Spec.InitContainers))
@@ -421,7 +421,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_labels_merge(t *testing.T) {
 	}
 	dc.Spec.PodTemplateSpec.Labels = map[string]string{"abc": "123"}
 
-	spec, err := buildPodTemplateSpec(dc, "testzone", "testrack")
+	spec, err := buildPodTemplateSpec(dc, map[string]string{zoneLabel: "testzone"}, "testrack")
 	got := spec.Labels
 
 	expected := dc.GetRackLabels("testrack")
@@ -445,10 +445,10 @@ func TestCassandraDatacenter_buildPodTemplateSpec_propagate_volumes(t *testing.T
 			PodTemplateSpec: &corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
-						corev1.Container{
+						{
 							Name: ServerConfigContainerName,
 							VolumeMounts: []corev1.VolumeMount{
-								corev1.VolumeMount{
+								{
 									Name:      "extra",
 									MountPath: "/extra",
 								},
@@ -460,7 +460,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_propagate_volumes(t *testing.T
 		},
 	}
 
-	spec, err := buildPodTemplateSpec(dc, "testzone", "testrack")
+	spec, err := buildPodTemplateSpec(dc, map[string]string{zoneLabel: "testzone"}, "testrack")
 	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
 
 	if !reflect.DeepEqual(spec.Spec.InitContainers[0].VolumeMounts,
