@@ -222,9 +222,11 @@ type additionalVolumes struct {
 	PVCSpec *corev1.PersistentVolumeClaimSpec `json:"pvcSpec"`
 }
 
+type additionalVolumesSlice []additionalVolumes
+
 type StorageConfig struct {
 	CassandraDataVolumeClaimSpec *corev1.PersistentVolumeClaimSpec `json:"cassandraDataVolumeClaimSpec,omitempty"`
-	AdditionalVolumes            []additionalVolumes               `json:"additionalVolumes,omitempty"`
+	AdditionalVolumes            additionalVolumesSlice            `json:"additionalVolumes,omitempty"`
 }
 
 // GetRacks is a getter for the Rack slice in the spec

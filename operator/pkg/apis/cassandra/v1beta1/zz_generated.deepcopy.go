@@ -436,7 +436,7 @@ func (in *StorageConfig) DeepCopyInto(out *StorageConfig) {
 	}
 	if in.AdditionalVolumes != nil {
 		in, out := &in.AdditionalVolumes, &out.AdditionalVolumes
-		*out = make([]additionalVolumes, len(*in))
+		*out = make(additionalVolumesSlice, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
