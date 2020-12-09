@@ -212,7 +212,7 @@ type DseWorkloads struct {
 }
 
 // StorageConfig defines additional storage configurations
-type additionalVolumes struct {
+type AdditionalVolumes struct {
 	// Mount path into cassandra container
 	MountPath string `json:"mountPath"`
 	// Name of the pvc
@@ -222,11 +222,11 @@ type additionalVolumes struct {
 	PVCSpec *corev1.PersistentVolumeClaimSpec `json:"pvcSpec"`
 }
 
-type additionalVolumesSlice []additionalVolumes
+type AdditionalVolumesSlice []AdditionalVolumes
 
 type StorageConfig struct {
 	CassandraDataVolumeClaimSpec *corev1.PersistentVolumeClaimSpec `json:"cassandraDataVolumeClaimSpec,omitempty"`
-	AdditionalVolumes            additionalVolumesSlice            `json:"additionalVolumes,omitempty"`
+	AdditionalVolumes            AdditionalVolumesSlice            `json:"AdditionalVolumes,omitempty"`
 }
 
 // GetRacks is a getter for the Rack slice in the spec
