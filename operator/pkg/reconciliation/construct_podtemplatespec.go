@@ -189,30 +189,50 @@ outerLoop:
 	return out
 }
 
+func generateStorageConfigVolumesMount(cc *api.CassandraDatacenter) []corev1.VolumeMount {
+	var vms []corev1.VolumeMount
+	for _, storage := range cc.Spec.StorageConfig.AdditionalVolumes {
+		vms = append(vms, corev1.VolumeMount{Name: storage.Name, MountPath: storage.MountPath})
+	}
+	return vms
+}
+
+func generateStorageConfigEmptyVolumes(cc *api.CassandraDatacenter) []corev1.Volume {
+	var volumes []corev1.Volume
+	for _, storage := range cc.Spec.StorageConfig.AdditionalVolumes {
+		volumes = append(volumes, corev1.Volume{Name: storage.Name})
+	}
+	return volumes
+}
+
 func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) {
-	vServerConfig := corev1.Volume{}
-	vServerConfig.Name = "server-config"
-	vServerConfig.VolumeSource = corev1.VolumeSource{
-		EmptyDir: &corev1.EmptyDirVolumeSource{},
+	vServerConfig := corev1.Volume{
+		Name: "server-config",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
 	}
 
-	vServerLogs := corev1.Volume{}
-	vServerLogs.Name = "server-logs"
-	vServerLogs.VolumeSource = corev1.VolumeSource{
-		EmptyDir: &corev1.EmptyDirVolumeSource{},
+	vServerLogs := corev1.Volume{
+		Name: "server-logs",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
 	}
 
-	vServerEncryption := corev1.Volume{}
-	vServerEncryption.Name = "encryption-cred-storage"
-	vServerEncryption.VolumeSource = corev1.VolumeSource{
-		Secret: &corev1.SecretVolumeSource{
-			SecretName: fmt.Sprintf("%s-keystore", dc.Name)},
+	vServerEncryption := corev1.Volume{
+		Name: "encryption-cred-storage",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: fmt.Sprintf("%s-keystore", dc.Name),
+			},
+		},
 	}
 
-	volumes := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
+	volumeDefaults := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
 
-	baseTemplate.Spec.Volumes = combineVolumeSlices(
-		volumes, baseTemplate.Spec.Volumes)
+	baseTemplate.Spec.Volumes = combineVolumeSlices(volumeDefaults, baseTemplate.Spec.Volumes)
+	baseTemplate.Spec.Volumes = combineVolumeSlices(baseTemplate.Spec.Volumes, generateStorageConfigEmptyVolumes(dc))
 }
 
 // This ensure that the server-config-builder init container is properly configured.
@@ -373,7 +393,7 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 
 	cassContainer.Ports = combinePortSlices(portDefaults, cassContainer.Ports)
 
-	// Combine volumes
+	// Combine volumeMounts
 
 	var volumeDefaults []corev1.VolumeMount
 	for _, c := range baseTemplate.Spec.InitContainers {
@@ -384,19 +404,21 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		Name:      "server-logs",
 		MountPath: "/var/log/cassandra",
 	}
-	volumeDefaults = append(volumeDefaults, cassServerLogsMount)
 
-	volumeDefaults = append(volumeDefaults, corev1.VolumeMount{
-		Name:      PvcName,
-		MountPath: "/var/lib/cassandra",
+	volumeMounts :=  combineVolumeMountSlices(volumeDefaults,
+		[]corev1.VolumeMount{
+			cassServerLogsMount,
+			{
+				Name:      PvcName,
+				MountPath: "/var/lib/cassandra",
+			},
+			{
+				Name:      "encryption-cred-storage",
+				MountPath: "/etc/encryption/",
+			},
 	})
 
-	volumeDefaults = append(volumeDefaults, corev1.VolumeMount{
-		Name:      "encryption-cred-storage",
-		MountPath: "/etc/encryption/",
-	})
-
-	cassContainer.VolumeMounts = combineVolumeMountSlices(volumeDefaults, cassContainer.VolumeMounts)
+	cassContainer.VolumeMounts = combineVolumeMountSlices(volumeMounts, generateStorageConfigVolumesMount(dc))
 
 	// Server Logger Container
 
@@ -417,8 +439,9 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		}
 	}
 
-	loggerContainer.VolumeMounts = combineVolumeMountSlices(
-		[]corev1.VolumeMount{cassServerLogsMount}, loggerContainer.VolumeMounts)
+	volumeMounts = combineVolumeMountSlices([]corev1.VolumeMount{cassServerLogsMount}, loggerContainer.VolumeMounts)
+
+	loggerContainer.VolumeMounts = combineVolumeMountSlices(volumeMounts, generateStorageConfigVolumesMount(dc))
 
 	loggerContainer.Resources = *getResourcesOrDefault(&dc.Spec.SystemLoggerResources, &DefaultsLoggerContainer)
 

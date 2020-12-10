@@ -84,3 +84,52 @@ func Test_newStatefulSetForCassandraDatacenter_rackNodeAffinitylabels(t *testing
 
 	assert.Equal(t, expected, nodeAffinityLabels)
 }
+
+func Test_newStatefulSetForCassandraDatacenterWithAdditionalVolumes(t *testing.T) {
+	type args struct {
+		rackName     string
+		dc           *api.CassandraDatacenter
+		replicaCount int
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "test nodeSelector",
+			args: args{
+				rackName:     "r1",
+				replicaCount: 1,
+				dc: &api.CassandraDatacenter{
+					Spec: api.CassandraDatacenterSpec{
+						ClusterName: "c1",
+						StorageConfig: api.StorageConfig{
+							CassandraDataVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{},
+							AdditionalVolumes: api.AdditionalVolumesSlice{
+								api.AdditionalVolumes{
+									MountPath: "/var/log/cassandra",
+									Name:      "cassandra-logs",
+									PVCSpec:   &corev1.PersistentVolumeClaimSpec{},
+								},
+								api.AdditionalVolumes{
+									MountPath: "/var/lib/cassandra/commitlog",
+									Name:      "cassandra-commitlogs",
+									PVCSpec:   &corev1.PersistentVolumeClaimSpec{},
+								},
+							},
+						},
+						ServerType:    "cassandra",
+						ServerVersion: "3.11.7",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Log(tt.name)
+		got, err := newStatefulSetForCassandraDatacenter(tt.args.rackName, tt.args.dc, tt.args.replicaCount)
+		assert.NoError(t, err, "newStatefulSetForCassandraDatacenter should not have errored")
+		assert.NotNil(t, got, "newStatefulSetForCassandraDatacenter should not have returned a nil statefulset")
+		assert.Equal(t, 3, len(got.Spec.VolumeClaimTemplates))
+	}
+}
