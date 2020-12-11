@@ -231,8 +231,24 @@ func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpe
 
 	volumeDefaults := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
 
-	baseTemplate.Spec.Volumes = combineVolumeSlices(volumeDefaults, baseTemplate.Spec.Volumes)
-	baseTemplate.Spec.Volumes = combineVolumeSlices(baseTemplate.Spec.Volumes, generateStorageConfigEmptyVolumes(dc))
+	baseTemplate.Spec.Volumes = symmetricDifference(volumeDefaults, generateStorageConfigEmptyVolumes(dc))
+}
+
+func symmetricDifference(list1 []corev1.Volume, list2 []corev1.Volume) []corev1.Volume {
+	out := []corev1.Volume{}
+	for _, volume := range list1 {
+		found := false
+		for _, storage := range list2 {
+			if storage.Name == volume.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			out = append(out, volume)
+		}
+	}
+	return out
 }
 
 // This ensure that the server-config-builder init container is properly configured.

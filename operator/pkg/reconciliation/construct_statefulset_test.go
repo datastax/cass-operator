@@ -91,6 +91,10 @@ func Test_newStatefulSetForCassandraDatacenterWithAdditionalVolumes(t *testing.T
 		dc           *api.CassandraDatacenter
 		replicaCount int
 	}
+
+	customCassandraDataStorageClass := "data"
+	customCassandraServerLogsStorageClass := "logs"
+	customCassandraCommitLogsStorageClass := "commitlogs"
 	tests := []struct {
 		name string
 		args args
@@ -104,17 +108,23 @@ func Test_newStatefulSetForCassandraDatacenterWithAdditionalVolumes(t *testing.T
 					Spec: api.CassandraDatacenterSpec{
 						ClusterName: "c1",
 						StorageConfig: api.StorageConfig{
-							CassandraDataVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{},
+							CassandraDataVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
+								StorageClassName: &customCassandraDataStorageClass,
+							},
 							AdditionalVolumes: api.AdditionalVolumesSlice{
-								api.AdditionalVolumes{
+								api.AdditionalVolumes {
 									MountPath: "/var/log/cassandra",
-									Name:      "cassandra-logs",
-									PVCSpec:   &corev1.PersistentVolumeClaimSpec{},
+									Name: "server-logs",
+									PVCSpec: &corev1.PersistentVolumeClaimSpec{
+										StorageClassName: &customCassandraServerLogsStorageClass,
+									},
 								},
 								api.AdditionalVolumes{
 									MountPath: "/var/lib/cassandra/commitlog",
-									Name:      "cassandra-commitlogs",
-									PVCSpec:   &corev1.PersistentVolumeClaimSpec{},
+									Name: "cassandra-commitlogs",
+									PVCSpec: &corev1.PersistentVolumeClaimSpec{
+										StorageClassName: &customCassandraCommitLogsStorageClass,
+									},
 								},
 							},
 						},
@@ -130,6 +140,26 @@ func Test_newStatefulSetForCassandraDatacenterWithAdditionalVolumes(t *testing.T
 		got, err := newStatefulSetForCassandraDatacenter(tt.args.rackName, tt.args.dc, tt.args.replicaCount)
 		assert.NoError(t, err, "newStatefulSetForCassandraDatacenter should not have errored")
 		assert.NotNil(t, got, "newStatefulSetForCassandraDatacenter should not have returned a nil statefulset")
+
 		assert.Equal(t, 3, len(got.Spec.VolumeClaimTemplates))
+		assert.Equal(t, "server-data", got.Spec.VolumeClaimTemplates[0].Name)
+		assert.Equal(t, "server-logs", got.Spec.VolumeClaimTemplates[1].Name)
+		assert.Equal(t, "cassandra-commitlogs", got.Spec.VolumeClaimTemplates[2].Name)
+
+		assert.Equal(t, 2, len(got.Spec.Template.Spec.Volumes))
+		assert.Equal(t, "server-config", got.Spec.Template.Spec.Volumes[0].Name)
+		assert.Equal(t, "encryption-cred-storage", got.Spec.Template.Spec.Volumes[1].Name)
+
+		assert.Equal(t, 2, len(got.Spec.Template.Spec.Containers))
+
+		assert.Equal(t, 5, len(got.Spec.Template.Spec.Containers[0].VolumeMounts))
+		assert.Equal(t, "server-logs", got.Spec.Template.Spec.Containers[0].VolumeMounts[0].Name)
+		assert.Equal(t, "cassandra-commitlogs", got.Spec.Template.Spec.Containers[0].VolumeMounts[1].Name)
+		assert.Equal(t, "server-data", got.Spec.Template.Spec.Containers[0].VolumeMounts[2].Name)
+		assert.Equal(t, "encryption-cred-storage", got.Spec.Template.Spec.Containers[0].VolumeMounts[3].Name)
+		assert.Equal(t, "server-config", got.Spec.Template.Spec.Containers[0].VolumeMounts[4].Name)
+
+		assert.Equal(t, 2, len(got.Spec.Template.Spec.Containers[1].VolumeMounts))
+
 	}
 }
