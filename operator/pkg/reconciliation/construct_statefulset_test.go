@@ -143,8 +143,11 @@ func Test_newStatefulSetForCassandraDatacenterWithAdditionalVolumes(t *testing.T
 
 		assert.Equal(t, 3, len(got.Spec.VolumeClaimTemplates))
 		assert.Equal(t, "server-data", got.Spec.VolumeClaimTemplates[0].Name)
+		assert.Equal(t, customCassandraDataStorageClass, *got.Spec.VolumeClaimTemplates[0].Spec.StorageClassName)
 		assert.Equal(t, "server-logs", got.Spec.VolumeClaimTemplates[1].Name)
+		assert.Equal(t, customCassandraServerLogsStorageClass, *got.Spec.VolumeClaimTemplates[1].Spec.StorageClassName)
 		assert.Equal(t, "cassandra-commitlogs", got.Spec.VolumeClaimTemplates[2].Name)
+		assert.Equal(t, customCassandraCommitLogsStorageClass, *got.Spec.VolumeClaimTemplates[2].Spec.StorageClassName)
 
 		assert.Equal(t, 2, len(got.Spec.Template.Spec.Volumes))
 		assert.Equal(t, "server-config", got.Spec.Template.Spec.Volumes[0].Name)
