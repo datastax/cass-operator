@@ -126,7 +126,7 @@ spec:
   # container that runs on pod creation, and then marshalled into config files.
   config:
 
-    # See https://docs.datastax.com/en/dse/6.7/dse-dev/datastax_enterprise/config/configDseYaml.html
+    # See https://docs.datastax.com/en/dse/6.8/dse-dev/datastax_enterprise/config/configDseYaml.html
     dse-yaml:
       authorization_options:
         enabled: true
