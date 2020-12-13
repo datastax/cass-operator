@@ -106,7 +106,23 @@ func Test_newStatefulSetForCassandraDatacenterWithAdditionalVolumes(t *testing.T
 				replicaCount: 1,
 				dc: &api.CassandraDatacenter{
 					Spec: api.CassandraDatacenterSpec{
-						ClusterName: "c1",
+						ClusterName:  "c1",
+						PodTemplateSpec: &corev1.PodTemplateSpec{
+							Spec: corev1.PodSpec {
+								InitContainers: []corev1.Container {
+									{
+										Name: "initContainer1",
+										Image: "initImage1",
+										VolumeMounts: []corev1.VolumeMount{
+											{
+												Name: "server-logs",
+												MountPath: "/var/log/cassandra",
+											},
+										},
+									},
+								},
+							},
+						},
 						StorageConfig: api.StorageConfig{
 							CassandraDataVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
 								StorageClassName: &customCassandraDataStorageClass,
@@ -163,6 +179,18 @@ func Test_newStatefulSetForCassandraDatacenterWithAdditionalVolumes(t *testing.T
 		assert.Equal(t, "server-config", got.Spec.Template.Spec.Containers[0].VolumeMounts[4].Name)
 
 		assert.Equal(t, 2, len(got.Spec.Template.Spec.Containers[1].VolumeMounts))
+		assert.Equal(t, 2, len(got.Spec.Template.Spec.InitContainers))
 
+		assert.Equal(t, "initContainer1", got.Spec.Template.Spec.InitContainers[0].Name)
+		assert.Equal(t, "initImage1", got.Spec.Template.Spec.InitContainers[0].Image)
+		assert.Equal(t, 1, len(got.Spec.Template.Spec.InitContainers[0].VolumeMounts))
+		assert.Equal(t, "server-logs", got.Spec.Template.Spec.InitContainers[0].VolumeMounts[0].Name)
+		assert.Equal(t, "/var/log/cassandra", got.Spec.Template.Spec.InitContainers[0].VolumeMounts[0].MountPath)
+
+		assert.Equal(t, "server-config-init", got.Spec.Template.Spec.InitContainers[1].Name)
+		assert.Equal(t, "datastax/cass-config-builder:1.0.3", got.Spec.Template.Spec.InitContainers[1].Image)
+		assert.Equal(t, 1, len(got.Spec.Template.Spec.InitContainers[1].VolumeMounts))
+		assert.Equal(t, "server-config", got.Spec.Template.Spec.InitContainers[1].VolumeMounts[0].Name)
+		assert.Equal(t, "/config", got.Spec.Template.Spec.InitContainers[1].VolumeMounts[0].MountPath)
 	}
 }
