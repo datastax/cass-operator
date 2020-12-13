@@ -6064,7 +6064,7 @@ spec:
                         type: string
                       name:
                         description: Name of the pvc
-                        pattern: '[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*'
+                        pattern: '[a-z0-9]([-a-z0-9]*[a-z0-9])?'
                         type: string
                       pvcSpec:
                         description: Persistent volume claim spec
