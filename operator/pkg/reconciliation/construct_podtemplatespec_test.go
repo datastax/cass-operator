@@ -203,72 +203,12 @@ func TestCassandraDatacenter_buildContainers_systemlogger_resources_set_when_not
 	}
 }
 
-func TestCassandraDatacenter_buildContainers_reaper_resources(t *testing.T) {
-	dc := &api.CassandraDatacenter{
-		Spec: api.CassandraDatacenterSpec{
-			ClusterName:   "bob",
-			ServerType:    "cassandra",
-			ServerVersion: "3.11.7",
-			Reaper: &api.ReaperConfig{
-				Enabled: true,
-				Resources: corev1.ResourceRequirements{
-					Limits: corev1.ResourceList{
-						"cpu":    *resource.NewMilliQuantity(1, resource.DecimalSI),
-						"memory": *resource.NewScaledQuantity(1, resource.Giga),
-					},
-					Requests: corev1.ResourceList{
-						"cpu":    *resource.NewMilliQuantity(1, resource.DecimalSI),
-						"memory": *resource.NewScaledQuantity(1, resource.Giga),
-					},
-				},
-			},
-		},
-	}
-
-	podTemplateSpec := &corev1.PodTemplateSpec{}
-	err := buildContainers(dc, podTemplateSpec)
-	containers := podTemplateSpec.Spec.Containers
-	assert.NotNil(t, containers, "Unexpected containers containers received")
-	assert.Nil(t, err, "Unexpected error encountered")
-
-	assert.Len(t, containers, 3, "Unexpected number of containers containers returned")
-	assert.Equal(t, containers[2].Resources, dc.Spec.Reaper.Resources,
-		"reaper container resources have unexpected values.")
-}
-
-func TestCassandraDatacenter_buildContainers_reaper_resources_set_when_not_specified(t *testing.T) {
-	dc := &api.CassandraDatacenter{
-		Spec: api.CassandraDatacenterSpec{
-			ClusterName:   "bob",
-			ServerType:    "cassandra",
-			ServerVersion: "3.11.7",
-			Reaper: &api.ReaperConfig{
-				Enabled: true,
-			},
-		},
-	}
-
-	podTemplateSpec := &corev1.PodTemplateSpec{}
-	err := buildContainers(dc, podTemplateSpec)
-	containers := podTemplateSpec.Spec.Containers
-	assert.NotNil(t, containers, "Unexpected containers containers received")
-	assert.Nil(t, err, "Unexpected error encountered")
-
-	assert.Len(t, containers, 3, "Unexpected number of containers containers returned")
-	if !reflect.DeepEqual(containers[2].Resources, DefaultsReaperContainer) {
-		t.Error("reaper container resources are not set to the default values.")
-	}
-}
-
 func TestCassandraDatacenter_buildContainers_use_cassandra_settings(t *testing.T) {
 	dc := &api.CassandraDatacenter{
 		Spec: api.CassandraDatacenterSpec{
 			ClusterName:   "bob",
 			ServerType:    "cassandra",
 			ServerVersion: "3.11.7",
-			Reaper: &api.ReaperConfig{
-				Enabled: true,
-			},
 		},
 	}
 
@@ -290,11 +230,7 @@ func TestCassandraDatacenter_buildContainers_use_cassandra_settings(t *testing.T
 	assert.NotNil(t, containers, "Unexpected containers containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
-	assert.Len(t, containers, 3, "Unexpected number of containers containers returned")
-	if !reflect.DeepEqual(containers[2].Resources, DefaultsReaperContainer) {
-		t.Error("reaper container resources are not set to the default values.")
-	}
-
+	assert.Len(t, containers, 2, "Unexpected number of containers containers returned")
 	if !reflect.DeepEqual(containers[0].Env[0].Name, "k1") {
 		t.Errorf("Unexpected env vars allocated for the cassandra container: %v", containers[0].Env)
 	}
@@ -306,9 +242,6 @@ func TestCassandraDatacenter_buildContainers_override_other_containers(t *testin
 			ClusterName:   "bob",
 			ServerType:    "cassandra",
 			ServerVersion: "3.11.7",
-			Reaper: &api.ReaperConfig{
-				Enabled: true,
-			},
 		},
 	}
 
@@ -333,10 +266,7 @@ func TestCassandraDatacenter_buildContainers_override_other_containers(t *testin
 	assert.NotNil(t, containers, "Unexpected containers containers received")
 	assert.Nil(t, err, "Unexpected error encountered")
 
-	assert.Len(t, containers, 3, "Unexpected number of containers containers returned")
-	if !reflect.DeepEqual(containers[2].Resources, DefaultsReaperContainer) {
-		t.Error("reaper container resources are not set to the default values.")
-	}
+	assert.Len(t, containers, 2, "Unexpected number of containers containers returned")
 
 	if !reflect.DeepEqual(containers[0].VolumeMounts,
 		[]corev1.VolumeMount{
