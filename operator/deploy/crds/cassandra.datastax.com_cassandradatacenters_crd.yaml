@@ -6067,7 +6067,7 @@ spec:
               description: Describes the persistent storage request of each server
                 node
               properties:
-                AdditionalVolumes:
+                additionalVolumes:
                   items:
                     description: StorageConfig defines additional storage configurations
                     properties:
