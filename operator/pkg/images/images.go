@@ -20,7 +20,6 @@ const (
 	envDefaultRegistryOverride            = "DEFAULT_CONTAINER_REGISTRY_OVERRIDE"
 	envDefaultRegistryOverridePullSecrets = "DEFAULT_CONTAINER_REGISTRY_OVERRIDE_PULL_SECRETS"
 	EnvBaseImageOS                        = "BASE_IMAGE_OS"
-	EnvBusyboxImage                       = "BUSYBOX_IMAGE"
 	ValidDseVersionRegexp                 = "6\\.8\\.\\d+"
 	ValidOssVersionRegexp                 = "(3\\.11\\.\\d+)|(4\\.0\\.\\d+)"
 	UbiImageSuffix                        = "-ubi7"
@@ -100,7 +99,8 @@ var imageLookupMap map[Image]string = map[Image]string{
 	ConfigBuilder:    "datastax/cass-config-builder:1.0.3",
 	UBIConfigBuilder: "datastax/cass-config-builder:1.0.3-ubi7",
 
-	Reaper: "thelastpickle/cassandra-reaper:2.0.5",
+	BusyBox: "busybox:1.32.0-uclibc",
+	Reaper:  "thelastpickle/cassandra-reaper:2.0.5",
 }
 
 var versionToOSSCassandra map[string]Image = map[string]Image{
@@ -181,17 +181,9 @@ func CalculateDockerImageRunsAsCassandra(version string) bool {
 func GetImage(name Image) string {
 	image, ok := imageLookupMap[name]
 	if !ok {
-		switch name {
-		case BaseImageOS:
+		if name == BaseImageOS {
 			image = os.Getenv(EnvBaseImageOS)
-
-		case BusyBox:
-			image = "busybox"
-			if v := os.Getenv(EnvBusyboxImage); v != "" {
-				image = v
-			}
-
-		default:
+		} else {
 			// This should never happen as we have a unit test
 			// to ensure imageLookupMap is fully populated.
 			log.Error(nil, "Could not find image", "image", int(name))
