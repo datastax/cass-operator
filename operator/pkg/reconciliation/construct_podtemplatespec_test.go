@@ -114,10 +114,10 @@ func TestCassandraDatacenter_buildInitContainer_with_overrides(t *testing.T) {
 	podTemplateSpec := &corev1.PodTemplateSpec{
 		Spec: corev1.PodSpec{
 			InitContainers: []corev1.Container{
-				corev1.Container{
+				{
 					Name: ServerConfigContainerName,
 					Env: []corev1.EnvVar{
-						corev1.EnvVar{
+						{
 							Name:  "k1",
 							Value: "v1",
 						},
@@ -410,6 +410,138 @@ func TestCassandraDatacenter_buildPodTemplateSpec_initcontainers_merge(t *testin
 	}
 }
 
+func TestCassandraDatacenter_buildPodTemplateSpec_add_initContainer_after_config_initContainer(t *testing.T) {
+	initContainer := corev1.Container{
+		Name: "test-container",
+		Image: "test-image",
+	}
+
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName:   "bob",
+			ServerType:    "cassandra",
+			ServerVersion: "3.11.7",
+			PodTemplateSpec: &corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{
+						{
+							Name: ServerConfigContainerName,
+						},
+						initContainer,
+					},
+				},
+			},
+		},
+	}
+
+	podTemplateSpec, err := buildPodTemplateSpec(dc, map[string]string{zoneLabel: "testzone"}, "testrack")
+
+	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
+
+	initContainers := podTemplateSpec.Spec.InitContainers
+	assert.Equal(t, 2, len(initContainers))
+	assert.Equal(t, initContainers[0].Name, ServerConfigContainerName)
+	assert.Equal(t, initContainers[1].Name, initContainer.Name)
+}
+
+func TestCassandraDatacenter_buildPodTemplateSpec_add_initContainer_with_volumes(t *testing.T) {
+	dc := &api.CassandraDatacenter{
+		Spec: api.CassandraDatacenterSpec{
+			ClusterName:   "bob",
+			ServerType:    "cassandra",
+			ServerVersion: "3.11.7",
+			PodTemplateSpec: &corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					InitContainers: []corev1.Container{
+						{
+							Name: "test",
+							Image: "test",
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name: "server-data",
+									MountPath: "/var/lib/cassandra",
+								},
+								{
+									Name: "test-data",
+									MountPath: "/test",
+								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "test-data",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	podTemplateSpec, err := buildPodTemplateSpec(dc, map[string]string{zoneLabel: "testzone"}, "testrack")
+
+	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
+
+	initContainers := podTemplateSpec.Spec.InitContainers
+
+	assert.Equal(t, 2, len(initContainers))
+	assert.Equal(t, "test", initContainers[0].Name)
+	assert.Equal(t, 2, len(initContainers[0].VolumeMounts))
+	// We use a contains check here because the ordering is not important
+	assert.True(t, volumeMountsContains(initContainers[0].VolumeMounts, volumeMountNameMatcher("server-data")))
+	assert.True(t, volumeMountsContains(initContainers[0].VolumeMounts, volumeMountNameMatcher("test-data")))
+
+	assert.Equal(t, ServerConfigContainerName, initContainers[1].Name)
+	assert.Equal(t, 1, len(initContainers[1].VolumeMounts))
+	// We use a contains check here because the ordering is not important
+	assert.True(t, volumeMountsContains(initContainers[1].VolumeMounts, volumeMountNameMatcher("server-config")))
+
+	volumes := podTemplateSpec.Spec.Volumes
+	assert.Equal(t, 4, len(volumes))
+	// We use a contains check here because the ordering is not important
+	assert.True(t, volumesContains(volumes, volumeNameMatcher("server-config")))
+	assert.True(t, volumesContains(volumes, volumeNameMatcher("test-data")))
+	assert.True(t, volumesContains(volumes, volumeNameMatcher("server-logs")))
+	assert.True(t, volumesContains(volumes, volumeNameMatcher("encryption-cred-storage")))
+}
+
+type VolumeMountMatcher func(volumeMount corev1.VolumeMount) bool
+
+type VolumeMatcher func(volume corev1.Volume) bool
+
+func volumeNameMatcher(name string) VolumeMatcher {
+	return func(volume corev1.Volume) bool {
+		return volume.Name == name
+	}
+}
+
+func volumeMountNameMatcher(name string) VolumeMountMatcher {
+	return func(volumeMount corev1.VolumeMount) bool {
+		return volumeMount.Name == name
+	}
+}
+
+func volumeMountsContains(volumeMounts []corev1.VolumeMount, matcher VolumeMountMatcher) bool {
+	for _, mount := range volumeMounts {
+		if matcher(mount) {
+			return true
+		}
+	}
+	return false
+}
+
+func volumesContains(volumes []corev1.Volume, matcher VolumeMatcher) bool {
+	for _, volume := range volumes {
+		if matcher(volume) {
+			return true
+		}
+	}
+	return false
+}
+
 func TestCassandraDatacenter_buildPodTemplateSpec_labels_merge(t *testing.T) {
 	dc := &api.CassandraDatacenter{
 		Spec: api.CassandraDatacenterSpec{
@@ -436,7 +568,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_labels_merge(t *testing.T) {
 }
 
 // A volume added to ServerConfigContainerName should be added to all built-in containers
-func TestCassandraDatacenter_buildPodTemplateSpec_propagate_volumes(t *testing.T) {
+func TestCassandraDatacenter_buildPodTemplateSpec_do_not_propagate_volumes(t *testing.T) {
 	dc := &api.CassandraDatacenter{
 		Spec: api.CassandraDatacenterSpec{
 			ClusterName:   "bob",
@@ -452,6 +584,14 @@ func TestCassandraDatacenter_buildPodTemplateSpec_propagate_volumes(t *testing.T
 									Name:      "extra",
 									MountPath: "/extra",
 								},
+							},
+						},
+					},
+					Volumes: []corev1.Volume{
+						{
+							Name: "extra",
+							VolumeSource: corev1.VolumeSource{
+								EmptyDir: &corev1.EmptyDirVolumeSource{},
 							},
 						},
 					},
@@ -479,7 +619,15 @@ func TestCassandraDatacenter_buildPodTemplateSpec_propagate_volumes(t *testing.T
 
 	if !reflect.DeepEqual(spec.Spec.Containers[0].VolumeMounts,
 		[]corev1.VolumeMount{
-			{
+			corev1.VolumeMount{
+				Name:      "extra",
+				MountPath: "/extra",
+			},
+			corev1.VolumeMount{
+				Name:      "server-config",
+				MountPath: "/config",
+			},
+			corev1.VolumeMount{
 				Name:      "server-logs",
 				MountPath: "/var/log/cassandra",
 			},
