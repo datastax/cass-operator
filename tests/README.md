@@ -70,10 +70,30 @@ is currently configured against, run:
 mage integ:run
 ```
 
+### Running a single test
 If you only want to run a single test, you can specify it's parent directory
 in an environment variable called `M_INTEG_DIR`:
 ```
 M_INTEG_DIR=scale_up mage integ:run
+```
+
+### Running a test with a custom operator image
+If you are building the operator image locally, you will want to use it for integration tests.
+
+```
+# This will create a datastax/cass-operator:latest image.
+$ mage operator:build
+
+# Tag the image with the commit hash. T
+# The Docker Hub org for the example is bob.
+$ docker tag docker.io/datastax/cass-operator:latest bob/cass-operator:6208cb4a8b1c
+
+# If you are running tests against a remote cluster you will 
+# need to push your image to registry.
+$ docker push bob/cass-operator:6208cb4a8b1c
+
+# Run a single test using the image.
+$ M_INTEG_DIR=scale_up M_OPERATOR_IMAGE=docker.io/bob/cass-operator:6208cb4a8b1c mage integ:run
 ```
 
 ## Test structure and design
