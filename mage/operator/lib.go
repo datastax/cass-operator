@@ -428,7 +428,7 @@ func TestGo() {
 	fmt.Println("- Running go unit tests")
 	os.Chdir("./operator")
 	os.Setenv("CGO_ENABLED", "0")
-	goArgs := []string{"test", "./..."}
+	goArgs := []string{"test", "./...", "-v"}
 	shutil.RunVPanic("go", goArgs...)
 	os.Chdir("..")
 }
