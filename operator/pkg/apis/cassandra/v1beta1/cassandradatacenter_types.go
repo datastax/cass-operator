@@ -219,7 +219,7 @@ type AdditionalVolumes struct {
 	// +kubebuilder:validation:Pattern=[a-z0-9]([-a-z0-9]*[a-z0-9])?
 	Name string `json:"name"`
 	// Persistent volume claim spec
-	PVCSpec *corev1.PersistentVolumeClaimSpec `json:"pvcSpec"`
+	PVCSpec corev1.PersistentVolumeClaimSpec `json:"pvcSpec"`
 }
 
 type AdditionalVolumesSlice []AdditionalVolumes

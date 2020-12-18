@@ -131,14 +131,14 @@ func Test_newStatefulSetForCassandraDatacenterWithAdditionalVolumes(t *testing.T
 								api.AdditionalVolumes {
 									MountPath: "/var/log/cassandra",
 									Name: "server-logs",
-									PVCSpec: &corev1.PersistentVolumeClaimSpec{
+									PVCSpec: corev1.PersistentVolumeClaimSpec{
 										StorageClassName: &customCassandraServerLogsStorageClass,
 									},
 								},
 								api.AdditionalVolumes{
 									MountPath: "/var/lib/cassandra/commitlog",
 									Name: "cassandra-commitlogs",
-									PVCSpec: &corev1.PersistentVolumeClaimSpec{
+									PVCSpec: corev1.PersistentVolumeClaimSpec{
 										StorageClassName: &customCassandraCommitLogsStorageClass,
 									},
 								},
