@@ -5,7 +5,7 @@ kind: CassandraDatacenter
 metadata:
   name: dc1
 spec:
-  clusterName: cluster2
+  clusterName: cluster1
   serverType: dse
   serverVersion: "6.8.4"
   managementApiAuth:

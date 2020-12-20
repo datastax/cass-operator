@@ -15,7 +15,7 @@ metadata:
 spec:
 
   # The cluster name.
-  clusterName: cluster2
+  clusterName: cluster1
 
   # The number of server nodes.
   size: 6
