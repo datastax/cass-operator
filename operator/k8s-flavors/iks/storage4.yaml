@@ -12,4 +12,5 @@ parameters:
   type: "Endurance"
   iopsPerGB: "4"
   sizeRange: "[4-20]Gi"
+volumeBindingMode: WaitForFirstConsumer
 reclaimPolicy: "Delete"
