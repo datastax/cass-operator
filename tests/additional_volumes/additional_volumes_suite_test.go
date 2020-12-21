@@ -53,7 +53,7 @@ var _ = Describe(testName, func() {
 			k := kubectl.ApplyFiles(dcYaml)
 			ns.ExecAndLog(step, k)
 
-			ns.WaitForDatacenterReady(dcName)
+			ns.WaitForDatacenterReadyWithTimeouts(dcName, 600, 120)
 
 			step = "deleting the dc"
 			k = kubectl.DeleteFromFiles(dcYaml)
