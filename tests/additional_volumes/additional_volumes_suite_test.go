@@ -1,7 +1,7 @@
 // Copyright DataStax, Inc.
 // Please see the included license file for details.
 
-package scale_up
+package additional_volumes
 
 import (
 	"fmt"
