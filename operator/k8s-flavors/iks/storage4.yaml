@@ -4,13 +4,13 @@ metadata:
   name: server-storage
   labels:
     kubernetes.io/cluster-service: "true"
-provisioner: ibm.io/ibmc-block
+provisioner: ibm.io/ibmc-block-bronze
 parameters:
   classVersion: "2"
   zone: "dal12"
   region: "us-south"
   type: "Endurance"
-  iopsPerGB: "4"
-  sizeRange: "[4-20]Gi"
+  iopsPerGB: "2"
+  sizeRange: "[20-12000]Gi"
 volumeBindingMode: WaitForFirstConsumer
 reclaimPolicy: "Delete"
