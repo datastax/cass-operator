@@ -77,6 +77,7 @@ type EMMSPI interface {
 	IsStopped() bool
 	IsInitialized() bool
 	GetLogger() logr.Logger
+	GetAllNodes() ([]*corev1.Node, error)
 }
 
 type EMMChecks interface {
@@ -87,6 +88,8 @@ type EMMChecks interface {
 	getInProgressNodeReplacements() []string
 	IsStopped() bool
 	IsInitialized() bool
+	getNodeNameSet() (utils.StringSet, error)
+	getPodNameSet() utils.StringSet
 }
 
 type EMMOperations interface {
@@ -99,6 +102,7 @@ type EMMOperations interface {
 	removeNextPodFromEvacuateDataNode() (bool, error)
 	removeAllPodsFromOnePlannedDowntimeNode() (bool, error)
 	startNodeReplace(podName string) error
+	emmFailureStillProcessing() (bool, error)
 }
 
 type EMMService interface {
@@ -186,6 +190,24 @@ func (impl *EMMServiceImpl) cleanupEMMAnnotations() (bool, error) {
 	return didUpdate, nil
 }
 
+func (impl *EMMServiceImpl) emmFailureStillProcessing() (bool, error) {
+	nodes, err := impl.getEvacuateAllDataNodeNameSet()
+	if err != nil {
+		return false, err
+	}
+	nodes2, err := impl.getPlannedDownTimeNodeNameSet()
+	if err != nil {
+		return false, err
+	}
+	nodes = utils.UnionStringSet(nodes, nodes2)
+
+	// Strip EMM failure annotation from pods where node is no longer tainted
+	podsFailedEmm := impl.getPodsWithAnnotationKey(EMMFailureAnnotation)
+	nodesWithPodsFailedEMM := utils.GetPodNodeNameSet(podsFailedEmm)
+
+	return len(utils.IntersectionStringSet(nodes, nodesWithPodsFailedEMM)) > 0, nil
+}
+
 func (impl *EMMServiceImpl) getPlannedDownTimeNodeNameSet() (utils.StringSet, error) {
 	nodes, err := impl.getNodesWithTaintKeyValueEffect(EMMTaintKey, string(PlannedDowntime), corev1.TaintEffectNoSchedule)
 	if err != nil {
@@ -234,12 +256,26 @@ func (impl *EMMServiceImpl) failEMM(nodeName string, failure EMMFailure) (bool, 
 	pods := impl.getPodsForNodeName(nodeName)
 	didUpdate := false
 	for _, pod := range pods {
-		err := impl.addPodAnnotation(pod, EMMFailureAnnotation, string(failure))
+		added, err := impl.addPodAnnotation(pod, EMMFailureAnnotation, string(failure))
 		if err != nil {
 			return false, err
 		}
+		didUpdate = added
 	}
 	return didUpdate, nil
+}
+
+func (impl *EMMServiceImpl) getNodeNameSet() (utils.StringSet, error) {
+	nodes, err := impl.EMMSPI.GetAllNodes()
+	if err != nil {
+		return nil, err
+	}
+
+	return utils.GetNodeNameSet(nodes), nil
+}
+
+func (impl *EMMServiceImpl) getPodNameSet() utils.StringSet {
+	return utils.GetPodNameSet(impl.EMMSPI.GetDCPods())
 }
 
 func (impl *EMMServiceImpl) performEvacuateDataPodReplace() (bool, error) {
@@ -407,13 +443,15 @@ func (impl *EMMServiceImpl) getPodsWithAnnotationKey(key string) []*corev1.Pod {
 	return utils.FilterPodsWithAnnotationKey(pods, key)
 }
 
-func (impl *EMMServiceImpl) addPodAnnotation(pod *corev1.Pod, key, value string) error {
+func (impl *EMMServiceImpl) addPodAnnotation(pod *corev1.Pod, key, value string) (bool, error) {
 	if pod.ObjectMeta.Annotations == nil {
 		pod.ObjectMeta.Annotations = map[string]string{}
+	}  else if _, found := pod.Annotations[key]; found {
+		return false, nil
 	}
 
 	pod.Annotations[key] = value
-	return impl.UpdatePod(pod)
+	return true, impl.UpdatePod(pod)
 }
 
 func (impl *EMMServiceImpl) removePodAnnotation(pod *corev1.Pod, key string) error {
@@ -440,6 +478,19 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 		return result.RequeueSoon(2)
 	}
 
+	// Check if there are still pods annotated with EMM failure.
+	// If there are then that means vmware has not removed the node
+	// taint in response to a failure. We can requeue or stop
+	// reconciliation in this situation.
+	stillProcessing, err := provider.emmFailureStillProcessing()
+	if err != nil {
+		logger.Error(err,"Failed to check if EMM failures are still processing")
+		return result.Error(err)
+	}
+	if stillProcessing {
+		return result.RequeueSoon(2)
+	}
+
 	// Do not perform EMM operations while the datacenter is initializing
 	if !provider.IsInitialized() {
 		logger.Info("Skipping EMM check as the cluster is not yet initialized")
@@ -457,6 +508,30 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	evacuateDataNodeNameSet, err := provider.getEvacuateAllDataNodeNameSet()
 	if err != nil {
 		return result.Error(err)
+	}
+
+	allNodes, err := provider.getNodeNameSet()
+	if err != nil {
+		logger.Error(err, "Failed to get node name set")
+		return result.Error(err)
+	}
+
+	unavailableNodes := utils.UnionStringSet(plannedDownNodeNameSet, evacuateDataNodeNameSet)
+	availableNodes := utils.SubtractStringSet(allNodes, unavailableNodes)
+
+	if len(provider.getPodNameSet()) > len(availableNodes) {
+		anyUpdated := false
+		updated := false
+		for node := range unavailableNodes {
+			if updated, err = provider.failEMM(node, NotEnoughResources); err != nil {
+				logger.Error(err, "Failed to add " + EMMFailureAnnotation, "Node", node)
+				return result.Error(err)
+			}
+			anyUpdated = anyUpdated || updated
+		}
+		if anyUpdated {
+			return result.RequeueSoon(10)
+		}
 	}
 
 	// Fail any evacuate data EMM operations if the datacenter is stopped
