@@ -45,6 +45,8 @@ type Image int
 const (
 	Cassandra_3_11_6 Image = iota
 	Cassandra_3_11_7
+	Cassandra_3_11_8
+	Cassandra_3_11_9
 	Cassandra_4_0_0
 
 	UBICassandra_3_11_6
@@ -77,7 +79,9 @@ const (
 var imageLookupMap map[Image]string = map[Image]string{
 
 	Cassandra_3_11_6: "datastax/cassandra-mgmtapi-3_11_6:v0.1.5",
-	Cassandra_3_11_7: "datastax/cassandra-mgmtapi-3_11_7:v0.1.13",
+	Cassandra_3_11_7: "datastax/cassandra-mgmtapi-3_11_7:v0.1.17",
+	Cassandra_3_11_8: "datastax/cassandra-mgmtapi-3_11_8:v0.1.17",
+	Cassandra_3_11_9: "datastax/cassandra-mgmtapi-3_11_9:v0.1.17",
 	Cassandra_4_0_0:  "datastax/cassandra-mgmtapi-4_0_0:v0.1.12",
 
 	UBICassandra_3_11_6: "datastax/cassandra:3.11.6-ubi7",
@@ -106,6 +110,8 @@ var imageLookupMap map[Image]string = map[Image]string{
 var versionToOSSCassandra map[string]Image = map[string]Image{
 	"3.11.6": Cassandra_3_11_6,
 	"3.11.7": Cassandra_3_11_7,
+	"3.11.8": Cassandra_3_11_8,
+	"3.11.9": Cassandra_3_11_9,
 	"4.0.0":  Cassandra_4_0_0,
 }
 
@@ -169,7 +175,7 @@ func applyDefaultRegistryOverride(image string) string {
 // This is meant to be used when the CassandraDatacenter does not
 // explicitly set the DockerImageRunsAsCassandra field.
 func CalculateDockerImageRunsAsCassandra(version string) bool {
-	if version == "3.11.6" || version == "3.11.7" || version == "4.0.0" {
+	if version == "3.11.6" || version == "3.11.7" || version == "3.11.8" || version == "3.11.9" || version == "4.0.0" {
 		return false
 	}
 

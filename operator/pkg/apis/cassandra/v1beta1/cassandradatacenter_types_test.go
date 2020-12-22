@@ -36,13 +36,33 @@ func Test_makeImage(t *testing.T) {
 			errString: "",
 		},
 		{
-			name: "test empty image cassandra",
+			name: "test empty image cassandra 3.11.7",
 			args: args{
 				serverImage:   "",
 				serverType:    "cassandra",
 				serverVersion: "3.11.7",
 			},
-			want:      "datastax/cassandra-mgmtapi-3_11_7:v0.1.13",
+			want:      "datastax/cassandra-mgmtapi-3_11_7:v0.1.17",
+			errString: "",
+		},
+		{
+			name: "test empty image cassandra 3.11.8",
+			args: args{
+				serverImage:   "",
+				serverType:    "cassandra",
+				serverVersion: "3.11.8",
+			},
+			want:      "datastax/cassandra-mgmtapi-3_11_8:v0.1.17",
+			errString: "",
+		},
+		{
+			name: "test empty image cassandra 3.11.9",
+			args: args{
+				serverImage:   "",
+				serverType:    "cassandra",
+				serverVersion: "3.11.9",
+			},
+			want:      "datastax/cassandra-mgmtapi-3_11_9:v0.1.17",
 			errString: "",
 		},
 		{

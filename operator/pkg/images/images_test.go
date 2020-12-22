@@ -70,6 +70,14 @@ func Test_CalculateDockerImageRunsAsCassandra(t *testing.T) {
 			want:    false,
 		},
 		{
+			version: "3.11.8",
+			want:    false,
+		},
+		{
+			version: "3.11.9",
+			want:    false,
+		},
+		{
 			version: "4.0.0",
 			want:    false,
 		},
