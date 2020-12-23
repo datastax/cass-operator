@@ -7,7 +7,9 @@ import (
 	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/datastax/cass-operator/operator/pkg/utils"
 
@@ -101,7 +103,6 @@ func (rc *ReconciliationContext) getDCPodByName(podName string) *corev1.Pod {
 	return nil
 }
 
-
 //
 // functions to statisfy EMMSPI interface from psp package
 //
@@ -110,7 +111,7 @@ func (rc *ReconciliationContext) GetAllNodesInDC() ([]*corev1.Node, error) {
 	// Get all nodes for datacenter
 	//
 	// We need to check taints for all nodes that this datacenter cares about,
-	// this includes not just nodes where we have dc pods, but also nodes 
+	// this includes not just nodes where we have dc pods, but also nodes
 	// where we have PVCs, as PVCs might get separated from their pod when a
 	// pod is rescheduled.
 	pvcs, err := rc.getPodsPVCs(rc.dcPods)
@@ -119,6 +120,28 @@ func (rc *ReconciliationContext) GetAllNodesInDC() ([]*corev1.Node, error) {
 	}
 	nodeNameSet := utils.UnionStringSet(getPVCsNodeNameSet(pvcs), getPodsNodeNameSet(rc.dcPods))
 	return rc.getNodesForNameSet(nodeNameSet)
+}
+
+func (rc *ReconciliationContext) GetAllNodes() ([]*corev1.Node, error) {
+	// Get all nodes
+	//
+	// we need to find all nodes for availability reasons
+	listOptions := &client.ListOptions{}
+
+	nodeList := &corev1.NodeList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Node",
+			APIVersion: "v1",
+		},
+	}
+	if err := rc.Client.List(rc.Ctx, nodeList, listOptions); err != nil {
+		return nil, err
+	}
+	var nodes []*corev1.Node
+	for _, node := range nodeList.Items {
+		nodes = append(nodes, &node)
+	}
+	return nodes, nil
 }
 
 func (rc *ReconciliationContext) GetDCPods() []*corev1.Pod {
