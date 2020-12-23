@@ -465,11 +465,11 @@ func TestCassandraDatacenter_buildPodTemplateSpec_propagate_volumes(t *testing.T
 
 	if !reflect.DeepEqual(spec.Spec.InitContainers[0].VolumeMounts,
 		[]corev1.VolumeMount{
-			corev1.VolumeMount{
+			{
 				Name:      "extra",
 				MountPath: "/extra",
 			},
-			corev1.VolumeMount{
+			{
 				Name:      "server-config",
 				MountPath: "/config",
 			},
@@ -479,25 +479,25 @@ func TestCassandraDatacenter_buildPodTemplateSpec_propagate_volumes(t *testing.T
 
 	if !reflect.DeepEqual(spec.Spec.Containers[0].VolumeMounts,
 		[]corev1.VolumeMount{
-			corev1.VolumeMount{
-				Name:      "extra",
-				MountPath: "/extra",
-			},
-			corev1.VolumeMount{
-				Name:      "server-config",
-				MountPath: "/config",
-			},
-			corev1.VolumeMount{
+			{
 				Name:      "server-logs",
 				MountPath: "/var/log/cassandra",
 			},
-			corev1.VolumeMount{
+			{
 				Name:      "server-data",
 				MountPath: "/var/lib/cassandra",
 			},
-			corev1.VolumeMount{
+			{
 				Name:      "encryption-cred-storage",
 				MountPath: "/etc/encryption/",
+			},
+			{
+				Name:      "extra",
+				MountPath: "/extra",
+			},
+			{
+				Name:      "server-config",
+				MountPath: "/config",
 			},
 		}) {
 		t.Errorf("Unexpected volume mounts for the cassandra container: %v", spec.Spec.Containers[0].VolumeMounts)
@@ -506,7 +506,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_propagate_volumes(t *testing.T
 	// Logger just gets the logs
 	if !reflect.DeepEqual(spec.Spec.Containers[1].VolumeMounts,
 		[]corev1.VolumeMount{
-			corev1.VolumeMount{
+			{
 				Name:      "server-logs",
 				MountPath: "/var/log/cassandra",
 			},

@@ -84,3 +84,113 @@ func Test_newStatefulSetForCassandraDatacenter_rackNodeAffinitylabels(t *testing
 
 	assert.Equal(t, expected, nodeAffinityLabels)
 }
+
+func Test_newStatefulSetForCassandraDatacenterWithAdditionalVolumes(t *testing.T) {
+	type args struct {
+		rackName     string
+		dc           *api.CassandraDatacenter
+		replicaCount int
+	}
+
+	customCassandraDataStorageClass := "data"
+	customCassandraServerLogsStorageClass := "logs"
+	customCassandraCommitLogsStorageClass := "commitlogs"
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "test nodeSelector",
+			args: args{
+				rackName:     "r1",
+				replicaCount: 1,
+				dc: &api.CassandraDatacenter{
+					Spec: api.CassandraDatacenterSpec{
+						ClusterName:  "c1",
+						PodTemplateSpec: &corev1.PodTemplateSpec{
+							Spec: corev1.PodSpec {
+								InitContainers: []corev1.Container {
+									{
+										Name: "initContainer1",
+										Image: "initImage1",
+										VolumeMounts: []corev1.VolumeMount{
+											{
+												Name: "server-logs",
+												MountPath: "/var/log/cassandra",
+											},
+										},
+									},
+								},
+							},
+						},
+						StorageConfig: api.StorageConfig{
+							CassandraDataVolumeClaimSpec: &corev1.PersistentVolumeClaimSpec{
+								StorageClassName: &customCassandraDataStorageClass,
+							},
+							AdditionalVolumes: api.AdditionalVolumesSlice{
+								api.AdditionalVolumes {
+									MountPath: "/var/log/cassandra",
+									Name: "server-logs",
+									PVCSpec: corev1.PersistentVolumeClaimSpec{
+										StorageClassName: &customCassandraServerLogsStorageClass,
+									},
+								},
+								api.AdditionalVolumes{
+									MountPath: "/var/lib/cassandra/commitlog",
+									Name: "cassandra-commitlogs",
+									PVCSpec: corev1.PersistentVolumeClaimSpec{
+										StorageClassName: &customCassandraCommitLogsStorageClass,
+									},
+								},
+							},
+						},
+						ServerType:    "cassandra",
+						ServerVersion: "3.11.7",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Log(tt.name)
+		got, err := newStatefulSetForCassandraDatacenter(tt.args.rackName, tt.args.dc, tt.args.replicaCount)
+		assert.NoError(t, err, "newStatefulSetForCassandraDatacenter should not have errored")
+		assert.NotNil(t, got, "newStatefulSetForCassandraDatacenter should not have returned a nil statefulset")
+
+		assert.Equal(t, 3, len(got.Spec.VolumeClaimTemplates))
+		assert.Equal(t, "server-data", got.Spec.VolumeClaimTemplates[0].Name)
+		assert.Equal(t, customCassandraDataStorageClass, *got.Spec.VolumeClaimTemplates[0].Spec.StorageClassName)
+		assert.Equal(t, "server-logs", got.Spec.VolumeClaimTemplates[1].Name)
+		assert.Equal(t, customCassandraServerLogsStorageClass, *got.Spec.VolumeClaimTemplates[1].Spec.StorageClassName)
+		assert.Equal(t, "cassandra-commitlogs", got.Spec.VolumeClaimTemplates[2].Name)
+		assert.Equal(t, customCassandraCommitLogsStorageClass, *got.Spec.VolumeClaimTemplates[2].Spec.StorageClassName)
+
+		assert.Equal(t, 2, len(got.Spec.Template.Spec.Volumes))
+		assert.Equal(t, "server-config", got.Spec.Template.Spec.Volumes[0].Name)
+		assert.Equal(t, "encryption-cred-storage", got.Spec.Template.Spec.Volumes[1].Name)
+
+		assert.Equal(t, 2, len(got.Spec.Template.Spec.Containers))
+
+		assert.Equal(t, 5, len(got.Spec.Template.Spec.Containers[0].VolumeMounts))
+		assert.Equal(t, "server-logs", got.Spec.Template.Spec.Containers[0].VolumeMounts[0].Name)
+		assert.Equal(t, "cassandra-commitlogs", got.Spec.Template.Spec.Containers[0].VolumeMounts[1].Name)
+		assert.Equal(t, "server-data", got.Spec.Template.Spec.Containers[0].VolumeMounts[2].Name)
+		assert.Equal(t, "encryption-cred-storage", got.Spec.Template.Spec.Containers[0].VolumeMounts[3].Name)
+		assert.Equal(t, "server-config", got.Spec.Template.Spec.Containers[0].VolumeMounts[4].Name)
+
+		assert.Equal(t, 2, len(got.Spec.Template.Spec.Containers[1].VolumeMounts))
+		assert.Equal(t, 2, len(got.Spec.Template.Spec.InitContainers))
+
+		assert.Equal(t, "initContainer1", got.Spec.Template.Spec.InitContainers[0].Name)
+		assert.Equal(t, "initImage1", got.Spec.Template.Spec.InitContainers[0].Image)
+		assert.Equal(t, 1, len(got.Spec.Template.Spec.InitContainers[0].VolumeMounts))
+		assert.Equal(t, "server-logs", got.Spec.Template.Spec.InitContainers[0].VolumeMounts[0].Name)
+		assert.Equal(t, "/var/log/cassandra", got.Spec.Template.Spec.InitContainers[0].VolumeMounts[0].MountPath)
+
+		assert.Equal(t, "server-config-init", got.Spec.Template.Spec.InitContainers[1].Name)
+		assert.Equal(t, "datastax/cass-config-builder:1.0.3", got.Spec.Template.Spec.InitContainers[1].Image)
+		assert.Equal(t, 1, len(got.Spec.Template.Spec.InitContainers[1].VolumeMounts))
+		assert.Equal(t, "server-config", got.Spec.Template.Spec.InitContainers[1].VolumeMounts[0].Name)
+		assert.Equal(t, "/config", got.Spec.Template.Spec.InitContainers[1].VolumeMounts[0].MountPath)
+	}
+}
