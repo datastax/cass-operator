@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-logr/logr"
 	logrtesting "github.com/go-logr/logr/testing"
-	
 
 	"github.com/datastax/cass-operator/operator/internal/result"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
@@ -36,6 +35,21 @@ func IsContinue(t *testing.T, r result.ReconcileResult, msg string) {
 
 type MockEMMService struct {
 	mock.Mock
+}
+
+func (m *MockEMMService) getPodNameSet() utils.StringSet {
+	args := m.Called()
+	return args.Get(0).(utils.StringSet)
+}
+
+func (m *MockEMMService) getNodeNameSet() (utils.StringSet, error) {
+	args := m.Called()
+	return args.Get(0).(utils.StringSet), args.Error(1)
+}
+
+func (m *MockEMMService) emmFailureStillProcessing() (bool, error) {
+	args := m.Called()
+	return args.Get(0).(bool), args.Error(1)
 }
 
 func (m *MockEMMService) getRacksWithNotReadyPodsBootstrapped() []string {
@@ -132,43 +146,64 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.AssertExpectations(t)
 	IsRequeue(t, r, "")
 
-	
+	// When emm failure is still processing  then requeue
+	testObj = &MockEMMService{}
+	testObj.On("cleanupEMMAnnotations").Return(false, nil)
+	testObj.On("emmFailureStillProcessing").Return(true, nil)
+
+	r = checkNodeEMM(testObj)
+	testObj.AssertExpectations(t)
+	IsRequeue(t, r, "")
+
 	// When datacenter is not initialized, ignore EMM taints
 	testObj = &MockEMMService{}
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
+	testObj.On("emmFailureStillProcessing").Return(false, nil)
 	testObj.On("IsInitialized").Return(false)
 
 	r = checkNodeEMM(testObj)
 	testObj.AssertExpectations(t)
 	IsContinue(t, r, "")
 
-
-	// When datacenter is not stopped, fail all EMM operations to evacuate 
+	// When datacenter is not stopped, fail all EMM operations to evacuate
 	// data as cassandra is not running to rebuild the impacted cassandra
 	// nodes
 	testObj = &MockEMMService{}
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
+	testObj.On("emmFailureStillProcessing").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(true)
 	testObj.On("getPlannedDownTimeNodeNameSet").Return(utils.StringSet{"node1": true, "node2": true}, nil)
 	testObj.On("getEvacuateAllDataNodeNameSet").Return(utils.StringSet{"node3": true}, nil)
+	testObj.On("getNodeNameSet").Return(utils.StringSet{
+		"node1": true, "node2": true,
+		"node3": true, "node4": true,
+		"node5": true, "node6": true,
+	}, nil)
+	testObj.On("getPodNameSet").Return(utils.StringSet{"pod1": true, "pod2": true, "pod3": true})
 	testObj.On("failEMM", "node3", GenericFailure).Return(true, nil)
 
 	r = checkNodeEMM(testObj)
 	testObj.AssertExpectations(t)
-	IsRequeue(t, r, "")	
+	IsRequeue(t, r, "")
 
-
-	// When there are no extraneous EMM failure annotations, and there are 
+	// When there are no extraneous EMM failure annotations, and there are
 	// pods not ready on multiple racks, fail EMM for all nodes tainted for
 	// EMM
 	testObj = &MockEMMService{}
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
+	testObj.On("emmFailureStillProcessing").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
 	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{"rack1", "rack2"})
 	testObj.On("getPlannedDownTimeNodeNameSet").Return(utils.StringSet{"node1": true, "node2": true}, nil)
 	testObj.On("getEvacuateAllDataNodeNameSet").Return(utils.StringSet{"node3": true}, nil)
+	testObj.On("getNodeNameSet").Return(utils.StringSet{
+		"node1": true, "node2": true,
+		"node3": true, "node4": true,
+		"node5": true, "node6": true,
+	}, nil)
+	testObj.On("getPodNameSet").Return(utils.StringSet{"pod1": true, "pod2": true, "pod3": true})
 	testObj.On("failEMM", "node1", TooManyExistingFailures).Return(true, nil)
 	testObj.On("failEMM", "node2", TooManyExistingFailures).Return(true, nil)
 	testObj.On("failEMM", "node3", TooManyExistingFailures).Return(true, nil)
@@ -177,18 +212,24 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.AssertExpectations(t)
 	IsRequeue(t, r, "")
 
-
-	// When there are no extraneous EMM failure annotations, and there are 
-	// pods not ready on one rack, fail EMM for all nodes not part of that 
+	// When there are no extraneous EMM failure annotations, and there are
+	// pods not ready on one rack, fail EMM for all nodes not part of that
 	// rack
 	testObj = &MockEMMService{}
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
+	testObj.On("emmFailureStillProcessing").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
 	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{"rack1"})
 	testObj.On("getPlannedDownTimeNodeNameSet").Return(utils.StringSet{"node1": true, "node2": true}, nil)
 	testObj.On("getEvacuateAllDataNodeNameSet").Return(utils.StringSet{"node3": true}, nil)
 	testObj.On("getRackNodeNameSet", "rack1").Return(utils.StringSet{"node2": true})
+	testObj.On("getNodeNameSet").Return(utils.StringSet{
+		"node1": true, "node2": true,
+		"node3": true, "node4": true,
+		"node5": true, "node6": true,
+	}, nil)
+	testObj.On("getPodNameSet").Return(utils.StringSet{"pod1": true, "pod2": true, "pod3": true})
 	testObj.On("failEMM", "node1", TooManyExistingFailures).Return(true, nil)
 	testObj.On("failEMM", "node3", TooManyExistingFailures).Return(true, nil)
 
@@ -196,18 +237,24 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.AssertExpectations(t)
 	IsRequeue(t, r, "")
 
-
 	// When there are no extraneous EMM failure annotations, there are not
 	// multiple racks with pods not ready, and all nodes marked for EMM have pods
 	// for the rack with not ready pods, delete any not ready pods on the nodes
 	// marked for EMM.
 	testObj = &MockEMMService{}
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
+	testObj.On("emmFailureStillProcessing").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
 	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{"rack1"})
 	testObj.On("getPlannedDownTimeNodeNameSet").Return(utils.StringSet{"node1": true, "node2": true}, nil)
 	testObj.On("getEvacuateAllDataNodeNameSet").Return(utils.StringSet{}, nil)
+	testObj.On("getNodeNameSet").Return(utils.StringSet{
+		"node1": true, "node2": true,
+		"node3": true, "node4": true,
+		"node5": true, "node6": true,
+	}, nil)
+	testObj.On("getPodNameSet").Return(utils.StringSet{"pod1": true, "pod2": true, "pod3": true})
 	testObj.On("getRackNodeNameSet", "rack1").Return(utils.StringSet{"node1": true, "node2": true})
 	testObj.On("removeAllNotReadyPodsOnEMMNodes").Return(true, nil)
 
@@ -216,17 +263,24 @@ func Test_checkNodeEMM(t *testing.T) {
 	IsRequeue(t, r, "")
 
 	// When there are no extraneous EMM failure annotations, therea are not
-	// multiple racks with pods not ready, and all nodes marked for EMM have 
+	// multiple racks with pods not ready, and all nodes marked for EMM have
 	// pods for the rack with not ready pods, there are no not ready pods on
 	// the nodes marked for EMM, perform a replace on any pod with a PVC
 	// associated with a node marked for EMM evacuate data.
 	testObj = &MockEMMService{}
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
+	testObj.On("emmFailureStillProcessing").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
 	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{"rack1"})
 	testObj.On("getPlannedDownTimeNodeNameSet").Return(utils.StringSet{}, nil)
 	testObj.On("getEvacuateAllDataNodeNameSet").Return(utils.StringSet{"node2": true}, nil)
+	testObj.On("getNodeNameSet").Return(utils.StringSet{
+		"node1": true, "node2": true,
+		"node3": true, "node4": true,
+		"node5": true, "node6": true,
+	}, nil)
+	testObj.On("getPodNameSet").Return(utils.StringSet{"pod1": true, "pod2": true, "pod3": true})
 	testObj.On("getRackNodeNameSet", "rack1").Return(utils.StringSet{"node1": true, "node2": true})
 	testObj.On("removeAllNotReadyPodsOnEMMNodes").Return(false, nil)
 	testObj.On("performEvacuateDataPodReplace").Return(true, nil)
@@ -235,20 +289,26 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.AssertExpectations(t)
 	IsRequeue(t, r, "")
 
-
 	// When there are no extraneous EMM failure annotations, therea are not
-	// multiple racks with pods not ready, and all nodes marked for EMM have 
+	// multiple racks with pods not ready, and all nodes marked for EMM have
 	// pods for the rack with not ready pods, there are no not ready pods on
 	// the nodes marked for EMM, and there are pods not ready not on the EMM
 	// nodes that are scheduable, return and continue to allow the pods to
 	// start and--hopefully--become ready.
 	testObj = &MockEMMService{}
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
+	testObj.On("emmFailureStillProcessing").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
 	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{"rack1"})
 	testObj.On("getPlannedDownTimeNodeNameSet").Return(utils.StringSet{}, nil)
 	testObj.On("getEvacuateAllDataNodeNameSet").Return(utils.StringSet{"node2": true}, nil)
+	testObj.On("getNodeNameSet").Return(utils.StringSet{
+		"node1": true, "node2": true,
+		"node3": true, "node4": true,
+		"node5": true, "node6": true,
+	}, nil)
+	testObj.On("getPodNameSet").Return(utils.StringSet{"pod1": true, "pod2": true, "pod3": true})
 	testObj.On("getRackNodeNameSet", "rack1").Return(utils.StringSet{"node1": true, "node2": true})
 	testObj.On("removeAllNotReadyPodsOnEMMNodes").Return(false, nil)
 	testObj.On("performEvacuateDataPodReplace").Return(false, nil)
@@ -257,16 +317,22 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.AssertExpectations(t)
 	IsContinue(t, r, "should continue reconcile to allow cassandra to be started on not ready pods")
 
-
 	// When there are no pods not ready, remove a pod from an EMM node
 	// marked for evacuate all data.
 	testObj = &MockEMMService{}
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
+	testObj.On("emmFailureStillProcessing").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
 	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{})
 	testObj.On("getPlannedDownTimeNodeNameSet").Return(utils.StringSet{}, nil)
 	testObj.On("getEvacuateAllDataNodeNameSet").Return(utils.StringSet{"node2": true}, nil)
+	testObj.On("getNodeNameSet").Return(utils.StringSet{
+		"node1": true, "node2": true,
+		"node3": true, "node4": true,
+		"node5": true, "node6": true,
+	}, nil)
+	testObj.On("getPodNameSet").Return(utils.StringSet{"pod1": true, "pod2": true, "pod3": true})
 	testObj.On("removeAllNotReadyPodsOnEMMNodes").Return(false, nil)
 	testObj.On("removeNextPodFromEvacuateDataNode").Return(true, nil)
 
@@ -274,16 +340,22 @@ func Test_checkNodeEMM(t *testing.T) {
 	testObj.AssertExpectations(t)
 	IsRequeue(t, r, "")
 
-	
 	// When there are no pods not ready and no nodes are marked for evacuate
 	// data, remove all pods for a node marked for planned down time
 	testObj = &MockEMMService{}
 	testObj.On("cleanupEMMAnnotations").Return(false, nil)
+	testObj.On("emmFailureStillProcessing").Return(false, nil)
 	testObj.On("IsInitialized").Return(true)
 	testObj.On("IsStopped").Return(false)
 	testObj.On("getRacksWithNotReadyPodsBootstrapped").Return([]string{})
 	testObj.On("getPlannedDownTimeNodeNameSet").Return(utils.StringSet{}, nil)
 	testObj.On("getEvacuateAllDataNodeNameSet").Return(utils.StringSet{"node2": true}, nil)
+	testObj.On("getNodeNameSet").Return(utils.StringSet{
+		"node1": true, "node2": true,
+		"node3": true, "node4": true,
+		"node5": true, "node6": true,
+	}, nil)
+	testObj.On("getPodNameSet").Return(utils.StringSet{"pod1": true, "pod2": true, "pod3": true})
 	testObj.On("removeAllNotReadyPodsOnEMMNodes").Return(false, nil)
 	testObj.On("removeNextPodFromEvacuateDataNode").Return(false, nil)
 	testObj.On("removeAllPodsFromOnePlannedDowntimeNode").Return(true, nil)
@@ -291,8 +363,47 @@ func Test_checkNodeEMM(t *testing.T) {
 	r = checkNodeEMM(testObj)
 	testObj.AssertExpectations(t)
 	IsRequeue(t, r, "")
-}
 
+	// When there are no available nodes to evacuate too
+	// fail emm
+	testObj = &MockEMMService{}
+	testObj.On("cleanupEMMAnnotations").Return(false, nil)
+	testObj.On("emmFailureStillProcessing").Return(false, nil)
+	testObj.On("IsInitialized").Return(true)
+	testObj.On("getPlannedDownTimeNodeNameSet").Return(utils.StringSet{}, nil)
+	testObj.On("getEvacuateAllDataNodeNameSet").Return(utils.StringSet{"node2": true}, nil)
+	testObj.On("getNodeNameSet").Return(utils.StringSet{
+		"node1": true,
+		"node2": true,
+		"node3": true,
+	}, nil)
+	testObj.On("getPodNameSet").Return(utils.StringSet{"pod1": true, "pod2": true, "pod3": true})
+	testObj.On("failEMM", "node2", NotEnoughResources).Return(true, nil)
+
+	r = checkNodeEMM(testObj)
+	testObj.AssertExpectations(t)
+	IsRequeue(t, r, "")
+
+	// When there are no available nodes to during a planned downtime
+	// for a node with a pod then fail emm
+	testObj = &MockEMMService{}
+	testObj.On("cleanupEMMAnnotations").Return(false, nil)
+	testObj.On("emmFailureStillProcessing").Return(false, nil)
+	testObj.On("IsInitialized").Return(true)
+	testObj.On("getPlannedDownTimeNodeNameSet").Return(utils.StringSet{"node2": true}, nil)
+	testObj.On("getEvacuateAllDataNodeNameSet").Return(utils.StringSet{}, nil)
+	testObj.On("getNodeNameSet").Return(utils.StringSet{
+		"node1": true,
+		"node2": true,
+		"node3": true,
+	}, nil)
+	testObj.On("getPodNameSet").Return(utils.StringSet{"pod1": true, "pod2": true, "pod3": true})
+	testObj.On("failEMM", "node2", NotEnoughResources).Return(true, nil)
+
+	r = checkNodeEMM(testObj)
+	testObj.AssertExpectations(t)
+	IsRequeue(t, r, "")
+}
 
 func Test_checkPVCHealth(t *testing.T) {
 	// When no pods have PVCs marked as inaccessible, do nothing and continue
@@ -326,6 +437,11 @@ func Test_checkPVCHealth(t *testing.T) {
 
 type MockEMMSPI struct {
 	mock.Mock
+}
+
+func (m *MockEMMSPI) GetAllNodes() ([]*corev1.Node, error) {
+	args := m.Called()
+	return args.Get(0).([]*corev1.Node), args.Error(1)
 }
 
 func (m *MockEMMSPI) GetAllNodesInDC() ([]*corev1.Node, error) {
@@ -400,8 +516,8 @@ func evacuateDataNode(name string) *corev1.Node {
 	node.Name = name
 	node.Spec.Taints = []corev1.Taint{
 		corev1.Taint{
-			Key: "node.vmware.com/drain",
-			Value: "drain",
+			Key:    "node.vmware.com/drain",
+			Value:  "drain",
 			Effect: corev1.TaintEffectNoSchedule,
 		},
 	}
@@ -413,7 +529,7 @@ func Test_removeAllNotReadyPodsOnEMMNodes(t *testing.T) {
 	var testObj *MockEMMSPI
 
 	testObj = &MockEMMSPI{}
-	service = &EMMServiceImpl {
+	service = &EMMServiceImpl{
 		EMMSPI: testObj,
 	}
 

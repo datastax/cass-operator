@@ -30,6 +30,15 @@ func SubtractStringSet(a, b StringSet) StringSet {
 	return result
 }
 
+func IntersectionStringSet(a, b StringSet) StringSet {
+	result := StringSet{}
+	for k, v := range a {
+		if v && b[k] {
+			result[k] = true
+		}
+	}
+	return result
+}
 
 //
 // k8s Node helper functions
