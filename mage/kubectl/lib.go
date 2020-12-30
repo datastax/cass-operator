@@ -43,11 +43,15 @@ func GetKubeconfig(createDefault bool) string {
 }
 
 func WatchPods() {
-	shutil.RunVPanic("watch", "-n1", "kubectl", "get", "pods")
+	args := []string{"pods", "-w"}
+	kCmd := KCmd{Command: "get", Args: args, Flags: nil}
+	kCmd.ExecVPanic()
 }
 
 func WatchPodsInNs(namespace string) {
-	shutil.RunVPanic("watch", "-n1", "kubectl", "get", "pods", fmt.Sprintf("--namespace=%s", namespace))
+	args := []string{"pods", "--namespace", namespace, "-w"}
+	kCmd := KCmd{Command: "watch", Args: args, Flags: nil}
+	kCmd.ExecVPanic()
 }
 
 //==============================================
