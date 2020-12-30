@@ -328,7 +328,7 @@ features.
 Almost every build, test, or development task requires the following
 pre-requisites...
 
-* Golang 1.13
+* Golang 1.14
 * Docker, either the docker.io packages on Ubuntu, Docker Desktop for Mac,
   or your preferred docker distribution.
 * [mage](https://magefile.org/): There are some tips for using mage in
