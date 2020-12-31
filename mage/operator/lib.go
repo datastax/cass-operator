@@ -539,7 +539,7 @@ func doGenerateClient() {
 	runArgs := []string{"-t", "--rm", "-u", fmt.Sprintf("%s:%s", usr.Uid, usr.Gid)}
 	execArgs := []string{"client", "github.com/datastax/cass-operator/operator/pkg/generated",
 		"github.com/datastax/cass-operator/operator/pkg/apis", "cassandra:v1beta1"}
-	volumes := []string{fmt.Sprintf("%s/operator:/go/src/github.com/datastax/cass-operator/operator", cwd)}
+	volumes := []string{fmt.Sprintf("%s:/go/src/github.com/datastax/cass-operator", cwd)}
 	dockerutil.Run(genClientImage, volumes, nil, nil, runArgs, execArgs).ExecVPanic()
 }
 
