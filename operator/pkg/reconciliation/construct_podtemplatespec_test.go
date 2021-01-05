@@ -709,7 +709,6 @@ func TestCassandraDatacenter_buildPodTemplateSpec_labels_merge(t *testing.T) {
 	}
 }
 
-// A volume added to ServerConfigContainerName should be added to all built-in containers
 func TestCassandraDatacenter_buildPodTemplateSpec_do_not_propagate_volumes(t *testing.T) {
 	dc := &api.CassandraDatacenter{
 		Spec: api.CassandraDatacenterSpec{
@@ -745,64 +744,35 @@ func TestCassandraDatacenter_buildPodTemplateSpec_do_not_propagate_volumes(t *te
 	spec, err := buildPodTemplateSpec(dc, map[string]string{zoneLabel: "testzone"}, "testrack")
 	assert.NoError(t, err, "should not have gotten error when building podTemplateSpec")
 
-	if !reflect.DeepEqual(spec.Spec.InitContainers[0].VolumeMounts,
-		[]corev1.VolumeMount{
-			{
-				Name:      "extra",
-				MountPath: "/extra",
-			},
-			{
-				Name:      "server-config",
-				MountPath: "/config",
-			},
-		}) {
-		t.Errorf("Unexpected volume mounts for the init config container: %v", spec.Spec.InitContainers[0].VolumeMounts)
-	}
+	initContainers := spec.Spec.InitContainers
 
-	if !reflect.DeepEqual(spec.Spec.Containers[0].VolumeMounts,
-		[]corev1.VolumeMount{
-			corev1.VolumeMount{
-				Name:      "extra",
-				MountPath: "/extra",
-			},
-			corev1.VolumeMount{
-				Name:      "server-config",
-				MountPath: "/config",
-			},
-			corev1.VolumeMount{
-				Name:      "server-logs",
-				MountPath: "/var/log/cassandra",
-			},
-			{
-				Name:      "server-data",
-				MountPath: "/var/lib/cassandra",
-			},
-			{
-				Name:      "encryption-cred-storage",
-				MountPath: "/etc/encryption/",
-			},
-			{
-				Name:      "extra",
-				MountPath: "/extra",
-			},
-			{
-				Name:      "server-config",
-				MountPath: "/config",
-			},
-		}) {
-		t.Errorf("Unexpected volume mounts for the cassandra container: %v", spec.Spec.Containers[0].VolumeMounts)
-	}
+	assert.Equal(t, 1, len(initContainers))
+	assert.Equal(t, ServerConfigContainerName, initContainers[0].Name)
 
-	// Logger just gets the logs
-	if !reflect.DeepEqual(spec.Spec.Containers[1].VolumeMounts,
-		[]corev1.VolumeMount{
-			{
-				Name:      "server-logs",
-				MountPath: "/var/log/cassandra",
-			},
-		}) {
-		t.Errorf("Unexpected volume mounts for the logger container: %v", spec.Spec.Containers[1].VolumeMounts)
-	}
+	serverConfigInitContainer := initContainers[0]
+	assert.Equal(t, 2, len(serverConfigInitContainer.VolumeMounts))
+	// We use a contains check here because the ordering is not important
+	assert.True(t, volumeMountsContains(serverConfigInitContainer.VolumeMounts, volumeMountNameMatcher("server-config")))
+	assert.True(t, volumeMountsContains(serverConfigInitContainer.VolumeMounts, volumeMountNameMatcher("extra")))
+
+
+	containers := spec.Spec.Containers
+	cassandraContainer := findContainer(containers, CassandraContainerName)
+	assert.NotNil(t, cassandraContainer)
+
+	cassandraVolumeMounts := cassandraContainer.VolumeMounts
+	assert.Equal(t, 4, len(cassandraVolumeMounts))
+	assert.True(t, volumeMountsContains(cassandraVolumeMounts, volumeMountNameMatcher("server-config")))
+	assert.True(t, volumeMountsContains(cassandraVolumeMounts, volumeMountNameMatcher("server-logs")))
+	assert.True(t, volumeMountsContains(cassandraVolumeMounts, volumeMountNameMatcher("encryption-cred-storage")))
+	assert.True(t, volumeMountsContains(cassandraVolumeMounts, volumeMountNameMatcher("server-data")))
+
+	systemLoggerContainer := findContainer(containers, SystemLoggerContainerName)
+	assert.NotNil(t, systemLoggerContainer)
+
+	systemLoggerVolumeMounts := systemLoggerContainer.VolumeMounts
+	assert.Equal(t, 1, len(systemLoggerVolumeMounts))
+	assert.True(t, volumeMountsContains(systemLoggerVolumeMounts, volumeMountNameMatcher("server-logs")))
 }
 
 func TestCassandraDatacenter_buildContainers_DisableSystemLoggerSidecar(t *testing.T) {

@@ -231,6 +231,9 @@ func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpe
 
 	volumeDefaults := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
 
+	volumeDefaults = combineVolumeSlices(
+		volumeDefaults, baseTemplate.Spec.Volumes)
+
 	baseTemplate.Spec.Volumes = symmetricDifference(volumeDefaults, generateStorageConfigEmptyVolumes(dc))
 }
 
