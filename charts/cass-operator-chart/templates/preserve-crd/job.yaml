@@ -1,0 +1,23 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ .Release.Name }}-preserve-crd
+  annotations:
+    "helm.sh/hook": pre-upgrade
+    "helm.sh/hook-delete-policy": hook-succeeded,before-hook-creation
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ .Release.Name }}-preserve-crd
+      containers:
+        - name: apply-resource-policy
+          image: bitnami/kubectl:1.20.1
+          imagePullPolicy: IfNotPresent
+          args:
+          - patch
+          - crd
+          - cassandradatacenters.cassandra.datastax.com
+          - -p
+          - '{"metadata":{"annotations": {"helm.sh/resource-policy": "keep"}}}'
