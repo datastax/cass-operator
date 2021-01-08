@@ -1,6 +1,6 @@
 # We use the K8s code-generator to generate client boilerplate for our operator.
 # More information can be found at: https://github.com/kubernetes/code-generator
-FROM golang:1.13-stretch
+FROM golang:1.14-stretch
 
 ENV CGO_ENABLED=0
 ENV GOPROXY=https://proxy.golang.org,https://gocenter.io,direct

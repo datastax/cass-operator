@@ -4,9 +4,9 @@
 #
 ##############################################
 
-FROM golang:1.13-stretch as install-operator-sdk
+FROM golang:1.14-stretch as install-operator-sdk
 
-# This Dockerfile sets up a clean go 1.13 environment with operator-sdk installed and tested.
+# This Dockerfile sets up a clean go 1.14 environment with operator-sdk installed and tested.
 #
 # It is not part of any operator build system, but rather exists to serve as reference clean
 # install of operator-sdk (pinned to a released version), their example project, and the kubernetes
