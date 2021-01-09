@@ -7,13 +7,13 @@ metadata:
     capabilities: Auto Pilot
     categories: Database,Big Data,OpenShift Optional
     certified: "true"
-    containerImage: registry.connect.redhat.com/datastax/cass-operator:1.4.1-ubi7
-    createdAt: "2020-09-10"
+    containerImage: registry.connect.redhat.com/datastax/cass-operator:1.5.0-ubi7
+    createdAt: "2020-11-22"
     description: |
       Simple provisioning, turn-key operations, and automated remediation of Apache Cassandra clusters
     repository: https://github.com/datastax/cass-operator
     support: DataStax
-  name: cass-operator.v1.4.1
+  name: cass-operator.v1.5.0
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
@@ -272,6 +272,15 @@ spec:
           displayName: Canary Upgrade
           x-descriptors:
             - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+        
+        - path: canaryUpgradeCount
+          description: |
+            The number of nodes that will be updated when CanaryUpgrade
+            is true. Note that the value is either 0 or greater than the rack
+            size, then all nodes in the rack will get updated.
+          displayName: Canary Upgrade Count
+          x-descriptors:
+            - urn:alm:descriptor:com.tectonic.ui:podCount
 
         - path: serverImage
           description: |
@@ -281,6 +290,13 @@ spec:
           x-descriptors: 
             - urn:alm:descriptor:com.tectonic.ui:text
             - urn:alm:descriptor:com.tectonic.ui:advanced
+        
+        - path: systemLoggerImage
+          description: |
+            Container image for the log tailing sidecar container.
+          displayName: System Logger Image
+          x-descriptors:
+            - urn:alm:descriptor:com.tectonic.ui:text
 
         - path: configBuilderImage
           description: |
@@ -309,6 +325,21 @@ spec:
             - urn:alm:descriptor:com.tectonic.ui:text
             - urn:alm:descriptor:com.tectonic.ui:arrayFieldGroup:replaceNodes
             - urn:alm:descriptor:com.tectonic.ui:advanced
+        
+        - path: disableSystemLoggerSidecar
+          description: |
+            Configuration for disabling the simple log tailing sidecar
+            container. Our default is to have it enabled.
+          displayName: Disable System Logger Sidecar
+          x-descriptors:
+            - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
+
+        - path: dockerImageRunsAsCassandra
+          description: |
+            Does the Server Docker image run as the Cassandra user?
+          displayName: Docker image runs as Cassandra
+          x-descriptors:
+            - urn:alm:descriptor:com.tectonic.ui:booleanSwitch
           
         - path: forceUpgradeRacks[0]
           description: |
@@ -443,6 +474,14 @@ spec:
         - path: conditions
           description: conditions
           displayName: Conditions
+        
+        - path: message
+          description: message
+          displayName: Message
+
+        - path: reason
+          description: reason
+          displayName: Reason
   description: |
     ## Apache Cassandra
 
@@ -658,16 +697,27 @@ spec:
     spec:
       clusterPermissions:
       - rules:
-        - apiGroups:
-          - admissionregistration.k8s.io
-          resourceNames:
-          - cassandradatacenter-webhook-registration
-          resources:
-          - validatingwebhookconfigurations
-          verbs:
-          - create
-          - get
-          - update
+          # Source clusterrole.yaml
+          - apiGroups:
+              - ""
+            resources:
+              - nodes
+              - persistentvolumes
+            verbs:
+              - get
+              - list
+              - watch
+          # Source webhook-cr.yaml
+          - apiGroups:
+              - admissionregistration.k8s.io
+            resourceNames:
+              - cassandradatacenter-webhook-registration
+            resources:
+              - validatingwebhookconfigurations
+            verbs:
+              - create
+              - get
+              - update
         serviceAccountName: cass-operator
       deployments:
       - name: cass-operator
@@ -696,7 +746,7 @@ spec:
                   value: cass-operator
                 - name: SKIP_VALIDATING_WEBHOOK
                   value: "FALSE"
-                image: registry.connect.redhat.com/datastax/cass-operator:1.4.1-ubi7
+                image: registry.connect.redhat.com/datastax/cass-operator:1.5.0-ubi7
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   exec:
@@ -834,8 +884,8 @@ spec:
   - email: cass-operator@datastax.com
     name: DataStax Operator Team
   maturity: stable
-  minKubeVersion: 1.13.0
+  minKubeVersion: 1.15.0
   provider:
     name: DataStax
-  replaces: cass-operator.v1.4.0
-  version: 1.4.1
+  replaces: cass-operator.v1.4.1
+  version: 1.5.0

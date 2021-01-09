@@ -40,8 +40,8 @@ _Note see Red Hat's [Gitbook](https://redhat-connect.gitbook.io/partner-guide-fo
 1. Copy an existing version as the base
    
     ```console
-    OLD_VERSION=1.4.0
-    NEW_VERSION=1.4.1
+    OLD_VERSION=1.4.1
+    NEW_VERSION=1.5.0
     cd operator/bundle
     cp -r $OLD_VERSION $NEW_VERSION
     cp bundle-$OLD_VERSION.Dockerfile bundle-$NEW_VERSION.Dockerfile
@@ -55,8 +55,8 @@ _Note see Red Hat's [Gitbook](https://redhat-connect.gitbook.io/partner-guide-fo
 3. Update version numbers in ClusterServiceVersion files
     
     ```console
-    sed s/"$OLD_VERSION"/$NEW_VERSION/g $NEW_VERSION/manifests/cass-operator.v$NEW_VERSION.clusterserviceversion.yaml
-    sed s/"$OLD_VERSION"/$NEW_VERSION/g bundle-$NEW_VERSION.Dockerfile
+    sed -i s/"$OLD_VERSION"/$NEW_VERSION/g $NEW_VERSION/manifests/cass-operator.v$NEW_VERSION.clusterserviceversion.yaml
+    sed -i s/"$OLD_VERSION"/$NEW_VERSION/g bundle-$NEW_VERSION.Dockerfile
     ```
 
 4. Copy in updated CRD
@@ -79,12 +79,16 @@ _Note see Red Hat's [Gitbook](https://redhat-connect.gitbook.io/partner-guide-fo
     ```console
     docker build -t bradfordcp/cass-operator-bundle:$NEW_VERSION -f bundle-$NEW_VERSION.Dockerfile .
     docker push bradfordcp/cass-operator-bundle:$NEW_VERSION
+
+    docker tag bradfordcp/cass-operator-bundle:$NEW_VERSION bradfordcp/cass-operator-bundle:latest
+    docker push bradfordcp/cass-operator-bundle:latest
     ```
 7. Build local catalog index for testing
     
     ```console
-    opm index add --bundles docker.io/bradfordcp/cass-operator-bundle:1.0.0,docker.io/bradfordcp/cass-operator-bundle:1.2.0,docker.io/bradfordcp/cass-operator-bundle:1.3.0,docker.io/bradfordcp/cass-operator-bundle:1.4.0,docker.io/bradfordcp/cass-operator-bundle:1.4.1 --tag docker.io/bradfordcp/catalog-index:1.4.1 -u docker
-    docker tag bradfordcp/catalog-index:1.4.1 bradfordcp/catalog-index:latest
+    opm index add --bundles docker.io/bradfordcp/cass-operator-bundle:1.0.0,docker.io/bradfordcp/cass-operator-bundle:1.2.0,docker.io/bradfordcp/cass-operator-bundle:1.3.0,docker.io/bradfordcp/cass-operator-bundle:1.4.0,docker.io/bradfordcp/cass-operator-bundle:1.4.1,docker.io/bradfordcp/cass-operator-bundle:1.5.0 --tag docker.io/bradfordcp/catalog-index:1.5.0 -u docker
+    docker tag bradfordcp/catalog-index:1.5.0 bradfordcp/catalog-index:latest
+    docker push bradfordcp/catalog-index:1.5.0
     docker push bradfordcp/catalog-index:latest
     ```
 8. Add index as a [`CatalogSource`](olm/catalogsource.yaml) in k8s
