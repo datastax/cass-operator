@@ -14,8 +14,6 @@ metadata:
             "clusterName": "cluster1",
             "serverType": "cassandra",
             "serverVersion": "3.11.7",
-            "serverImage": "registry.connect.redhat.com/datastax/cassandra:3.11.7",
-            "configBuilderImage": "registry.connect.redhat.com/datastax/cass-config-builder:1.0.0",
             "managementApiAuth": {
               "insecure": {}
             },
