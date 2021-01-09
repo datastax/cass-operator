@@ -231,6 +231,9 @@ func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpe
 
 	volumeDefaults := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
 
+	volumeDefaults = combineVolumeSlices(
+		volumeDefaults, baseTemplate.Spec.Volumes)
+
 	baseTemplate.Spec.Volumes = symmetricDifference(volumeDefaults, generateStorageConfigEmptyVolumes(dc))
 }
 
@@ -412,9 +415,11 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 	// Combine volumeMounts
 
 	var volumeDefaults []corev1.VolumeMount
-	for _, c := range baseTemplate.Spec.InitContainers {
-		volumeDefaults = combineVolumeMountSlices(volumeDefaults, c.VolumeMounts)
+	serverCfgMount := corev1.VolumeMount{
+		Name:      "server-config",
+		MountPath: "/config",
 	}
+	volumeDefaults = append(volumeDefaults, serverCfgMount)
 
 	cassServerLogsMount := corev1.VolumeMount{
 		Name:      "server-logs",
