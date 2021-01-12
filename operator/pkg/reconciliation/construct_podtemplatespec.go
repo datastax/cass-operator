@@ -439,6 +439,7 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 			},
 	})
 
+	volumeMounts = combineVolumeMountSlices(volumeMounts, cassContainer.VolumeMounts)
 	cassContainer.VolumeMounts = combineVolumeMountSlices(volumeMounts, generateStorageConfigVolumesMount(dc))
 
 	// Server Logger Container

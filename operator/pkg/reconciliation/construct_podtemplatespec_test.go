@@ -547,7 +547,8 @@ func TestCassandraDatacenter_buildPodTemplateSpec_add_container_with_volumes(t *
 	// This test adds a container, a new volume, a volume mount for the
 	// new volume, and mounts for existing volumes. Not only does the test
 	// verify that the container has the correct volumes, but it also verifies
-	// that the "built-in" containers have the correct mounts.
+	// that the "built-in" containers have the correct mounts. Note that a
+	// volume mount for the new volume is also added to the cassandra container.
 
 	dc := &api.CassandraDatacenter{
 		Spec: api.CassandraDatacenterSpec{
@@ -569,6 +570,15 @@ func TestCassandraDatacenter_buildPodTemplateSpec_add_container_with_volumes(t *
 									Name: "server-config",
 									MountPath: "/config",
 								},
+								{
+									Name: "test-data",
+									MountPath: "/test",
+								},
+							},
+						},
+						{
+							Name: "cassandra",
+							VolumeMounts: []corev1.VolumeMount{
 								{
 									Name: "test-data",
 									MountPath: "/test",
@@ -627,11 +637,12 @@ func TestCassandraDatacenter_buildPodTemplateSpec_add_container_with_volumes(t *
 	assert.NotNil(t, cassandraContainer)
 
 	cassandraVolumeMounts := cassandraContainer.VolumeMounts
-	assert.Equal(t, 4, len(cassandraVolumeMounts))
+	assert.Equal(t, 5, len(cassandraVolumeMounts))
 	assert.True(t, volumeMountsContains(cassandraVolumeMounts, volumeMountNameMatcher("server-config")))
 	assert.True(t, volumeMountsContains(cassandraVolumeMounts, volumeMountNameMatcher("server-logs")))
 	assert.True(t, volumeMountsContains(cassandraVolumeMounts, volumeMountNameMatcher("encryption-cred-storage")))
 	assert.True(t, volumeMountsContains(cassandraVolumeMounts, volumeMountNameMatcher("server-data")))
+	assert.True(t, volumeMountsContains(cassandraVolumeMounts, volumeMountNameMatcher("test-data")))
 
 	loggerContainer := findContainer(containers, SystemLoggerContainerName)
 	assert.NotNil(t, loggerContainer)
