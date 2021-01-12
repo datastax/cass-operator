@@ -99,7 +99,7 @@ var imageLookupMap map[Image]string = map[Image]string{
 	ConfigBuilder:    "datastax/cass-config-builder:1.0.3",
 	UBIConfigBuilder: "datastax/cass-config-builder:1.0.3-ubi7",
 
-	BusyBox: "busybox",
+	BusyBox: "busybox:1.32.0-uclibc",
 	Reaper:  "thelastpickle/cassandra-reaper:2.0.5",
 }
 
