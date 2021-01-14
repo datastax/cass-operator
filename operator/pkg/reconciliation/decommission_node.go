@@ -157,20 +157,21 @@ func (rc *ReconciliationContext) CheckDecommissioningNodes(epData httphelper.Cas
 
 	for _, pod := range rc.dcPods {
 		if pod.Labels[api.CassNodeState] == stateDecommissioning {
-			if !HasStartedDecommissioning(pod, epData) {
-				rc.ReqLogger.Info("Decommission has not started trying again")
-				if err := rc.NodeMgmtClient.CallDecommissionNodeEndpoint(pod); err != nil {
-					rc.ReqLogger.Info(fmt.Sprintf("Error from decomimssion attempt. This is only an attempt and can fail. Error: %v", err))
+			if !IsDoneDecommissioning(pod, epData) {
+				if !HasStartedDecommissioning(pod, epData) {
+					rc.ReqLogger.Info("Decommission has not started trying again")
+					if err := rc.NodeMgmtClient.CallDecommissionNodeEndpoint(pod); err != nil {
+						rc.ReqLogger.Info(fmt.Sprintf("Error from decomimssion attempt. This is only an attempt and can fail. Error: %v", err))
+					}
+				} else {
+					rc.ReqLogger.Info("Node decommissioning, reconciling again soon")
 				}
-			} else if !IsDoneDecommissioning(pod, epData) {
-				rc.ReqLogger.Info("Node decommissioning, reconciling again soon")
 			} else {
 				rc.ReqLogger.Info("Node finished decommissioning")
 				if res := rc.cleanUpAfterDecommissionedPod(pod); res != nil {
 					return res
 				}
 			}
-
 			return result.RequeueSoon(5)
 		}
 	}
@@ -199,7 +200,6 @@ func (rc *ReconciliationContext) cleanUpAfterDecommissionedPod(pod *corev1.Pod) 
 	if err != nil {
 		return result.Error(err)
 	}
-
 	rc.ReqLogger.Info("Deleting pod PVCs")
 	err = rc.DeletePodPvcs(pod)
 	if err != nil {
@@ -222,10 +222,10 @@ func HasStartedDecommissioning(pod *v1.Pod, epData httphelper.CassMetadataEndpoi
 	for idx := range epData.Entity {
 		ep := &epData.Entity[idx]
 		if ep.GetRpcAddress() == pod.Status.PodIP {
-			return !strings.HasPrefix(ep.Status, "LEAVING")
+			return strings.HasPrefix(ep.Status, "LEAVING")
 		}
 	}
-	return true
+	return false
 }
 
 func IsDoneDecommissioning(pod *v1.Pod, epData httphelper.CassMetadataEndpoints) bool {
