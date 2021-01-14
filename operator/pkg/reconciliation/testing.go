@@ -185,19 +185,7 @@ func k8sMockClientGet(mockClient *mocks.Client, returnArg interface{}) *mock.Cal
 }
 
 func k8sMockClientStatus(mockClient *mocks.Client, returnArg interface{}) *mock.Call {
-	return mockClient.On("Status",
-		mock.MatchedBy(
-			func(ctx context.Context) bool {
-				return ctx != nil
-			}),
-		mock.MatchedBy(
-			func(key client.ObjectKey) bool {
-				return key != client.ObjectKey{}
-			}),
-		mock.MatchedBy(
-			func(obj runtime.Object) bool {
-				return obj != nil
-			})).
+	return mockClient.On("Status").
 		Return(returnArg).
 		Once()
 }
