@@ -272,7 +272,21 @@ func (impl *EMMServiceImpl) getNodeNameSet() (utils.StringSet, error) {
 	if err != nil {
 		return nil, err
 	}
-	nameSet := utils.GetNodeNameSet(nodes)
+	totalNodes := len(nodes)
+
+	agentNodesIndex := []int{}
+	for i := 0; i < totalNodes; i++ {
+		if nodes[i].Labels["kubernetes.io/role"] == "agent" {
+			agentNodesIndex = append(agentNodesIndex, i)
+		}
+	}
+
+	agents := make([]*corev1.Node, len(agentNodesIndex))
+	for i, agentIndex := range agentNodesIndex {
+		agents[i] = nodes[agentIndex]
+	}
+
+	nameSet := utils.GetNodeNameSet(agents)
 	return nameSet, nil
 }
 
@@ -516,7 +530,6 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 		logger.Error(err, "Failed to get node name set")
 		return result.Error(err)
 	}
-	logger.Info(fmt.Sprintf("nodeset: %v", allNodes))
 
 	// Fail EMM operations if insufficient nodes for pods
 	//
