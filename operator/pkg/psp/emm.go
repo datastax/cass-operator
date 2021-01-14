@@ -23,6 +23,8 @@
 package psp
 
 import (
+	"fmt"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 
@@ -270,8 +272,8 @@ func (impl *EMMServiceImpl) getNodeNameSet() (utils.StringSet, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	return utils.GetNodeNameSet(nodes), nil
+	nameSet := utils.GetNodeNameSet(nodes)
+	return nameSet, nil
 }
 
 func (impl *EMMServiceImpl) getPodNameSet() utils.StringSet {
@@ -514,6 +516,7 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 		logger.Error(err, "Failed to get node name set")
 		return result.Error(err)
 	}
+	logger.Info(fmt.Sprintf("nodeset: %v", allNodes))
 
 	// Fail EMM operations if insufficient nodes for pods
 	//
@@ -523,8 +526,10 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	// pods
 	unavailableNodes := utils.UnionStringSet(plannedDownNodeNameSet, evacuateDataNodeNameSet)
 	availableNodes := utils.SubtractStringSet(allNodes, unavailableNodes)
-
 	if len(provider.getPodNameSet()) > len(availableNodes) {
+		logger.Info(fmt.Sprintf("Not enough space to do EMM. Total number of nodes: %v, unavailable: %v, available: %v, pods: %v",
+			len(allNodes), len(unavailableNodes), len(availableNodes), len(provider.getPodNameSet())))
+
 		anyUpdated := false
 		updated := false
 		for node := range unavailableNodes {

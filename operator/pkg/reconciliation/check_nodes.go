@@ -137,11 +137,24 @@ func (rc *ReconciliationContext) GetAllNodes() ([]*corev1.Node, error) {
 	if err := rc.Client.List(rc.Ctx, nodeList, listOptions); err != nil {
 		return nil, err
 	}
-	var nodes []*corev1.Node
-	for _, node := range nodeList.Items {
-		nodes = append(nodes, &node)
+
+	agentNodesIndex := []int{}
+
+	for i, node := range nodeList.Items {
+		if isAgent(node) {
+			agentNodesIndex = append(agentNodesIndex, i)
+		}
+	}
+	nodes := make([]*corev1.Node, len(agentNodesIndex))
+
+	for i, index := range agentNodesIndex {
+		nodes[i] = &nodeList.Items[index]
 	}
 	return nodes, nil
+}
+
+func isAgent(node corev1.Node) bool {
+	return node.Labels["kubernetes.io/role"] == "agent"
 }
 
 func (rc *ReconciliationContext) GetDCPods() []*corev1.Pod {
