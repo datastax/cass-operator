@@ -23,6 +23,8 @@
 package psp
 
 import (
+	"fmt"
+
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 
@@ -270,8 +272,22 @@ func (impl *EMMServiceImpl) getNodeNameSet() (utils.StringSet, error) {
 	if err != nil {
 		return nil, err
 	}
+	totalNodes := len(nodes)
 
-	return utils.GetNodeNameSet(nodes), nil
+	agentNodesIndex := []int{}
+	for i := 0; i < totalNodes; i++ {
+		if nodes[i].Labels["kubernetes.io/role"] == "agent" {
+			agentNodesIndex = append(agentNodesIndex, i)
+		}
+	}
+
+	agents := make([]*corev1.Node, len(agentNodesIndex))
+	for i, agentIndex := range agentNodesIndex {
+		agents[i] = nodes[agentIndex]
+	}
+
+	nameSet := utils.GetNodeNameSet(agents)
+	return nameSet, nil
 }
 
 func (impl *EMMServiceImpl) getPodNameSet() utils.StringSet {
@@ -523,8 +539,10 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	// pods
 	unavailableNodes := utils.UnionStringSet(plannedDownNodeNameSet, evacuateDataNodeNameSet)
 	availableNodes := utils.SubtractStringSet(allNodes, unavailableNodes)
-
 	if len(provider.getPodNameSet()) > len(availableNodes) {
+		logger.Info(fmt.Sprintf("Not enough space to do EMM. Total number of nodes: %v, unavailable: %v, available: %v, pods: %v",
+			len(allNodes), len(unavailableNodes), len(availableNodes), len(provider.getPodNameSet())))
+
 		anyUpdated := false
 		updated := false
 		for node := range unavailableNodes {
