@@ -137,9 +137,10 @@ func (rc *ReconciliationContext) GetAllNodes() ([]*corev1.Node, error) {
 	if err := rc.Client.List(rc.Ctx, nodeList, listOptions); err != nil {
 		return nil, err
 	}
-	var nodes []*corev1.Node
-	for _, node := range nodeList.Items {
-		nodes = append(nodes, &node)
+	nodeCount := len(nodeList.Items)
+	nodes := make([]*corev1.Node, nodeCount)
+	for i := 0; i < nodeCount; i++ {
+		nodes[i] = &nodeList.Items[i]
 	}
 	return nodes, nil
 }

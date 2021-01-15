@@ -184,6 +184,12 @@ func k8sMockClientGet(mockClient *mocks.Client, returnArg interface{}) *mock.Cal
 		Once()
 }
 
+func k8sMockClientStatus(mockClient *mocks.Client, returnArg interface{}) *mock.Call {
+	return mockClient.On("Status").
+		Return(returnArg).
+		Once()
+}
+
 func k8sMockClientUpdate(mockClient *mocks.Client, returnArg interface{}) *mock.Call {
 	return mockClient.On("Update",
 		mock.MatchedBy(
