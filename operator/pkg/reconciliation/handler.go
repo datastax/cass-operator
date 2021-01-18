@@ -5,11 +5,12 @@ package reconciliation
 
 import (
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sync"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 
@@ -27,8 +28,8 @@ import (
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/dynamicwatch"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
-	"github.com/datastax/cass-operator/operator/pkg/utils"
 	"github.com/datastax/cass-operator/operator/pkg/psp"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 )
 
 // Use a var so we can mock this function
@@ -306,12 +307,25 @@ func (rc *ReconciliationContext) isValid(dc *api.CassandraDatacenter) error {
 		return errs[0]
 	}
 
+	// There has to be one dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec or
+	// dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec for each one of the racks
 	claim := dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec
-	if claim == nil {
-		err := fmt.Errorf("storageConfig.cassandraDataVolumeClaimSpec is required")
-		return err
+	if claim != nil {
+		return validateClaim(claim)
 	}
+	racks := dc.GetRacks()
+	for _, rack := range racks {
+		if rack.StorageConfig == nil || rack.StorageConfig.CassandraDataVolumeClaimSpec == nil {
+			return fmt.Errorf("since dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec is missing rack's %s storageConfig.cassandraDataVolumeClaimSpec is required", rack.Name)
+		}
+		if err := validateClaim(rack.StorageConfig.CassandraDataVolumeClaimSpec); err != nil {
+			return fmt.Errorf("rack's %s storageConfig is invalid. err: %v", rack.Name, err)
+		}
+	}
+	return nil
+}
 
+func validateClaim(claim *corev1.PersistentVolumeClaimSpec) error {
 	if claim.StorageClassName == nil || *claim.StorageClassName == "" {
 		err := fmt.Errorf("storageConfig.cassandraDataVolumeClaimSpec.storageClassName is required")
 		return err

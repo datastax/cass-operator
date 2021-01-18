@@ -7,6 +7,8 @@ package reconciliation
 
 import (
 	"fmt"
+
+	"github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/images"
@@ -136,9 +138,24 @@ func newStatefulSetForCassandraDatacenterHelper(
 		return nil, nodeAffinityLabelsConfigurationError
 	}
 
-	// Add storage
-	if dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec == nil {
-		err := fmt.Errorf("StorageConfig.cassandraDataVolumeClaimSpec is required")
+	var storageConfig *v1beta1.StorageConfig
+	// Add storage from the dc.Spec.StorageConfig or from the rack specific rack.StorageConfig
+	if dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec != nil {
+		storageConfig = &dc.Spec.StorageConfig
+	} else {
+		racks := dc.GetRacks()
+		for _, rack := range racks {
+			if rack.Name == rackName {
+				if rack.StorageConfig != nil && rack.StorageConfig.CassandraDataVolumeClaimSpec != nil {
+					storageConfig = rack.StorageConfig
+				}
+				break
+			}
+		}
+	}
+
+	if storageConfig == nil || storageConfig.CassandraDataVolumeClaimSpec == nil {
+		err := fmt.Errorf("StorageConfig.cassandraDataVolumeClaimSpec is required for rack: %s", rackName)
 		return nil, err
 	}
 
@@ -147,10 +164,10 @@ func newStatefulSetForCassandraDatacenterHelper(
 			Labels: pvcLabels,
 			Name:   PvcName,
 		},
-		Spec: *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec,
+		Spec: *storageConfig.CassandraDataVolumeClaimSpec,
 	}}
 
-	for _, storage := range dc.Spec.StorageConfig.AdditionalVolumes {
+	for _, storage := range storageConfig.AdditionalVolumes {
 		pvc := corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   storage.Name,

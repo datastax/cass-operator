@@ -252,6 +252,9 @@ type Rack struct {
 
 	//NodeAffinityLabels to pin the rack, using node affinity
 	NodeAffinityLabels map[string]string `json:"nodeAffinityLabels,omitempty"`
+
+	// Describes the persistent storage request of each server node
+	StorageConfig *StorageConfig `json:"storageConfig,omitempty"`
 }
 
 type CassandraNodeStatus struct {
