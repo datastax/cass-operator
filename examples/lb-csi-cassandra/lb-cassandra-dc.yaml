@@ -1,0 +1,38 @@
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: lb-dc1
+spec:
+  clusterName: lbcluster
+  serverType: cassandra
+  serverVersion: 3.11.7
+  managementApiAuth:
+    insecure: {}
+  size: 2
+  racks:
+  - name: rack1
+    storageConfig:
+      cassandraDataVolumeClaimSpec:
+        storageClassName: sc1
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi
+  - name: rack2
+    storageConfig:
+      cassandraDataVolumeClaimSpec:
+        storageClassName: sc2
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 5Gi
+  config:
+    cassandra-yaml:
+      authenticator: org.apache.cassandra.auth.PasswordAuthenticator
+      authorizer: org.apache.cassandra.auth.CassandraAuthorizer
+      role_manager: org.apache.cassandra.auth.CassandraRoleManager
+    jvm-options:
+      initial_heap_size: 800M
+      max_heap_size: 800M

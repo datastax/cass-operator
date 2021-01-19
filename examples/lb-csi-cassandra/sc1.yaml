@@ -1,0 +1,14 @@
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: sc1
+provisioner: csi.lightbitslabs.com
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+reclaimPolicy: Delete
+parameters:
+  mgmt-endpoint: 10.20.113.2:80,10.20.113.6:80,10.20.113.24:80
+  replica-count: "3"
+  compression: disabled
+  mgmt-scheme: grpc
+

@@ -1,0 +1,26 @@
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: multi-rack
+spec:
+  clusterName: multi-rack
+  serverType: cassandra
+  serverVersion: 3.11.6
+  managementApiAuth:
+    insecure: {}
+  size: 9
+  racks:
+  - name: us-east1-b
+    zone: us-east1-b
+  - name: us-east1-c
+    zone: us-east1-c
+  - name: us-east1-d
+    zone: us-east1-d    
+  storageConfig:
+    cassandraDataVolumeClaimSpec:
+      storageClassName: sc2
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 5Gi
