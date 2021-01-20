@@ -128,7 +128,7 @@ var _ = Describe(testName, func() {
 				}
 			}
 
-			ns.WaitForDatacenterReadyPodCount(dc1Name, 1)
+			ns.WaitForDatacenterReadyPodCount(dc1Name, 2)
 
 			// In my environment, I have to add a wait here
 
