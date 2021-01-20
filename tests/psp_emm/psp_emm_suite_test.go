@@ -62,6 +62,33 @@ var _ = Describe(testName, func() {
 
 			ns.WaitForDatacenterReady(dc1Name)
 
+			k = kubectl.GetNodes()
+			nodes, _, err := ns.ExecVCapture(k)
+			if err != nil {
+				panic(err)
+			}
+
+			k = kubectl.Label(
+				nodes,
+				"kubernetes.io/role",
+				"agent",
+			)
+
+			err = ns.ExecV(k)
+			if err != nil {
+				panic(err)
+			}
+
+			// Cleanup: Remove the label
+			defer func() {
+				k := kubectl.Label(
+					nodes,
+					"kubernetes.io/role",
+					"",
+				)
+				k.ExecVPanic()
+			}()
+
 			// Add a taint to the node for the first pod
 
 			k = kubectl.GetNodeNameForPod(pod1Name)
