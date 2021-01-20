@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/user"
 	"regexp"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
@@ -142,6 +143,20 @@ func CreateSecretLiteral(name string, user string, pw string) KCmd {
 		"from-literal=password": pw,
 	}
 	return KCmd{Command: "create", Args: args, Flags: flags}
+}
+
+func Label(nodes string, key string, value string) KCmd {
+	tokens := strings.Split(nodes, " ")
+	args := []string{}
+	for _, t := range tokens {
+		if t != "" {
+			args = append(args, "nodes/"+t)
+		}
+	}
+	label := fmt.Sprintf("%s=%s", key, value)
+	args = append(args, label)
+	args = append(args, "--overwrite")
+	return KCmd{Command: "label", Args: args}
 }
 
 func Taint(node string, key string, value string, effect string) KCmd {
@@ -327,6 +342,12 @@ func ExecOnPod(podName string, args ...string) KCmd {
 	execArgs := []string{podName}
 	execArgs = append(execArgs, args...)
 	return KCmd{Command: "exec", Args: execArgs}
+}
+
+func GetNodes() KCmd {
+	json := "jsonpath={range .items[*]}{@.metadata.name} {end}"
+	args := []string{"nodes", "-o", json}
+	return KCmd{Command: "get", Args: args}
 }
 
 func GetNodeNameForPod(podName string) KCmd {
