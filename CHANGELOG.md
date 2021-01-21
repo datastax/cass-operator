@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.5.1
+
+Bug fixes:
+* Fixed reconciling logic in VMware k8s environments [#361](https://github.com/datastax/cass-operator/commit/821e58e6b283ef77b25ac7791ae9b60fbc1f69a1) [#342](https://github.com/datastax/cass-operator/commit/ddc3a99c1b38fb54ba293aeef74f878a3bb7e07e)
+* Retry decommission if worker nodes are too slow to start it [#356](https://github.com/datastax/cass-operator/commit/475ea74eda629fa0038214dce5969a7f07d48615)
+
+
 ## v1.5.0
 
 Features:
