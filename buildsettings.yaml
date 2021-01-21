@@ -2,7 +2,7 @@ version:
   major: 1
   minor: 5
   patch: 1
-  prerelease: "snapshot"
+  prerelease: "release"
 jenkins:
   master:
     plugins:
