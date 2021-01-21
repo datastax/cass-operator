@@ -6502,7 +6502,7 @@ spec:
           value: cass-operator
         - name: SKIP_VALIDATING_WEBHOOK
           value: "FALSE"
-        image: datastax/cass-operator:1.5.0
+        image: datastax/cass-operator:1.5.1
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
