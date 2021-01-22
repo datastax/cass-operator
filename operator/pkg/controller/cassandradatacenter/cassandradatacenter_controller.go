@@ -131,7 +131,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 			dcs := reconciliation.DatacentersForNode(nodeName)
 
 			for _, dc := range dcs {
-				log.Info("node watch adding reconcilation request",
+				log.Info("node watch adding reconciliation request",
 					"cassandraDatacenter", dc.Name,
 					"namespace", dc.Namespace)
 
@@ -202,7 +202,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 
 				dcName := pvcLabels[api.DatacenterLabel]
 
-				log.Info("PersistentVolumeClaim watch adding reconcilation request",
+				log.Info("PersistentVolumeClaim watch adding reconciliation request",
 					"cassandraDatacenter", dcName,
 					"namespace", pvcNamespace)
 

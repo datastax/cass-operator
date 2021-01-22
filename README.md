@@ -1,5 +1,7 @@
 # Cass Operator
 [![Gitter](https://badges.gitter.im/cass-operator/community.svg)](https://gitter.im/cass-operator/community?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Go Report Card](https://goreportcard.com/badge/github.com/datastax/cass-operator)](https://goreportcard.com/report/github.com/datastax/cass-operator)
+[![License: Apache License 2.0](https://img.shields.io/github/license/datastax/cass-operator)](https://github.com/msmygit/cass-operator/blob/master/LICENSE.txt)
 
 The DataStax Kubernetes Operator for Apache Cassandra&reg;
 

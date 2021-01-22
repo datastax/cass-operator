@@ -318,7 +318,7 @@ func (impl *EMMServiceImpl) performEvacuateDataPodReplace() (bool, error) {
 				// the pod is unschedulable. The reasons are, unfortunately,
 				// buried within human readable explanation text. As a result,
 				// a pod might not get scheduled due to no nodes having
-				// sufficent memory, and then we delete a PVC thinking that
+				// sufficient memory, and then we delete a PVC thinking that
 				// the PVC was causing scheduling to fail even though it
 				// wasn't.
 
@@ -590,7 +590,7 @@ func checkNodeEMM(provider EMMService) result.ReconcileResult {
 	// cluster.
 	racksWithDownPods := provider.getRacksWithNotReadyPodsBootstrapped()
 
-	// If we have multipe racks with down pods we will need to fail any
+	// If we have multiple racks with down pods we will need to fail any
 	// EMM operation as cluster availability is already compromised.
 	if len(racksWithDownPods) > 1 {
 		allTaintedNameSet := utils.UnionStringSet(plannedDownNodeNameSet, evacuateDataNodeNameSet)

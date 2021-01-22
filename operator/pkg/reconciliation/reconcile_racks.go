@@ -920,7 +920,7 @@ func (rc *ReconciliationContext) CreateUsers() result.ReconcileResult {
 	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedUsers,
 		"Created users")
 
-	// For backwards compatiblity
+	// For backwards compatibility
 	rc.Recorder.Eventf(dc, corev1.EventTypeNormal, events.CreatedSuperuser,
 		"Created superuser")
 
@@ -1348,7 +1348,7 @@ func (rc *ReconciliationContext) labelSeedPods(rackInfo *RackInformation) (int, 
 }
 
 // GetStatefulSetForRack returns the statefulset for the rack
-// and whether it currently exists and whether an error occured
+// and whether it currently exists and whether an error occurred
 func (rc *ReconciliationContext) GetStatefulSetForRack(
 	nextRack *RackInformation) (*appsv1.StatefulSet, bool, error) {
 

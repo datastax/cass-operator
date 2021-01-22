@@ -305,7 +305,7 @@ func waitForOutputPattern(k KCmd, pattern string, seconds int) error {
 		expectedPhrase = "Expected output to match regex: "
 		msg := fmt.Sprintf("Timed out waiting for value. %s '%s', but '%s' did not match", expectedPhrase, pattern, actual)
 		if err != nil {
-			msg = fmt.Sprintf("%s\nThe following error occured while querying k8s: %v", msg, err)
+			msg = fmt.Sprintf("%s\nThe following error occurred while querying k8s: %v", msg, err)
 		}
 		e := fmt.Errorf(msg)
 		return e

@@ -144,7 +144,7 @@ func (ns NsWrapper) Terminate() {
 	}
 
 	if len(errMsgs) > 0 {
-		msg := fmt.Sprintf("One or more errors occured while cleaning up test resources.\n%s", strings.Join(errMsgs, "\n"))
+		msg := fmt.Sprintf("One or more errors occurred while cleaning up test resources.\n%s", strings.Join(errMsgs, "\n"))
 		err := fmt.Errorf(msg)
 		Expect(err).ToNot(HaveOccurred())
 	}
