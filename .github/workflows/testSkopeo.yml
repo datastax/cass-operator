@@ -1,0 +1,15 @@
+name: Docker Release
+
+on:
+  push:
+    branches:
+      - "370-fix-release-job"
+
+jobs:
+  release_cass_operator:
+    name: Release Cass Operator
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Login Skopeo DockerHub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | skopeo login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin docker.io
