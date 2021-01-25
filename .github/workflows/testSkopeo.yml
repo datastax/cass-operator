@@ -9,8 +9,8 @@ jobs:
   release_cass_operator:
     name: Release Cass Operator
     runs-on: ubuntu-latest
-    env:
-      XDG_RUNTIME_DIR: /tmp
     steps:
       - name: Login Skopeo DockerHub
         run: echo "${{ secrets.DOCKER_PASSWORD }}" | skopeo login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin docker.io
+        env:
+          XDG_RUNTIME_DIR: /tmp
