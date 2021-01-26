@@ -9,6 +9,11 @@ jobs:
   release_cass_operator:
     name: Release Cass Operator
     runs-on: ubuntu-latest
+    env:
+      # This is needed to workaround an issue where skopeo vomits out an
+      # error "mkdir /run/containers: permission denied" when performing
+      # login.
+      XDG_RUNTIME_DIR: /tmp
     steps:
       - uses: actions/checkout@v2
       - name: Login Skopeo DockerHub
