@@ -66,7 +66,7 @@ UBI_ARGS=(
   "${COMMON_ARGS[@]}"
   --label "release=${VERSION_STAMP}-ubi7"
   --build-arg "VERSION_STAMP=${VERSION_STAMP}-ubi7"
-  --build-arg "BASE_OS=registry.access.redhat.com/ubi7/ubi-minimal:7.8"
+  --build-arg "BASE_OS=registry.access.redhat.com/ubi7/ubi-minimal:7.9"
   --target cass-operator-ubi
 )
 
