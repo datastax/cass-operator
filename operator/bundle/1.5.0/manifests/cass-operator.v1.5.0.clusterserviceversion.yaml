@@ -52,7 +52,7 @@ metadata:
     capabilities: Auto Pilot
     categories: Database,Big Data,OpenShift Optional
     certified: "true"
-    containerImage: bradfordcp/cass-operator:1.5.0-ubi7-1
+    containerImage: registry.connect.redhat.com/datastax/cass-operator:1.5.0-ubi7
     createdAt: "2020-11-22"
     description: |
       Simple provisioning, turn-key operations, and automated remediation of Apache Cassandra clusters
@@ -791,7 +791,7 @@ spec:
                   value: cass-operator
                 - name: SKIP_VALIDATING_WEBHOOK
                   value: "FALSE"
-                image: bradfordcp/cass-operator:1.5.0-ubi7-1
+                image: registry.connect.redhat.com/datastax/cass-operator:1.5.0-ubi7
                 imagePullPolicy: IfNotPresent
                 livenessProbe:
                   exec:
