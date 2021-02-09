@@ -86,6 +86,32 @@ func Test_ValidateSingleDatacenter(t *testing.T) {
 			errString: "",
 		},
 		{
+			name: "Cassandra invalid",
+			dc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					ServerType:    "cassandra",
+					ServerVersion: "4.0-beta",
+				},
+			},
+			errString: "use unsupported Cassandra version '4.0-beta'",
+		},
+		{
+			name: "Cassandra valid",
+			dc: &CassandraDatacenter{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "exampleDC",
+				},
+				Spec: CassandraDatacenterSpec{
+					ServerType:    "cassandra",
+					ServerVersion: "4.0-beta4",
+				},
+			},
+			errString: "",
+		},
+		{
 			name: "Cassandra Invalid",
 			dc: &CassandraDatacenter{
 				ObjectMeta: metav1.ObjectMeta{

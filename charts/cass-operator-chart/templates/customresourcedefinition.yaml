@@ -6035,7 +6035,7 @@ spec:
             serverVersion:
               description: Version string for config builder, used to generate Cassandra
                 server configuration
-              pattern: (6\.8\.\d+)|(3\.11\.\d+)|(4\.0\.\d+)
+              pattern: (6\.8\.\d+)|(3\.11\.\d+)|(4\.0\.\d+)|(4\.0-beta\d+)
               type: string
             serviceAccount:
               description: The k8s service account to use for the server pods
