@@ -149,7 +149,7 @@ func (rc *ReconciliationContext) createInternodeCACredential() (*corev1.Secret, 
 	}
 	if keypem, certpem, err := utils.GetNewCAandKey(fmt.Sprintf("%s-ca-keystore", rc.Datacenter.Name), rc.Datacenter.Namespace); err == nil {
 		secret.Data = map[string][]byte{
-			"key": []byte(keypem),
+			"key":  []byte(keypem),
 			"cert": []byte(certpem),
 		}
 		return secret, nil
@@ -158,11 +158,11 @@ func (rc *ReconciliationContext) createInternodeCACredential() (*corev1.Secret, 
 	}
 }
 
-func (rc *ReconciliationContext) createCABootstrappingSecret(jksBlob []byte) (error) {
+func (rc *ReconciliationContext) createCABootstrappingSecret(jksBlob []byte) error {
 	_, err := rc.retrieveSecret(types.NamespacedName{
-			Name:      fmt.Sprintf("%s-keystore", rc.Datacenter.Name),
-			Namespace: rc.Datacenter.Namespace,
-		})
+		Name:      fmt.Sprintf("%s-keystore", rc.Datacenter.Name),
+		Namespace: rc.Datacenter.Namespace,
+	})
 
 	if err == nil { // This secret already exists, nothing to do
 		return nil
@@ -227,19 +227,23 @@ func (rc *ReconciliationContext) retrieveInternodeCredentialSecretOrCreateDefaul
 func validateCassandraUserSecretContent(dc *api.CassandraDatacenter, secret *corev1.Secret) []error {
 	var errs []error
 
-	namespacedName := types.NamespacedName{
-		Name:      secret.ObjectMeta.Name,
-		Namespace: secret.ObjectMeta.Namespace,
-	}
-	errorPrefix := fmt.Sprintf("Validation failed for user secret: %s", namespacedName.String())
-
-	for _, key := range []string{"username", "password"} {
-		value, ok := secret.Data[key]
-		if !ok {
-			errs = append(errs, fmt.Errorf("%s Missing key: %s", errorPrefix, key))
-		} else if !utf8.Valid(value) {
-			errs = append(errs, fmt.Errorf("%s Key did not have valid utf8 value: %s", errorPrefix, key))
+	if secret != nil {
+		namespacedName := types.NamespacedName{
+			Name:      secret.ObjectMeta.Name,
+			Namespace: secret.ObjectMeta.Namespace,
 		}
+		errorPrefix := fmt.Sprintf("Validation failed for user secret: %s", namespacedName.String())
+
+		for _, key := range []string{"username", "password"} {
+			value, ok := secret.Data[key]
+			if !ok {
+				errs = append(errs, fmt.Errorf("%s Missing key: %s", errorPrefix, key))
+			} else if !utf8.Valid(value) {
+				errs = append(errs, fmt.Errorf("%s Key did not have valid utf8 value: %s", errorPrefix, key))
+			}
+		}
+	} else {
+		errs = append(errs, fmt.Errorf("Validation failed due to a missing secret"))
 	}
 
 	return errs
@@ -273,14 +277,16 @@ func (rc *ReconciliationContext) validateCassandraUserSecrets() []error {
 	for _, user := range users {
 		secretName := user.SecretName
 		namespace := dc.ObjectMeta.Namespace
-
-		secret, err := rc.retrieveSecret(types.NamespacedName{
+		secretKey := types.NamespacedName{
 			Name:      secretName,
 			Namespace: namespace,
-		})
+		}
+
+		secret, err := rc.retrieveSecret(secretKey)
 
 		if err != nil {
 			errs = append(errs, fmt.Errorf("Validation of user secret failed due to an error: %w", err))
+			continue
 		}
 
 		errs = append(errs, validateCassandraUserSecretContent(dc, secret)...)

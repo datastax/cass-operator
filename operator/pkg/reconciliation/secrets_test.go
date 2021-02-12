@@ -113,6 +113,13 @@ func Test_validateCassandraUserSecretContent(t *testing.T) {
 			valid:   false,
 			message: "validation should fail when secret contains non-utf8 data",
 		},
+		{
+			superuserSecret: "my-fun-secret",
+			secretNil:       true,
+			data:            nil,
+			valid:           false,
+			message:         "validation should fail when secret does not exists",
+		},
 	}
 
 	for _, test := range tests {
