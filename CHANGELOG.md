@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.6.0
+
+Features:
+* Upgrade to Go 1.14 [#347](https://github.com/datastax/cass-operator/issues/347)
+* Add support for specifying additional PersistentVolumeClaims [#327](https://github.com/datastax/cass-operator/issues/327)
+* Add support for specify rack labels [#292](https://github.com/datastax/cass-operator/issues/292)
+
+Bug fixes:
+* Retry decommission to prevent cluster from getting stuck in decommission state [#356](https://github.com/datastax/cass-operator/pull/356)
+* Make the busybox image configurable [#339](https://github.com/datastax/cass-operator/pull/339)
+* Incorrect volume mounts are created when adding an init container with volume mounts 
+  [#309](https://github.com/datastax/cass-operator/issues/309)
+
+Docs/tests:
+* Introduce integration with [Go Report Card](https://goreportcard.com/) [#346]
+  (https://github.com/datastax/cass-operator/pull/346/files)
+* Add more examples for running integration tests [#338](https://github.com/datastax/cass-operator/pull/338/files) 
+ 
 ## v1.5.1
 
 Bug fixes:
