@@ -3,20 +3,19 @@
 ## v1.6.0
 
 Features:
-* Upgrade to Go 1.14 [#347](https://github.com/datastax/cass-operator/issues/347)
-* Add support for specifying additional PersistentVolumeClaims [#327](https://github.com/datastax/cass-operator/issues/327)
-* Add support for specify rack labels [#292](https://github.com/datastax/cass-operator/issues/292)
+* Upgrade to Go 1.14 [#347](https://github.com/datastax/cass-operator/commit/7d4a2451d22df762d1258b2de4a7711c3e6470d0)
+* Add support for specifying additional PersistentVolumeClaims [#327](https://github.com/datastax/cass-operator/commit/8553579844b846e83131825444486c0f63d030fe)
+* Add support for specify rack labels [#292](https://github.com/datastax/cass-operator/commit/61e286b959d886fd2fd1a572802d99efad8064ba)
 
 Bug fixes:
-* Retry decommission to prevent cluster from getting stuck in decommission state [#356](https://github.com/datastax/cass-operator/pull/356)
-* Make the busybox image configurable [#339](https://github.com/datastax/cass-operator/pull/339)
+* Retry decommission to prevent cluster from getting stuck in decommission state [#356](https://github.com/datastax/cass-operator/commit/4b8163c366155735b6f61af08623bb2edbfdf9ee)
+* Make the busybox image configurable [#339](https://github.com/datastax/cass-operator/commit/56d6ea60589a32e89495e7961dce1b835751a5ed)
 * Incorrect volume mounts are created when adding an init container with volume mounts 
-  [#309](https://github.com/datastax/cass-operator/issues/309)
+  [#309](https://github.com/datastax/cass-operator/commit/80852343858cd62b54e37146ada41f94efc3c85e)
 
 Docs/tests:
-* Introduce integration with [Go Report Card](https://goreportcard.com/) [#346]
-  (https://github.com/datastax/cass-operator/pull/346/files)
-* Add more examples for running integration tests [#338](https://github.com/datastax/cass-operator/pull/338/files) 
+* Introduce integration with [Go Report Card](https://goreportcard.com/) [#346](https://github.com/datastax/cass-operator/commit/694aebdaa88f09a5d9f0cc86e55e0a581a5beb1e)
+* Add more examples for running integration tests [#338](https://github.com/datastax/cass-operator/commit/f033fbf24ed89f0469c04df75306dfeab4fdb175) 
  
 ## v1.5.1
 
