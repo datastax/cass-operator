@@ -9,7 +9,7 @@ Features:
 
 Bug fixes:
 * Retry decommission to prevent cluster from getting stuck in decommission state [#356](https://github.com/datastax/cass-operator/commit/4b8163c366155735b6f61af08623bb2edbfdf9ee)
-* Make the busybox image configurable [#339](https://github.com/datastax/cass-operator/commit/56d6ea60589a32e89495e7961dce1b835751a5ed)
+* Set explicit tag for busybox image [#339](https://github.com/datastax/cass-operator/commit/56d6ea60589a32e89495e7961dce1b835751a5ed)
 * Incorrect volume mounts are created when adding an init container with volume mounts 
   [#309](https://github.com/datastax/cass-operator/commit/80852343858cd62b54e37146ada41f94efc3c85e)
 
