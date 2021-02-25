@@ -65,7 +65,7 @@ jobs:
       - name: Archive k8s logs
         if: ${{ always() }}
         # actions/upload-artifact@v1
-        uses: actions/upload-artifact@3446296
+        uses: actions/upload-artifact@3446296876d12d4e3a0f3145a3c87e67bf0a16b5
         with:
           name: k8s-logs
           path: ./build/kubectl_dump
