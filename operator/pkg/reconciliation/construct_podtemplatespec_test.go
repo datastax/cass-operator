@@ -4,12 +4,14 @@
 package reconciliation
 
 import (
+	"os"
 	"reflect"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
+	"github.com/datastax/cass-operator/operator/pkg/images"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -417,7 +419,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_add_initContainer_after_config
 	// initContainer.
 
 	initContainer := corev1.Container{
-		Name: "test-container",
+		Name:  "test-container",
 		Image: "test-image",
 	}
 
@@ -464,19 +466,19 @@ func TestCassandraDatacenter_buildPodTemplateSpec_add_initContainer_with_volumes
 				Spec: corev1.PodSpec{
 					InitContainers: []corev1.Container{
 						{
-							Name: "test",
+							Name:  "test",
 							Image: "test",
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name: "server-data",
+									Name:      "server-data",
 									MountPath: "/var/lib/cassandra",
 								},
 								{
-									Name: "server-config",
+									Name:      "server-config",
 									MountPath: "/config",
 								},
 								{
-									Name: "test-data",
+									Name:      "test-data",
 									MountPath: "/test",
 								},
 							},
@@ -559,19 +561,19 @@ func TestCassandraDatacenter_buildPodTemplateSpec_add_container_with_volumes(t *
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name: "test",
+							Name:  "test",
 							Image: "test",
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name: "server-data",
+									Name:      "server-data",
 									MountPath: "/var/lib/cassandra",
 								},
 								{
-									Name: "server-config",
+									Name:      "server-config",
 									MountPath: "/config",
 								},
 								{
-									Name: "test-data",
+									Name:      "test-data",
 									MountPath: "/test",
 								},
 							},
@@ -580,7 +582,7 @@ func TestCassandraDatacenter_buildPodTemplateSpec_add_container_with_volumes(t *
 							Name: "cassandra",
 							VolumeMounts: []corev1.VolumeMount{
 								{
-									Name: "test-data",
+									Name:      "test-data",
 									MountPath: "/test",
 								},
 							},
@@ -766,7 +768,6 @@ func TestCassandraDatacenter_buildPodTemplateSpec_do_not_propagate_volumes(t *te
 	assert.True(t, volumeMountsContains(serverConfigInitContainer.VolumeMounts, volumeMountNameMatcher("server-config")))
 	assert.True(t, volumeMountsContains(serverConfigInitContainer.VolumeMounts, volumeMountNameMatcher("extra")))
 
-
 	containers := spec.Spec.Containers
 	cassandraContainer := findContainer(containers, CassandraContainerName)
 	assert.NotNil(t, cassandraContainer)
@@ -831,4 +832,205 @@ func TestCassandraDatacenter_buildContainers_EnableSystemLoggerSidecar_CustomIma
 	assert.Equal(t, "server-system-logger", podTemplateSpec.Spec.Containers[1].Name)
 
 	assert.Equal(t, "alpine", podTemplateSpec.Spec.Containers[1].Image)
+}
+
+func Test_makeImage(t *testing.T) {
+	type args struct {
+		serverType    string
+		serverImage   string
+		serverVersion string
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      string
+		errString string
+	}{
+		{
+			name: "test empty image",
+			args: args{
+				serverImage:   "",
+				serverType:    "dse",
+				serverVersion: "6.8.0",
+			},
+			want:      "datastax/dse-server:6.8.0",
+			errString: "",
+		},
+		{
+			name: "test empty image cassandra",
+			args: args{
+				serverImage:   "",
+				serverType:    "cassandra",
+				serverVersion: "3.11.7",
+			},
+			want:      "datastax/cassandra-mgmtapi-3_11_7:v0.1.13",
+			errString: "",
+		},
+		{
+			name: "test private repo server",
+			args: args{
+				serverImage:   "datastax.jfrog.io/secret-debug-image/dse-server:6.8.0-test123",
+				serverType:    "dse",
+				serverVersion: "6.8.0",
+			},
+			want:      "datastax.jfrog.io/secret-debug-image/dse-server:6.8.0-test123",
+			errString: "",
+		},
+		{
+			name: "test unknown dse version",
+			args: args{
+				serverImage:   "",
+				serverType:    "dse",
+				serverVersion: "6.7.0",
+			},
+			want:      "",
+			errString: "server 'dse' and version '6.7.0' do not work together",
+		},
+		{
+			name: "test unknown cassandra version",
+			args: args{
+				serverImage:   "",
+				serverType:    "cassandra",
+				serverVersion: "3.10.0",
+			},
+			want:      "",
+			errString: "server 'cassandra' and version '3.10.0' do not work together",
+		},
+		{
+			name: "test fallback",
+			args: args{
+				serverImage:   "",
+				serverType:    "dse",
+				serverVersion: "6.8.1234",
+			},
+			want:      "datastax/dse-server:6.8.1234",
+			errString: "",
+		},
+		{
+			name: "test cassandra fallback",
+			args: args{
+				serverImage:   "",
+				serverType:    "cassandra",
+				serverVersion: "3.11.1234",
+			},
+			want:      "datastax/cassandra-mgmtapi:3.11.1234",
+			errString: "",
+		},
+		{
+			name: "test 6.8.4",
+			args: args{
+				serverImage:   "",
+				serverType:    "dse",
+				serverVersion: "6.8.4",
+			},
+			want:      "datastax/dse-server:6.8.4",
+			errString: "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dc := &api.CassandraDatacenter{
+				Spec: api.CassandraDatacenterSpec{
+					ServerType:    tt.args.serverType,
+					ServerVersion: tt.args.serverVersion,
+					ServerImage:   tt.args.serverImage,
+				},
+			}
+			got, err := makeImage(dc)
+			if got != tt.want {
+				t.Errorf("makeImage() = %v, want %v", got, tt.want)
+			}
+			if err == nil {
+				if tt.errString != "" {
+					t.Errorf("makeImage() err = %v, want %v", err, tt.errString)
+				}
+			} else {
+				if err.Error() != tt.errString {
+					t.Errorf("makeImage() err = %v, want %v", err, tt.errString)
+				}
+			}
+		})
+	}
+}
+
+func Test_makeUbiImage(t *testing.T) {
+	type args struct {
+		serverType    string
+		serverImage   string
+		serverVersion string
+	}
+	tests := []struct {
+		name      string
+		args      args
+		want      string
+		errString string
+	}{
+		{
+			name: "test fallback",
+			args: args{
+				serverImage:   "",
+				serverType:    "dse",
+				serverVersion: "6.8.1234",
+			},
+			want:      "datastax/dse-server:6.8.1234-ubi7",
+			errString: "",
+		},
+		{
+			name: "test cassandra fallback",
+			args: args{
+				serverImage:   "",
+				serverType:    "cassandra",
+				serverVersion: "4.0.1234",
+			},
+			want:      "datastax/cassandra-mgmtapi:4.0.1234-ubi7",
+			errString: "",
+		},
+		{
+			name: "test unknown dse version",
+			args: args{
+				serverImage:   "",
+				serverType:    "dse",
+				serverVersion: "6.7.0",
+			},
+			want:      "",
+			errString: "server 'dse' and version '6.7.0' do not work together",
+		},
+		{
+			name: "test unknown cassandra version",
+			args: args{
+				serverImage:   "",
+				serverType:    "cassandra",
+				serverVersion: "3.10.0",
+			},
+			want:      "",
+			errString: "server 'cassandra' and version '3.10.0' do not work together",
+		},
+	}
+	for _, tt := range tests {
+		os.Setenv(images.EnvBaseImageOS, "example")
+
+		t.Run(tt.name, func(t *testing.T) {
+			dc := &api.CassandraDatacenter{
+				Spec: api.CassandraDatacenterSpec{
+					ServerType:    tt.args.serverType,
+					ServerVersion: tt.args.serverVersion,
+					ServerImage:   tt.args.serverImage,
+				},
+			}
+			got, err := makeImage(dc)
+			if got != tt.want {
+				t.Errorf("makeImage() = %v, want %v", got, tt.want)
+			}
+			if err == nil {
+				if tt.errString != "" {
+					t.Errorf("makeImage() err = %v, want %v", err, tt.errString)
+				}
+			} else {
+				if err.Error() != tt.errString {
+					t.Errorf("makeImage() err = %v, want %v", err, tt.errString)
+				}
+			}
+		})
+		os.Unsetenv(images.EnvBaseImageOS)
+	}
 }

@@ -272,7 +272,12 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 	serverCfg.Name = ServerConfigContainerName
 
 	if serverCfg.Image == "" {
-		serverCfg.Image = dc.GetConfigBuilderImage()
+		if dc.GetConfigBuilderImage() != "" {
+			serverCfg.Image = dc.GetConfigBuilderImage()
+		} else {
+			serverCfg.Image = images.GetConfigBuilderImage()
+		}
+
 	}
 
 	serverCfgMount := corev1.VolumeMount{
@@ -320,6 +325,19 @@ func buildInitContainers(dc *api.CassandraDatacenter, rackName string, baseTempl
 	return nil
 }
 
+// makeImage takes the server type/version and image from the spec,
+// and returns a docker pullable server container image
+// serverVersion should be a semver-like string
+// serverImage should be an empty string, or [hostname[:port]/][path/with/repo]:[Server container img tag]
+// If serverImage is empty, we attempt to find an appropriate container image based on the serverVersion
+// In the event that no image is found, an error is returned
+func makeImage(dc *api.CassandraDatacenter) (string, error) {
+	if dc.GetServerImage() == "" {
+		return images.GetCassandraImage(dc.Spec.ServerType, dc.Spec.ServerVersion)
+	}
+	return dc.GetServerImage(), nil
+}
+
 // If values are provided in the matching containers in the
 // PodTemplateSpec field of the dc, they will override defaults.
 func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) error {
@@ -350,7 +368,7 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 
 	cassContainer.Name = CassandraContainerName
 	if cassContainer.Image == "" {
-		serverImage, err := dc.GetServerImage()
+		serverImage, err := makeImage(dc)
 		if err != nil {
 			return err
 		}
@@ -426,7 +444,7 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		MountPath: "/var/log/cassandra",
 	}
 
-	volumeMounts :=  combineVolumeMountSlices(volumeDefaults,
+	volumeMounts := combineVolumeMountSlices(volumeDefaults,
 		[]corev1.VolumeMount{
 			cassServerLogsMount,
 			{
@@ -437,7 +455,7 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 				Name:      "encryption-cred-storage",
 				MountPath: "/etc/encryption/",
 			},
-	})
+		})
 
 	volumeMounts = combineVolumeMountSlices(volumeMounts, cassContainer.VolumeMounts)
 	cassContainer.VolumeMounts = combineVolumeMountSlices(volumeMounts, generateStorageConfigVolumesMount(dc))

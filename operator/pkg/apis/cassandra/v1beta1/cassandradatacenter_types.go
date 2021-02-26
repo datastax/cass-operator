@@ -8,14 +8,11 @@ import (
 	"fmt"
 
 	"github.com/Jeffail/gabs"
+	"github.com/datastax/cass-operator/operator/pkg/serverconfig"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-
-	"github.com/datastax/cass-operator/operator/pkg/images"
-	"github.com/datastax/cass-operator/operator/pkg/serverconfig"
-	"github.com/datastax/cass-operator/operator/pkg/utils"
 )
 
 const (
@@ -398,11 +395,7 @@ func init() {
 }
 
 func (dc *CassandraDatacenter) GetConfigBuilderImage() string {
-	if dc.Spec.ConfigBuilderImage != "" {
-		return dc.Spec.ConfigBuilderImage
-	} else {
-		return images.GetConfigBuilderImage()
-	}
+	return dc.Spec.ConfigBuilderImage
 }
 
 // GetServerImage produces a fully qualified container image to pull
@@ -410,31 +403,14 @@ func (dc *CassandraDatacenter) GetConfigBuilderImage() string {
 //
 // In the event that no valid image could be retrieved from the specified version,
 // an error is returned.
-func (dc *CassandraDatacenter) GetServerImage() (string, error) {
-	return makeImage(dc.Spec.ServerType, dc.Spec.ServerVersion, dc.Spec.ServerImage)
-}
-
-// makeImage takes the server type/version and image from the spec,
-// and returns a docker pullable server container image
-// serverVersion should be a semver-like string
-// serverImage should be an empty string, or [hostname[:port]/][path/with/repo]:[Server container img tag]
-// If serverImage is empty, we attempt to find an appropriate container image based on the serverVersion
-// In the event that no image is found, an error is returned
-func makeImage(serverType, serverVersion, serverImage string) (string, error) {
-	if serverImage == "" {
-		return images.GetCassandraImage(serverType, serverVersion)
-	}
-	return serverImage, nil
+func (dc *CassandraDatacenter) GetServerImage() string {
+	return dc.Spec.ServerImage
 }
 
 // GetRackLabels ...
 func (dc *CassandraDatacenter) GetRackLabels(rackName string) map[string]string {
-	labels := map[string]string{
-		RackLabel: rackName,
-	}
-
-	utils.MergeMap(labels, dc.GetDatacenterLabels())
-
+	labels := dc.GetDatacenterLabels()
+	labels[RackLabel] = rackName
 	return labels
 }
 
@@ -491,12 +467,8 @@ func (dc *CassandraDatacenter) SetCondition(condition DatacenterCondition) {
 
 // GetDatacenterLabels ...
 func (dc *CassandraDatacenter) GetDatacenterLabels() map[string]string {
-	labels := map[string]string{
-		DatacenterLabel: dc.Name,
-	}
-
-	utils.MergeMap(labels, dc.GetClusterLabels())
-
+	labels := dc.GetClusterLabels()
+	labels[DatacenterLabel] = dc.Name
 	return labels
 }
 
