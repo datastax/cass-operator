@@ -79,11 +79,8 @@ _Note see Red Hat's [Gitbook](https://redhat-connect.gitbook.io/partner-guide-fo
 6. Build bundle container and push to staging repo
     
     ```console
-    docker build -t bradfordcp/cass-operator-bundle:$NEW_VERSION -f bundle-$NEW_VERSION.Dockerfile .
-    docker push bradfordcp/cass-operator-bundle:$NEW_VERSION
-
-    docker tag bradfordcp/cass-operator-bundle:$NEW_VERSION bradfordcp/cass-operator-bundle:latest
-    docker push bradfordcp/cass-operator-bundle:latest
+    docker build -t harbor.sjc.dsinternal.org/cass-operator/cass-operator-bundle:$NEW_VERSION -f bundle-$NEW_VERSION.Dockerfile .    
+    docker push harbor.sjc.dsinternal.org/cass-operator/cass-operator-bundle:$NEW_VERSION
     ```
 7. Build local catalog index for testing
     
