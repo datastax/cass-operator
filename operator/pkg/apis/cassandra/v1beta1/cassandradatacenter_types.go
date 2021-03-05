@@ -181,6 +181,9 @@ type CassandraDatacenterSpec struct {
 
 	// Container image for the log tailing sidecar container.
 	SystemLoggerImage string `json:"systemLoggerImage,omitempty"`
+
+	// AdditionalServiceConfig allows to define additional parameters that are included in the created Services
+	AdditionalServiceConfig ServiceConfig `json:"additionalServiceConfig,omitempty"`
 }
 
 type NetworkingConfig struct {
@@ -239,6 +242,12 @@ func (dc *CassandraDatacenter) GetRacks() []Rack {
 	return []Rack{{
 		Name: "default",
 	}}
+}
+
+// ServiceConfig defines additional service configurations
+type ServiceConfig struct {
+	Labels      map[string]string `json:"additionalLabels,omitempty"`
+	Annotations map[string]string `json:"additionalAnnotations,omitempty"`
 }
 
 // Rack ...

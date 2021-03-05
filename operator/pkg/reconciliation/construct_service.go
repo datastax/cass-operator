@@ -65,6 +65,19 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 
 	utils.AddHashAnnotation(service)
 
+	serviceConfig := dc.Spec.AdditionalServiceConfig
+	if serviceConfig.Labels != nil && len(serviceConfig.Labels) > 0 {
+		for k, v := range serviceConfig.Labels {
+			service.Labels[k] = v
+		}
+	}
+
+	if serviceConfig.Annotations != nil && len(serviceConfig.Annotations) > 0 {
+		for k, v := range serviceConfig.Annotations {
+			service.Annotations[k] = v
+		}
+	}
+
 	return service
 }
 
