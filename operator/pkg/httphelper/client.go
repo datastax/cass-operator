@@ -238,6 +238,48 @@ func (client *NodeMgmtClient) CallKeyspaceCleanupEndpoint(pod *corev1.Pod, jobs 
 	return err
 }
 
+// CreateKeyspace calls management API to create a new Keyspace.
+func (client *NodeMgmtClient) CreateKeyspace(pod *corev1.Pod, keyspaceName string, replicationSettings []map[string]string) error {
+	return client.modifyKeyspace("create", pod, keyspaceName, replicationSettings)
+}
+
+// AlterKeyspace modifies the keyspace by calling management API
+func (client *NodeMgmtClient) AlterKeyspace(pod *corev1.Pod, keyspaceName string, replicationSettings []map[string]string) error {
+	return client.modifyKeyspace("alter", pod, keyspaceName, replicationSettings)
+}
+
+func (client *NodeMgmtClient) modifyKeyspace(endpoint string, pod *corev1.Pod, keyspaceName string, replicationSettings []map[string]string) error {
+	postData := make(map[string]interface{})
+
+	if keyspaceName == "" || replicationSettings == nil {
+		return fmt.Errorf("Keyspacename and replication settings are required")
+	}
+
+	postData["keyspace_name"] = keyspaceName
+	postData["replication_settings"] = replicationSettings
+
+	body, err := json.Marshal(postData)
+	if err != nil {
+		return err
+	}
+
+	podHost, err := BuildPodHostFromPod(pod)
+	if err != nil {
+		return err
+	}
+
+	request := nodeMgmtRequest{
+		endpoint: fmt.Sprintf("/api/v0/ops/keyspace/%s", endpoint),
+		host:     podHost,
+		method:   http.MethodPost,
+		timeout:  time.Second * 20,
+		body:     body,
+	}
+
+	_, err = callNodeMgmtEndpoint(client, request, "application/json")
+	return err
+}
+
 func (client *NodeMgmtClient) CallLifecycleStartEndpointWithReplaceIp(pod *corev1.Pod, replaceIp string) error {
 	// talk to the pod via IP because we are dialing up a pod that isn't ready,
 	// so it won't be reachable via the service and pod DNS
