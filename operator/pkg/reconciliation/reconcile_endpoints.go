@@ -51,12 +51,16 @@ func (rc *ReconciliationContext) CheckAdditionalSeedEndpoints() result.Reconcile
 		return result.Continue()
 	}
 
-	desiredEndpoints := newEndpointsForAdditionalSeeds(dc)
+	desiredEndpoints, err := newEndpointsForAdditionalSeeds(dc)
+	if err != nil {
+		logger.Error(err, "Could not set additional seeds for endpoints for additional seed service")
+		return result.Error(err)
+	}
 
 	createNeeded := false
 
 	// Set CassandraDatacenter dc as the owner and controller
-	err := setControllerReference(dc, desiredEndpoints, rc.Scheme)
+	err = setControllerReference(dc, desiredEndpoints, rc.Scheme)
 	if err != nil {
 		logger.Error(err, "Could not set controller reference for endpoints for additional seed service")
 		return result.Error(err)

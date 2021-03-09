@@ -280,7 +280,7 @@ var _ = Describe(testName, func() {
 			json := `
 			{
 				"spec": {
-					"additionalSeeds": ["192.168.1.1"]
+					"additionalSeeds": ["192.168.1.1", "www.datastax.com"]
 				}
 			}`
 			k = kubectl.PatchMerge(dcResource, json)
