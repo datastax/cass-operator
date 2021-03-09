@@ -40,8 +40,8 @@ _Note see Red Hat's [Gitbook](https://redhat-connect.gitbook.io/partner-guide-fo
 1. Copy an existing version as the base
    
     ```console
-    OLD_VERSION=1.4.1
-    NEW_VERSION=1.5.0
+    OLD_VERSION=1.5.1
+    NEW_VERSION=1.6.0
     cd operator/bundle
     cp -r $OLD_VERSION $NEW_VERSION
     cp bundle-$OLD_VERSION.Dockerfile bundle-$NEW_VERSION.Dockerfile
@@ -79,16 +79,17 @@ _Note see Red Hat's [Gitbook](https://redhat-connect.gitbook.io/partner-guide-fo
 6. Build bundle container and push to staging repo
     
     ```console
-    docker build -t harbor.sjc.dsinternal.org/cass-operator/cass-operator-bundle:$NEW_VERSION -f bundle-$NEW_VERSION.Dockerfile .    
-    docker push harbor.sjc.dsinternal.org/cass-operator/cass-operator-bundle:$NEW_VERSION
+    docker build -t harbor.sjc.dsinternal.org/marketplace/cass-operator-bundle:$NEW_VERSION -f bundle-$NEW_VERSION.Dockerfile .    
+    docker push harbor.sjc.dsinternal.org/marketplace/cass-operator-bundle:$NEW_VERSION
     ```
 7. Build local catalog index for testing
     
     ```console
-    opm index add --bundles docker.io/bradfordcp/cass-operator-bundle:1.0.0,docker.io/bradfordcp/cass-operator-bundle:1.2.0,docker.io/bradfordcp/cass-operator-bundle:1.3.0,docker.io/bradfordcp/cass-operator-bundle:1.4.0,docker.io/bradfordcp/cass-operator-bundle:1.4.1,docker.io/bradfordcp/cass-operator-bundle:1.5.0,docker.io/bradfordcp/cass-operator-bundle:1.5.1 --tag docker.io/bradfordcp/catalog-index:1.5.1 -u docker
-    docker tag bradfordcp/catalog-index:1.5.1 bradfordcp/catalog-index:latest
-    docker push bradfordcp/catalog-index:1.5.1
-    docker push bradfordcp/catalog-index:latest
+    opm index add --bundles harbor.sjc.dsinternal.org/marketplace/cass-operator-bundle:1.0.0,harbor.sjc.dsinternal.org/marketplace/cass-operator-bundle:1.2.0,harbor.sjc.dsinternal.org/marketplace/cass-operator-bundle:1.3.0,harbor.sjc.dsinternal.org/marketplace/cass-operator-bundle:1.4.0,harbor.sjc.dsinternal.org/marketplace/cass-operator-bundle:1.4.1,harbor.sjc.dsinternal.org/marketplace/cass-operator-bundle:1.5.0,harbor.sjc.dsinternal.org/marketplace/cass-operator-bundle:1.5.1,harbor.sjc.dsinternal.org/marketplace/cass-operator-bundle:1.6.0 --tag harbor.sjc.dsinternal.org/marketplace/catalog-index:1.6.0 -u docker
+    docker tag harbor.sjc.dsinternal.org/marketplace/catalog-index:1.6.0 harbor.sjc.dsinternal.org/marketplace/catalog-index:latest
+
+    docker push harbor.sjc.dsinternal.org/marketplace/catalog-index:1.6.0
+    docker push harbor.sjc.dsinternal.org/marketplace/catalog-index:latest
     ```
 8. Add index as a [`CatalogSource`](olm/catalogsource.yaml) in k8s
 
