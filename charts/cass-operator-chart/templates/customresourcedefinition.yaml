@@ -41,7 +41,9 @@ spec:
               type: array
             additionalServiceConfig:
               description: AdditionalServiceConfig allows to define additional parameters
-                that are included in the created Services
+                that are included in the created Services. Note, user can override
+                values set by cass-operator and doing so could break cass-operator
+                functionality.
               properties:
                 additionalSeedService:
                   description: ServiceConfigAdditions exposes additional options for
