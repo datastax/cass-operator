@@ -244,8 +244,17 @@ func (dc *CassandraDatacenter) GetRacks() []Rack {
 	}}
 }
 
-// ServiceConfig defines additional service configurations
+// ServiceConfig defines additional service configurations. Note, user can override values set by cass-operator, doing so could break cass-operator functionality.
 type ServiceConfig struct {
+	DatacenterService     ServiceConfigAdditions `json:"dcService,omitempty"`
+	SeedService           ServiceConfigAdditions `json:"seedService,omitempty"`
+	AllPodsService        ServiceConfigAdditions `json:"allpodsService,omitempty"`
+	AdditionalSeedService ServiceConfigAdditions `json:"additionalSeedService,omitempty"`
+	NodePortService       ServiceConfigAdditions `json:"nodePortService,omitempty"`
+}
+
+// ServiceConfigAdditions exposes additional options for each service
+type ServiceConfigAdditions struct {
 	Labels      map[string]string `json:"additionalLabels,omitempty"`
 	Annotations map[string]string `json:"additionalAnnotations,omitempty"`
 }

@@ -10,10 +10,11 @@ spec:
     insecure: {}
   size: 1
   additionalServiceConfig:
-    additionalLabels:
-      test: additional-serviceoptions
-    additionalAnnotations:
-      external-dns.alpha.kubernetes.io/hostname: localhost
+    dcService:
+      additionalLabels:
+        test: additional-serviceoptions
+      additionalAnnotations:
+        external-dns.alpha.kubernetes.io/hostname: localhost
   storageConfig:
       cassandraDataVolumeClaimSpec:
         storageClassName: server-storage

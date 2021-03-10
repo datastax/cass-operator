@@ -65,7 +65,11 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 
 	utils.AddHashAnnotation(service)
 
-	serviceConfig := dc.Spec.AdditionalServiceConfig
+	addAdditionalOptions(service, &dc.Spec.AdditionalServiceConfig.DatacenterService)
+	return service
+}
+
+func addAdditionalOptions(service *corev1.Service, serviceConfig *api.ServiceConfigAdditions) {
 	if serviceConfig.Labels != nil && len(serviceConfig.Labels) > 0 {
 		for k, v := range serviceConfig.Labels {
 			service.Labels[k] = v
@@ -77,8 +81,6 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 			service.Annotations[k] = v
 		}
 	}
-
-	return service
 }
 
 func namedServicePort(name string, port int, targetPort int) corev1.ServicePort {
@@ -108,6 +110,7 @@ func newSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.S
 	service.Spec.PublishNotReadyAddresses = true
 
 	utils.AddHashAnnotation(service)
+	addAdditionalOptions(service, &dc.Spec.AdditionalServiceConfig.SeedService)
 
 	return service
 }
@@ -127,6 +130,7 @@ func newAdditionalSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter)
 	service.Spec.PublishNotReadyAddresses = true
 
 	utils.AddHashAnnotation(&service)
+	addAdditionalOptions(&service, &dc.Spec.AdditionalServiceConfig.AdditionalSeedService)
 
 	return &service
 }
@@ -190,6 +194,7 @@ func newNodePortServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *core
 		},
 	}
 
+	addAdditionalOptions(service, &dc.Spec.AdditionalServiceConfig.NodePortService)
 	return service
 }
 
@@ -219,6 +224,7 @@ func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev
 	}
 
 	utils.AddHashAnnotation(service)
+	addAdditionalOptions(service, &dc.Spec.AdditionalServiceConfig.AllPodsService)
 
 	return service
 }
