@@ -63,9 +63,10 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 
 	service.Spec.Ports = ports
 
+	addAdditionalOptions(service, &dc.Spec.AdditionalServiceConfig.DatacenterService)
+
 	utils.AddHashAnnotation(service)
 
-	addAdditionalOptions(service, &dc.Spec.AdditionalServiceConfig.DatacenterService)
 	return service
 }
 
@@ -109,8 +110,9 @@ func newSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.S
 	service.Spec.Selector = buildLabelSelectorForSeedService(dc)
 	service.Spec.PublishNotReadyAddresses = true
 
-	utils.AddHashAnnotation(service)
 	addAdditionalOptions(service, &dc.Spec.AdditionalServiceConfig.SeedService)
+
+	utils.AddHashAnnotation(service)
 
 	return service
 }
@@ -129,8 +131,9 @@ func newAdditionalSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter)
 	service.Spec.ClusterIP = "None"
 	service.Spec.PublishNotReadyAddresses = true
 
-	utils.AddHashAnnotation(&service)
 	addAdditionalOptions(&service, &dc.Spec.AdditionalServiceConfig.AdditionalSeedService)
+
+	utils.AddHashAnnotation(&service)
 
 	return &service
 }
@@ -223,8 +226,9 @@ func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev
 		},
 	}
 
-	utils.AddHashAnnotation(service)
 	addAdditionalOptions(service, &dc.Spec.AdditionalServiceConfig.AllPodsService)
+
+	utils.AddHashAnnotation(service)
 
 	return service
 }
