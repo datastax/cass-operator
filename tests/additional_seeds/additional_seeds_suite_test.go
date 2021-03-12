@@ -251,6 +251,19 @@ func checkAdditionalSeedService() {
 
 	err = json.Unmarshal([]byte(output), &actualIp)
 	Expect(actualIp).To(Equal("192.168.1.1"), "Expected additional seed endpoints IP %s to be 192.168.1.1", actualIp)
+
+	// Verify there's secondary IP also (from the hostname parsing)
+
+	jsonpath = "jsonpath=\"{.subsets[0].addresses[1].ip}\""
+	k = kubectl.Get(additionalSeedEndpointResource).FormatOutput(jsonpath)
+	output = ns.OutputPanic(k)
+	actualIp = ""
+	err = json.Unmarshal([]byte(output), &actualIp)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = json.Unmarshal([]byte(output), &actualIp)
+	match, _ := regexp.MatchString("^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$", actualIp)
+	Expect(match).To(BeTrue())
 }
 
 var _ = Describe(testName, func() {

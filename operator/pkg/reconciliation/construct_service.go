@@ -6,7 +6,6 @@ package reconciliation
 // This file defines constructors for k8s service-related objects
 import (
 	"net"
-	"regexp"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
@@ -131,7 +130,11 @@ func newEndpointsForAdditionalSeeds(dc *api.CassandraDatacenter) (*corev1.Endpoi
 
 	addresses := make([]corev1.EndpointAddress, 0, len(dc.Spec.AdditionalSeeds))
 	for _, additionalSeed := range dc.Spec.AdditionalSeeds {
-		if match, _ := regexp.MatchString("^[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}$", additionalSeed); !match {
+		if ip := net.ParseIP(additionalSeed); ip != nil {
+			addresses = append(addresses, corev1.EndpointAddress{
+				IP: additionalSeed,
+			})
+		} else {
 			additionalSeedIPs, err := resolveAddress(additionalSeed)
 			if err != nil {
 				return nil, err
@@ -141,10 +144,6 @@ func newEndpointsForAdditionalSeeds(dc *api.CassandraDatacenter) (*corev1.Endpoi
 					IP: address,
 				})
 			}
-		} else {
-			addresses = append(addresses, corev1.EndpointAddress{
-				IP: additionalSeed,
-			})
 		}
 	}
 
