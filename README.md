@@ -189,7 +189,7 @@ webhookClusterRoleName: cass-operator-webhook
 webhookClusterRoleBindingName: cass-operator-webhook
 deploymentName: cass-operator
 deploymentReplicas: 1
-image: "datastax/cass-operator:1.6.0"
+defaultImage: "datastax/cass-operator:1.6.0"
 imagePullPolicy: IfNotPresent
 imagePullSecret: ""
 ```
