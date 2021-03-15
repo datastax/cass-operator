@@ -174,8 +174,6 @@ type CassandraDatacenterSpec struct {
 
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 
-	Reaper *ReaperConfig `json:"reaper,omitempty"`
-
 	// Configuration for disabling the simple log tailing sidecar container. Our default is to have it enabled.
 	DisableSystemLoggerSidecar bool `json:"disableSystemLoggerSidecar,omitempty"`
 
@@ -373,17 +371,6 @@ type ManagementApiAuthConfig struct {
 	// other strategy configs (e.g. Cert Manager) go here
 }
 
-type ReaperConfig struct {
-	Enabled bool `json:"enabled,omitempty"`
-
-	Image string `json:"image,omitempty"`
-
-	ImagePullPolicy corev1.PullPolicy `json:"imagePullPolicy,omitempty"`
-
-	// Kubernetes resource requests and limits per reaper container.
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // CassandraDatacenterList contains a list of CassandraDatacenter
@@ -436,13 +423,6 @@ func (dc *CassandraDatacenter) GetRackLabels(rackName string) map[string]string 
 	utils.MergeMap(labels, dc.GetDatacenterLabels())
 
 	return labels
-}
-
-func (dc *CassandraDatacenter) IsReaperEnabled() bool {
-	if dc.Spec.Reaper != nil && dc.Spec.Reaper.Enabled && dc.Spec.ServerType == "cassandra" {
-		return true
-	}
-	return false
 }
 
 func (status *CassandraDatacenterStatus) GetConditionStatus(conditionType DatacenterConditionType) corev1.ConditionStatus {
