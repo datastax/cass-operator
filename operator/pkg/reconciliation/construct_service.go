@@ -5,6 +5,8 @@ package reconciliation
 
 // This file defines constructors for k8s service-related objects
 import (
+	"net"
+
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
@@ -118,21 +120,31 @@ func newAdditionalSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter)
 	return &service
 }
 
-func newEndpointsForAdditionalSeeds(dc *api.CassandraDatacenter) *corev1.Endpoints {
+func newEndpointsForAdditionalSeeds(dc *api.CassandraDatacenter) (*corev1.Endpoints, error) {
 	labels := dc.GetDatacenterLabels()
 	oplabels.AddManagedByLabel(labels)
-	var endpoints corev1.Endpoints
+	endpoints := corev1.Endpoints{}
 	endpoints.ObjectMeta.Name = dc.GetAdditionalSeedsServiceName()
 	endpoints.ObjectMeta.Namespace = dc.Namespace
 	endpoints.ObjectMeta.Labels = labels
 
-	var addresses []corev1.EndpointAddress
-
-	for seedIdx := range dc.Spec.AdditionalSeeds {
-		additionalSeed := dc.Spec.AdditionalSeeds[seedIdx]
-		addresses = append(addresses, corev1.EndpointAddress{
-			IP: additionalSeed,
-		})
+	addresses := make([]corev1.EndpointAddress, 0, len(dc.Spec.AdditionalSeeds))
+	for _, additionalSeed := range dc.Spec.AdditionalSeeds {
+		if ip := net.ParseIP(additionalSeed); ip != nil {
+			addresses = append(addresses, corev1.EndpointAddress{
+				IP: additionalSeed,
+			})
+		} else {
+			additionalSeedIPs, err := resolveAddress(additionalSeed)
+			if err != nil {
+				return nil, err
+			}
+			for _, address := range additionalSeedIPs {
+				addresses = append(addresses, corev1.EndpointAddress{
+					IP: address,
+				})
+			}
+		}
 	}
 
 	// See: https://godoc.org/k8s.io/api/core/v1#Endpoints
@@ -144,7 +156,23 @@ func newEndpointsForAdditionalSeeds(dc *api.CassandraDatacenter) *corev1.Endpoin
 
 	utils.AddHashAnnotation(&endpoints)
 
-	return &endpoints
+	return &endpoints, nil
+}
+
+func resolveAddress(hostname string) ([]string, error) {
+	ips, err := net.LookupIP(hostname)
+	if err != nil {
+		return []string{}, err
+	}
+	ipStrings := make([]string, 0, len(ips))
+	for _, ip := range ips {
+		// Exclude IPv6 addresses
+		if ip.To4() != nil {
+			ipStrings = append(ipStrings, ip.String())
+		}
+	}
+
+	return ipStrings, nil
 }
 
 // newNodePortServiceForCassandraDatacenter creates a headless service owned by the CassandraDatacenter,
