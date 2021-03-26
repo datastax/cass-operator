@@ -13,7 +13,9 @@ import (
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
 	"github.com/datastax/cass-operator/operator/pkg/psp"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
+	"os"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
+	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -178,6 +180,11 @@ func newStatefulSetForCassandraDatacenterHelper(
 
 	if shouldDefineSecurityContext(dc) {
 		var userID int64 = 999
+		if userFromEnv := os.Getenv("DSE_USER_ID"); userFromEnv != "" {
+			if inputValue, convErr := strconv.Atoi(userFromEnv); convErr == nil {
+				userID = int64(inputValue)
+			}
+		}
 		template.Spec.SecurityContext = &corev1.PodSecurityContext{
 			RunAsUser:  &userID,
 			RunAsGroup: &userID,
