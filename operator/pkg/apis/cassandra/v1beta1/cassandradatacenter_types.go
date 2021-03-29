@@ -183,6 +183,7 @@ type CassandraDatacenterSpec struct {
 	SystemLoggerImage string `json:"systemLoggerImage,omitempty"`
 
 	// AdditionalServiceConfig allows to define additional parameters that are included in the created Services. Note, user can override values set by cass-operator and doing so could break cass-operator functionality.
+	// Avoid label "cass-operator" and anything that starts with "cassandra.datastax.com/"
 	AdditionalServiceConfig ServiceConfig `json:"additionalServiceConfig,omitempty"`
 }
 
