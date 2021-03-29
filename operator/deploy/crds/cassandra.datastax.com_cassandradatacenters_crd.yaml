@@ -39,6 +39,79 @@ spec:
               items:
                 type: string
               type: array
+            additionalServiceConfig:
+              description: AdditionalServiceConfig allows to define additional parameters
+                that are included in the created Services. Note, user can override
+                values set by cass-operator and doing so could break cass-operator
+                functionality. Avoid label "cass-operator" and anything that starts
+                with "cassandra.datastax.com/"
+              properties:
+                additionalSeedService:
+                  description: ServiceConfigAdditions exposes additional options for
+                    each service
+                  properties:
+                    additionalAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    additionalLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
+                allpodsService:
+                  description: ServiceConfigAdditions exposes additional options for
+                    each service
+                  properties:
+                    additionalAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    additionalLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
+                dcService:
+                  description: ServiceConfigAdditions exposes additional options for
+                    each service
+                  properties:
+                    additionalAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    additionalLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
+                nodePortService:
+                  description: ServiceConfigAdditions exposes additional options for
+                    each service
+                  properties:
+                    additionalAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    additionalLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
+                seedService:
+                  description: ServiceConfigAdditions exposes additional options for
+                    each service
+                  properties:
+                    additionalAnnotations:
+                      additionalProperties:
+                        type: string
+                      type: object
+                    additionalLabels:
+                      additionalProperties:
+                        type: string
+                      type: object
+                  type: object
+              type: object
             allowMultipleNodesPerWorker:
               description: Turning this option on allows multiple server pods to be
                 created on a k8s worker node. By default the operator creates just

@@ -65,9 +65,25 @@ func newServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.Servi
 
 	service.Spec.Ports = ports
 
+	addAdditionalOptions(service, &dc.Spec.AdditionalServiceConfig.DatacenterService)
+
 	utils.AddHashAnnotation(service)
 
 	return service
+}
+
+func addAdditionalOptions(service *corev1.Service, serviceConfig *api.ServiceConfigAdditions) {
+	if serviceConfig.Labels != nil && len(serviceConfig.Labels) > 0 {
+		for k, v := range serviceConfig.Labels {
+			service.Labels[k] = v
+		}
+	}
+
+	if serviceConfig.Annotations != nil && len(serviceConfig.Annotations) > 0 {
+		for k, v := range serviceConfig.Annotations {
+			service.Annotations[k] = v
+		}
+	}
 }
 
 func namedServicePort(name string, port int, targetPort int) corev1.ServicePort {
@@ -96,6 +112,8 @@ func newSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev1.S
 	service.Spec.Selector = buildLabelSelectorForSeedService(dc)
 	service.Spec.PublishNotReadyAddresses = true
 
+	addAdditionalOptions(service, &dc.Spec.AdditionalServiceConfig.SeedService)
+
 	utils.AddHashAnnotation(service)
 
 	return service
@@ -114,6 +132,8 @@ func newAdditionalSeedServiceForCassandraDatacenter(dc *api.CassandraDatacenter)
 	service.Spec.Type = "ClusterIP"
 	service.Spec.ClusterIP = "None"
 	service.Spec.PublishNotReadyAddresses = true
+
+	addAdditionalOptions(&service, &dc.Spec.AdditionalServiceConfig.AdditionalSeedService)
 
 	utils.AddHashAnnotation(&service)
 
@@ -205,6 +225,7 @@ func newNodePortServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *core
 		},
 	}
 
+	addAdditionalOptions(service, &dc.Spec.AdditionalServiceConfig.NodePortService)
 	return service
 }
 
@@ -232,6 +253,8 @@ func newAllPodsServiceForCassandraDatacenter(dc *api.CassandraDatacenter) *corev
 			Name: "prometheus", Port: 9103, TargetPort: intstr.FromInt(9103),
 		},
 	}
+
+	addAdditionalOptions(service, &dc.Spec.AdditionalServiceConfig.AllPodsService)
 
 	utils.AddHashAnnotation(service)
 

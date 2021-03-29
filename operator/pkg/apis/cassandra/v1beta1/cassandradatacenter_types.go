@@ -181,6 +181,10 @@ type CassandraDatacenterSpec struct {
 
 	// Container image for the log tailing sidecar container.
 	SystemLoggerImage string `json:"systemLoggerImage,omitempty"`
+
+	// AdditionalServiceConfig allows to define additional parameters that are included in the created Services. Note, user can override values set by cass-operator and doing so could break cass-operator functionality.
+	// Avoid label "cass-operator" and anything that starts with "cassandra.datastax.com/"
+	AdditionalServiceConfig ServiceConfig `json:"additionalServiceConfig,omitempty"`
 }
 
 type NetworkingConfig struct {
@@ -239,6 +243,21 @@ func (dc *CassandraDatacenter) GetRacks() []Rack {
 	return []Rack{{
 		Name: "default",
 	}}
+}
+
+// ServiceConfig defines additional service configurations.
+type ServiceConfig struct {
+	DatacenterService     ServiceConfigAdditions `json:"dcService,omitempty"`
+	SeedService           ServiceConfigAdditions `json:"seedService,omitempty"`
+	AllPodsService        ServiceConfigAdditions `json:"allpodsService,omitempty"`
+	AdditionalSeedService ServiceConfigAdditions `json:"additionalSeedService,omitempty"`
+	NodePortService       ServiceConfigAdditions `json:"nodePortService,omitempty"`
+}
+
+// ServiceConfigAdditions exposes additional options for each service
+type ServiceConfigAdditions struct {
+	Labels      map[string]string `json:"additionalLabels,omitempty"`
+	Annotations map[string]string `json:"additionalAnnotations,omitempty"`
 }
 
 // Rack ...
