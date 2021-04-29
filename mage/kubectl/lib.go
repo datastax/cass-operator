@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/user"
 	"regexp"
+	"strings"
 	"time"
 
 	"golang.org/x/crypto/ssh/terminal"
@@ -43,11 +44,15 @@ func GetKubeconfig(createDefault bool) string {
 }
 
 func WatchPods() {
-	shutil.RunVPanic("watch", "-n1", "kubectl", "get", "pods")
+	args := []string{"pods", "-w"}
+	kCmd := KCmd{Command: "get", Args: args, Flags: nil}
+	kCmd.ExecVPanic()
 }
 
 func WatchPodsInNs(namespace string) {
-	shutil.RunVPanic("watch", "-n1", "kubectl", "get", "pods", fmt.Sprintf("--namespace=%s", namespace))
+	args := []string{"pods", "--namespace", namespace, "-w"}
+	kCmd := KCmd{Command: "watch", Args: args, Flags: nil}
+	kCmd.ExecVPanic()
 }
 
 //==============================================
@@ -144,8 +149,28 @@ func CreateSecretLiteral(name string, user string, pw string) KCmd {
 	return KCmd{Command: "create", Args: args, Flags: flags}
 }
 
+func Label(nodes string, key string, value string) KCmd {
+	tokens := strings.Split(nodes, " ")
+	args := []string{}
+	for _, t := range tokens {
+		if t != "" {
+			args = append(args, "nodes/"+t)
+		}
+	}
+	label := fmt.Sprintf("%s=%s", key, value)
+	args = append(args, label)
+	args = append(args, "--overwrite")
+	return KCmd{Command: "label", Args: args}
+}
+
 func Taint(node string, key string, value string, effect string) KCmd {
-	args := []string{"nodes", node, fmt.Sprintf("%s=%s:%s", key, value, effect)}
+	var args []string = nil
+	if value != "" {
+		args = []string{"nodes", node, fmt.Sprintf("%s=%s:%s", key, value, effect)}
+	} else {
+		args = []string{"nodes", node, fmt.Sprintf("%s:%s", key, effect)}
+	}
+
 	return KCmd{Command: "taint", Args: args}
 }
 
@@ -280,7 +305,7 @@ func waitForOutputPattern(k KCmd, pattern string, seconds int) error {
 		expectedPhrase = "Expected output to match regex: "
 		msg := fmt.Sprintf("Timed out waiting for value. %s '%s', but '%s' did not match", expectedPhrase, pattern, actual)
 		if err != nil {
-			msg = fmt.Sprintf("%s\nThe following error occured while querying k8s: %v", msg, err)
+			msg = fmt.Sprintf("%s\nThe following error occurred while querying k8s: %v", msg, err)
 		}
 		e := fmt.Errorf(msg)
 		return e
@@ -321,6 +346,12 @@ func ExecOnPod(podName string, args ...string) KCmd {
 	execArgs := []string{podName}
 	execArgs = append(execArgs, args...)
 	return KCmd{Command: "exec", Args: execArgs}
+}
+
+func GetNodes() KCmd {
+	json := "jsonpath={range .items[*]}{@.metadata.name} {end}"
+	args := []string{"nodes", "-o", json}
+	return KCmd{Command: "get", Args: args}
 }
 
 func GetNodeNameForPod(podName string) KCmd {

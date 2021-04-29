@@ -19,7 +19,7 @@ func buildResourceRequirements(cpuMillis int64, memoryMB int64) corev1.ResourceR
 	}
 }
 
-// Determines if the given resource requirementw are specifed or not.
+// Determines if the given resource requirements are specified or not.
 func isResourceRequirementsNotSpecified(res *corev1.ResourceRequirements) bool {
 	if res.Limits == nil && res.Requests == nil {
 		return false
@@ -36,4 +36,11 @@ func getResourcesOrDefault(res *corev1.ResourceRequirements,
 	}
 
 	return res
+}
+
+func emptyMapIfNil(m map[string]string) map[string]string {
+	if m == nil {
+		return map[string]string{}
+	}
+	return m
 }

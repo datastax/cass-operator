@@ -13,7 +13,7 @@ ARG BASE_OS=datastax/doesnotexist
 
 # "builder" compiles and tests the code
 # This stage name is important to the Cloud Platform CI/CD infrastructure, and should be preserved
-FROM --platform=${BUILDPLATFORM} golang:1.13-stretch as builder
+FROM --platform=${BUILDPLATFORM} golang:1.14-stretch as builder
 
 # Disable cgo - this makes static binaries that will work on an Alpine image
 ENV CGO_ENABLED=0

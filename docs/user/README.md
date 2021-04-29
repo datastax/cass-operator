@@ -200,10 +200,72 @@ For this guide, we define a single-datacenter cluster. The cluster is named
 
 ## Racks
 
-Cassandra is rack-aware, and the `racks` parameter will configure the operator to
-set up pods in a rack aware way. Note the Kubernetes worker nodes must have
-labels matching `failure-domain.beta.kubernetes.io/zone`. Racks must have
-identifiers. In this guide we will use `r1`, `r2`, and `r3`.
+Cassandra defines nodes in a logical topology of datacenters and racks. Much like physical server racks in a datacenter, racks in Cassandra define fault domains. Cassandra will place replicas on separate racks to handle a scenario where an entire rack goes offline. Should this occur multiple replicas remain available. In cloud deployments racks align with availability zones. In this guide we will use `r1`, `r2`, and `r3`.
+
+Prior to version 1.6.0 cass-operator used the `zone` parameter of a `rack` when assigning pods to k8s workers. K8s nodes with a matching `failure-domain.beta.kubernetes.io/zone` label were used during scheduling. With cass-operator 1.6.0 the `zone` field has been _deprecated_. In its place are the `nodeAffinityLabels` fields at both `spec` (datacenter) and `rack` levels. `nodeAffinityLabels` are represented as a simple map of label `key/value` pairs. These labels are matched to labels on K8s workers during scheduling. Consider this example which assumes there are two labels on each node with the keys `dc` and `rack`.
+
+```yaml
+metadata:
+  name: dc1
+spec:
+  clusterName: cluster1
+  serverType: cassandra
+  serverVersion: 3.11.7
+  managementApiAuth:
+    insecure: {}
+  size: 3
+  nodeAffinityLabels:
+    dc: us-va
+  racks:
+  - name: r1
+    nodeAffinityLabels:
+      rack: us-va-1
+  - name: r2
+    nodeAffinityLabels:
+      rack: us-va-2
+  - name: r3
+    nodeAffinityLabels:
+      rack: us-va-3
+```
+
+Here each rack will receive a single pod. The pod will have its [`spec.affinity.nodeAffinity`](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.19/#nodeaffinity-v1-core) configured with the values from `spec.nodeAffinityLabels` _and_ `spec.racks[].nodeAffinityLabels` (note that neither field is required).
+
+If you do not know which labels are available on your nodes consult `kubectl get nodes` and `kubectl get nodes node_name -o jsonpath={.metadata.labels}`.
+
+```console
+$ kubectl get nodes
+NAME                                       STATUS   ROLES    AGE   VERSION
+gke-cluster-1-default-pool-3c7ae875-j7bk   Ready    <none>   33s   v1.18.12-gke.1210
+gke-cluster-1-default-pool-3c7ae875-zxz2   Ready    <none>   33s   v1.18.12-gke.1210
+gke-cluster-1-default-pool-579202fb-99h2   Ready    <none>   33s   v1.18.12-gke.1210
+gke-cluster-1-default-pool-579202fb-vq3q   Ready    <none>   33s   v1.18.12-gke.1210
+gke-cluster-1-default-pool-75e14bf9-1bsf   Ready    <none>   32s   v1.18.12-gke.1210
+gke-cluster-1-default-pool-75e14bf9-kv9r   Ready    <none>   30s   v1.18.12-gke.1210
+
+$ kubectl get nodes gke-cluster-1-default-pool-3c7ae875-j7bk -o jsonpath={.metadata.labels} | jq
+{
+  "beta.kubernetes.io/arch": "amd64",
+  "beta.kubernetes.io/instance-type": "e2-medium",
+  "beta.kubernetes.io/os": "linux",
+  "cloud.google.com/gke-boot-disk": "pd-standard",
+  "cloud.google.com/gke-nodepool": "default-pool",
+  "cloud.google.com/gke-os-distribution": "cos",
+  "cloud.google.com/machine-family": "e2",
+  "failure-domain.beta.kubernetes.io/region": "us-central1",
+  "failure-domain.beta.kubernetes.io/zone": "us-central1-a",
+  "kubernetes.io/arch": "amd64",
+  "kubernetes.io/hostname": "gke-cluster-1-default-pool-3c7ae875-j7bk",
+  "kubernetes.io/os": "linux",
+  "node.kubernetes.io/instance-type": "e2-medium",
+  "topology.gke.io/zone": "us-central1-a",
+  "topology.kubernetes.io/region": "us-central1",
+  "topology.kubernetes.io/zone": "us-central1-a"
+}
+```
+
+To target this particular node with C* pods consider using the `topology.kubernetes.io/region` label at the datacenter level and `topology.kubernetes.io/zone` for a single rack.
+
+_Note you are not limited to a single key/value pair for either field._
 
 ## Node Count
 

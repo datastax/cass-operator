@@ -8,6 +8,7 @@ package reconciliation
 import (
 	"fmt"
 	"reflect"
+	"sort"
 
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
@@ -28,22 +29,34 @@ const (
 	SystemLoggerContainerName            = "server-system-logger"
 )
 
-// calculateNodeAffinity provides a way to pin all pods within a statefulset to the same zone
-func calculateNodeAffinity(zone string) *corev1.NodeAffinity {
-	if zone == "" {
+// calculateNodeAffinity provides a way to decide where to schedule pods within a statefulset based on labels
+func calculateNodeAffinity(labels map[string]string) *corev1.NodeAffinity {
+	if len(labels) == 0 {
 		return nil
 	}
+
+	var nodeSelectors []corev1.NodeSelectorRequirement
+
+	//we make a new map in order to sort because a map is random by design
+	keys := make([]string, 0, len(labels))
+	for key := range labels {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys) // Keep labels in the same order across statefulsets
+	for _, key := range keys {
+		selector := corev1.NodeSelectorRequirement{
+			Key:      key,
+			Operator: corev1.NodeSelectorOpIn,
+			Values:   []string{labels[key]},
+		}
+		nodeSelectors = append(nodeSelectors, selector)
+	}
+
 	return &corev1.NodeAffinity{
 		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 			NodeSelectorTerms: []corev1.NodeSelectorTerm{
 				{
-					MatchExpressions: []corev1.NodeSelectorRequirement{
-						{
-							Key:      "failure-domain.beta.kubernetes.io/zone",
-							Operator: corev1.NodeSelectorOpIn,
-							Values:   []string{zone},
-						},
-					},
+					MatchExpressions: nodeSelectors,
 				},
 			},
 		},
@@ -176,30 +189,69 @@ outerLoop:
 	return out
 }
 
+func generateStorageConfigVolumesMount(cc *api.CassandraDatacenter) []corev1.VolumeMount {
+	var vms []corev1.VolumeMount
+	for _, storage := range cc.Spec.StorageConfig.AdditionalVolumes {
+		vms = append(vms, corev1.VolumeMount{Name: storage.Name, MountPath: storage.MountPath})
+	}
+	return vms
+}
+
+func generateStorageConfigEmptyVolumes(cc *api.CassandraDatacenter) []corev1.Volume {
+	var volumes []corev1.Volume
+	for _, storage := range cc.Spec.StorageConfig.AdditionalVolumes {
+		volumes = append(volumes, corev1.Volume{Name: storage.Name})
+	}
+	return volumes
+}
+
 func addVolumes(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTemplateSpec) {
-	vServerConfig := corev1.Volume{}
-	vServerConfig.Name = "server-config"
-	vServerConfig.VolumeSource = corev1.VolumeSource{
-		EmptyDir: &corev1.EmptyDirVolumeSource{},
+	vServerConfig := corev1.Volume{
+		Name: "server-config",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
 	}
 
-	vServerLogs := corev1.Volume{}
-	vServerLogs.Name = "server-logs"
-	vServerLogs.VolumeSource = corev1.VolumeSource{
-		EmptyDir: &corev1.EmptyDirVolumeSource{},
+	vServerLogs := corev1.Volume{
+		Name: "server-logs",
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
 	}
 
-	vServerEncryption := corev1.Volume{}
-	vServerEncryption.Name = "encryption-cred-storage"
-	vServerEncryption.VolumeSource = corev1.VolumeSource{
-		Secret: &corev1.SecretVolumeSource{
-			SecretName: fmt.Sprintf("%s-keystore", dc.Name)},
+	vServerEncryption := corev1.Volume{
+		Name: "encryption-cred-storage",
+		VolumeSource: corev1.VolumeSource{
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: fmt.Sprintf("%s-keystore", dc.Name),
+			},
+		},
 	}
 
-	volumes := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
+	volumeDefaults := []corev1.Volume{vServerConfig, vServerLogs, vServerEncryption}
 
-	baseTemplate.Spec.Volumes = combineVolumeSlices(
-		volumes, baseTemplate.Spec.Volumes)
+	volumeDefaults = combineVolumeSlices(
+		volumeDefaults, baseTemplate.Spec.Volumes)
+
+	baseTemplate.Spec.Volumes = symmetricDifference(volumeDefaults, generateStorageConfigEmptyVolumes(dc))
+}
+
+func symmetricDifference(list1 []corev1.Volume, list2 []corev1.Volume) []corev1.Volume {
+	out := []corev1.Volume{}
+	for _, volume := range list1 {
+		found := false
+		for _, storage := range list2 {
+			if storage.Name == volume.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			out = append(out, volume)
+		}
+	}
+	return out
 }
 
 // This ensure that the server-config-builder init container is properly configured.
@@ -360,37 +412,47 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 
 	cassContainer.Ports = combinePortSlices(portDefaults, cassContainer.Ports)
 
-	// Combine volumes
+	// Combine volumeMounts
 
 	var volumeDefaults []corev1.VolumeMount
-	for _, c := range baseTemplate.Spec.InitContainers {
-		volumeDefaults = combineVolumeMountSlices(volumeDefaults, c.VolumeMounts)
+	serverCfgMount := corev1.VolumeMount{
+		Name:      "server-config",
+		MountPath: "/config",
 	}
+	volumeDefaults = append(volumeDefaults, serverCfgMount)
 
 	cassServerLogsMount := corev1.VolumeMount{
 		Name:      "server-logs",
 		MountPath: "/var/log/cassandra",
 	}
-	volumeDefaults = append(volumeDefaults, cassServerLogsMount)
 
-	volumeDefaults = append(volumeDefaults, corev1.VolumeMount{
-		Name:      PvcName,
-		MountPath: "/var/lib/cassandra",
+	volumeMounts :=  combineVolumeMountSlices(volumeDefaults,
+		[]corev1.VolumeMount{
+			cassServerLogsMount,
+			{
+				Name:      PvcName,
+				MountPath: "/var/lib/cassandra",
+			},
+			{
+				Name:      "encryption-cred-storage",
+				MountPath: "/etc/encryption/",
+			},
 	})
 
-	volumeDefaults = append(volumeDefaults, corev1.VolumeMount{
-		Name:      "encryption-cred-storage",
-		MountPath: "/etc/encryption/",
-	})
-
-	cassContainer.VolumeMounts = combineVolumeMountSlices(volumeDefaults, cassContainer.VolumeMounts)
+	volumeMounts = combineVolumeMountSlices(volumeMounts, cassContainer.VolumeMounts)
+	cassContainer.VolumeMounts = combineVolumeMountSlices(volumeMounts, generateStorageConfigVolumesMount(dc))
 
 	// Server Logger Container
 
 	loggerContainer.Name = SystemLoggerContainerName
 
 	if loggerContainer.Image == "" {
-		loggerContainer.Image = images.GetSystemLoggerImage()
+		specImage := dc.Spec.SystemLoggerImage
+		if specImage != "" {
+			loggerContainer.Image = specImage
+		} else {
+			loggerContainer.Image = images.GetSystemLoggerImage()
+		}
 	}
 
 	if len(loggerContainer.Args) == 0 {
@@ -399,8 +461,9 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		}
 	}
 
-	loggerContainer.VolumeMounts = combineVolumeMountSlices(
-		[]corev1.VolumeMount{cassServerLogsMount}, loggerContainer.VolumeMounts)
+	volumeMounts = combineVolumeMountSlices([]corev1.VolumeMount{cassServerLogsMount}, loggerContainer.VolumeMounts)
+
+	loggerContainer.VolumeMounts = combineVolumeMountSlices(volumeMounts, generateStorageConfigVolumesMount(dc))
 
 	loggerContainer.Resources = *getResourcesOrDefault(&dc.Spec.SystemLoggerResources, &DefaultsLoggerContainer)
 
@@ -417,8 +480,10 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 		baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *cassContainer)
 	}
 
-	if !foundLogger {
-		baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *loggerContainer)
+	if !dc.Spec.DisableSystemLoggerSidecar {
+		if !foundLogger {
+			baseTemplate.Spec.Containers = append(baseTemplate.Spec.Containers, *loggerContainer)
+		}
 	}
 
 	if dc.IsReaperEnabled() {
@@ -430,7 +495,8 @@ func buildContainers(dc *api.CassandraDatacenter, baseTemplate *corev1.PodTempla
 	return nil
 }
 
-func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName string) (*corev1.PodTemplateSpec, error) {
+func buildPodTemplateSpec(dc *api.CassandraDatacenter, nodeAffinityLabels map[string]string,
+	rackName string) (*corev1.PodTemplateSpec, error) {
 
 	baseTemplate := dc.Spec.PodTemplateSpec.DeepCopy()
 
@@ -474,10 +540,19 @@ func buildPodTemplateSpec(dc *api.CassandraDatacenter, zone string, rackName str
 	}
 	baseTemplate.Labels = utils.MergeMap(baseTemplate.Labels, podLabels)
 
+	// Annotations
+
+	podAnnotations := map[string]string{}
+
+	if baseTemplate.Annotations == nil {
+		baseTemplate.Annotations = make(map[string]string)
+	}
+	baseTemplate.Annotations = utils.MergeMap(baseTemplate.Annotations, podAnnotations)
+
 	// Affinity
 
 	affinity := &corev1.Affinity{}
-	affinity.NodeAffinity = calculateNodeAffinity(zone)
+	affinity.NodeAffinity = calculateNodeAffinity(nodeAffinityLabels)
 	affinity.PodAntiAffinity = calculatePodAntiAffinity(dc.Spec.AllowMultipleNodesPerWorker)
 	baseTemplate.Spec.Affinity = affinity
 

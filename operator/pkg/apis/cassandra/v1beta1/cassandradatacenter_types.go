@@ -91,6 +91,9 @@ type CassandraDatacenterSpec struct {
 	// Config for the Management API certificates
 	ManagementApiAuth ManagementApiAuthConfig `json:"managementApiAuth,omitempty"`
 
+	//NodeAffinityLabels to pin the Datacenter, using node affinity
+	NodeAffinityLabels map[string]string `json:"nodeAffinityLabels,omitempty"`
+
 	// Kubernetes resource requests and limits, per pod
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
@@ -172,6 +175,16 @@ type CassandraDatacenterSpec struct {
 	AdditionalSeeds []string `json:"additionalSeeds,omitempty"`
 
 	Reaper *ReaperConfig `json:"reaper,omitempty"`
+
+	// Configuration for disabling the simple log tailing sidecar container. Our default is to have it enabled.
+	DisableSystemLoggerSidecar bool `json:"disableSystemLoggerSidecar,omitempty"`
+
+	// Container image for the log tailing sidecar container.
+	SystemLoggerImage string `json:"systemLoggerImage,omitempty"`
+
+	// AdditionalServiceConfig allows to define additional parameters that are included in the created Services. Note, user can override values set by cass-operator and doing so could break cass-operator functionality.
+	// Avoid label "cass-operator" and anything that starts with "cassandra.datastax.com/"
+	AdditionalServiceConfig ServiceConfig `json:"additionalServiceConfig,omitempty"`
 }
 
 type NetworkingConfig struct {
@@ -202,8 +215,22 @@ type DseWorkloads struct {
 	SearchEnabled    bool `json:"searchEnabled,omitempty"`
 }
 
+// StorageConfig defines additional storage configurations
+type AdditionalVolumes struct {
+	// Mount path into cassandra container
+	MountPath string `json:"mountPath"`
+	// Name of the pvc
+	// +kubebuilder:validation:Pattern=[a-z0-9]([-a-z0-9]*[a-z0-9])?
+	Name string `json:"name"`
+	// Persistent volume claim spec
+	PVCSpec corev1.PersistentVolumeClaimSpec `json:"pvcSpec"`
+}
+
+type AdditionalVolumesSlice []AdditionalVolumes
+
 type StorageConfig struct {
 	CassandraDataVolumeClaimSpec *corev1.PersistentVolumeClaimSpec `json:"cassandraDataVolumeClaimSpec,omitempty"`
+	AdditionalVolumes            AdditionalVolumesSlice            `json:"additionalVolumes,omitempty"`
 }
 
 // GetRacks is a getter for the Rack slice in the spec
@@ -218,13 +245,32 @@ func (dc *CassandraDatacenter) GetRacks() []Rack {
 	}}
 }
 
+// ServiceConfig defines additional service configurations.
+type ServiceConfig struct {
+	DatacenterService     ServiceConfigAdditions `json:"dcService,omitempty"`
+	SeedService           ServiceConfigAdditions `json:"seedService,omitempty"`
+	AllPodsService        ServiceConfigAdditions `json:"allpodsService,omitempty"`
+	AdditionalSeedService ServiceConfigAdditions `json:"additionalSeedService,omitempty"`
+	NodePortService       ServiceConfigAdditions `json:"nodePortService,omitempty"`
+}
+
+// ServiceConfigAdditions exposes additional options for each service
+type ServiceConfigAdditions struct {
+	Labels      map[string]string `json:"additionalLabels,omitempty"`
+	Annotations map[string]string `json:"additionalAnnotations,omitempty"`
+}
+
 // Rack ...
 type Rack struct {
 	// The rack name
 	// +kubebuilder:validation:MinLength=2
 	Name string `json:"name"`
-	// Zone name to pin the rack, using node affinity
+
+	// Deprecated. Use nodeAffinityLabels instead. Zone name to pin the rack, using node affinity
 	Zone string `json:"zone,omitempty"`
+
+	//NodeAffinityLabels to pin the rack, using node affinity
+	NodeAffinityLabels map[string]string `json:"nodeAffinityLabels,omitempty"`
 }
 
 type CassandraNodeStatus struct {

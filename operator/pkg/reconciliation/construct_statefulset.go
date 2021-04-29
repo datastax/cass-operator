@@ -7,18 +7,21 @@ package reconciliation
 
 import (
 	"fmt"
-
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/images"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
+	"github.com/datastax/cass-operator/operator/pkg/psp"
 	"github.com/datastax/cass-operator/operator/pkg/utils"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
+
+const zoneLabel = "failure-domain.beta.kubernetes.io/zone"
 
 func usesDefunctPvcManagedByLabel(sts *appsv1.StatefulSet) bool {
 	usesDefunct := false
@@ -79,6 +82,30 @@ func shouldDefineSecurityContext(dc *api.CassandraDatacenter) bool {
 	return dc.Spec.ServerType == "dse" || images.CalculateDockerImageRunsAsCassandra(dc.Spec.ServerVersion)
 }
 
+func rackNodeAffinitylabels(dc *api.CassandraDatacenter, rackName string) (map[string]string, error) {
+	var nodeAffinityLabels map[string]string
+	var log = logf.Log.WithName("construct_statefulset")
+	racks := dc.GetRacks()
+	for _, rack := range racks {
+		if rack.Name == rackName {
+			nodeAffinityLabels = utils.MergeMap(emptyMapIfNil(rack.NodeAffinityLabels),
+				emptyMapIfNil(dc.Spec.NodeAffinityLabels))
+			if rack.Zone != "" {
+				if _, found := nodeAffinityLabels[zoneLabel]; found {
+					log.Error(nil,
+						"Deprecated parameter Zone is used and also defined in NodeAffinityLabels. " +
+						"You should only define it in NodeAffinityLabels")
+				}
+				nodeAffinityLabels = utils.MergeMap(
+					emptyMapIfNil(nodeAffinityLabels), map[string]string{zoneLabel: rack.Zone},
+					)
+			}
+			break
+		}
+	}
+	return nodeAffinityLabels, nil
+}
+
 // Create a statefulset object for the Datacenter.
 func newStatefulSetForCassandraDatacenterHelper(
 	rackName string,
@@ -104,13 +131,9 @@ func newStatefulSetForCassandraDatacenterHelper(
 
 	var volumeClaimTemplates []corev1.PersistentVolumeClaim
 
-	racks := dc.GetRacks()
-	var zone string
-	for _, rack := range racks {
-		if rack.Name == rackName {
-			zone = rack.Zone
-			break
-		}
+	nodeAffinityLabels, nodeAffinityLabelsConfigurationError := rackNodeAffinitylabels(dc, rackName)
+	if nodeAffinityLabelsConfigurationError != nil {
+		return nil, nodeAffinityLabelsConfigurationError
 	}
 
 	// Add storage
@@ -127,9 +150,21 @@ func newStatefulSetForCassandraDatacenterHelper(
 		Spec: *dc.Spec.StorageConfig.CassandraDataVolumeClaimSpec,
 	}}
 
+	for _, storage := range dc.Spec.StorageConfig.AdditionalVolumes {
+		pvc := corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   storage.Name,
+				Labels: pvcLabels,
+			},
+			Spec: storage.PVCSpec,
+		}
+
+		volumeClaimTemplates = append(volumeClaimTemplates, pvc)
+	}
+
 	nsName := newNamespacedNameForStatefulSet(dc, rackName)
 
-	template, err := buildPodTemplateSpec(dc, zone, rackName)
+	template, err := buildPodTemplateSpec(dc, nodeAffinityLabels, rackName)
 	if err != nil {
 		return nil, err
 	}
@@ -170,6 +205,10 @@ func newStatefulSetForCassandraDatacenterHelper(
 		},
 	}
 	result.Annotations = map[string]string{}
+
+	if utils.IsPSPEnabled() {
+		result = psp.AddStatefulSetChanges(dc, result)
+	}
 
 	// add a hash here to facilitate checking if updates are needed
 	utils.AddHashAnnotation(result)

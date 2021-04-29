@@ -97,7 +97,7 @@ var _ = Describe(testName, func() {
 			// give the operator a minute to reconcile and update the datacenter
 			time.Sleep(1 * time.Minute)
 
-			ns.WaitForDatacenterReady(dcName)
+			ns.WaitForDatacenterReadyWithTimeouts(dcName, 800, 60)
 
 			// check no longer using old managed-by value
 			step = "ensure no resources using defunct managed-by value after operator upgrade"

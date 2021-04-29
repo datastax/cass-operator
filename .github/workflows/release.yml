@@ -9,6 +9,12 @@ jobs:
   release_cass_operator:
     name: Release Cass Operator
     runs-on: ubuntu-latest
+    env:
+      # This is needed to workaround an issue where skopeo vomits out an
+      # error "mkdir /run/containers: permission denied" when performing
+      # login.
+      XDG_RUNTIME_DIR: /tmp
+      ECR_REPO: ${{ secrets.ECR_REPO }}
     steps:
       - uses: actions/checkout@v2
       - name: Login Skopeo DockerHub
@@ -19,7 +25,5 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.ECR_SECRET }}
         run: aws ecr get-login-password --region us-east-1 | skopeo login -u AWS --password-stdin ${ECR_REPO}
       - name: Publish to Dockerhub
-        env:
-          ECR_REPO: ${{ secrets.ECR_REPO }}
         run: |
           ./scripts/push-release.sh

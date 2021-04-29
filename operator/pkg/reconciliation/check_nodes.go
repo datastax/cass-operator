@@ -5,14 +5,18 @@ package reconciliation
 
 import (
 	"fmt"
-	"sync"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/datastax/cass-operator/operator/pkg/utils"
+
+	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 )
 
-func (rc *ReconciliationContext) GetPVCForPod(podNamespace string, podName string) (*corev1.PersistentVolumeClaim, error) {
+func (rc *ReconciliationContext) GetPodPVC(podNamespace string, podName string) (*corev1.PersistentVolumeClaim, error) {
 	pvcFullName := fmt.Sprintf("%s-%s", PvcName, podName)
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -25,101 +29,158 @@ func (rc *ReconciliationContext) GetPVCForPod(podNamespace string, podName strin
 	return pvc, nil
 }
 
-func (rc *ReconciliationContext) DeletePvcIgnoreFinalizers(podNamespace string, podName string) (*corev1.PersistentVolumeClaim, error) {
-	var wg sync.WaitGroup
+func (rc *ReconciliationContext) getPodsPVCs(pods []*corev1.Pod) ([]*corev1.PersistentVolumeClaim, error) {
+	pvcs := []*corev1.PersistentVolumeClaim{}
+	for _, pod := range pods {
+		pvc, err := rc.GetPodPVC(pod.Namespace, pod.Name)
+		if err != nil {
+			return nil, err
+		}
+		pvcs = append(pvcs, pvc)
+	}
+	return pvcs, nil
+}
 
-	wg.Add(1)
+func (rc *ReconciliationContext) getNodesForNameSet(nodeNameSet utils.StringSet) ([]*corev1.Node, error) {
+	nodes := []*corev1.Node{}
+	for nodeName, _ := range nodeNameSet {
+		if nodeName != "" {
+			node, err := rc.getNode(nodeName)
+			if err != nil {
+				return nil, err
+			}
+			nodes = append(nodes, node)
+		}
+	}
 
-	var goRoutineError *error = nil
+	return nodes, nil
+}
 
-	pvcFullName := fmt.Sprintf("%s-%s", PvcName, podName)
+func (rc *ReconciliationContext) getNode(nodeName string) (*corev1.Node, error) {
+	node := &corev1.Node{}
+	err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: "", Name: nodeName}, node)
+	return node, err
+}
 
-	pvc, err := rc.GetPVCForPod(podNamespace, podName)
+func (rc *ReconciliationContext) removePVC(pvc *corev1.PersistentVolumeClaim) error {
+	err := rc.Client.Delete(rc.Ctx, pvc)
+	if err != nil {
+		rc.ReqLogger.Error(err, "error during cassandra pvc delete",
+			"pod", pvc.ObjectMeta.Name)
+		return err
+	}
+
+	return nil
+}
+
+func getPVCsNodeNameSet(pvcs []*corev1.PersistentVolumeClaim) utils.StringSet {
+	nodeNameSet := utils.StringSet{}
+	for _, pvc := range pvcs {
+		nodeName := utils.GetPVCSelectedNodeName(pvc)
+		if nodeName != "" {
+			nodeNameSet[nodeName] = true
+		}
+	}
+	return nodeNameSet
+}
+
+func getPodsNodeNameSet(pods []*corev1.Pod) utils.StringSet {
+	names := utils.StringSet{}
+	for _, pod := range pods {
+		if pod.Spec.NodeName != "" {
+			names[pod.Spec.NodeName] = true
+		}
+	}
+	return names
+}
+
+func (rc *ReconciliationContext) getDCPodByName(podName string) *corev1.Pod {
+	for _, pod := range rc.dcPods {
+		if pod.Name == podName {
+			return pod
+		}
+	}
+	return nil
+}
+
+//
+// functions to statisfy EMMSPI interface from psp package
+//
+
+func (rc *ReconciliationContext) GetAllNodesInDC() ([]*corev1.Node, error) {
+	// Get all nodes for datacenter
+	//
+	// We need to check taints for all nodes that this datacenter cares about,
+	// this includes not just nodes where we have dc pods, but also nodes
+	// where we have PVCs, as PVCs might get separated from their pod when a
+	// pod is rescheduled.
+	pvcs, err := rc.getPodsPVCs(rc.dcPods)
 	if err != nil {
 		return nil, err
 	}
-
-	// Delete might hang due to a finalizer such as kubernetes.io/pvc-protection
-	// so we run it asynchronously and then remove any finalizers to unblock it.
-	go func() {
-		defer wg.Done()
-		rc.ReqLogger.Info("goroutine to delete pvc started")
-
-		// If we don't grab a new copy of the pvc, the deletion could fail because the update has
-		// changed the pvc and the delete fails because there is a newer version
-
-		pvcToDelete := &corev1.PersistentVolumeClaim{}
-		err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: podNamespace, Name: pvcFullName}, pvcToDelete)
-		if err != nil {
-			rc.ReqLogger.Info("goroutine to delete pvc: error found in get")
-			rc.ReqLogger.Error(err, "error retrieving PersistentVolumeClaim for deletion")
-			goRoutineError = &err
-		}
-
-		rc.ReqLogger.Info("goroutine to delete pvc: no error found in get")
-
-		err = rc.Client.Delete(rc.Ctx, pvcToDelete)
-		if err != nil {
-			rc.ReqLogger.Info("goroutine to delete pvc: error found in delete")
-			rc.ReqLogger.Error(err, "error removing PersistentVolumeClaim",
-				"name", pvcFullName)
-			goRoutineError = &err
-		}
-		rc.ReqLogger.Info("goroutine to delete pvc: no error found in delete")
-		rc.ReqLogger.Info("goroutine to delete pvc: end of goroutine")
-	}()
-
-	// Give the resource a second to get to a terminating state. Note that this
-	// may not be reflected in the resource's status... hence the sleep here as
-	// opposed to checking the status.
-	time.Sleep(5 * time.Second)
-
-	// In the case of PVCs at least, finalizers removed before deletion can be
-	// automatically added back. Consequently, we delete the resource first,
-	// then remove any finalizers while it is terminating.
-
-	pvc.ObjectMeta.Finalizers = []string{}
-
-	err = rc.Client.Update(rc.Ctx, pvc)
-	if err != nil {
-		rc.ReqLogger.Info("ignoring error removing finalizer from PersistentVolumeClaim",
-			"name", pvcFullName,
-			"err", err.Error())
-
-		// Ignore some errors as this may fail due to the resource already having been
-		// deleted (which is what we want).
-	}
-
-	rc.ReqLogger.Info("before wg.Wait()")
-
-	// Wait for the delete to finish, which should have been unblocked by
-	// removing the finalizers.
-	wg.Wait()
-	rc.ReqLogger.Info("after wg.Wait()")
-
-	// We can't dereference a nil, so check if we have one
-	if goRoutineError == nil {
-		return pvc, nil
-	}
-	return nil, *goRoutineError
+	nodeNameSet := utils.UnionStringSet(getPVCsNodeNameSet(pvcs), getPodsNodeNameSet(rc.dcPods))
+	return rc.getNodesForNameSet(nodeNameSet)
 }
 
-func (rc *ReconciliationContext) removePvcAndPod(pod corev1.Pod) error {
+func (rc *ReconciliationContext) GetAllNodes() ([]*corev1.Node, error) {
+	// Get all nodes
+	//
+	// we need to find all nodes for availability reasons
+	listOptions := &client.ListOptions{}
 
-	// Drain the cassandra node
+	nodeList := &corev1.NodeList{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Node",
+			APIVersion: "v1",
+		},
+	}
+	if err := rc.Client.List(rc.Ctx, nodeList, listOptions); err != nil {
+		return nil, err
+	}
+	nodeCount := len(nodeList.Items)
+	nodes := make([]*corev1.Node, nodeCount)
+	for i := 0; i < nodeCount; i++ {
+		nodes[i] = &nodeList.Items[i]
+	}
+	return nodes, nil
+}
 
-	if isMgmtApiRunning(&pod) {
-		err := rc.NodeMgmtClient.CallDrainEndpoint(&pod)
-		if err != nil {
-			rc.ReqLogger.Error(err, "error during cassandra node drain",
-				"pod", pod.ObjectMeta.Name)
-			return err
-		}
+func (rc *ReconciliationContext) GetDCPods() []*corev1.Pod {
+	return rc.dcPods
+}
+
+func (rc *ReconciliationContext) GetNotReadyPodsBootstrappedInDC() []*corev1.Pod {
+	return findAllPodsNotReadyAndPotentiallyBootstrapped(rc.dcPods, rc.Datacenter.Status.NodeStatuses)
+}
+
+func (rc *ReconciliationContext) GetAllPodsNotReadyInDC() []*corev1.Pod {
+	return findAllPodsNotReady(rc.dcPods)
+}
+
+func (rc *ReconciliationContext) GetPodPVCs(pod *corev1.Pod) ([]*corev1.PersistentVolumeClaim, error) {
+	pvc, err := rc.GetPodPVC(pod.Namespace, pod.Name)
+	if err != nil {
+		return nil, err
+	}
+	return []*corev1.PersistentVolumeClaim{pvc}, nil
+}
+
+func (rc *ReconciliationContext) StartNodeReplace(podName string) error {
+	pod := rc.getDCPodByName(podName)
+	if pod == nil {
+		return fmt.Errorf("Pod with name '%s' not part of datacenter", podName)
+	}
+
+	pvc, err := rc.GetPodPVC(pod.Namespace, pod.Name)
+	if err != nil {
+		return err
+	}
+	if pvc == nil {
+		return fmt.Errorf("Pod with name '%s' does not have a PVC", podName)
 	}
 
 	// Add the cassandra node to replace nodes
-
-	rc.Datacenter.Spec.ReplaceNodes = append(rc.Datacenter.Spec.ReplaceNodes, pod.ObjectMeta.Name)
+	rc.Datacenter.Spec.ReplaceNodes = append(rc.Datacenter.Spec.ReplaceNodes, podName)
 
 	// Update CassandraDatacenter
 	if err := rc.Client.Update(rc.Ctx, rc.Datacenter); err != nil {
@@ -127,18 +188,35 @@ func (rc *ReconciliationContext) removePvcAndPod(pod corev1.Pod) error {
 		return err
 	}
 
-	// Remove the pvc
-
-	_, err := rc.DeletePvcIgnoreFinalizers(pod.ObjectMeta.Namespace, pod.ObjectMeta.Name)
+	// delete pod and pvc
+	err = rc.removePVC(pvc)
 	if err != nil {
-		rc.ReqLogger.Error(err, "error during PersistentVolume delete",
-			"pod", pod.ObjectMeta.Name)
 		return err
 	}
 
-	// Remove the pod
+	err = rc.RemovePod(pod)
+	if err != nil {
+		return err
+	}
 
-	err = rc.Client.Delete(rc.Ctx, &pod)
+	return nil
+}
+
+func (rc *ReconciliationContext) GetInProgressNodeReplacements() []string {
+	return rc.Datacenter.Status.NodeReplacements
+}
+
+func (rc *ReconciliationContext) RemovePod(pod *corev1.Pod) error {
+	if isMgmtApiRunning(pod) {
+		err := rc.NodeMgmtClient.CallDrainEndpoint(pod)
+		if err != nil {
+			rc.ReqLogger.Error(err, "error during cassandra node drain",
+				"pod", pod.ObjectMeta.Name)
+			return err
+		}
+	}
+
+	err := rc.Client.Delete(rc.Ctx, pod)
 	if err != nil {
 		rc.ReqLogger.Error(err, "error during cassandra node delete",
 			"pod", pod.ObjectMeta.Name)
@@ -148,85 +226,14 @@ func (rc *ReconciliationContext) removePvcAndPod(pod corev1.Pod) error {
 	return nil
 }
 
-// Check nodes for vmware PSP draining taints
-// and check PVCs for vmware PSP failure annotations
-func (rc *ReconciliationContext) checkNodeAndPvcTaints() error {
-	logger := rc.ReqLogger
-	rc.ReqLogger.Info("reconciler::checkNodesTaints")
+func (rc *ReconciliationContext) UpdatePod(pod *corev1.Pod) error {
+	return rc.Client.Update(rc.Ctx, pod)
+}
 
-	// Get the pods
+func (rc *ReconciliationContext) IsStopped() bool {
+	return rc.Datacenter.GetConditionStatus(api.DatacenterStopped) == corev1.ConditionTrue
+}
 
-	podList, err := rc.listPods(rc.Datacenter.GetClusterLabels())
-	if err != nil {
-		logger.Error(err, "error listing all pods in the cluster")
-	}
-
-	rc.clusterPods = PodPtrsFromPodList(podList)
-
-	for _, pod := range podList.Items {
-
-		// Check the related node for taints
-		node := &corev1.Node{}
-		err := rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: "", Name: pod.Spec.NodeName}, node)
-		if err != nil {
-			logger.Error(err, "error retrieving node for pod for node taint check")
-			return err
-		}
-
-		rc.ReqLogger.Info(fmt.Sprintf("node %s has %d taints", node.ObjectMeta.Name, len(node.Spec.Taints)))
-
-		for _, taint := range node.Spec.Taints {
-			if taint.Key == "node.vmware.com/drain" && taint.Effect == "NoSchedule" {
-				if taint.Value == "planned-downtime" || taint.Value == "drain" {
-					rc.ReqLogger.Info("reconciler::checkNodesTaints vmware taint found.  draining and deleting pod",
-						"pod", pod.Name)
-
-					err = rc.removePvcAndPod(pod)
-					if err != nil {
-						rc.ReqLogger.Error(err, "error during cassandra node drain",
-							"pod", pod.Name)
-						return err
-					}
-				}
-			}
-		}
-
-		// Get the name of the pvc
-
-		pvcName := ""
-		for _, vol := range pod.Spec.Volumes {
-			if vol.Name == PvcName {
-				pvcName = vol.PersistentVolumeClaim.ClaimName
-			}
-		}
-
-		// Check the related PVCs for annotation
-
-		pvc := &corev1.PersistentVolumeClaim{}
-		err = rc.Client.Get(rc.Ctx, types.NamespacedName{Namespace: pod.ObjectMeta.Namespace, Name: pvcName}, pvc)
-		if err != nil {
-			logger.Error(err, "error retrieving PersistentVolumeClaim for pod for pvc annotation check")
-			return err
-		}
-
-		rc.ReqLogger.Info(fmt.Sprintf("pvc %s has %d annotations", pvc.ObjectMeta.Name, len(pvc.ObjectMeta.Annotations)))
-
-		// “volumehealth.storage.kubernetes.io/health”: “inaccessible”
-
-		for k, v := range pvc.ObjectMeta.Annotations {
-			if k == "volumehealth.storage.kubernetes.io/health" && v == "inaccessible" {
-				rc.ReqLogger.Info("vmware pvc inaccessible annotation found.  draining and deleting pod",
-					"pod", pod.Name)
-
-				err = rc.removePvcAndPod(pod)
-				if err != nil {
-					rc.ReqLogger.Error(err, "error during cassandra node drain",
-						"pod", pod.Name)
-					return err
-				}
-			}
-		}
-	}
-
-	return nil
+func (rc *ReconciliationContext) IsInitialized() bool {
+	return rc.Datacenter.GetConditionStatus(api.DatacenterInitialized) == corev1.ConditionTrue
 }

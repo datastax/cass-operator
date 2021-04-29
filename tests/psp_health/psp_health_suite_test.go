@@ -115,6 +115,28 @@ var _ = Describe(testName, func() {
 			Expect(
 				getPath(config, "status", "instancehealth", 0, "health"),
 				).To(Equal("green"), "Expected instance health value to be green")
+
+
+			// Check some labels and annotations
+			//
+			// Maybe we should do this in its own test, but having to wait for
+			// yet another integration just to check labels and annotations
+			// seems undesirable.
+			step = "check PSP pod labels"
+			json := "jsonpath={.items[*].metadata.name}"
+			k = kubectl.Get("pods").
+				WithLabel("appplatform.vmware.com/extension-id=com.datastax.vulcan").
+				WithLabel(fmt.Sprintf("appplatform.vmware.com/instance-id=%s", dcName)).
+				FormatOutput(json)
+			ns.WaitForOutputPatternAndLog(step, k, `([A-Za-z0-9]|[-_])+\s+([A-Za-z0-9]|[-_])+`, 30)
+
+			step = "check PSP PVC labels"
+			json = "jsonpath={.items[*].metadata.name}"
+			k = kubectl.Get("pvc").
+				WithLabel("appplatform.vmware.com/extension-id=com.datastax.vulcan").
+				WithLabel(fmt.Sprintf("appplatform.vmware.com/instance-id=%s", dcName)).
+				FormatOutput(json)
+			ns.WaitForOutputPatternAndLog(step, k, `([A-Za-z0-9]|[-_])+\s+([A-Za-z0-9]|[-_])+`, 30)
 		})
 	})
 })

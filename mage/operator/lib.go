@@ -35,7 +35,7 @@ const (
 	genClientImage             = "operator-gen-client"
 	mermaidJsImage             = "operator-mermaid-js"
 	generatedDseDataCentersCrd = "operator/deploy/crds/cassandra.datastax.com_cassandradatacenters_crd.yaml"
-	helmChartCrd               = "charts/cass-operator-chart/crds/customresourcedefinition.yaml"
+	helmChartCrd               = "charts/cass-operator-chart/templates/customresourcedefinition.yaml"
 	packagePath                = "github.com/datastax/cass-operator/operator"
 	envGitBranch               = "MO_BRANCH"
 	envVersionString           = "MO_VERSION"
@@ -238,7 +238,7 @@ func doSdkGenerate() {
 
 	generateK8sAndOpenApi()
 	postProcessCrd()
-	patchCrd()
+	patchCrdToTemplate()
 }
 
 func cpCrdToChart() {
@@ -249,7 +249,7 @@ func cpCrdToChart() {
 	mageutil.PanicOnError(err)
 }
 
-func patchCrd() {
+func patchCrdToTemplate() {
 	shutil.RunVPanic("patch", generatedDseDataCentersCrd, "mage/operator/crd.patch", "-o", helmChartCrd)
 }
 
@@ -428,7 +428,7 @@ func TestGo() {
 	fmt.Println("- Running go unit tests")
 	os.Chdir("./operator")
 	os.Setenv("CGO_ENABLED", "0")
-	goArgs := []string{"test", "./..."}
+	goArgs := []string{"test", "./...", "-v"}
 	shutil.RunVPanic("go", goArgs...)
 	os.Chdir("..")
 }
@@ -539,7 +539,7 @@ func doGenerateClient() {
 	runArgs := []string{"-t", "--rm", "-u", fmt.Sprintf("%s:%s", usr.Uid, usr.Gid)}
 	execArgs := []string{"client", "github.com/datastax/cass-operator/operator/pkg/generated",
 		"github.com/datastax/cass-operator/operator/pkg/apis", "cassandra:v1beta1"}
-	volumes := []string{fmt.Sprintf("%s/operator:/go/src/github.com/datastax/cass-operator/operator", cwd)}
+	volumes := []string{fmt.Sprintf("%s:/go/src/github.com/datastax/cass-operator", cwd)}
 	dockerutil.Run(genClientImage, volumes, nil, nil, runArgs, execArgs).ExecVPanic()
 }
 

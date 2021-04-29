@@ -127,9 +127,8 @@ func (rc *ReconciliationContext) DecommissionNodeOnRack(rackName string, epData 
 			}
 
 			if err := rc.NodeMgmtClient.CallDecommissionNodeEndpoint(pod); err != nil {
-				// TODO this returns a 500 when it works
-				// We are waiting for a new version of mgmt api with a fix for this
-				// return err
+				rc.ReqLogger.Info(fmt.Sprintf("Error from decommission attempt. This is only an attempt and can"+
+					" fail it will be retried later if decomission has not started. Error: %v", err))
 			}
 
 			rc.ReqLogger.Info("Marking node as decommissioning")
@@ -159,14 +158,20 @@ func (rc *ReconciliationContext) CheckDecommissioningNodes(epData httphelper.Cas
 	for _, pod := range rc.dcPods {
 		if pod.Labels[api.CassNodeState] == stateDecommissioning {
 			if !IsDoneDecommissioning(pod, epData) {
-				rc.ReqLogger.Info("Node decommissioning, reconciling again soon")
+				if !HasStartedDecommissioning(pod, epData) {
+					rc.ReqLogger.Info("Decommission has not started trying again")
+					if err := rc.NodeMgmtClient.CallDecommissionNodeEndpoint(pod); err != nil {
+						rc.ReqLogger.Info(fmt.Sprintf("Error from decomimssion attempt. This is only an attempt and can fail. Error: %v", err))
+					}
+				} else {
+					rc.ReqLogger.Info("Node decommissioning, reconciling again soon")
+				}
 			} else {
 				rc.ReqLogger.Info("Node finished decommissioning")
 				if res := rc.cleanUpAfterDecommissionedPod(pod); res != nil {
 					return res
 				}
 			}
-
 			return result.RequeueSoon(5)
 		}
 	}
@@ -195,7 +200,6 @@ func (rc *ReconciliationContext) cleanUpAfterDecommissionedPod(pod *corev1.Pod) 
 	if err != nil {
 		return result.Error(err)
 	}
-
 	rc.ReqLogger.Info("Deleting pod PVCs")
 	err = rc.DeletePodPvcs(pod)
 	if err != nil {
@@ -212,6 +216,16 @@ func (rc *ReconciliationContext) cleanUpAfterDecommissionedPod(pod *corev1.Pod) 
 	}
 
 	return nil
+}
+
+func HasStartedDecommissioning(pod *v1.Pod, epData httphelper.CassMetadataEndpoints) bool {
+	for idx := range epData.Entity {
+		ep := &epData.Entity[idx]
+		if ep.GetRpcAddress() == pod.Status.PodIP {
+			return strings.HasPrefix(ep.Status, "LEAVING")
+		}
+	}
+	return false
 }
 
 func IsDoneDecommissioning(pod *v1.Pod, epData httphelper.CassMetadataEndpoints) bool {

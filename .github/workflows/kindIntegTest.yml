@@ -4,6 +4,7 @@ on:
     branches:
       - master
       - "1.4.x"
+      - "1.5.x"
   pull_request:
     branches: [ master ]
 jobs:
@@ -20,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GOPATH: /home/runner/go
-      GOROOT: /usr/local/go1.13
+      GOROOT: /usr/local/go1.14
     steps:
       - uses: actions/checkout@v2
         if: github.event_name == 'pull_request'
@@ -28,10 +29,10 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/checkout@v2
         if: github.event_name != 'pull_request'
-      - name: Set up Go 1.13
+      - name: Set up Go 1.14
         uses: actions/setup-go@v1
         with:
-          go-version: 1.13
+          go-version: 1.14
       - name: Install Mage
         run: |
           cd /tmp
@@ -64,7 +65,7 @@ jobs:
       - name: Archive k8s logs
         if: ${{ always() }}
         # actions/upload-artifact@v1
-        uses: actions/upload-artifact@3446296
+        uses: actions/upload-artifact@3446296876d12d4e3a0f3145a3c87e67bf0a16b5
         with:
           name: k8s-logs
           path: ./build/kubectl_dump
