@@ -7,6 +7,7 @@ package reconciliation
 
 import (
 	"fmt"
+
 	api "github.com/datastax/cass-operator/operator/pkg/apis/cassandra/v1beta1"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/images"
@@ -93,12 +94,12 @@ func rackNodeAffinitylabels(dc *api.CassandraDatacenter, rackName string) (map[s
 			if rack.Zone != "" {
 				if _, found := nodeAffinityLabels[zoneLabel]; found {
 					log.Error(nil,
-						"Deprecated parameter Zone is used and also defined in NodeAffinityLabels. " +
-						"You should only define it in NodeAffinityLabels")
+						"Deprecated parameter Zone is used and also defined in NodeAffinityLabels. "+
+							"You should only define it in NodeAffinityLabels")
 				}
 				nodeAffinityLabels = utils.MergeMap(
 					emptyMapIfNil(nodeAffinityLabels), map[string]string{zoneLabel: rack.Zone},
-					)
+				)
 			}
 			break
 		}
@@ -198,7 +199,7 @@ func newStatefulSetForCassandraDatacenterHelper(
 				MatchLabels: statefulSetSelectorLabels,
 			},
 			Replicas:             &replicaCountInt32,
-			ServiceName:          dc.GetDatacenterServiceName(),
+			ServiceName:          dc.GetAllPodsServiceName(),
 			PodManagementPolicy:  appsv1.ParallelPodManagement,
 			Template:             *template,
 			VolumeClaimTemplates: volumeClaimTemplates,
