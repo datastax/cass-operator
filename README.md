@@ -5,6 +5,8 @@
 
 The DataStax Kubernetes Operator for Apache Cassandra&reg;
 
+:warning: ***Ongoing development of cass-operator and future releases have been migrated to the K8ssandra project.  Head over to the new [repo](https://github.com/k8ssandra/cass-operator) for more information on using cass-operator!***. :warning:
+
 ## Getting Started
 
 Quick start:
