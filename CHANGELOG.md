@@ -1,5 +1,7 @@
 # Changelog
 
+:warning: ***Ongoing development of cass-operator and future releases have been migrated to the K8ssandra project.  Head over to the new [repo](https://github.com/k8ssandra/cass-operator) for more information on using cass-operator!***  Also refer in the new cass-operator repo to the continuing [CHANGELOG](https://github.com/k8ssandra/cass-operator/blob/master/CHANGELOG.md), which includes the 1.7.0 release (07-May-2021). :warning:
+
 ## v1.6.0
 
 Features:
