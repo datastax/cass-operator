@@ -132,12 +132,25 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = webhook.EnsureWebhookConfigVolume(cfg); err != nil {
-		log.Error(err, "Failed to ensure webhook volume")
+	skipWebhookEnvVal := os.Getenv("SKIP_VALIDATING_WEBHOOK")
+	if skipWebhookEnvVal == "" {
+		skipWebhookEnvVal = "FALSE"
 	}
+	skipWebhook, err := strconv.ParseBool(skipWebhookEnvVal)
+	if err != nil {
+		log.Error(err, "bad value for SKIP_VALIDATING_WEBHOOK env")
+		os.Exit(1)
+	}
+
 	var certDir string
-	if certDir, err = webhook.EnsureWebhookCertificate(cfg); err != nil {
-		log.Error(err, "Failed to ensure webhook CA configuration")
+
+	if !skipWebhook {
+		if err = webhook.EnsureWebhookConfigVolume(cfg); err != nil {
+			log.Error(err, "Failed to ensure webhook volume")
+		}
+		if certDir, err = webhook.EnsureWebhookCertificate(cfg); err != nil {
+			log.Error(err, "Failed to ensure webhook CA configuration")
+		}
 	}
 
 	if err = readBaseOsIntoEnv(); err != nil {
@@ -179,16 +192,6 @@ func main() {
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
 		log.Error(err, "could not add to manager")
-		os.Exit(1)
-	}
-
-	skipWebhookEnvVal := os.Getenv("SKIP_VALIDATING_WEBHOOK")
-	if skipWebhookEnvVal == "" {
-		skipWebhookEnvVal = "FALSE"
-	}
-	skipWebhook, err := strconv.ParseBool(skipWebhookEnvVal)
-	if err != nil {
-		log.Error(err, "bad value for SKIP_VALIDATING_WEBHOOK env")
 		os.Exit(1)
 	}
 
