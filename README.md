@@ -413,6 +413,10 @@ Remove the operator Deployment, CRD, etc.
 kubectl delete -f https://raw.githubusercontent.com/datastax/cass-operator/v1.6.0/docs/user/cass-operator-manifests-v1.16.yaml
 ```
 
+## Articles
+
+- [Step by Step: Datastax Cassandra with Istio and SNI routing](https://www.solo.io/blog/step-by-step-datastax-cassandra-with-istio-and-sni-routing/)
+
 ## Contacts
 
 For development questions, please reach out on [Gitter](https://gitter.im/cass-operator/community), or by opening an issue on GitHub.
