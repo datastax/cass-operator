@@ -1,4 +1,4 @@
-# Sized to work on 3 k8s workers nodes with 2 cores / 8 GB RAM
+# Sized to work on 3 k8s workers nodes with 1 core / 4 GB RAM
 # See neighboring example-cassdc-full.yaml for docs for each parameter
 apiVersion: cassandra.datastax.com/v1beta1
 kind: CassandraDatacenter
@@ -11,14 +11,6 @@ spec:
   managementApiAuth:
     insecure: {}
   size: 3
-  racks:
-    - name: rack1
-    - name: rack2
-    - name: rack3
-  resources:
-    requests:
-      memory: 4Gi
-      cpu: 1000m
   storageConfig:
     cassandraDataVolumeClaimSpec:
       storageClassName: server-storage
@@ -26,22 +18,18 @@ spec:
         - ReadWriteOnce
       resources:
         requests:
-          storage: 10Gi
-  config:    
+          storage: 25Gi
+  config:
     cassandra-yaml:
-      num_tokens: 8    
-      authenticator: com.datastax.bdp.cassandra.auth.DseAuthenticator
-      authorizer: com.datastax.bdp.cassandra.auth.DseAuthorizer
-      role_manager: com.datastax.bdp.cassandra.auth.DseRoleManager
-    dse-yaml:
-      authorization_options:
+      backup_service:
         enabled: true
-      authentication_options:
-        enabled: true
-        default_scheme: internal
+      authenticator: org.apache.cassandra.auth.PasswordAuthenticator
+      authorizer: org.apache.cassandra.auth.CassandraAuthorizer
+      role_manager: org.apache.cassandra.auth.CassandraRoleManager
     jvm-server-options:
-      initial_heap_size: "2G"
-      max_heap_size: "2G"
+      initial_heap_size: "800M"
+      max_heap_size: "800M"
       additional-jvm-opts:
+        # As the database comes up for the first time, set system keyspaces to RF=3
         - "-Ddse.system_distributed_replication_dc_names=dc1"
         - "-Ddse.system_distributed_replication_per_dc=3"
