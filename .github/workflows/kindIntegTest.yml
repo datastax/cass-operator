@@ -14,6 +14,7 @@ jobs:
         integration_test:
         - smoke_test_dse
         - smoke_test_oss
+        - smoke_test_4x
       # let other tests continue to run
       # even if one fails
       fail-fast: false

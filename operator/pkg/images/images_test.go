@@ -85,3 +85,44 @@ func Test_CalculateDockerImageRunsAsCassandra(t *testing.T) {
 		assert.Equal(t, got, tt.want, fmt.Sprintf("Version: %s should not have returned %v", tt.version, got))
 	}
 }
+
+func Test_IsOssVersionSupported(t *testing.T) {
+	tests := []struct {
+		version  string
+		expected bool
+	}{
+		{
+			version:  "3.11.6",
+			expected: true,
+		},
+		{
+			version:  "3.11.10",
+			expected: true,
+		},
+		{
+			version:  "3.0.23",
+			expected: false,
+		},
+		{
+			version:  "4.0.0",
+			expected: true,
+		},
+		{
+			version:  "4.0.1",
+			expected: true,
+		},
+		{
+			version:  "4.0-beta4",
+			expected: true,
+		},
+		{
+			version:  "4.1.0",
+			expected: false,
+		},
+	}
+	for _, tt := range tests {
+		supported := IsOssVersionSupported(tt.version)
+
+		assert.Equal(t, supported, tt.expected, fmt.Sprintf("Version: %s should not have returned supported=%v", tt.version, supported))
+	}
+}
