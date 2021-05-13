@@ -86,13 +86,15 @@ FROM ${BASE_OS} AS cass-operator-ubi
 
 ARG BASE_OS
 ARG VERSION_STAMP=DEV
+ARG RELEASE=1
 
-LABEL maintainer="DataStax, Inc <info@datastax.com>"
-LABEL name="cass-operator"
-LABEL vendor="DataStax, Inc"
-LABEL release="${VERSION_STAMP}"
-LABEL summary="DataStax Kubernetes Operator for Apache Cassandra "
-LABEL description="The DataStax Kubernetes Operator for Apache Cassandra®. This operator handles the provisioning and day to day management of Apache Cassandra based clusters. Features include configuration deployment, node remediation, and automatic upgrades."
+LABEL maintainer="DataStax, Inc <info@datastax.com>" \
+      name="cass-operator" \
+      vendor="DataStax, Inc" \
+      version="${VERSION_STAMP}" \
+      release="${RELEASE}" \
+      summary="DataStax Kubernetes Operator for Apache Cassandra " \
+      description="The DataStax Kubernetes Operator for Apache Cassandra®. This operator handles the provisioning and day to day management of Apache Cassandra based clusters. Features include configuration deployment, node remediation, and automatic upgrades."
 
 # Update the builder layer and create user
 RUN microdnf update && rm -rf /var/cache/yum && \

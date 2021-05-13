@@ -1,0 +1,29 @@
+apiVersion: cassandra.datastax.com/v1beta1
+kind: CassandraDatacenter
+metadata:
+  name: dse-dc
+  namespace: default
+spec:
+  size: 1
+  resources: {}
+  clusterName: cluster1
+  serverVersion: 6.8.0
+  racks:
+    - name: r1
+  serverType: dse
+  storageConfig:
+    cassandraDataVolumeClaimSpec:
+      accessModes:
+        - ReadWriteOnce
+      resources:
+        requests:
+          storage: 500Mi
+      storageClassName: local-storage
+  managementApiAuth:
+    insecure: {}
+  config:
+    jvm-options:
+      initial_heap_size: "800M"
+      max_heap_size: "800M"
+  serverImage: datastax/dse-server:6.8.0-ubi7
+  configBuilderImage: datastax/cass-config-builder:1.0.0-ubi7

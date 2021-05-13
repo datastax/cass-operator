@@ -1,0 +1,52 @@
+# Note the structure below is intentional to avoid unnecessary warnings
+scorecard:
+  bundle: deploy/olm-catalog/cass-operator
+  plugins:
+    # Basic CR Tests
+    - basic:
+        cr-manifest:
+          - "example-cassdc-yaml/cassandra-3.11.6/example-cassdc-scorecard.yaml"
+    # - basic:
+    #     cr-manifest:
+    #       - "example-cassdc-yaml/dse-6.8.x/example-cassdc-scorecard.yaml"
+    
+    # # v1.0.0
+    # - olm:
+    #     cr-manifest:
+    #       - "example-cassdc-yaml/cassandra-3.11.6/example-cassdc-scorecard.yaml"
+    #     csv-path: "deploy/olm-catalog/cass-operator/1.0.0/cass-operator.v1.0.0.clusterserviceversion.yaml"
+    # - olm:
+    #     cr-manifest:
+    #       - "example-cassdc-yaml/dse-6.8.x/example-cassdc-scorecard.yaml"
+    #     csv-path: "deploy/olm-catalog/cass-operator/1.0.0/cass-operator.v1.0.0.clusterserviceversion.yaml"
+    
+    # # v1.1.0
+    # - olm:
+    #     cr-manifest:
+    #       - "example-cassdc-yaml/cassandra-3.11.6/example-cassdc-scorecard.yaml"
+    #     csv-path: "deploy/olm-catalog/cass-operator/1.1.0/cass-operator.v1.1.0.clusterserviceversion.yaml"
+    # - olm:
+    #     cr-manifest:
+    #       - "example-cassdc-yaml/dse-6.8.x/example-cassdc-scorecard.yaml"
+    #     csv-path: "deploy/olm-catalog/cass-operator/1.1.0/cass-operator.v1.1.0.clusterserviceversion.yaml"
+
+    # v1.2.0
+    # - olm:
+    #     cr-manifest:
+    #       - "example-cassdc-yaml/cassandra-3.11.6/example-cassdc-scorecard.yaml"
+    #     csv-path: "deploy/olm-catalog/cass-operator/1.2.0/cass-operator.v1.2.0.clusterserviceversion.yaml"
+    # - olm:
+    #     cr-manifest:
+    #       - "example-cassdc-yaml/dse-6.8.x/example-cassdc-scorecard.yaml"
+    #     csv-path: "deploy/olm-catalog/cass-operator/1.2.0/cass-operator.v1.2.0.clusterserviceversion.yaml"
+
+    # v1.3.0
+    # - olm:
+    #     cr-manifest:
+    #       - "example-cassdc-yaml/cassandra-3.11.6/example-cassdc-scorecard.yaml"
+    #     csv-path: "deploy/olm-catalog/cass-operator/1.3.0/cass-operator.v1.3.0.clusterserviceversion.yaml"
+    # - olm:
+    #     cr-manifest:
+    #       - "example-cassdc-yaml/dse-6.8.x/example-cassdc-scorecard.yaml"
+    #     csv-path: "deploy/olm-catalog/cass-operator/1.3.0/cass-operator.v1.3.0.clusterserviceversion.yaml"
+        
