@@ -179,14 +179,25 @@ var _ = Describe(testName, func() {
 			// If we do this wrong and start the node we replaced normally (instead of setting the replace
 			// flag), we will end up with an additional node in our cluster. This issue should be caught by
 			// checking nodetool.
-			step = "verify in nodetool that we still have the right number of cassandra nodes"
+			step = "verify in nodetool that we still have the right number of cassandra nodes and correct HostID is reflected in CRD"
 			By(step)
 			for _, podName := range podNames {
 				nodeInfos := ns.RetrieveStatusFromNodetool(podName)
 				Expect(len(nodeInfos)).To(Equal(len(podNames)), "Expect nodetool to return info on exactly %d nodes", len(podNames))
+
 				for _, nodeInfo := range nodeInfos {
 					Expect(nodeInfo.Status).To(Equal("up"), "Expected all nodes to be up, but node %s was down", nodeInfo.HostId)
 					Expect(nodeInfo.State).To(Equal("normal"), "Expected all nodes to have a state of normal, but node %s was %s", nodeInfo.HostId, nodeInfo.State)
+
+					// Make sure that NodeStatus reflects the HostID for the replacement pod. Otherwise subsequent replaces will fail as the CassandraDatacenter has stale information
+					k = kubectl.Get("pod", podNameToReplace).FormatOutput("jsonpath={.status.podIP}")
+					step = "get podIP"
+					podIP := ns.OutputAndLog(step, k)
+					if podName == podNameToReplace && podIP == nodeInfo.Address {
+						fmt.Sprintf("jsonpath={.status.nodeStatuses['%s'].hostID}", podNameToReplace)
+						hostIdInCassandraDatacenter := kubectl.Get("cassandradatacenter", dcName).FormatOutput(json)
+						Expect(nodeInfo.HostId).To(Equal(hostIdInCassandraDatacenter), "Expected HostId to be %s but got %s in CassandraDatacenter CRD", nodeInfo.HostId, hostIdInCassandraDatacenter)
+					}
 				}
 			}
 		})
