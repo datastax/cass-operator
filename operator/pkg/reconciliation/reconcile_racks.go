@@ -26,8 +26,8 @@ import (
 	"github.com/datastax/cass-operator/operator/pkg/events"
 	"github.com/datastax/cass-operator/operator/pkg/httphelper"
 	"github.com/datastax/cass-operator/operator/pkg/oplabels"
-	"github.com/datastax/cass-operator/operator/pkg/utils"
 	"github.com/datastax/cass-operator/operator/pkg/psp"
+	"github.com/datastax/cass-operator/operator/pkg/utils"
 )
 
 var (
@@ -2132,11 +2132,13 @@ func (rc *ReconciliationContext) CheckClearActionConditions() result.ReconcileRe
 
 	// Explicitly handle scaling up here because we want to run a cleanup afterwards
 	if dc.GetConditionStatus(api.DatacenterScalingUp) == corev1.ConditionTrue {
-		err := rc.cleanupAfterScaling()
-		if err != nil {
-			logger.Error(err, "error cleaning up after scaling datacenter")
-			return result.Error(err)
-		}
+		// Temporarily skip calling cleanup due to https://github.com/k8ssandra/cass-operator/issues/186
+		
+		//err := rc.cleanupAfterScaling()
+		//if err != nil {
+		//	logger.Error(err, "error cleaning up after scaling datacenter")
+		//	return result.Error(err)
+		//}
 
 		updated = rc.setCondition(
 			api.NewDatacenterCondition(api.DatacenterScalingUp, corev1.ConditionFalse)) || updated
