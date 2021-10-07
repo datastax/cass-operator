@@ -43,6 +43,13 @@ spec:
         image: {{ .Values.defaultImage }}
         {{- end }}
         imagePullPolicy: {{ .Values.imagePullPolicy }}
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 1000m
+            memory: 100Mi            
         volumeMounts:
         - mountPath: /tmp/k8s-webhook-server/serving-certs
           name: cass-operator-certs-volume
