@@ -98,6 +98,7 @@ func (rc *ReconciliationContext) listPVCs() (*corev1.PersistentVolumeClaimList, 
 
 	selector := map[string]string{
 		api.DatacenterLabel: rc.Datacenter.Name,
+		api.DatacenterUID: string(rc.Datacenter.UID),
 	}
 
 	listOptions := &client.ListOptions{
