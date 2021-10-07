@@ -21,7 +21,7 @@ const (
 	envDefaultRegistryOverridePullSecrets = "DEFAULT_CONTAINER_REGISTRY_OVERRIDE_PULL_SECRETS"
 	EnvBaseImageOS                        = "BASE_IMAGE_OS"
 	ValidDseVersionRegexp                 = "6\\.8\\.\\d+"
-	ValidOssVersionRegexp                 = "(3\\.11\\.\\d+)|(4\\.0\\.\\d+)"
+	ValidOssVersionRegexp                 = "(3\\.11\\.\\d+)|(4\\.0\\.\\d+)|(4\\.0-beta\\d+)"
 	UbiImageSuffix                        = "-ubi7"
 )
 
