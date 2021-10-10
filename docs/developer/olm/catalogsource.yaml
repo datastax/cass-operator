@@ -1,0 +1,10 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: CatalogSource
+metadata:
+  name: local
+  namespace: openshift-marketplace
+spec:
+  displayName: Local Catalog
+  publisher: Developer
+  sourceType: grpc
+  image: harbor.sjc.dsinternal.org/cass-operator/cass-operator-index:latest

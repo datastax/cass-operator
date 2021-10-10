@@ -1,0 +1,17 @@
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: cass-operator-test-pv
+spec:
+  capacity:
+    storage: 100Gi
+  hostPath:
+    path: /mnt/pv-data/cass-op-pv
+    type: ''
+  accessModes:
+    - ReadWriteOnce
+    - ReadWriteMany
+    - ReadOnlyMany
+  persistentVolumeReclaimPolicy: Recycle
+  volumeMode: Filesystem
+  storageClassName: no-provisioner
