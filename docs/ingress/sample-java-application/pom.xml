@@ -15,7 +15,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
     <cassandra.driver.version>4.7.2</cassandra.driver.version>
-    <logback.version>1.0.13</logback.version>
+    <logback.version>1.2.13</logback.version>
     <junit.version>3.8.1</junit.version>
 
     <maven.assembly.version>3.3.0</maven.assembly.version>
